@@ -357,6 +357,13 @@ const FOE_DAIFUKU_CHANCE = 0.4; // 敵（ライバル）が一刀両断を使う
 const GHOST_MIN = 1;            // 盤面にこの数以上ゴーストがいると「分身」カードが出る
 const FOE_GHOST_CHANCE = 0.4;   // 敵（ライバル）が分身を使う確率
 // ※分身は各ゴーストが初被弾時に1回だけ出る、HP1（1撃で消える）のおとり。
+/* ★クラスター花火弾（キャンディキャノン固有強化）の調整値。1回限りの単発強化。 */
+const CANNON_MIN = 1;              // 盤面にこの数以上キャノンがいると「クラスター花火弾」カードが出る
+const CANNON_CLUSTER_N = 4;       // 着弾時に飛び散る小爆発の数
+const CANNON_CLUSTER_SPREAD = 1.7;    // 小爆発の散布半径（本体splashの倍率）
+const CANNON_CLUSTER_SPLASH_MUL = 0.55; // 各小爆発の爆発半径（本体splashの倍率）
+const CANNON_CLUSTER_DMG_MUL = 0.5;   // 各小爆発の威力（本体mortarの倍率）
+const FOE_CANNON_CHANCE = 0.4;    // 敵（ライバル）がクラスター花火弾を使う確率
 /* 各キャラぶんの「○○ ×2」強化カードを自動生成（召喚専用と除外キーは作らない） */
 UNITS.filter(u=>!u.summonOnly && !X2_EXCLUDE.has(u.key)).forEach(function(u){
   SPECIALS['x2_'+u.key] = {
@@ -390,6 +397,11 @@ SPECIALS['clone_ghost'] = {
   key:'clone_ghost', name:'分身', icon:'☁️', upgrade:true, ghostClone:true, target:'ghost',
   text:'わたあめゴーストが攻撃を受けると、おとりの分身を1体出す（分身は1撃で消える・各ゴースト1回ずつ）。以後ずっと有効。',
 };
+/* キャンディキャノン固有強化「クラスター花火弾」：着弾すると小爆発がいくつも周囲に飛び散る。 */
+SPECIALS['cluster_cannon'] = {
+  key:'cluster_cannon', name:'クラスター花火弾', icon:'🎆', upgrade:true, cannonCluster:true, target:'cannon',
+  text:'キャンディキャノンの弾が着弾すると、小さな爆発がいくつも周囲に飛び散る（クラスター弾・広範囲制圧）。以後ずっと有効。',
+};
 function isSpecial(key){ return !!SPECIALS[key]; }
 
 /* スプライト画像（アップロードされたドット絵を埋め込み）。preloadしてcanvasに描画 */
@@ -421,6 +433,7 @@ function resetState(){
     youBombSplit:false, foeBombSplit:false, // おかわりポップコーンを獲得済みか（永続・毎ラウンド再適用・1回限り）
     youDaifukuSlash:false, foeDaifukuSlash:false, // 一刀両断を獲得済みか（永続・毎ラウンド再適用・1回限り）
     youGhostClone:false, foeGhostClone:false, // 分身を獲得済みか（永続・毎ラウンド再適用・1回限り）
+    youCannonCluster:false, foeCannonCluster:false, // クラスター花火弾を獲得済みか（永続・毎ラウンド再適用・1回限り）
     roundPicks:[], pickStep:0, pickTotal:CONFIG.picksBase, offer3:[],
     foeRoundPicks:[], foeRevealIdx:0, foePickTotal:CONFIG.picksBase, playerExtra:0,
   };
@@ -661,6 +674,32 @@ function spawnGhostClone(world, src){
   burst(world, c.x, c.y, '#ffd9f2', 8, 80);
 }
 
+/* ---- クラスター花火弾（キャンディキャノン固有強化）---- */
+// 指定陣営のキャノン全員に「クラスター弾」フラグを付ける（毎ラウンド再適用）
+function applyCannonCluster(world, side){
+  let any=false;
+  world.units.forEach(u=>{ if(u.side===side && u.key==='cannon'){ u.cluster=true; any=true; } });
+  return any;
+}
+// クラスター弾の着弾：本体splashの周囲に小爆発を複数ばらまく（花火）
+function clusterBurst(world, s){
+  const cols=['#ff8fd0','#ffd54a','#7fe3ff','#b6f59a','#c9a0ff'];
+  const spread=s.splash*CANNON_CLUSTER_SPREAD;
+  const bSplash=s.splash*CANNON_CLUSTER_SPLASH_MUL;
+  const bDmg=Math.max(1, Math.round(s.atk*CANNON_CLUSTER_DMG_MUL));
+  for(let i=0;i<CANNON_CLUSTER_N;i++){
+    const a=Math.random()*6.28, dist=spread*(0.35+Math.random()*0.65);
+    let bx=s.tx+Math.cos(a)*dist, by=s.ty+Math.sin(a)*dist;
+    bx=Math.max(playL(world.W),Math.min(playR(world.W),bx));
+    by=Math.max(playT(world.H),Math.min(playB(world.H),by));
+    const col=cols[i%cols.length];
+    world.rings.push({x:bx,y:by,r:2,max:bSplash,life:0.3,color:col});
+    burst(world,bx,by,col,8,120);
+    for(const o of world.units){ if(o.side===s.side||o.hp<=0) continue; if((o.x-bx)**2+(o.y-by)**2<bSplash*bSplash) applyHit(world,s.owner,o,bDmg); }
+  }
+  world.shake=Math.max(world.shake,7);
+}
+
 /* ---- スライム融合まわり ---- */
 // 表示用スプライトの解決（スライムは陣営＆サイズで切替、大福は抜刀/納刀）
 function spriteFor(u){
@@ -785,6 +824,7 @@ function eligibleSpecials(){
   if(!state.youBombSplit && countSideKey('p','bomb')>=BOMB_MIN) list.push('split_bomb');   // 1回限り：未取得かつポップコーンがいれば出る
   if(!state.youDaifukuSlash && countSideKey('p','daifuku')>=DAIFUKU_MIN) list.push('slash_daifuku');   // 1回限り：未取得かつ大福がいれば出る
   if(!state.youGhostClone && countSideKey('p','ghost')>=GHOST_MIN) list.push('clone_ghost');   // 1回限り：未取得かつゴーストがいれば出る
+  if(!state.youCannonCluster && countSideKey('p','cannon')>=CANNON_MIN) list.push('cluster_cannon');   // 1回限り：未取得かつキャノンがいれば出る
   return list.concat(eligibleX2Specials());
 }
 
@@ -874,6 +914,7 @@ function beginDraft(){
   if(state.youBombSplit) applyBombSplit(world,'p');   // おかわりポップコーンを再適用（永続・1回限り）
   if(state.youDaifukuSlash) applyDaifukuSlash(world,'p');   // 一刀両断を再適用（永続・1回限り）
   if(state.youGhostClone) applyGhostClone(world,'p');   // 分身を再適用（永続・1回限り）
+  if(state.youCannonCluster) applyCannonCluster(world,'p');   // クラスター花火弾を再適用（永続・1回限り）
   arrangeFormation(world,'p',true);
   // 敵の引き継ぎ軍も上に並べる（ドラフト中から見える）
   capArmy(state.foeArmy).forEach(k=> makeFighters(k,'e',CW,CH,'army').forEach(f=>{ f.appear=1; world.units.push(f); }));
@@ -886,6 +927,7 @@ function beginDraft(){
   if(state.foeBombSplit) applyBombSplit(world,'e');   // 敵のおかわりポップコーンを再適用（永続・1回限り）
   if(state.foeDaifukuSlash) applyDaifukuSlash(world,'e');   // 敵の一刀両断を再適用（永続・1回限り）
   if(state.foeGhostClone) applyGhostClone(world,'e');   // 敵の分身を再適用（永続・1回限り）
+  if(state.foeCannonCluster) applyCannonCluster(world,'e');   // 敵のクラスター花火弾を再適用（永続・1回限り）
   arrangeFormation(world,'e',true);
   // 敵の今回ピックを準備（プレイヤーが1枚選ぶたびに1枚ずつ上に召喚して公開）
   state.foePickTotal = picksFor(state.foeLostLast, state.lostLast);
@@ -950,7 +992,7 @@ function renderPickOffer(){
       const s=SPECIALS[key];
       el.className='card upgrade';
       const ico = (s.target && UNIT_BY_KEY[s.target]) ? iconHTML(UNIT_BY_KEY[s.target]) : s.icon;
-      const tag = s.x2 ? '×2' : s.party ? 'パーティー' : s.chocoBuff ? '装甲' : s.bombSplit ? 'おかわり' : s.daifukuSlash ? '一刀両断' : s.ghostClone ? '分身' : '融合';
+      const tag = s.x2 ? '×2' : s.party ? 'パーティー' : s.chocoBuff ? '装甲' : s.bombSplit ? 'おかわり' : s.daifukuSlash ? '一刀両断' : s.ghostClone ? '分身' : s.cannonCluster ? '花火' : '融合';
       el.innerHTML=`<div class="up-badge">強化</div>
         <div class="icon">${ico}</div>
         <div class="cname">${s.name}</div>
@@ -1025,6 +1067,12 @@ function pickCard(key){
       const gk = world.units.filter(u=>u.side==='p'&&u.key==='ghost'&&u.hp>0);
       if(gk.length){ const cx=gk.reduce((s,u)=>s+u.x,0)/gk.length, cy=gk.reduce((s,u)=>s+u.y,0)/gk.length;
         burst(world,cx,cy,'#ffd9f2',18,120); world.rings.push({x:cx,y:cy,r:4,max:48,life:0.4,color:'#ffd9f2'}); }
+    } else if(SPECIALS[key].cannonCluster){
+      state.youCannonCluster = true;
+      applyCannonCluster(world,'p');   // 今いるキャノン全員に「クラスター弾」付与（以後ずっと有効）
+      const nk = world.units.filter(u=>u.side==='p'&&u.key==='cannon'&&u.hp>0);
+      if(nk.length){ const cx=nk.reduce((s,u)=>s+u.x,0)/nk.length, cy=nk.reduce((s,u)=>s+u.y,0)/nk.length;
+        burst(world,cx,cy,'#ff8fd0',22,150); world.rings.push({x:cx,y:cy,r:4,max:50,life:0.42,color:'#ffd0ec'}); world.shake=Math.max(world.shake,6); }
     }
     state.pickStep++;
     maybeRevealFoe();   // 敵も1枚ぶん公開（ただし自分の逆転ボーナス中は敵は待つ）
@@ -1114,6 +1162,10 @@ function lockAndFight(){
   // 敵の分身（パリティ）：ゴーストが規定数いれば確率で発動し永続化（1回限り）
   if(!state.foeGhostClone && countSideKey('e','ghost')>=GHOST_MIN && Math.random()<FOE_GHOST_CHANCE){
     state.foeGhostClone = true; applyGhostClone(world,'e');
+  }
+  // 敵のクラスター花火弾（パリティ）：キャノンが規定数いれば確率で発動し永続化（1回限り）
+  if(!state.foeCannonCluster && countSideKey('e','cannon')>=CANNON_MIN && Math.random()<FOE_CANNON_CHANCE){
+    state.foeCannonCluster = true; applyCannonCluster(world,'e');
   }
   // 自軍を確定（引き継ぎ＋今回のピック）
   state.youArmy = capArmy(state.youArmy.concat(state.roundPicks));
@@ -1357,7 +1409,7 @@ function artilleryStep(world, u, dt){
       for(const o of cands){ let cnt=0; for(const p of foes){ if((p.x-o.x)**2+(p.y-o.y)**2 < u.splash*u.splash) cnt++; } if(cnt>bestC){bestC=cnt;best=o;} }
       u.cool=u.cd;
       const sx=u.x, sy=u.y-u.r, total=Math.hypot(best.x-sx,best.y-sy)||1;
-      world.shots.push({x:sx,y:sy,tx:best.x,ty:best.y,sx:sx,sy:sy,total:total,target:best,homing:true,owner:u,side:u.side,atk:u.mortar,splash:u.splash,sp:u.shotSpeed,color:'#ff8fd0',sprite:'ball',arcH:u.arcH});
+      world.shots.push({x:sx,y:sy,tx:best.x,ty:best.y,sx:sx,sy:sy,total:total,target:best,homing:true,owner:u,side:u.side,atk:u.mortar,splash:u.splash,sp:u.shotSpeed,color:'#ff8fd0',sprite:'ball',arcH:u.arcH,cluster:!!u.cluster});
       burst(world,sx,sy,'#ffd0ec',8,90);
     }
   }
@@ -1571,7 +1623,7 @@ function stepWorld(world, dt){
     if(s.homing && s.target && s.target.hp>0){ s.tx=s.target.x; s.ty=s.target.y; }   // 追尾：着弾点を敵に追従
     const dx=s.tx-s.x,dy=s.ty-s.y,d=Math.hypot(dx,dy),step=s.sp*dt;
     if(d<=step){
-      if(s.splash){ const sc=s.color||'#b98cff'; world.rings.push({x:s.tx,y:s.ty,r:3,max:s.splash,life:0.32,color:sc}); burst(world,s.tx,s.ty,sc,14,140); if(s.sprite==='ball'){ world.shake=Math.max(world.shake,5); } for(const o of world.units){ if(o.side===s.side||o.hp<=0)continue; if((o.x-s.tx)**2+(o.y-s.ty)**2<s.splash*s.splash) applyHit(world,s.owner,o,s.atk); } }
+      if(s.splash){ const sc=s.color||'#b98cff'; world.rings.push({x:s.tx,y:s.ty,r:3,max:s.splash,life:0.32,color:sc}); burst(world,s.tx,s.ty,sc,14,140); if(s.sprite==='ball'){ world.shake=Math.max(world.shake,5); } for(const o of world.units){ if(o.side===s.side||o.hp<=0)continue; if((o.x-s.tx)**2+(o.y-s.ty)**2<s.splash*s.splash) applyHit(world,s.owner,o,s.atk); } if(s.cluster) clusterBurst(world,s); }
       else { let v=s.target; if(!v||v.hp<=0){ let bd=400; for(const o of world.units){ if(o.side===s.side||o.hp<=0)continue; const dd=(o.x-s.tx)**2+(o.y-s.ty)**2; if(dd<bd){bd=dd;v=o;} } } if(v&&v.hp>0) applyHit(world,s.owner,v,s.atk); }
       s.done=true;
     } else { s.x+=dx/d*step; s.y+=dy/d*step; }
@@ -1724,6 +1776,12 @@ function render(){
       const p=0.5+0.5*Math.sin(world.t*7+u.bob);
       ctx.beginPath(); ctx.arc(u.x,u.y+bob,(u.r+3)*sc*vis,0,6.28);
       ctx.strokeStyle='rgba(255,225,120,'+(0.28+0.24*p)+')'; ctx.lineWidth=2.2; ctx.stroke();
+    }
+    // クラスター花火弾：強化キャノンは花火色のオーラ
+    if(u.cluster){
+      const p=0.5+0.5*Math.sin(world.t*5+u.bob);
+      ctx.beginPath(); ctx.arc(u.x,u.y+bob,(u.r+4)*sc*vis,0,6.28);
+      ctx.strokeStyle='rgba(255,143,208,'+(0.28+0.22*p)+')'; ctx.lineWidth=2.4; ctx.stroke();
     }
     if(spr && spr.complete && spr.naturalWidth){
       const S=u.r*3.3*sc*vis; ctx.imageSmoothingEnabled=false;

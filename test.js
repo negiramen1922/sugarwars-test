@@ -58,7 +58,7 @@ code += `
   evolvePancake, evolvedStep, nearestEnemy,
   beginDraft, nextPick, pickCard, lockAndFight, aiPicks, startGame,
   applyPartyFlag, applyCookieParty, playerCanParty, countSideKey,
-  applyChocoBuff, applyBombSplit, applyDaifukuSlash, applyGhostClone, applyHit,
+  applyChocoBuff, applyBombSplit, applyDaifukuSlash, applyGhostClone, applyHit, applyCannonCluster,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck,
   setupCanvas, CW_get:()=>CW, CH_get:()=>CH,
 };
@@ -860,6 +860,88 @@ for (let g = 0; g < 10; g++) {
 }
 console.log('  ゴーストデッキ戦績:', JSON.stringify(ghDeck));
 check('分身入りデッキで詰まりゼロ', ghDeck.stuck === 0, ghDeck);
+
+console.log('\n=== 21) クラスター花火弾（キャンディキャノン固有強化・1回限り） ===');
+check('cluster_cannon が SPECIALS にある', !!API.SPECIALS.cluster_cannon);
+check('cluster_cannon は upgrade+cannonCluster, target=cannon', API.SPECIALS.cluster_cannon && API.SPECIALS.cluster_cannon.upgrade && API.SPECIALS.cluster_cannon.cannonCluster && API.SPECIALS.cluster_cannon.target === 'cannon');
+check('isSpecial(cluster_cannon)', API.isSpecial('cluster_cannon'));
+
+// 出現条件：キャノンがいれば出る／取得済みでは出ない／居なければ出ない
+API.resetState();
+let wc = API.createWorld(W, H); API.world = wc;
+API.makeFighters('cannon', 'p', W, H, 'army').forEach(f => { f.appear = 1; wc.units.push(f); });
+check('キャノンがいれば候補に出る', API.eligibleSpecials().includes('cluster_cannon'));
+API.state.youCannonCluster = true;
+check('取得済みなら候補に出ない', !API.eligibleSpecials().includes('cluster_cannon'));
+API.state.youCannonCluster = false;
+let wc0 = API.createWorld(W, H); API.world = wc0;
+API.makeFighters('cookie', 'p', W, H, 'army').forEach(f => { f.appear = 1; wc0.units.push(f); });
+check('キャノンが居なければ候補に出ない', !API.eligibleSpecials().includes('cluster_cannon'));
+
+// applyCannonCluster：味方キャノンにだけ cluster
+let wc2 = API.createWorld(W, H); API.world = wc2;
+API.makeFighters('cannon', 'p', W, H, 'army').forEach(f => { f.appear = 1; wc2.units.push(f); });
+API.makeFighters('cannon', 'e', W, H, 'army').forEach(f => { f.appear = 1; wc2.units.push(f); });
+API.applyCannonCluster(wc2, 'p');
+check('味方キャノンに cluster 付与', wc2.units.filter(u => u.side === 'p' && u.key === 'cannon').every(u => u.cluster));
+check('敵キャノンには付かない', wc2.units.filter(u => u.side === 'e' && u.key === 'cannon').every(u => !u.cluster));
+
+// 効果：クラスター弾は通常砲撃より広範囲・高ダメージ（密集した敵への総ダメージで比較）
+function cannonVolleyDamage(cluster) {
+  let wd = API.createWorld(W, H); API.world = wd;
+  wd.phase = 'battle'; wd.intro = 0;
+  // 円盤状に敵を密集配置（動かず・高HPで生存）→ 砲撃の総ダメージを測る
+  const cx = W / 2, cy = H * 0.35, foes = [];
+  for (let gx = -90; gx <= 90; gx += 22) for (let gy = -90; gy <= 90; gy += 22) {
+    if (gx * gx + gy * gy > 90 * 90) continue;
+    const f = API.makeFighters('cookie', 'e', W, H, 'army')[0];
+    f.x = cx + gx; f.y = cy + gy; f.appear = 1; f.speed = 0; f.cool = 999; f.hp = f.maxHp = 99999;
+    wd.units.push(f); foes.push(f);
+  }
+  const cannon = API.makeFighters('cannon', 'p', W, H, 'army')[0];
+  cannon.x = cx; cannon.y = H * 0.9; cannon.appear = 1; cannon.cool = 0; cannon.hp = cannon.maxHp = 99999;
+  if (cluster) cannon.cluster = true;
+  wd.units.push(cannon);
+  // 1回の砲撃が着弾するまで回す（2.8s周期なので3s弱で1発のみ resolve）
+  for (let i = 0; i < 165; i++) API.stepWorld(wd, 1 / 60);
+  return foes.reduce((s, f) => s + (f.maxHp - f.hp), 0);
+}
+const baseVol = cannonVolleyDamage(false);
+const clusterVol = cannonVolleyDamage(true);
+check('通常砲撃でダメージが入る（基準）', baseVol > 0, baseVol);
+check('クラスター弾は総ダメージが増える', clusterVol > baseVol, { base: baseVol, cluster: clusterVol });
+
+// pickCard で state.youCannonCluster が立ち、盤面キャノンに付与
+API.resetState();
+API.setMyDeck(['cannon', 'cookie', 'shoe', 'choco']);
+API.startGame();
+let stc2 = API.state; let wdc2 = API.world;
+API.makeFighters('cannon', 'p', wdc2.W, wdc2.H, 'army').forEach(f => { f.appear = 1; wdc2.units.push(f); });
+stc2.pickTotal = 5; stc2.pickStep = 1;
+API.pickCard('cluster_cannon');
+check('pickCardでstate.youCannonCluster=true', API.state.youCannonCluster === true);
+check('盤面キャノンに cluster 付与', API.world.units.filter(u => u.side === 'p' && u.key === 'cannon').every(u => u.cluster));
+
+// クラスター花火弾入りデッキで戦闘が詰まらない（10戦）
+let cnDeck = { win: 0, lose: 0, draw: 0, stuck: 0 };
+for (let g = 0; g < 10; g++) {
+  API.resetState();
+  API.setMyDeck(['cannon', 'cookie', 'shoe', 'choco']);
+  API.startGame();
+  let st = API.state;
+  let guard = 0;
+  while (st.pickStep < st.pickTotal && guard++ < 50) {
+    const key = st.offer3[0];
+    API.pickCard(key);
+  }
+  API.lockAndFight();
+  let wd = API.world; wd.intro = 0;
+  let frames = 0;
+  while (!wd.done && frames < 60 * 45) { API.stepWorld(wd, 1 / 60); frames++; }
+  cnDeck[wd.done ? wd.result : 'stuck']++;
+}
+console.log('  キャノンデッキ戦績:', JSON.stringify(cnDeck));
+check('クラスター入りデッキで詰まりゼロ', cnDeck.stuck === 0, cnDeck);
 
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
 process.exit(fail ? 1 : 0);
