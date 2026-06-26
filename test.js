@@ -58,7 +58,7 @@ code += `
   evolvePancake, evolvedStep, nearestEnemy,
   beginDraft, nextPick, pickCard, lockAndFight, aiPicks, startGame,
   applyPartyFlag, applyCookieParty, playerCanParty, countSideKey,
-  applyChocoBuff, applyBombSplit, applyDaifukuSlash, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast,
+  applyChocoBuff, applyBombSplit, applyDaifukuSlash, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck,
   setupCanvas, CW_get:()=>CW, CH_get:()=>CH,
 };
@@ -1163,6 +1163,69 @@ for (let g = 0; g < 10; g++) {
 }
 console.log('  パンケーキデッキ戦績:', JSON.stringify(pfDeck));
 check('はや焼き入りデッキで詰まりゼロ', pfDeck.stuck === 0, pfDeck);
+
+console.log('\n=== 25) 特盛りシュークリーム（シュークリームアーチャー固有強化・1回限り） ===');
+check('buff_shoe が SPECIALS にある', !!API.SPECIALS.buff_shoe);
+check('buff_shoe は upgrade+shoeBuff, target=shoe', API.SPECIALS.buff_shoe && API.SPECIALS.buff_shoe.upgrade && API.SPECIALS.buff_shoe.shoeBuff && API.SPECIALS.buff_shoe.target === 'shoe');
+check('isSpecial(buff_shoe)', API.isSpecial('buff_shoe'));
+
+// 出現条件：シューが SHOE_MIN(2) 以上で出る／取得済みでは出ない／1体では出ない
+API.resetState();
+let wsh = API.createWorld(W, H); API.world = wsh;
+API.makeFighters('shoe', 'p', W, H, 'army').forEach(f => { f.appear = 1; wsh.units.push(f); }); // 2体
+check('シュー2体で候補に出る', API.eligibleSpecials().includes('buff_shoe'));
+API.state.youShoeBuff = true;
+check('取得済みなら候補に出ない', !API.eligibleSpecials().includes('buff_shoe'));
+API.state.youShoeBuff = false;
+let wsh0 = API.createWorld(W, H); API.world = wsh0;
+API.makeFighters('shoe', 'p', W, H, 'army').slice(0, 1).forEach(f => { f.appear = 1; wsh0.units.push(f); });
+check('シュー1体(<2)では候補に出ない', !API.eligibleSpecials().includes('buff_shoe'));
+
+// applyShoeBuff：HPと攻撃が基準から増す。敵には付かない
+let wsh2 = API.createWorld(W, H); API.world = wsh2;
+const sh = API.makeFighters('shoe', 'p', W, H, 'army')[0];
+sh.appear = 1; wsh2.units.push(sh);
+API.makeFighters('shoe', 'e', W, H, 'army').forEach(f => { f.appear = 1; wsh2.units.push(f); });
+const shHp = sh.baseMaxHp, shAtk = sh.baseAtk;
+API.applyShoeBuff(wsh2, 'p');
+check('HPが上がる', sh.maxHp > shHp && sh.hp === sh.maxHp, { base: shHp, now: sh.maxHp });
+check('攻撃が上がる', sh.atk > shAtk, { base: shAtk, now: sh.atk });
+check('shoeBuff フラグが立つ', sh.shoeBuff === true);
+check('敵シューには適用されない', wsh2.units.filter(u => u.side === 'e' && u.key === 'shoe').every(u => !u.shoeBuff && u.maxHp === u.baseMaxHp));
+// 冪等性
+API.applyShoeBuff(wsh2, 'p');
+check('2回適用しても重ねがけしない（HP不変）', sh.maxHp === Math.round(shHp * (1 + 0.6)));
+
+// pickCard で state.youShoeBuff が立ち、盤面シューが強化
+API.resetState();
+API.setMyDeck(['shoe', 'cookie', 'choco', 'donut']);
+API.startGame();
+let stsh = API.state; let wdsh = API.world;
+API.makeFighters('shoe', 'p', wdsh.W, wdsh.H, 'army').forEach(f => { f.appear = 1; wdsh.units.push(f); });
+const shHp0 = wdsh.units.find(u => u.side === 'p' && u.key === 'shoe').baseMaxHp;
+stsh.pickTotal = 5; stsh.pickStep = 1;
+API.pickCard('buff_shoe');
+check('pickCardでstate.youShoeBuff=true', API.state.youShoeBuff === true);
+check('盤面シューが強化された', API.world.units.filter(u => u.side === 'p' && u.key === 'shoe').every(u => u.shoeBuff === true && u.maxHp > shHp0));
+
+// 特盛りシュー vs 通常シュー：強化側が勝ち越す（30戦）
+let shRes = { win: 0, lose: 0, draw: 0, stuck: 0 };
+for (let g = 0; g < 30; g++) {
+  let wd = API.createWorld(W, H); API.world = wd;
+  for (let i = 0; i < 2; i++) {
+    API.makeFighters('shoe', 'p', W, H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+    API.makeFighters('shoe', 'e', W, H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+  }
+  API.applyShoeBuff(wd, 'p'); // 自分のシューだけ特盛り
+  API.arrangeFormation(wd, 'p', true); API.arrangeFormation(wd, 'e', true);
+  wd.phase = 'battle'; wd.intro = 0; wd.done = false;
+  let frames = 0;
+  while (!wd.done && frames < 60 * 45) { API.stepWorld(wd, 1 / 60); frames++; }
+  shRes[wd.done ? wd.result : 'stuck']++;
+}
+console.log('  特盛り有利戦績:', JSON.stringify(shRes));
+check('特盛り側が詰まりゼロ', shRes.stuck === 0, shRes);
+check('特盛り側が勝ち越す(win率>0.7)', shRes.win / (shRes.win + shRes.lose || 1) > 0.7, shRes);
 
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
 process.exit(fail ? 1 : 0);
