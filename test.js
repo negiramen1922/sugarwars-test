@@ -58,7 +58,7 @@ code += `
   evolvePancake, evolvedStep, nearestEnemy,
   beginDraft, nextPick, pickCard, lockAndFight, aiPicks, startGame,
   applyPartyFlag, applyCookieParty, playerCanParty, countSideKey,
-  applyChocoBuff, applyBombSplit, applyDaifukuSlash, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz,
+  applyChocoBuff, applyBombSplit, applyDaifukuSlash, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck,
   setupCanvas, CW_get:()=>CW, CH_get:()=>CH,
 };
@@ -1021,6 +1021,74 @@ for (let g = 0; g < 10; g++) {
 }
 console.log('  ソーダデッキ戦績:', JSON.stringify(sdDeck));
 check('メガ炭酸沼入りデッキで詰まりゼロ', sdDeck.stuck === 0, sdDeck);
+
+console.log('\n=== 23) 鉄壁ドーナッツ（バキュームドーナッツ固有強化・1回限り） ===');
+check('wall_donut が SPECIALS にある', !!API.SPECIALS.wall_donut);
+check('wall_donut は upgrade+donutWall, target=donut', API.SPECIALS.wall_donut && API.SPECIALS.wall_donut.upgrade && API.SPECIALS.wall_donut.donutWall && API.SPECIALS.wall_donut.target === 'donut');
+check('isSpecial(wall_donut)', API.isSpecial('wall_donut'));
+
+// 出現条件：ドーナッツがいれば出る／取得済みでは出ない／居なければ出ない
+API.resetState();
+let wn = API.createWorld(W, H); API.world = wn;
+API.makeFighters('donut', 'p', W, H, 'army').forEach(f => { f.appear = 1; wn.units.push(f); });
+check('ドーナッツがいれば候補に出る', API.eligibleSpecials().includes('wall_donut'));
+API.state.youDonutWall = true;
+check('取得済みなら候補に出ない', !API.eligibleSpecials().includes('wall_donut'));
+API.state.youDonutWall = false;
+let wn0 = API.createWorld(W, H); API.world = wn0;
+API.makeFighters('cookie', 'p', W, H, 'army').forEach(f => { f.appear = 1; wn0.units.push(f); });
+check('ドーナッツが居なければ候補に出ない', !API.eligibleSpecials().includes('wall_donut'));
+
+// applyDonutWall：HPと見た目・当たり判定が基準から増す。敵には付かない
+let wn2 = API.createWorld(W, H); API.world = wn2;
+const dn = API.makeFighters('donut', 'p', W, H, 'army')[0];
+dn.appear = 1; wn2.units.push(dn);
+API.makeFighters('donut', 'e', W, H, 'army').forEach(f => { f.appear = 1; wn2.units.push(f); });
+const dHp = dn.baseMaxHp, dScale = dn.spriteScale, dR = dn.baseR;
+API.applyDonutWall(wn2, 'p');
+check('HPが大幅に上がる', dn.maxHp > dHp && dn.hp === dn.maxHp, { base: dHp, now: dn.maxHp });
+check('見た目が大きくなる', dn.spriteScale > dScale, { base: dScale, now: dn.spriteScale });
+check('当たり判定も増す', dn.r > dR, { base: dR, now: dn.r });
+check('donutWall フラグが立つ', dn.donutWall === true);
+check('敵ドーナッツには適用されない', wn2.units.filter(u => u.side === 'e' && u.key === 'donut').every(u => !u.donutWall && u.maxHp === u.baseMaxHp));
+// 冪等性
+API.applyDonutWall(wn2, 'p');
+check('2回適用しても重ねがけしない（HP不変）', dn.maxHp === Math.round(dHp * (1 + 0.9)));
+
+// pickCard で state.youDonutWall が立ち、盤面ドーナッツが鉄壁化
+API.resetState();
+API.setMyDeck(['donut', 'cookie', 'shoe', 'choco']);
+API.startGame();
+let stn = API.state; let wdn = API.world;
+API.makeFighters('donut', 'p', wdn.W, wdn.H, 'army').forEach(f => { f.appear = 1; wdn.units.push(f); });
+const dnHp0 = wdn.units.find(u => u.side === 'p' && u.key === 'donut').baseMaxHp;
+stn.pickTotal = 5; stn.pickStep = 1;
+API.pickCard('wall_donut');
+check('pickCardでstate.youDonutWall=true', API.state.youDonutWall === true);
+check('盤面ドーナッツが鉄壁化', API.world.units.filter(u => u.side === 'p' && u.key === 'donut').every(u => u.donutWall === true && u.maxHp > dnHp0));
+
+// 鉄壁ドーナッツ vs 通常ドーナッツ：硬い側が勝ち越す（40戦）。攻撃が弱いタンクなので
+// 効果量はHP/サイズの決定論テストで担保し、ここは「勝ち越す傾向」を緩めに確認する。
+let dwRes = { win: 0, lose: 0, draw: 0, stuck: 0 };
+for (let g = 0; g < 40; g++) {
+  let wd = API.createWorld(W, H); API.world = wd;
+  // 同数のクッキー＋ドーナッツ。自分のドーナッツだけ鉄壁
+  for (let i = 0; i < 2; i++) {
+    API.makeFighters('cookie', 'p', W, H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+    API.makeFighters('cookie', 'e', W, H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+  }
+  API.makeFighters('donut', 'p', W, H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+  API.makeFighters('donut', 'e', W, H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+  API.applyDonutWall(wd, 'p'); // 自分のドーナッツだけ鉄壁
+  API.arrangeFormation(wd, 'p', true); API.arrangeFormation(wd, 'e', true);
+  wd.phase = 'battle'; wd.intro = 0; wd.done = false;
+  let frames = 0;
+  while (!wd.done && frames < 60 * 50) { API.stepWorld(wd, 1 / 60); frames++; }
+  dwRes[wd.done ? wd.result : 'stuck']++;
+}
+console.log('  鉄壁有利戦績:', JSON.stringify(dwRes));
+check('鉄壁側が詰まりゼロ', dwRes.stuck === 0, dwRes);
+check('鉄壁側が勝ち越す傾向(win率>0.5)', dwRes.win / (dwRes.win + dwRes.lose || 1) > 0.5, dwRes);
 
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
 process.exit(fail ? 1 : 0);
