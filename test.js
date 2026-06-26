@@ -58,7 +58,7 @@ code += `
   evolvePancake, evolvedStep, nearestEnemy,
   beginDraft, nextPick, pickCard, lockAndFight, aiPicks, startGame,
   applyPartyFlag, applyCookieParty, playerCanParty, countSideKey,
-  applyChocoBuff, applyBombSplit, applyDaifukuSlash, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff,
+  applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck,
   setupCanvas, CW_get:()=>CW, CH_get:()=>CH,
 };
@@ -199,7 +199,7 @@ function runBattleSym(buildArmy) {
 }
 let sym = { win: 0, lose: 0, draw: 0, stuck: 0 };
 const symKeys = ['cookie', 'choco', 'shoe', 'bomb', 'donut'];
-for (let g = 0; g < 40; g++) {
+for (let g = 0; g < 60; g++) {   // 試行数を増やして勝率の分散を抑える（左右対称はエンジンの毎フレームshuffleで担保）
   const r = runBattleSym((wd) => {
     symKeys.forEach(k => {
       API.makeFighters(k, 'p', W, H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
@@ -701,68 +701,84 @@ for (let g = 0; g < 10; g++) {
 console.log('  ポップコーンデッキ戦績:', JSON.stringify(bombDeck));
 check('おかわり入りデッキで詰まりゼロ', bombDeck.stuck === 0, bombDeck);
 
-console.log('\n=== 19) 一刀両断（大福サムライ固有強化・1回限り） ===');
-check('slash_daifuku が SPECIALS にある', !!API.SPECIALS.slash_daifuku);
-check('slash_daifuku は upgrade+daifukuSlash, target=daifuku', API.SPECIALS.slash_daifuku && API.SPECIALS.slash_daifuku.upgrade && API.SPECIALS.slash_daifuku.daifukuSlash && API.SPECIALS.slash_daifuku.target === 'daifuku');
-check('isSpecial(slash_daifuku)', API.isSpecial('slash_daifuku'));
+console.log('\n=== 19) 大福サムライ：デフォルト前方薙ぎ払い＋固有強化「特大大福」 ===');
+// (A) デフォルト：通常攻撃・突撃が前方の複数の敵をまとめて斬る
+const dfDef = API.UNIT_BY_KEY['daifuku'];
+check('daifuku は cleave フラグ持ち', dfDef.cleave === true);
+let cf = API.makeFighters('daifuku', 'p', W, H, 'army')[0];
+check('fighterに cleave フラグ', cf.cleave === true);
+check('fighterに baseDashDamage', cf.baseDashDamage > 0);
 
-// 出現条件：大福が1体以上で出る／取得済みでは出ない／0体では出ない
+// daifukuCleave：前方に並べた複数の敵を1回でまとめて斬る（後方の敵は斬らない）
+let wcl = API.createWorld(W, H); API.world = wcl;
+wcl.phase = 'battle'; wcl.intro = 0;
+const cx0 = W / 2, cy0 = H / 2;
+const dd = API.makeFighters('daifuku', 'p', W, H, 'army')[0];
+dd.x = cx0; dd.y = cy0; dd.appear = 1; wcl.units.push(dd);
+const front = []; // 前方(上方向 fy<0)に3体
+[[-12, -18], [0, -22], [12, -18]].forEach(([dx, dy]) => { const f = API.makeFighters('cookie', 'e', W, H, 'army')[0]; f.x = cx0 + dx; f.y = cy0 + dy; f.appear = 1; f.hp = f.maxHp = 9999; wcl.units.push(f); front.push(f); });
+const back = API.makeFighters('cookie', 'e', W, H, 'army')[0]; back.x = cx0; back.y = cy0 + 40; back.appear = 1; back.hp = back.maxHp = 9999; wcl.units.push(back); // 後方
+const fh0 = front.map(f => f.hp), bh0 = back.hp;
+API.daifukuCleave(wcl, dd, dd.atk, dd.range * 2.4, 0, -1); // 前方=上向き
+check('前方の複数の敵をまとめて斬る(3体ヒット)', front.every((f, i) => f.hp < fh0[i]), front.map(f => f.hp));
+check('後方(逆向き)の敵は斬らない', back.hp === bh0);
+
+// 通常攻撃も薙ぎ払い：壁役の前で複数の敵がまとめて削れる（数フレーム）
+function walkCleaveHits() {
+  let wd = API.createWorld(W, H); API.world = wd;
+  wd.phase = 'battle'; wd.intro = 0;
+  const d = API.makeFighters('daifuku', 'p', W, H, 'army')[0];
+  d.x = cx0; d.y = cy0; d.appear = 1; d.cstate = 'walk'; d.cool = 0; d.hp = d.maxHp = 9999; wd.units.push(d);
+  const foes = [];
+  [[-10, -16], [0, -16], [10, -16]].forEach(([dx, dy]) => { const f = API.makeFighters('cookie', 'e', W, H, 'army')[0]; f.x = cx0 + dx; f.y = cy0 + dy; f.appear = 1; f.cool = 999; f.hp = f.maxHp = 9999; wd.units.push(f); foes.push(f); });
+  const h0 = foes.map(f => f.hp);
+  for (let i = 0; i < 3; i++) API.stepWorld(wd, 1 / 60);
+  return foes.filter((f, i) => f.hp < h0[i]).length;
+}
+check('通常攻撃も前方の複数体に当たる(2体以上)', walkCleaveHits() >= 2);
+
+// (B) 固有強化「特大大福」：HP＆攻撃（突撃威力も）アップ
+check('buff_daifuku が SPECIALS にある', !!API.SPECIALS.buff_daifuku);
+check('buff_daifuku は upgrade+daifukuBuff, target=daifuku', API.SPECIALS.buff_daifuku && API.SPECIALS.buff_daifuku.upgrade && API.SPECIALS.buff_daifuku.daifukuBuff && API.SPECIALS.buff_daifuku.target === 'daifuku');
+check('isSpecial(buff_daifuku)', API.isSpecial('buff_daifuku'));
+
 API.resetState();
 let wds = API.createWorld(W, H); API.world = wds;
 API.makeFighters('daifuku', 'p', W, H, 'army').forEach(f => { f.appear = 1; wds.units.push(f); });
-check('大福がいれば候補に出る', API.eligibleSpecials().includes('slash_daifuku'));
-API.state.youDaifukuSlash = true;
-check('取得済みなら候補に出ない', !API.eligibleSpecials().includes('slash_daifuku'));
-API.state.youDaifukuSlash = false;
+check('大福がいれば候補に出る', API.eligibleSpecials().includes('buff_daifuku'));
+API.state.youDaifukuBuff = true;
+check('取得済みなら候補に出ない', !API.eligibleSpecials().includes('buff_daifuku'));
+API.state.youDaifukuBuff = false;
 let wds0 = API.createWorld(W, H); API.world = wds0;
 API.makeFighters('cookie', 'p', W, H, 'army').forEach(f => { f.appear = 1; wds0.units.push(f); });
-check('大福が居なければ候補に出ない', !API.eligibleSpecials().includes('slash_daifuku'));
+check('大福が居なければ候補に出ない', !API.eligibleSpecials().includes('buff_daifuku'));
 
-// applyDaifukuSlash：味方大福にだけ slash フラグ
 let wds2 = API.createWorld(W, H); API.world = wds2;
-API.makeFighters('daifuku', 'p', W, H, 'army').forEach(f => { f.appear = 1; wds2.units.push(f); });
+const db = API.makeFighters('daifuku', 'p', W, H, 'army')[0]; db.appear = 1; wds2.units.push(db);
 API.makeFighters('daifuku', 'e', W, H, 'army').forEach(f => { f.appear = 1; wds2.units.push(f); });
-API.applyDaifukuSlash(wds2, 'p');
-check('味方大福に slash 付与', wds2.units.filter(u => u.side === 'p' && u.key === 'daifuku').every(u => u.slash));
-check('敵大福には付かない', wds2.units.filter(u => u.side === 'e' && u.key === 'daifuku').every(u => !u.slash));
+const dfHp = db.baseMaxHp, dfAtk = db.baseAtk, dfDash = db.baseDashDamage;
+API.applyDaifukuBuff(wds2, 'p');
+check('HPが上がる', db.maxHp > dfHp && db.hp === db.maxHp, { base: dfHp, now: db.maxHp });
+check('攻撃が上がる', db.atk > dfAtk, { base: dfAtk, now: db.atk });
+check('突撃の威力も上がる', db.dashDamage > dfDash, { base: dfDash, now: db.dashDamage });
+check('daifukuBuff フラグが立つ', db.daifukuBuff === true);
+check('敵大福には適用されない', wds2.units.filter(u => u.side === 'e' && u.key === 'daifuku').every(u => !u.daifukuBuff && u.maxHp === u.baseMaxHp));
+API.applyDaifukuBuff(wds2, 'p'); // 冪等
+check('2回適用しても重ねがけしない', db.maxHp === Math.round(dfHp * (1 + 0.6)));
 
-// 効果：薙ぎ払いは通常より広範囲＆高ダメージ（同一配置で総ダメージを比較）
-function dashDamageTotal(slash) {
-  let wd = API.createWorld(W, H); API.world = wd;
-  wd.phase = 'battle'; wd.intro = 0;
-  const cx = W / 2, cy = H / 2;
-  const foes = [];
-  // 本命＋距離違いの巻き込み対象（30/46/60px）。倒れず測れるようHP高め
-  [[0, 8], [0, 33], [0, 49], [0, 63]].forEach(([dx, dy]) => {
-    const f = API.makeFighters('cookie', 'e', W, H, 'army')[0];
-    f.x = cx + dx; f.y = cy + dy; f.appear = 1; f.hp = f.maxHp = 9999; f.cool = 999; wd.units.push(f); foes.push(f);
-  });
-  const d = API.makeFighters('daifuku', 'p', W, H, 'army')[0];
-  d.x = cx; d.y = cy; d.appear = 1; d.cstate = 'dash'; d.dashT = 0; d.ddx = 0; d.ddy = 1; d.cool = 0;
-  if (slash) d.slash = true;
-  d.hp = d.maxHp = 9999;
-  wd.units.push(d);
-  // 数フレーム回して抜刀の一撃を確実に発生させる
-  for (let i = 0; i < 8; i++) API.stepWorld(wd, 1 / 60);
-  return foes.reduce((s, f) => s + (f.maxHp - f.hp), 0);
-}
-const baseDmg = dashDamageTotal(false);
-const slashDmg = dashDamageTotal(true);
-check('抜刀でダメージが入る（基準）', baseDmg > 0, baseDmg);
-check('一刀両断は総ダメージが増える', slashDmg > baseDmg, { base: baseDmg, slash: slashDmg });
-
-// pickCard で state.youDaifukuSlash が立ち、盤面大福に付与
+// pickCard で state.youDaifukuBuff が立ち、盤面大福が強化
 API.resetState();
 API.setMyDeck(['daifuku', 'cookie', 'shoe', 'choco']);
 API.startGame();
 let stds = API.state; let wdds = API.world;
 API.makeFighters('daifuku', 'p', wdds.W, wdds.H, 'army').forEach(f => { f.appear = 1; wdds.units.push(f); });
+const dHp0 = wdds.units.find(u => u.side === 'p' && u.key === 'daifuku').baseMaxHp;
 stds.pickTotal = 5; stds.pickStep = 1;
-API.pickCard('slash_daifuku');
-check('pickCardでstate.youDaifukuSlash=true', API.state.youDaifukuSlash === true);
-check('盤面大福に slash 付与', API.world.units.filter(u => u.side === 'p' && u.key === 'daifuku').every(u => u.slash));
+API.pickCard('buff_daifuku');
+check('pickCardでstate.youDaifukuBuff=true', API.state.youDaifukuBuff === true);
+check('盤面大福が強化された', API.world.units.filter(u => u.side === 'p' && u.key === 'daifuku').every(u => u.daifukuBuff === true && u.maxHp > dHp0));
 
-// 一刀両断入りデッキで戦闘が詰まらない（10戦）
+// 特大大福入りデッキで戦闘が詰まらない（10戦）
 let dfDeck = { win: 0, lose: 0, draw: 0, stuck: 0 };
 for (let g = 0; g < 10; g++) {
   API.resetState();
@@ -777,11 +793,11 @@ for (let g = 0; g < 10; g++) {
   API.lockAndFight();
   let wd = API.world; wd.intro = 0;
   let frames = 0;
-  while (!wd.done && frames < 60 * 45) { API.stepWorld(wd, 1 / 60); frames++; }
+  while (!wd.done && frames < 60 * 50) { API.stepWorld(wd, 1 / 60); frames++; }
   dfDeck[wd.done ? wd.result : 'stuck']++;
 }
 console.log('  大福デッキ戦績:', JSON.stringify(dfDeck));
-check('一刀両断入りデッキで詰まりゼロ', dfDeck.stuck === 0, dfDeck);
+check('大福入りデッキで詰まりゼロ', dfDeck.stuck === 0, dfDeck);
 
 console.log('\n=== 20) 分身（わたあめゴースト固有強化・1回限り） ===');
 check('clone_ghost が SPECIALS にある', !!API.SPECIALS.clone_ghost);
@@ -902,8 +918,8 @@ function cannonVolleyDamage(cluster) {
   cannon.x = cx; cannon.y = H * 0.9; cannon.appear = 1; cannon.cool = 0; cannon.hp = cannon.maxHp = 99999;
   if (cluster) cannon.cluster = true;
   wd.units.push(cannon);
-  // 1回の砲撃が着弾するまで回す（2.8s周期なので3s弱で1発のみ resolve）
-  for (let i = 0; i < 165; i++) API.stepWorld(wd, 1 / 60);
+  // 複数回の砲撃を撃たせて累積ダメージで比較（1発だと着弾点のブレでクラスターの差が出ないことがあるため）
+  for (let i = 0; i < 600; i++) API.stepWorld(wd, 1 / 60);
   return foes.reduce((s, f) => s + (f.maxHp - f.hp), 0);
 }
 const baseVol = cannonVolleyDamage(false);

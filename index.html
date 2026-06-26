@@ -295,27 +295,31 @@ const CONFIG = {
   picksComeback:4,   // 前回負けた側のピック回数（逆転ボーナスで4回）
   picksAfterWin:3,   // 前回勝った側のピック回数（そのまま3回）
   armyCap:30,        // 軍の上限（増えすぎ防止）
-  timeLimit:24,      // 1戦の制限時間(秒)
+  timeLimit:30,      // 1戦の制限時間(秒)。ユニットを小さく・遅くしたぶん中央が空き衝突まで時間がかかるので延長
 };
+/* ★全体のユニット移動速度の倍率。小さくするほど端まで進むのに時間がかかる（衝突がゆっくり）。 */
+const SPEED_MUL = 0.82;
+/* ★盤面の見た目スケール。ユニットのスプライト/当たり判定の全体的な大きさを調整。 */
+const SPRITE_MUL = 3.1;   // スプライト描画の倍率（小さいほどユニットが小さく見える。元は3.3）
 
 /* お菓子の王国の軍勢。HPは100前後をベースにした数値感。
    role=隊列の段（fodder=最前列, tank=中列, back=後列）。
    count=出撃数, atk/hp=1体ぶん, speed=移動, range=間合い, cd=攻撃間隔(秒) */
 const UNITS = [
-  {key:'daifuku',name:'大福サムライ',   icon:'🍡', role:'fodder', tier:-1, count:1, atk:20, hp:130, speed:60, range:30, cd:0.9, tag:'前衛', text:'納刀→チャージ→抜刀タックルで突撃し大ダメージ。近ければ徒歩で斬り、離れると再び居合チャージ。', charger:true, dashDamage:90, dashSpeed:300, chargeTime:0.8, dashMax:0.5, dashFar:72, dashRange:26},
+  {key:'daifuku',name:'大福サムライ',   icon:'🍡', role:'fodder', tier:-1, count:1, atk:22, hp:160, speed:60, range:30, cd:0.9, tag:'前衛', text:'納刀→チャージ→抜刀タックルで突撃。通常攻撃も突撃も前方の複数の敵をまとめて薙ぎ払う。近ければ徒歩で斬り、離れると再び居合チャージ。', charger:true, cleave:true, dashDamage:90, dashSpeed:300, chargeTime:0.8, dashMax:0.5, dashFar:72, dashRange:26},
   {key:'cookie', name:'クッキーアーミー',     icon:'🍪', role:'fodder', tier:0, count:5, atk:14, hp:50,  speed:115, range:24, cd:0.5,  tag:'モブ', text:'5体の群れで数で押す前衛。数が多いほど攻撃UP。', flock:true},
   {key:'slime', name:'ゼリースライム',   icon:'🔵', role:'fodder', tier:0.5, count:3, atk:12, hp:55, speed:90, range:24, cd:0.6, tag:'モブ', text:'3体で出るスライム。強化カード「融合」で1体の巨大スライムに合体できる（倒れると3体に分裂）。', slime:true},
   {key:'bomb',  name:'ポップコーンTNT',   icon:'🍿', role:'fodder', tier:1, count:2, atk:0,  hp:55,  speed:128, range:22, cd:1.0,  tag:'自爆', text:'敵が射程に入ると起爆モードに移行し、短い導火の後に周囲へ大爆発（残りHPに関係なく起爆）。倒されたときも爆発する。', suicide:true, blast:120, blastR:74, fuse:0.5},
   {key:'soda',  name:'ランニングソーダ',   icon:'🥤', role:'fodder', tier:1, count:2, atk:0,  hp:50,  speed:150, range:22, cd:1.0,  tag:'自爆+沼', text:'敵陣へ走り込んで自爆。爆発した場所に炭酸沼を残し、沼の上の敵に持続ダメージと移動速度低下を与える。倒されたときも爆発する。', suicide:true, blast:80, blastR:64, fuse:0.45, puddle:true, puddleR:70, puddleLife:4.0, puddleDps:16, puddleSlow:0.45},
-  {key:'choco', name:'チョコレートナイト', icon:'🍫', role:'tank',   tier:2, count:2, atk:24, hp:260, speed:66,  range:30, cd:0.95, tag:'前衛', text:'2体で並ぶ非常に硬い前衛。最前線で受け止める。', spriteScale:0.78},
-  {key:'pancake', name:'パンケーキキング', icon:'🥞', role:'tank', tier:2.5, count:1, atk:22, hp:150, speed:58, range:30, cd:1.0, tag:'進化', text:'最初は1枚のパンケーキ（やや脆い前衛）。戦闘開始から約10秒で3段に進化し、HPが大幅アップ＋ジャンプ着地の衝撃波で周囲を範囲攻撃するようになる。', evolve:true, evolveAt:10, evoHpMul:3.5, evoScale:1.5, shockR:88, shockDmg:52, jumpDur:0.55, jumpPeak:30, evoCd:2.4},
-  {key:'donut', name:'バキュームドーナッツ', icon:'🍩', role:'tank', tier:1.5, count:1, atk:6, hp:430, speed:50, range:32, cd:1.1, tag:'吸引タンク', text:'眼の前へ敵を吸い寄せる超大型タンク。攻撃は弱いが非常に硬く、大勢の攻撃を受け止める（味方の範囲攻撃と好相性）。', vacuum:true, pullR:155, pullForce:150, vacOn:2.4, vacOff:1.6, spriteScale:1.15},
-  {key:'bakery', name:'ジンジャーベーカリー', icon:'🏠', role:'back', tier:3.2, count:1, atk:0, hp:230, speed:0, range:0, cd:1, tag:'生産工場', text:'動かない生産工場。生きている間、約2秒ごとにジンジャーソルジャーを3体まとめて焼いて送り出す（最大7体まで）。倒すと供給が止まる。', spawner:true, spawnKey:'ginger', spawnCd:2.0, spawnCount:3, spawnCap:7, spriteScale:1.3},
+  {key:'choco', name:'チョコレートナイト', icon:'🍫', role:'tank',   tier:2, count:2, atk:24, hp:260, speed:66,  range:30, cd:0.95, tag:'前衛', text:'2体で並ぶ非常に硬い前衛。最前線で受け止める。', spriteScale:0.6},
+  {key:'pancake', name:'パンケーキキング', icon:'🥞', role:'tank', tier:2.5, count:1, atk:22, hp:150, speed:58, range:30, cd:1.0, tag:'進化', text:'最初は1枚のパンケーキ（やや脆い前衛）。戦闘開始から約10秒で3段に進化し、HPが大幅アップ＋ジャンプ着地の衝撃波で周囲を範囲攻撃するようになる。', evolve:true, evolveAt:10, evoHpMul:3.5, evoScale:1.3, shockR:88, shockDmg:52, jumpDur:0.55, jumpPeak:30, evoCd:2.4},
+  {key:'donut', name:'バキュームドーナッツ', icon:'🍩', role:'tank', tier:1.5, count:1, atk:6, hp:430, speed:50, range:32, cd:1.1, tag:'吸引タンク', text:'眼の前へ敵を吸い寄せる超大型タンク。攻撃は弱いが非常に硬く、大勢の攻撃を受け止める（味方の範囲攻撃と好相性）。', vacuum:true, pullR:155, pullForce:150, vacOn:2.4, vacOff:1.6, spriteScale:1.0},
+  {key:'bakery', name:'ジンジャーベーカリー', icon:'🏠', role:'back', tier:3.2, count:1, atk:0, hp:230, speed:0, range:0, cd:1, tag:'生産工場', text:'動かない生産工場。生きている間、約2秒ごとにジンジャーソルジャーを3体まとめて焼いて送り出す（最大7体まで）。倒すと供給が止まる。', spawner:true, spawnKey:'ginger', spawnCd:2.0, spawnCount:3, spawnCap:7, spriteScale:1.1},
   {key:'ginger', name:'ジンジャーソルジャー', icon:'🍪', role:'fodder', tier:0, count:1, atk:10, hp:32, speed:112, range:22, cd:0.55, tag:'召喚', text:'ジンジャーベーカリーが焼き上げる小さな兵士。脆いが足が速く、数で押し寄せる。', summonOnly:true},
   {key:'popcorn_mini', name:'小型ポップコーン', icon:'🍿', role:'fodder', tier:1, count:1, atk:0, hp:24, speed:132, range:22, cd:1.0, tag:'自爆', text:'ポップコーンTNTの爆発から飛び出す小型。すぐに自爆する（さらに分裂はしない）。', suicide:true, blast:60, blastR:48, fuse:0.4, summonOnly:true, spriteScale:0.62},
   {key:'shoe',  name:'シュークリームアーチャー', icon:'🧁', role:'back', tier:3, count:2, atk:21, hp:72, speed:64, range:120, cd:0.9, tag:'後衛', text:'2人で矢を放つ後衛の射手。', ranged:true},
   {key:'ghost', name:'わたあめゴースト', icon:'☁️', role:'back', tier:3.5, count:3, atk:16, hp:44, speed:95, range:28, cd:0.43, tag:'強襲', text:'3体で出る奇襲役。戦闘開始から少し経つと消えて、敵陣の最後尾あたりへワープ。出現直後はすり抜け(無敵)で後衛を最優先に叩く（脆い）。', warper:true, warpDelay:0.8, target:'back'},
-  {key:'cannon',name:'キャンディキャノン', icon:'🎆', role:'back', tier:4, count:1, atk:0, hp:140, speed:0, range:9999, cd:2.8, tag:'迫撃', text:'最後尾から動かず、ステージ全域へ範囲迫撃。遅いが密集地点で大爆発。', artillery:true, mortar:60, splash:62, shotSpeed:230, arcH:80, spriteScale:1.5},
+  {key:'cannon',name:'キャンディキャノン', icon:'🎆', role:'back', tier:4, count:1, atk:0, hp:140, speed:0, range:9999, cd:2.8, tag:'迫撃', text:'最後尾から動かず、ステージ全域へ範囲迫撃。遅いが密集地点で大爆発。', artillery:true, mortar:60, splash:62, shotSpeed:230, arcH:80, spriteScale:1.25},
 ];
 const UNIT_BY_KEY = Object.fromEntries(UNITS.map(u=>[u.key,u]));
 
@@ -351,11 +355,14 @@ const BOMB_MIN = 2;             // 盤面にこの数以上ポップコーンが
 const FOE_BOMB_CHANCE = 0.4;    // 敵（ライバル）がおかわりを使う確率
 // ※小型ポップコーンの強さ（HP/爆発力など）は UNITS の 'popcorn_mini' 行で調整。
 /* ★一刀両断（大福サムライ固有強化）の調整値。1回限りの単発強化。 */
-const DAIFUKU_MIN = 1;          // 盤面にこの数以上大福がいると「一刀両断」カードが出る
-const DAIFUKU_DMG_MUL = 1.4;    // 抜刀タックルの威力倍率
-const DAIFUKU_SLASH_R = 2.6;    // 薙ぎ払いの巻き込み半径（dashRangeの倍率。通常は1.5）
-const DAIFUKU_SLASH_FRAC = 0.6; // 巻き込みダメージの割合（通常は0.35）
-const FOE_DAIFUKU_CHANCE = 0.4; // 敵（ライバル）が一刀両断を使う確率
+/* ★大福サムライの「前方複数攻撃（薙ぎ払い）」の調整値。デフォルト挙動。 */
+const DAIFUKU_CLEAVE_WALK = 2.4;  // 通常攻撃の薙ぎ払い到達（range倍率）
+const DAIFUKU_CLEAVE_DASH = 2.4;  // 突撃ヒットの薙ぎ払い到達（dashRange倍率）
+/* ★特大大福サムライ（大福固有強化）の調整値。1回限りの単発強化（HP＆攻撃UP）。 */
+const DAIFUKU_MIN = 1;          // 盤面にこの数以上大福がいると「特大大福」カードが出る
+const DAIFUKU_HP = 0.6;         // HP上昇率（+60%）
+const DAIFUKU_ATK = 0.5;        // 攻撃・突撃威力の上昇率（+50%）
+const FOE_DAIFUKU_CHANCE = 0.4; // 敵（ライバル）が特大大福を使う確率
 /* ★分身（わたあめゴースト固有強化）の調整値。1回限りの単発強化。 */
 const GHOST_MIN = 1;            // 盤面にこの数以上ゴーストがいると「分身」カードが出る
 const FOE_GHOST_CHANCE = 0.4;   // 敵（ライバル）が分身を使う確率
@@ -415,10 +422,10 @@ SPECIALS['split_bomb'] = {
   key:'split_bomb', name:'おかわりポップコーン', icon:'🍿', upgrade:true, bombSplit:true, target:'bomb',
   text:'ポップコーンTNTが爆発したあと、小型ポップコーンが1体飛び出してもう一度爆発する（以後ずっと有効）。',
 };
-/* 大福サムライ固有強化「一刀両断」：抜刀タックルが威力UP＋広範囲の薙ぎ払いになり複数の敵をまとめて斬る。 */
-SPECIALS['slash_daifuku'] = {
-  key:'slash_daifuku', name:'一刀両断', icon:'🍡', upgrade:true, daifukuSlash:true, target:'daifuku',
-  text:'大福サムライの抜刀タックルが強化され、威力UP＋広範囲の薙ぎ払いで複数の敵をまとめて斬る（以後ずっと有効）。',
+/* 大福サムライ固有強化「特大大福サムライ」：HPと攻撃力（突撃威力も）が大幅アップ。 */
+SPECIALS['buff_daifuku'] = {
+  key:'buff_daifuku', name:'特大大福サムライ', icon:'🍡', upgrade:true, daifukuBuff:true, target:'daifuku',
+  text:'大福サムライのHPと攻撃力（突撃の威力も）が大幅にアップする（以後ずっと有効）。',
 };
 /* わたあめゴースト固有強化「分身」：攻撃を受けると、おとりの分身を1体出す（分身は1撃で消える）。 */
 SPECIALS['clone_ghost'] = {
@@ -539,7 +546,7 @@ function resetState(){
     youParty:false, foeParty:false,     // クッキーパーティーを獲得済みか（永続・毎ラウンド再適用）
     youChocoBuff:false, foeChocoBuff:false, // ビター装甲を獲得済みか（永続・毎ラウンド再適用・1回限り）
     youBombSplit:false, foeBombSplit:false, // おかわりポップコーンを獲得済みか（永続・毎ラウンド再適用・1回限り）
-    youDaifukuSlash:false, foeDaifukuSlash:false, // 一刀両断を獲得済みか（永続・毎ラウンド再適用・1回限り）
+    youDaifukuBuff:false, foeDaifukuBuff:false, // 特大大福を獲得済みか（永続・毎ラウンド再適用・1回限り）
     youGhostClone:false, foeGhostClone:false, // 分身を獲得済みか（永続・毎ラウンド再適用・1回限り）
     youCannonCluster:false, foeCannonCluster:false, // クラスター花火弾を獲得済みか（永続・毎ラウンド再適用・1回限り）
     youSodaFizz:false, foeSodaFizz:false, // メガ炭酸沼を獲得済みか（永続・毎ラウンド再適用・1回限り）
@@ -660,12 +667,12 @@ function makeFighters(key, side, W, H, slot){
   const yMax = side==='p' ? B : mid;
   const xMin = playL(W), xMax = playR(W);
   for(let c=0;c<u.count;c++){
-    const hp=u.hp, atk=u.atk, r=Math.max(7,Math.min(15,6+hp*0.035));
+    const hp=u.hp, atk=u.atk, r=Math.max(5,Math.min(11,5+hp*0.028));   // 当たり判定を小さめに（密集して陣地に食い込みにくく）
     arr.push({
       side, key, name:u.name, icon:u.icon, slot, role:u.role, tier:u.tier||0, spriteScale:u.spriteScale||1,
       x:xMin+Math.random()*(xMax-xMin), y:yMin+Math.random()*(yMax-yMin),
       vx:0, vy:0, r, baseR:r, hp, maxHp:hp, baseMaxHp:hp, atk, baseAtk:atk,
-      speed:u.speed, baseSpeed:u.speed, range:u.range, cd:u.cd, cool:Math.random()*u.cd,
+      speed:u.speed*SPEED_MUL, baseSpeed:u.speed*SPEED_MUL, range:u.range, cd:u.cd, cool:Math.random()*u.cd,
       party:false, partyStage:0,
       ranged:!!u.ranged, splash:u.splash||0, blast:u.blast||0, blastR:u.blastR||0,
       suicide:!!u.suicide, armed:false, fuseT:0, fuse:u.fuse||0.5,
@@ -674,7 +681,7 @@ function makeFighters(key, side, W, H, slot){
       shockR:u.shockR||80, shockDmg:u.shockDmg||45, jumpDur:u.jumpDur||0.5, jumpPeak:u.jumpPeak||26, jumpT:0, jumpH:0, evoCd:u.evoCd||2.2,
       heal:u.heal||0, healR:u.healR||0, wall:u.wall||0, wallR:u.wallR||0,
       berserk:u.berserk||0, raged:false, targetRule:u.target||'near',
-      charger:!!u.charger, dashDamage:u.dashDamage||0, dashSpeed:u.dashSpeed||0, chargeTime:u.chargeTime||0, dashMax:u.dashMax||0, dashFar:u.dashFar||0, dashRange:u.dashRange||0,
+      charger:!!u.charger, cleave:!!u.cleave, dashDamage:u.dashDamage||0, baseDashDamage:u.dashDamage||0, dashSpeed:u.dashSpeed||0, chargeTime:u.chargeTime||0, dashMax:u.dashMax||0, dashFar:u.dashFar||0, dashRange:u.dashRange||0,
       artillery:!!u.artillery, mortar:u.mortar||0, shotSpeed:u.shotSpeed||0, arcH:u.arcH||0,
       vacuum:!!u.vacuum, pullR:u.pullR||0, pullForce:u.pullForce||0,
       vacActive:true, vacT:0, vacOn:u.vacOn||2.4, vacOff:u.vacOff||1.6,
@@ -759,11 +766,17 @@ function applyBombSplit(world, side){
   return any;
 }
 
-/* ---- 一刀両断（大福サムライ固有強化）---- */
-// 指定陣営の大福全員に「薙ぎ払い」フラグを付ける（毎ラウンド再適用）
-function applyDaifukuSlash(world, side){
+/* ---- 特大大福サムライ（大福固有強化）---- */
+// 指定陣営の大福全員に、HP＆攻撃（突撃威力含む）の強化を適用（1回限り・毎ラウンド再適用・基準値から再計算で冪等）
+function applyDaifukuBuff(world, side){
   let any=false;
-  world.units.forEach(u=>{ if(u.side===side && u.key==='daifuku'){ u.slash=true; any=true; } });
+  world.units.forEach(u=>{ if(u.side===side && u.key==='daifuku'){
+    u.maxHp = Math.round(u.baseMaxHp*(1+DAIFUKU_HP));
+    u.hp = u.maxHp;                                  // 再適用で全回復
+    u.atk = Math.round(u.baseAtk*(1+DAIFUKU_ATK));
+    u.dashDamage = Math.round((u.baseDashDamage||0)*(1+DAIFUKU_ATK));   // 突撃の威力も上げる
+    u.daifukuBuff = true; any=true;
+  }});
   return any;
 }
 
@@ -885,7 +898,7 @@ function applyBakeryBuff(world, side){
 // このユニットが何らかの固有強化を受けているか（盤面の「強化中」バッジ用）。おとり分身は除外。
 function isBuffed(u){
   if(u.isDecoy) return false;
-  return !!(u.chocoBuff||u.donutWall||u.shoeBuff||u.bakeryBuff||u.slash||u.cloneOn||u.cluster||u.fizz||u.spawnMini||u.fastEvo||u.party);
+  return !!(u.chocoBuff||u.donutWall||u.shoeBuff||u.bakeryBuff||u.daifukuBuff||u.cloneOn||u.cluster||u.fizz||u.spawnMini||u.fastEvo||u.party);
 }
 // プレイヤーが取得済みの強化（融合・X2・各固有強化）を、表示用の{icon,name}配列で返す
 function acquiredBuffs(){
@@ -894,7 +907,7 @@ function acquiredBuffs(){
   for(const k in (S.youX2||{})){ if(S.youX2[k]>0){ const u=UNIT_BY_KEY[k]; out.push({icon:u?u.icon:'✦', name:(u?u.name:k)+' ×2'}); } }
   const flags=[
     ['youParty','🍪','クッキーパーティー'],['youChocoBuff','🍫','ビター装甲'],['youBombSplit','🍿','おかわりポップコーン'],
-    ['youDaifukuSlash','🍡','一刀両断'],['youGhostClone','☁️','分身'],['youCannonCluster','🎆','クラスター花火弾'],
+    ['youDaifukuBuff','🍡','特大大福サムライ'],['youGhostClone','☁️','分身'],['youCannonCluster','🎆','クラスター花火弾'],
     ['youSodaFizz','🥤','メガ炭酸沼'],['youDonutWall','🍩','鉄壁ドーナッツ'],['youPancakeFast','🥞','はや焼きパンケーキ'],
     ['youShoeBuff','🧁','特盛りシュークリーム'],['youBakeryBuff','🏠','ラストベイク'],
   ];
@@ -924,8 +937,8 @@ const FUSE = {
   hpMul:2.2,        // 巨大スライムHP = 合体3体の最大HP合計 × この倍率
   atkMul:2.4,       // 巨大スライムの攻撃力 = 通常スライム攻撃 × この倍率
   rangeAdd:4,       // 体が大きいぶん間合いを少し広げる
-  spriteScale:1.3,  // 見た目の大きさ倍率（小さくした）
-  rBase:7, rPerHp:0.02, rMax:15,  // 当たり半径 = min(rMax, rBase + maxHp*rPerHp)
+  spriteScale:1.15, // 見た目の大きさ倍率（他の小型化に合わせて縮小）
+  rBase:6, rPerHp:0.02, rMax:11,  // 当たり半径 = min(rMax, rBase + maxHp*rPerHp)。全体の小型化に合わせ縮小
 };
 
 // その陣営の未融合スライム3体を1体の巨大スライムに合体。成功でtrue
@@ -1024,7 +1037,7 @@ function eligibleSpecials(){
   if(playerCanParty()) list.push('party_cookie');
   if(!state.youChocoBuff && countSideKey('p','choco')>=CHOCO_MIN) list.push('buff_choco');   // 1回限り：未取得かつチョコがいれば出る
   if(!state.youBombSplit && countSideKey('p','bomb')>=BOMB_MIN) list.push('split_bomb');   // 1回限り：未取得かつポップコーンがいれば出る
-  if(!state.youDaifukuSlash && countSideKey('p','daifuku')>=DAIFUKU_MIN) list.push('slash_daifuku');   // 1回限り：未取得かつ大福がいれば出る
+  if(!state.youDaifukuBuff && countSideKey('p','daifuku')>=DAIFUKU_MIN) list.push('buff_daifuku');   // 1回限り：未取得かつ大福がいれば出る
   if(!state.youGhostClone && countSideKey('p','ghost')>=GHOST_MIN) list.push('clone_ghost');   // 1回限り：未取得かつゴーストがいれば出る
   if(!state.youCannonCluster && countSideKey('p','cannon')>=CANNON_MIN) list.push('cluster_cannon');   // 1回限り：未取得かつキャノンがいれば出る
   if(!state.youSodaFizz && countSideKey('p','soda')>=SODA_MIN) list.push('fizz_soda');   // 1回限り：未取得かつソーダがいれば出る
@@ -1053,9 +1066,9 @@ function centerMergedSlimes(group){
 function arrangeFormation(world, side, snap){
   const us = world.units.filter(u=>u.side===side);
   if(!us.length) return;
-  const W=world.W, H=world.H, rowGap=30;
+  const W=world.W, H=world.H, rowGap=21;                    // 段の間隔を詰める（ユニットを小さくしたぶん密集）
   const L=playL(W), Rr=playR(W), T=playT(H), Bb=playB(H);   // 盤面（クリーム枠）の内側
-  const cols = Math.max(4, Math.min(12, Math.floor((Rr-L)/34)));
+  const cols = Math.max(4, Math.min(16, Math.floor((Rr-L)/20)));   // 1段あたりの最大数を増やし、横も詰める
 
   // 段(tier)ごとにグループ化（小さいtier=最前列、負の値もOK）。同じ段は種類でまとめる
   const rows=[];
@@ -1119,7 +1132,7 @@ function beginDraft(){
   if(state.youParty) applyPartyFlag(world,'p');   // クッキーパーティーを再適用（永続）
   if(state.youChocoBuff) applyChocoBuff(world,'p');   // ビター装甲を再適用（永続・1回限り）
   if(state.youBombSplit) applyBombSplit(world,'p');   // おかわりポップコーンを再適用（永続・1回限り）
-  if(state.youDaifukuSlash) applyDaifukuSlash(world,'p');   // 一刀両断を再適用（永続・1回限り）
+  if(state.youDaifukuBuff) applyDaifukuBuff(world,'p');   // 特大大福を再適用（永続・1回限り）
   if(state.youGhostClone) applyGhostClone(world,'p');   // 分身を再適用（永続・1回限り）
   if(state.youCannonCluster) applyCannonCluster(world,'p');   // クラスター花火弾を再適用（永続・1回限り）
   if(state.youSodaFizz) applySodaFizz(world,'p');   // メガ炭酸沼を再適用（永続・1回限り）
@@ -1137,7 +1150,7 @@ function beginDraft(){
   if(state.foeParty) applyPartyFlag(world,'e');   // 敵のクッキーパーティーを再適用（永続）
   if(state.foeChocoBuff) applyChocoBuff(world,'e');   // 敵のビター装甲を再適用（永続・1回限り）
   if(state.foeBombSplit) applyBombSplit(world,'e');   // 敵のおかわりポップコーンを再適用（永続・1回限り）
-  if(state.foeDaifukuSlash) applyDaifukuSlash(world,'e');   // 敵の一刀両断を再適用（永続・1回限り）
+  if(state.foeDaifukuBuff) applyDaifukuBuff(world,'e');   // 敵の特大大福を再適用（永続・1回限り）
   if(state.foeGhostClone) applyGhostClone(world,'e');   // 敵の分身を再適用（永続・1回限り）
   if(state.foeCannonCluster) applyCannonCluster(world,'e');   // 敵のクラスター花火弾を再適用（永続・1回限り）
   if(state.foeSodaFizz) applySodaFizz(world,'e');   // 敵のメガ炭酸沼を再適用（永続・1回限り）
@@ -1214,7 +1227,7 @@ function renderPickOffer(){
       const s=SPECIALS[key];
       el.className='card upgrade';
       const ico = (s.target && UNIT_BY_KEY[s.target]) ? iconHTML(UNIT_BY_KEY[s.target]) : s.icon;
-      const tag = s.x2 ? '×2' : s.party ? 'パーティー' : s.chocoBuff ? '装甲' : s.bombSplit ? 'おかわり' : s.daifukuSlash ? '一刀両断' : s.ghostClone ? '分身' : s.cannonCluster ? '花火' : s.sodaFizz ? '炭酸' : s.donutWall ? '鉄壁' : s.pancakeFast ? 'はや焼き' : s.shoeBuff ? '特盛り' : s.bakeryBuff ? 'ラスト焼き' : '融合';
+      const tag = s.x2 ? '×2' : s.party ? 'パーティー' : s.chocoBuff ? '装甲' : s.bombSplit ? 'おかわり' : s.daifukuBuff ? '特大' : s.ghostClone ? '分身' : s.cannonCluster ? '花火' : s.sodaFizz ? '炭酸' : s.donutWall ? '鉄壁' : s.pancakeFast ? 'はや焼き' : s.shoeBuff ? '特盛り' : s.bakeryBuff ? 'ラスト焼き' : '融合';
       el.innerHTML=`<div class="up-badge">強化</div>
         <div class="icon">${ico}</div>
         <div class="cname">${s.name}</div>
@@ -1278,9 +1291,9 @@ function pickCard(key){
       const bk = world.units.filter(u=>u.side==='p'&&u.key==='bomb'&&u.hp>0);
       if(bk.length){ const cx=bk.reduce((s,u)=>s+u.x,0)/bk.length, cy=bk.reduce((s,u)=>s+u.y,0)/bk.length;
         burst(world,cx,cy,'#ffd9a8',18,110); world.rings.push({x:cx,y:cy,r:4,max:44,life:0.4,color:'#ffe1b0'}); }
-    } else if(SPECIALS[key].daifukuSlash){
-      state.youDaifukuSlash = true;
-      applyDaifukuSlash(world,'p');   // 今いる大福全員に「一刀両断」付与（以後ずっと有効）
+    } else if(SPECIALS[key].daifukuBuff){
+      state.youDaifukuBuff = true;
+      applyDaifukuBuff(world,'p');   // 今いる大福全員をHP＆攻撃強化（以後ずっと有効）
       const dk = world.units.filter(u=>u.side==='p'&&u.key==='daifuku'&&u.hp>0);
       if(dk.length){ const cx=dk.reduce((s,u)=>s+u.x,0)/dk.length, cy=dk.reduce((s,u)=>s+u.y,0)/dk.length;
         burst(world,cx,cy,'#fff3c0',20,150); world.rings.push({x:cx,y:cy,r:4,max:50,life:0.4,color:'#fff3c0'}); world.shake=Math.max(world.shake,6); }
@@ -1412,8 +1425,8 @@ function lockAndFight(){
     state.foeBombSplit = true; applyBombSplit(world,'e');
   }
   // 敵の一刀両断（パリティ）：大福が規定数いれば確率で発動し永続化（1回限り）
-  if(!state.foeDaifukuSlash && countSideKey('e','daifuku')>=DAIFUKU_MIN && Math.random()<FOE_DAIFUKU_CHANCE){
-    state.foeDaifukuSlash = true; applyDaifukuSlash(world,'e');
+  if(!state.foeDaifukuBuff && countSideKey('e','daifuku')>=DAIFUKU_MIN && Math.random()<FOE_DAIFUKU_CHANCE){
+    state.foeDaifukuBuff = true; applyDaifukuBuff(world,'e');
   }
   // 敵の分身（パリティ）：ゴーストが規定数いれば確率で発動し永続化（1回限り）
   if(!state.foeGhostClone && countSideKey('e','ghost')>=GHOST_MIN && Math.random()<FOE_GHOST_CHANCE){
@@ -1566,7 +1579,7 @@ function evolvePancake(world, u){
   u.evolved=true;
   u.maxHp=Math.round(u.baseMaxHp*u.evoHpMul);
   u.hp=u.maxHp;                                   // 進化で全回復＆大幅増
-  u.r=Math.min(20, Math.round(u.r*1.25));
+  u.r=Math.min(15, Math.round(u.r*1.25));   // 進化後の当たり判定も全体の小型化に合わせて縮小
   u.spriteScale=(u.spriteScale||1)*u.evoScale;
   u.cd=u.evoCd; u.cool=u.cd*0.4;
   u.name='パンケーキキング(3段)';
@@ -1629,6 +1642,19 @@ function musterStep(world, dt){
 }
 
 /* 居合タックル：納刀(idle)→チャージ→抜刀ダッシュ(dash)→徒歩戦闘(walk)の状態マシン */
+/* 前方への薙ぎ払い：前方(fxn,fyn)方向・到達reach内の敵を複数まとめて斬る。倒した数を返す */
+function daifukuCleave(world, u, dmg, reach, fxn, fyn){
+  let hits=0; const rr=reach*reach;
+  for(const o of world.units){
+    if(o.side===u.side||o.hp<=0) continue;
+    const dx=o.x-u.x, dy=o.y-u.y, d2=dx*dx+dy*dy;
+    if(d2>rr) continue;
+    const d=Math.sqrt(d2)||1;
+    if((dx*fxn+dy*fyn)/d < -0.25) continue;   // 後方は除外（前方＋側面まで薙ぐ）
+    applyHit(world,u,o,dmg); hits++;
+  }
+  return hits;
+}
 function chargerStep(world, u, tgt, dt){
   if(u.flash>0) u.flash-=dt;
   if(u.kbImmune>0) u.kbImmune-=dt;
@@ -1645,7 +1671,16 @@ function chargerStep(world, u, tgt, dt){
       const dx=tgt.x-u.x, dy=tgt.y-u.y, d=dist||1;
       if(d>u.range-2){ u.x+=dx/d*u.speed*(u.slowMul||1)*dt; u.y+=dy/d*u.speed*(u.slowMul||1)*dt; }
       u.cool-=dt;
-      if(d<=u.range && u.cool<=0){ u.cool=u.cd; applyHit(world,u,tgt,u.atk); u.knockx-=dx/d*1.2; u.knocky-=dy/d*1.2; }
+      if(d<=u.range && u.cool<=0){
+        u.cool=u.cd;
+        if(u.cleave){
+          // 通常攻撃も前方の複数の敵をまとめて薙ぐ
+          daifukuCleave(world,u,u.atk,u.range*DAIFUKU_CLEAVE_WALK, dx/d, dy/d);
+          SFX.play('slash');
+          world.rings.push({x:u.x+dx/d*u.r, y:u.y+dy/d*u.r, r:2, max:u.range*DAIFUKU_CLEAVE_WALK*0.8, life:0.18, color:'#fff0c0'});
+        } else { applyHit(world,u,tgt,u.atk); }
+        u.knockx-=dx/d*1.2; u.knocky-=dy/d*1.2;
+      }
     }
   } else if(u.cstate==='charge'){
     u.drawn=false;                               // 納刀してチャージ
@@ -1666,16 +1701,18 @@ function chargerStep(world, u, tgt, dt){
     let hit=null,bd=u.dashRange*u.dashRange;
     for(const o of world.units){ if(o.side===u.side||o.hp<=0) continue; const dd=(o.x-u.x)**2+(o.y-u.y)**2; if(dd<bd){bd=dd;hit=o;} }
     if(hit){
-      // 一刀両断(u.slash)なら威力UP＋巻き込み半径と割合を拡大して薙ぎ払う
-      const dmg=Math.round(u.dashDamage*(u.slash?DAIFUKU_DMG_MUL:1));
-      const splashR=u.dashRange*(u.slash?DAIFUKU_SLASH_R:1.5);
-      const frac=u.slash?DAIFUKU_SLASH_FRAC:0.35;
       SFX.play('slash');                                              // 抜刀のシュッ
-      applyHit(world,u,hit,dmg);                                       // タックルで大ダメージ
-      for(const o of world.units){ if(o.side===u.side||o.hp<=0||o===hit) continue; if((o.x-u.x)**2+(o.y-u.y)**2 < splashR*splashR) applyHit(world,u,o,Math.round(dmg*frac)); }
-      world.shake=Math.max(world.shake,u.slash?10:6);
-      world.rings.push({x:u.x,y:u.y,r:3,max:(u.slash?splashR*1.5:u.dashRange*1.8),life:u.slash?0.3:0.25,color:u.slash?'#fff3c0':'#ffffff'});
-      burst(world,u.x,u.y,'#ffe08a',u.slash?22:12,u.slash?200:150);
+      const reach=u.dashRange*DAIFUKU_CLEAVE_DASH;
+      if(u.cleave){
+        // 突撃ヒットも前方（突進方向）の複数の敵をまとめて薙ぐ（全員フル威力）
+        daifukuCleave(world,u,u.dashDamage, reach, u.ddx, u.ddy);
+      } else {
+        applyHit(world,u,hit,u.dashDamage);
+        for(const o of world.units){ if(o.side===u.side||o.hp<=0||o===hit) continue; if((o.x-u.x)**2+(o.y-u.y)**2 < (u.dashRange*1.5)**2) applyHit(world,u,o,Math.round(u.dashDamage*0.35)); }
+      }
+      world.shake=Math.max(world.shake,9);
+      world.rings.push({x:u.x,y:u.y,r:3,max:reach,life:0.28,color:'#fff3c0'});
+      burst(world,u.x,u.y,'#ffe08a',18,190);
       u.cstate='walk'; u.cool=u.cd*0.5;
     } else if(!tgt || u.dashT>=3.0){    // 安全策：敵が居ない/異常に長いときだけ徒歩へ
       u.cstate='walk'; u.chargeT=0;
@@ -2066,8 +2103,8 @@ function render(){
       ctx.beginPath(); ctx.arc(u.x,u.y+bob,(u.r+3)*sc*vis,0,6.28);
       ctx.strokeStyle='rgba(140,90,43,'+(0.3+0.22*p)+')'; ctx.lineWidth=2.6; ctx.stroke();
     }
-    // 一刀両断：強化された大福は刃のような金色のオーラ
-    if(u.slash){
+    // 特大大福：強化された大福は金色のオーラ
+    if(u.daifukuBuff){
       const p=0.5+0.5*Math.sin(world.t*7+u.bob);
       ctx.beginPath(); ctx.arc(u.x,u.y+bob,(u.r+3)*sc*vis,0,6.28);
       ctx.strokeStyle='rgba(255,225,120,'+(0.28+0.24*p)+')'; ctx.lineWidth=2.2; ctx.stroke();
@@ -2109,7 +2146,7 @@ function render(){
       ctx.strokeStyle='rgba(214,158,92,'+(0.3+0.2*p)+')'; ctx.lineWidth=2.6; ctx.stroke();
     }
     if(spr && spr.complete && spr.naturalWidth){
-      const S=u.r*3.3*sc*vis; ctx.imageSmoothingEnabled=false;
+      const S=u.r*SPRITE_MUL*sc*vis; ctx.imageSmoothingEnabled=false;
       ctx.drawImage(spr, u.x-S/2, u.y+bob-S*0.60, S, S);
       if(u.flash>0){ ctx.globalAlpha=Math.min(.7,u.flash*4); ctx.beginPath(); ctx.arc(u.x,u.y+bob,u.r+2,0,6.28); ctx.fillStyle='#fff'; ctx.fill(); ctx.globalAlpha=1; }
     } else {
