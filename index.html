@@ -333,6 +333,7 @@ const SPECIALS = {
 };
 /* ★X2強化カードの調整値（ここをいじればバランス調整できる） */
 const X2_MIN = 3;                 // 盤面にこの数以上いる種類にX2カードが出る（2→3で厳しめに）
+const X2_COOLDOWN_ROUNDS = 1;     // 2倍を取ったら、残りの同ラウンド＋このラウンド数ぶん2倍カードを出さない（連打抑制。2にするとさらに厳しく）
 const SPECIAL_OFFER_CHANCE = 0.3; // 強化カードが出せる状況のとき、1枠を強化カードに差し替える確率（0.6→0.3で出にくく）
 const FOE_X2_CHANCE = 0.4;        // 敵（ライバル）がX2強化を使う確率（0.6→0.4）
 const X2_EXCLUDE = new Set(['slime']); // X2対象から外すキー（スライムは「融合」があるため除外）
@@ -543,6 +544,7 @@ function resetState(){
     lostLast:false, foeLostLast:false,  // 前回負けたか（逆転ボーナス用）
     youMerges:0, foeMerges:0,           // これまでに獲得したスライム融合の回数（永続）
     youX2:{}, foeX2:{},                 // これまでに獲得したX2強化（key→回数。永続・毎ラウンド再適用）
+    x2BlockUntil:0, foeX2BlockUntil:0,  // このラウンド番号まで2倍カードを出さない（連打クールダウン。味方/敵）
     youParty:false, foeParty:false,     // クッキーパーティーを獲得済みか（永続・毎ラウンド再適用）
     youChocoBuff:false, foeChocoBuff:false, // ビター装甲を獲得済みか（永続・毎ラウンド再適用・1回限り）
     youBombSplit:false, foeBombSplit:false, // おかわりポップコーンを獲得済みか（永続・毎ラウンド再適用・1回限り）
@@ -930,10 +932,11 @@ function buffCountFor(side){
 function foeEnhanceCandidates(){
   const cands=[];
   if(countUnmergedSlimes(world,'e')>=3) cands.push({key:'up_slime', fn:function(){ if(mergeOneSlimeGroup(world,'e')) state.foeMerges+=1; }});
-  { const fc={};
+  if(state.round > (state.foeX2BlockUntil||0)){   // 敵も2倍連打クールダウン中は候補に入れない
+    const fc={};
     world.units.forEach(u=>{ if(u.side==='e'&&u.hp>0){ const unit=UNIT_BY_KEY[u.key]; if(unit&&!unit.summonOnly&&!X2_EXCLUDE.has(u.key)) fc[u.key]=(fc[u.key]||0)+1; }});
     let bestKey=null,bestN=0; for(const k in fc){ if(fc[k]>=X2_MIN && fc[k]>bestN){ bestN=fc[k]; bestKey=k; } }
-    if(bestKey) cands.push({key:'x2_'+bestKey, fn:function(){ const n=doubleUnitsOnBoard(world,'e',bestKey); if(n>0) state.foeX2[bestKey]=(state.foeX2[bestKey]||0)+1; }});
+    if(bestKey) cands.push({key:'x2_'+bestKey, fn:function(){ const n=doubleUnitsOnBoard(world,'e',bestKey); if(n>0){ state.foeX2[bestKey]=(state.foeX2[bestKey]||0)+1; state.foeX2BlockUntil=state.round+X2_COOLDOWN_ROUNDS; } }});
   }
   if(!state.foeParty        && countSideKey('e','cookie') >=PARTY_MIN)   cands.push({key:'party_cookie',  fn:function(){ state.foeParty=true;         applyPartyFlag(world,'e'); }});
   if(!state.foeChocoBuff    && countSideKey('e','choco')  >=CHOCO_MIN)   cands.push({key:'buff_choco',    fn:function(){ state.foeChocoBuff=true;     applyChocoBuff(world,'e'); }});
@@ -1066,6 +1069,7 @@ function applyX2Replay(world, side, x2map){
 function eligibleX2Specials(){
   const list=[];
   if(!world) return list;
+  if(state && state.round <= (state.x2BlockUntil||0)) return list;   // 連打クールダウン中は2倍カードを出さない
   const counts={};
   world.units.forEach(u=>{ if(u.side==='p' && u.hp>0) counts[u.key]=(counts[u.key]||0)+1; });
   Object.keys(counts).forEach(function(k){
@@ -1314,6 +1318,7 @@ function pickCard(key){
       const tgt = SPECIALS[key].target;
       const n = doubleUnitsOnBoard(world,'p',tgt);   // 対象キャラを今いる数だけ増殖
       if(n>0){ state.youX2[tgt]=(state.youX2[tgt]||0)+1; arrangeFormation(world,'p',false); }
+      state.x2BlockUntil = state.round + X2_COOLDOWN_ROUNDS;   // 連打防止：しばらく2倍カードを出さない
     } else if(SPECIALS[key].party){
       state.youParty = true;
       applyPartyFlag(world,'p');   // 今いるクッキー全員をパーティー状態に（以後ずっと有効）

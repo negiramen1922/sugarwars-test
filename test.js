@@ -1372,5 +1372,33 @@ API.pickCard('buff_choco');   // プレイヤーが強化を取得
 check('取得前は両者0', pPre === 0 && ePre === 0);
 check('プレイヤー強化取得と同時にCPUも+1（同数）', API.buffCountFor('p') === 1 && API.buffCountFor('e') === 1, { p: API.buffCountFor('p'), e: API.buffCountFor('e') });
 
+console.log('\n=== 28) 2倍カードの連打クールダウン ===');
+API.resetState();
+let wcd = API.createWorld(W, H); API.world = wcd;
+for (let i = 0; i < 3; i++) API.makeFighters('cannon', 'p', W, H, 'army').forEach(f => { f.appear = 1; wcd.units.push(f); }); // cannon 3体 → x2対象
+API.state.round = 1; API.state.x2BlockUntil = 0;
+check('クールダウン前はX2候補に出る', API.eligibleX2Specials().includes('x2_cannon'));
+// 取得をシミュレート（round1で取得 → 残り同ラウンド＋次の1ラウンドは出ない）
+API.state.x2BlockUntil = API.state.round + 1;
+check('取得直後の同ラウンドはX2が出ない', !API.eligibleX2Specials().includes('x2_cannon'));
+API.state.round = 2;
+check('次の1ラウンドもX2が出ない', !API.eligibleX2Specials().includes('x2_cannon'));
+API.state.round = 3;
+check('クールダウン明けでX2が再び出る', API.eligibleX2Specials().includes('x2_cannon'));
+
+// pickCard(x2)でクールダウンが設定される
+API.resetState();
+API.setMyDeck(['cannon', 'cookie', 'shoe', 'choco']);
+API.startGame();
+{
+  const wd = API.world;
+  for (let i = 0; i < 3; i++) API.makeFighters('cannon', 'p', wd.W, wd.H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+}
+API.state.round = 1; API.state.pickTotal = 5; API.state.pickStep = 1;
+check('取得前はX2候補に出る', API.eligibleX2Specials().includes('x2_cannon'));
+API.pickCard('x2_cannon');
+check('X2取得でx2BlockUntilが設定される', API.state.x2BlockUntil >= API.state.round + 1, API.state.x2BlockUntil);
+check('取得後はX2候補に出ない（連打不可）', !API.eligibleX2Specials().includes('x2_cannon'));
+
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
 process.exit(fail ? 1 : 0);
