@@ -58,7 +58,7 @@ code += `
   evolvePancake, evolvedStep, nearestEnemy,
   beginDraft, nextPick, pickCard, lockAndFight, aiPicks, startGame,
   applyPartyFlag, applyCookieParty, playerCanParty, countSideKey,
-  applyChocoBuff, applyBombSplit,
+  applyChocoBuff, applyBombSplit, applyDaifukuSlash, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck,
   setupCanvas, CW_get:()=>CW, CH_get:()=>CH,
 };
@@ -700,6 +700,612 @@ for (let g = 0; g < 10; g++) {
 }
 console.log('  ポップコーンデッキ戦績:', JSON.stringify(bombDeck));
 check('おかわり入りデッキで詰まりゼロ', bombDeck.stuck === 0, bombDeck);
+
+console.log('\n=== 19) 一刀両断（大福サムライ固有強化・1回限り） ===');
+check('slash_daifuku が SPECIALS にある', !!API.SPECIALS.slash_daifuku);
+check('slash_daifuku は upgrade+daifukuSlash, target=daifuku', API.SPECIALS.slash_daifuku && API.SPECIALS.slash_daifuku.upgrade && API.SPECIALS.slash_daifuku.daifukuSlash && API.SPECIALS.slash_daifuku.target === 'daifuku');
+check('isSpecial(slash_daifuku)', API.isSpecial('slash_daifuku'));
+
+// 出現条件：大福が1体以上で出る／取得済みでは出ない／0体では出ない
+API.resetState();
+let wds = API.createWorld(W, H); API.world = wds;
+API.makeFighters('daifuku', 'p', W, H, 'army').forEach(f => { f.appear = 1; wds.units.push(f); });
+check('大福がいれば候補に出る', API.eligibleSpecials().includes('slash_daifuku'));
+API.state.youDaifukuSlash = true;
+check('取得済みなら候補に出ない', !API.eligibleSpecials().includes('slash_daifuku'));
+API.state.youDaifukuSlash = false;
+let wds0 = API.createWorld(W, H); API.world = wds0;
+API.makeFighters('cookie', 'p', W, H, 'army').forEach(f => { f.appear = 1; wds0.units.push(f); });
+check('大福が居なければ候補に出ない', !API.eligibleSpecials().includes('slash_daifuku'));
+
+// applyDaifukuSlash：味方大福にだけ slash フラグ
+let wds2 = API.createWorld(W, H); API.world = wds2;
+API.makeFighters('daifuku', 'p', W, H, 'army').forEach(f => { f.appear = 1; wds2.units.push(f); });
+API.makeFighters('daifuku', 'e', W, H, 'army').forEach(f => { f.appear = 1; wds2.units.push(f); });
+API.applyDaifukuSlash(wds2, 'p');
+check('味方大福に slash 付与', wds2.units.filter(u => u.side === 'p' && u.key === 'daifuku').every(u => u.slash));
+check('敵大福には付かない', wds2.units.filter(u => u.side === 'e' && u.key === 'daifuku').every(u => !u.slash));
+
+// 効果：薙ぎ払いは通常より広範囲＆高ダメージ（同一配置で総ダメージを比較）
+function dashDamageTotal(slash) {
+  let wd = API.createWorld(W, H); API.world = wd;
+  wd.phase = 'battle'; wd.intro = 0;
+  const cx = W / 2, cy = H / 2;
+  const foes = [];
+  // 本命＋距離違いの巻き込み対象（30/46/60px）。倒れず測れるようHP高め
+  [[0, 8], [0, 33], [0, 49], [0, 63]].forEach(([dx, dy]) => {
+    const f = API.makeFighters('cookie', 'e', W, H, 'army')[0];
+    f.x = cx + dx; f.y = cy + dy; f.appear = 1; f.hp = f.maxHp = 9999; f.cool = 999; wd.units.push(f); foes.push(f);
+  });
+  const d = API.makeFighters('daifuku', 'p', W, H, 'army')[0];
+  d.x = cx; d.y = cy; d.appear = 1; d.cstate = 'dash'; d.dashT = 0; d.ddx = 0; d.ddy = 1; d.cool = 0;
+  if (slash) d.slash = true;
+  d.hp = d.maxHp = 9999;
+  wd.units.push(d);
+  // 数フレーム回して抜刀の一撃を確実に発生させる
+  for (let i = 0; i < 8; i++) API.stepWorld(wd, 1 / 60);
+  return foes.reduce((s, f) => s + (f.maxHp - f.hp), 0);
+}
+const baseDmg = dashDamageTotal(false);
+const slashDmg = dashDamageTotal(true);
+check('抜刀でダメージが入る（基準）', baseDmg > 0, baseDmg);
+check('一刀両断は総ダメージが増える', slashDmg > baseDmg, { base: baseDmg, slash: slashDmg });
+
+// pickCard で state.youDaifukuSlash が立ち、盤面大福に付与
+API.resetState();
+API.setMyDeck(['daifuku', 'cookie', 'shoe', 'choco']);
+API.startGame();
+let stds = API.state; let wdds = API.world;
+API.makeFighters('daifuku', 'p', wdds.W, wdds.H, 'army').forEach(f => { f.appear = 1; wdds.units.push(f); });
+stds.pickTotal = 5; stds.pickStep = 1;
+API.pickCard('slash_daifuku');
+check('pickCardでstate.youDaifukuSlash=true', API.state.youDaifukuSlash === true);
+check('盤面大福に slash 付与', API.world.units.filter(u => u.side === 'p' && u.key === 'daifuku').every(u => u.slash));
+
+// 一刀両断入りデッキで戦闘が詰まらない（10戦）
+let dfDeck = { win: 0, lose: 0, draw: 0, stuck: 0 };
+for (let g = 0; g < 10; g++) {
+  API.resetState();
+  API.setMyDeck(['daifuku', 'cookie', 'shoe', 'choco']);
+  API.startGame();
+  let st = API.state;
+  let guard = 0;
+  while (st.pickStep < st.pickTotal && guard++ < 50) {
+    const key = st.offer3[0];
+    API.pickCard(key);
+  }
+  API.lockAndFight();
+  let wd = API.world; wd.intro = 0;
+  let frames = 0;
+  while (!wd.done && frames < 60 * 45) { API.stepWorld(wd, 1 / 60); frames++; }
+  dfDeck[wd.done ? wd.result : 'stuck']++;
+}
+console.log('  大福デッキ戦績:', JSON.stringify(dfDeck));
+check('一刀両断入りデッキで詰まりゼロ', dfDeck.stuck === 0, dfDeck);
+
+console.log('\n=== 20) 分身（わたあめゴースト固有強化・1回限り） ===');
+check('clone_ghost が SPECIALS にある', !!API.SPECIALS.clone_ghost);
+check('clone_ghost は upgrade+ghostClone, target=ghost', API.SPECIALS.clone_ghost && API.SPECIALS.clone_ghost.upgrade && API.SPECIALS.clone_ghost.ghostClone && API.SPECIALS.clone_ghost.target === 'ghost');
+check('isSpecial(clone_ghost)', API.isSpecial('clone_ghost'));
+
+// 出現条件：ゴーストがいれば出る／取得済みでは出ない／居なければ出ない
+API.resetState();
+let wg = API.createWorld(W, H); API.world = wg;
+API.makeFighters('ghost', 'p', W, H, 'army').forEach(f => { f.appear = 1; wg.units.push(f); });
+check('ゴーストがいれば候補に出る', API.eligibleSpecials().includes('clone_ghost'));
+API.state.youGhostClone = true;
+check('取得済みなら候補に出ない', !API.eligibleSpecials().includes('clone_ghost'));
+API.state.youGhostClone = false;
+let wg0 = API.createWorld(W, H); API.world = wg0;
+API.makeFighters('cookie', 'p', W, H, 'army').forEach(f => { f.appear = 1; wg0.units.push(f); });
+check('ゴーストが居なければ候補に出ない', !API.eligibleSpecials().includes('clone_ghost'));
+
+// applyGhostClone：味方ゴーストにだけ cloneOn
+let wg2 = API.createWorld(W, H); API.world = wg2;
+API.makeFighters('ghost', 'p', W, H, 'army').forEach(f => { f.appear = 1; wg2.units.push(f); });
+API.makeFighters('ghost', 'e', W, H, 'army').forEach(f => { f.appear = 1; wg2.units.push(f); });
+API.applyGhostClone(wg2, 'p');
+check('味方ゴーストに cloneOn 付与', wg2.units.filter(u => u.side === 'p' && u.key === 'ghost').every(u => u.cloneOn));
+check('敵ゴーストには付かない', wg2.units.filter(u => u.side === 'e' && u.key === 'ghost').every(u => !u.cloneOn));
+
+// 被弾で分身が1体でる（HP1・おとり）／2回目の被弾では増えない
+let wg3 = API.createWorld(W, H); API.world = wg3;
+wg3.phase = 'battle'; wg3.intro = 0;
+const gho = API.makeFighters('ghost', 'p', W, H, 'army')[0];
+gho.x = W / 2; gho.y = H / 2; gho.appear = 1; gho.invuln = 0; gho.cloneOn = true; gho.hp = gho.maxHp = 500;
+wg3.units.push(gho);
+const atkr = API.makeFighters('shoe', 'e', W, H, 'army')[0]; atkr.x = W / 2; atkr.y = H / 2 + 20; atkr.appear = 1; wg3.units.push(atkr);
+API.applyHit(wg3, atkr, gho, 10);
+let decoys = wg3.units.filter(u => u.key === 'ghost' && u.isDecoy);
+check('被弾で分身が1体でる', decoys.length === 1, decoys.length);
+check('分身はHP1（1撃で消える）', decoys[0] && decoys[0].maxHp === 1 && decoys[0].hp === 1);
+check('分身は味方側', decoys[0] && decoys[0].side === 'p');
+check('分身はワープしない・再分身しない', decoys[0] && decoys[0].warper === false && !decoys[0].cloneOn);
+API.applyHit(wg3, atkr, gho, 10);   // 2回目
+check('2回目の被弾では分身は増えない', wg3.units.filter(u => u.key === 'ghost' && u.isDecoy).length === 1);
+
+// 分身は1撃で消える
+const dec = decoys[0];
+API.applyHit(wg3, atkr, dec, 1);
+check('分身は1ダメージで死ぬ', dec.hp <= 0);
+
+// pickCard で state.youGhostClone が立ち、盤面ゴーストに付与
+API.resetState();
+API.setMyDeck(['ghost', 'cookie', 'shoe', 'choco']);
+API.startGame();
+let stg = API.state; let wdg = API.world;
+API.makeFighters('ghost', 'p', wdg.W, wdg.H, 'army').forEach(f => { f.appear = 1; wdg.units.push(f); });
+stg.pickTotal = 5; stg.pickStep = 1;
+API.pickCard('clone_ghost');
+check('pickCardでstate.youGhostClone=true', API.state.youGhostClone === true);
+check('盤面ゴーストに cloneOn 付与', API.world.units.filter(u => u.side === 'p' && u.key === 'ghost').every(u => u.cloneOn));
+
+// 分身入りデッキで戦闘が詰まらない（10戦）
+let ghDeck = { win: 0, lose: 0, draw: 0, stuck: 0 };
+for (let g = 0; g < 10; g++) {
+  API.resetState();
+  API.setMyDeck(['ghost', 'cookie', 'shoe', 'choco']);
+  API.startGame();
+  let st = API.state;
+  let guard = 0;
+  while (st.pickStep < st.pickTotal && guard++ < 50) {
+    const key = st.offer3[0];
+    API.pickCard(key);
+  }
+  API.lockAndFight();
+  let wd = API.world; wd.intro = 0;
+  let frames = 0;
+  while (!wd.done && frames < 60 * 45) { API.stepWorld(wd, 1 / 60); frames++; }
+  ghDeck[wd.done ? wd.result : 'stuck']++;
+}
+console.log('  ゴーストデッキ戦績:', JSON.stringify(ghDeck));
+check('分身入りデッキで詰まりゼロ', ghDeck.stuck === 0, ghDeck);
+
+console.log('\n=== 21) クラスター花火弾（キャンディキャノン固有強化・1回限り） ===');
+check('cluster_cannon が SPECIALS にある', !!API.SPECIALS.cluster_cannon);
+check('cluster_cannon は upgrade+cannonCluster, target=cannon', API.SPECIALS.cluster_cannon && API.SPECIALS.cluster_cannon.upgrade && API.SPECIALS.cluster_cannon.cannonCluster && API.SPECIALS.cluster_cannon.target === 'cannon');
+check('isSpecial(cluster_cannon)', API.isSpecial('cluster_cannon'));
+
+// 出現条件：キャノンがいれば出る／取得済みでは出ない／居なければ出ない
+API.resetState();
+let wc = API.createWorld(W, H); API.world = wc;
+API.makeFighters('cannon', 'p', W, H, 'army').forEach(f => { f.appear = 1; wc.units.push(f); });
+check('キャノンがいれば候補に出る', API.eligibleSpecials().includes('cluster_cannon'));
+API.state.youCannonCluster = true;
+check('取得済みなら候補に出ない', !API.eligibleSpecials().includes('cluster_cannon'));
+API.state.youCannonCluster = false;
+let wc0 = API.createWorld(W, H); API.world = wc0;
+API.makeFighters('cookie', 'p', W, H, 'army').forEach(f => { f.appear = 1; wc0.units.push(f); });
+check('キャノンが居なければ候補に出ない', !API.eligibleSpecials().includes('cluster_cannon'));
+
+// applyCannonCluster：味方キャノンにだけ cluster
+let wc2 = API.createWorld(W, H); API.world = wc2;
+API.makeFighters('cannon', 'p', W, H, 'army').forEach(f => { f.appear = 1; wc2.units.push(f); });
+API.makeFighters('cannon', 'e', W, H, 'army').forEach(f => { f.appear = 1; wc2.units.push(f); });
+API.applyCannonCluster(wc2, 'p');
+check('味方キャノンに cluster 付与', wc2.units.filter(u => u.side === 'p' && u.key === 'cannon').every(u => u.cluster));
+check('敵キャノンには付かない', wc2.units.filter(u => u.side === 'e' && u.key === 'cannon').every(u => !u.cluster));
+
+// 効果：クラスター弾は通常砲撃より広範囲・高ダメージ（密集した敵への総ダメージで比較）
+function cannonVolleyDamage(cluster) {
+  let wd = API.createWorld(W, H); API.world = wd;
+  wd.phase = 'battle'; wd.intro = 0;
+  // 円盤状に敵を密集配置（動かず・高HPで生存）→ 砲撃の総ダメージを測る
+  const cx = W / 2, cy = H * 0.35, foes = [];
+  for (let gx = -90; gx <= 90; gx += 22) for (let gy = -90; gy <= 90; gy += 22) {
+    if (gx * gx + gy * gy > 90 * 90) continue;
+    const f = API.makeFighters('cookie', 'e', W, H, 'army')[0];
+    f.x = cx + gx; f.y = cy + gy; f.appear = 1; f.speed = 0; f.cool = 999; f.hp = f.maxHp = 99999;
+    wd.units.push(f); foes.push(f);
+  }
+  const cannon = API.makeFighters('cannon', 'p', W, H, 'army')[0];
+  cannon.x = cx; cannon.y = H * 0.9; cannon.appear = 1; cannon.cool = 0; cannon.hp = cannon.maxHp = 99999;
+  if (cluster) cannon.cluster = true;
+  wd.units.push(cannon);
+  // 1回の砲撃が着弾するまで回す（2.8s周期なので3s弱で1発のみ resolve）
+  for (let i = 0; i < 165; i++) API.stepWorld(wd, 1 / 60);
+  return foes.reduce((s, f) => s + (f.maxHp - f.hp), 0);
+}
+const baseVol = cannonVolleyDamage(false);
+const clusterVol = cannonVolleyDamage(true);
+check('通常砲撃でダメージが入る（基準）', baseVol > 0, baseVol);
+check('クラスター弾は総ダメージが増える', clusterVol > baseVol, { base: baseVol, cluster: clusterVol });
+
+// pickCard で state.youCannonCluster が立ち、盤面キャノンに付与
+API.resetState();
+API.setMyDeck(['cannon', 'cookie', 'shoe', 'choco']);
+API.startGame();
+let stc2 = API.state; let wdc2 = API.world;
+API.makeFighters('cannon', 'p', wdc2.W, wdc2.H, 'army').forEach(f => { f.appear = 1; wdc2.units.push(f); });
+stc2.pickTotal = 5; stc2.pickStep = 1;
+API.pickCard('cluster_cannon');
+check('pickCardでstate.youCannonCluster=true', API.state.youCannonCluster === true);
+check('盤面キャノンに cluster 付与', API.world.units.filter(u => u.side === 'p' && u.key === 'cannon').every(u => u.cluster));
+
+// クラスター花火弾入りデッキで戦闘が詰まらない（10戦）
+let cnDeck = { win: 0, lose: 0, draw: 0, stuck: 0 };
+for (let g = 0; g < 10; g++) {
+  API.resetState();
+  API.setMyDeck(['cannon', 'cookie', 'shoe', 'choco']);
+  API.startGame();
+  let st = API.state;
+  let guard = 0;
+  while (st.pickStep < st.pickTotal && guard++ < 50) {
+    const key = st.offer3[0];
+    API.pickCard(key);
+  }
+  API.lockAndFight();
+  let wd = API.world; wd.intro = 0;
+  let frames = 0;
+  while (!wd.done && frames < 60 * 45) { API.stepWorld(wd, 1 / 60); frames++; }
+  cnDeck[wd.done ? wd.result : 'stuck']++;
+}
+console.log('  キャノンデッキ戦績:', JSON.stringify(cnDeck));
+check('クラスター入りデッキで詰まりゼロ', cnDeck.stuck === 0, cnDeck);
+
+console.log('\n=== 22) メガ炭酸沼（ランニングソーダ固有強化・1回限り） ===');
+check('fizz_soda が SPECIALS にある', !!API.SPECIALS.fizz_soda);
+check('fizz_soda は upgrade+sodaFizz, target=soda', API.SPECIALS.fizz_soda && API.SPECIALS.fizz_soda.upgrade && API.SPECIALS.fizz_soda.sodaFizz && API.SPECIALS.fizz_soda.target === 'soda');
+check('isSpecial(fizz_soda)', API.isSpecial('fizz_soda'));
+
+// 出現条件：ソーダが SODA_MIN(2) 以上で出る／取得済みでは出ない／1体では出ない
+API.resetState();
+let wf = API.createWorld(W, H); API.world = wf;
+API.makeFighters('soda', 'p', W, H, 'army').forEach(f => { f.appear = 1; wf.units.push(f); }); // 2体
+check('ソーダ2体で候補に出る', API.eligibleSpecials().includes('fizz_soda'));
+API.state.youSodaFizz = true;
+check('取得済みなら候補に出ない', !API.eligibleSpecials().includes('fizz_soda'));
+API.state.youSodaFizz = false;
+let wf0 = API.createWorld(W, H); API.world = wf0;
+API.makeFighters('soda', 'p', W, H, 'army').slice(0, 1).forEach(f => { f.appear = 1; wf0.units.push(f); });
+check('ソーダ1体(<2)では候補に出ない', !API.eligibleSpecials().includes('fizz_soda'));
+
+// applySodaFizz：味方ソーダの沼の半径とダメージが基準より上がる。敵には付かない
+let wf2 = API.createWorld(W, H); API.world = wf2;
+const sBase = API.UNIT_BY_KEY['soda'];
+API.makeFighters('soda', 'p', W, H, 'army').forEach(f => { f.appear = 1; wf2.units.push(f); });
+API.makeFighters('soda', 'e', W, H, 'army').forEach(f => { f.appear = 1; wf2.units.push(f); });
+API.applySodaFizz(wf2, 'p');
+const ps = wf2.units.find(u => u.side === 'p' && u.key === 'soda');
+check('沼の半径が基準より拡大', ps.puddleR > sBase.puddleR, { base: sBase.puddleR, now: ps.puddleR });
+check('沼のダメージが基準より増加', ps.puddleDps > sBase.puddleDps, { base: sBase.puddleDps, now: ps.puddleDps });
+check('fizz フラグが立つ', ps.fizz === true);
+check('敵ソーダには適用されない', wf2.units.filter(u => u.side === 'e' && u.key === 'soda').every(u => !u.fizz && u.puddleR === sBase.puddleR));
+// 冪等性：2回適用しても基準ベース計算で同じ値
+API.applySodaFizz(wf2, 'p');
+const ps2 = wf2.units.find(u => u.side === 'p' && u.key === 'soda');
+check('2回適用しても同じ値（冪等）', ps2.puddleR === ps.puddleR && ps2.puddleDps === ps.puddleDps);
+
+// 実際の沼：強化ソーダが自爆すると、より大きく強い沼ができる（killUnit経由）
+function sodaPuddle(fizz) {
+  let wd = API.createWorld(W, H); API.world = wd;
+  const s = API.makeFighters('soda', 'p', W, H, 'army')[0];
+  s.x = W / 2; s.y = H / 2; s.appear = 1;
+  if (fizz) { s.puddleR = Math.round(sBase.puddleR * 1.6); s.puddleDps = Math.round(sBase.puddleDps * 1.8); }
+  wd.units.push(s);
+  API.killUnit(wd, s);
+  return wd.puddles[0];
+}
+const basePud = sodaPuddle(false), fizzPud = sodaPuddle(true);
+check('強化で沼の半径が大きい', fizzPud.r > basePud.r, { base: basePud.r, fizz: fizzPud.r });
+check('強化で沼のDPSが高い', fizzPud.dps > basePud.dps, { base: basePud.dps, fizz: fizzPud.dps });
+
+// pickCard で state.youSodaFizz が立ち、盤面ソーダに付与
+API.resetState();
+API.setMyDeck(['soda', 'cookie', 'shoe', 'choco']);
+API.startGame();
+let stf = API.state; let wdf = API.world;
+API.makeFighters('soda', 'p', wdf.W, wdf.H, 'army').forEach(f => { f.appear = 1; wdf.units.push(f); });
+stf.pickTotal = 5; stf.pickStep = 1;
+API.pickCard('fizz_soda');
+check('pickCardでstate.youSodaFizz=true', API.state.youSodaFizz === true);
+check('盤面ソーダに fizz 付与', API.world.units.filter(u => u.side === 'p' && u.key === 'soda').every(u => u.fizz));
+
+// メガ炭酸沼入りデッキで戦闘が詰まらない（10戦）
+let sdDeck = { win: 0, lose: 0, draw: 0, stuck: 0 };
+for (let g = 0; g < 10; g++) {
+  API.resetState();
+  API.setMyDeck(['soda', 'cookie', 'shoe', 'choco']);
+  API.startGame();
+  let st = API.state;
+  let guard = 0;
+  while (st.pickStep < st.pickTotal && guard++ < 50) {
+    const key = st.offer3.find(k => !API.isSpecial(k)) || st.offer3[0];
+    API.pickCard(key);
+  }
+  API.lockAndFight();
+  let wd = API.world; wd.intro = 0;
+  let frames = 0;
+  while (!wd.done && frames < 60 * 45) { API.stepWorld(wd, 1 / 60); frames++; }
+  sdDeck[wd.done ? wd.result : 'stuck']++;
+}
+console.log('  ソーダデッキ戦績:', JSON.stringify(sdDeck));
+check('メガ炭酸沼入りデッキで詰まりゼロ', sdDeck.stuck === 0, sdDeck);
+
+console.log('\n=== 23) 鉄壁ドーナッツ（バキュームドーナッツ固有強化・1回限り） ===');
+check('wall_donut が SPECIALS にある', !!API.SPECIALS.wall_donut);
+check('wall_donut は upgrade+donutWall, target=donut', API.SPECIALS.wall_donut && API.SPECIALS.wall_donut.upgrade && API.SPECIALS.wall_donut.donutWall && API.SPECIALS.wall_donut.target === 'donut');
+check('isSpecial(wall_donut)', API.isSpecial('wall_donut'));
+
+// 出現条件：ドーナッツがいれば出る／取得済みでは出ない／居なければ出ない
+API.resetState();
+let wn = API.createWorld(W, H); API.world = wn;
+API.makeFighters('donut', 'p', W, H, 'army').forEach(f => { f.appear = 1; wn.units.push(f); });
+check('ドーナッツがいれば候補に出る', API.eligibleSpecials().includes('wall_donut'));
+API.state.youDonutWall = true;
+check('取得済みなら候補に出ない', !API.eligibleSpecials().includes('wall_donut'));
+API.state.youDonutWall = false;
+let wn0 = API.createWorld(W, H); API.world = wn0;
+API.makeFighters('cookie', 'p', W, H, 'army').forEach(f => { f.appear = 1; wn0.units.push(f); });
+check('ドーナッツが居なければ候補に出ない', !API.eligibleSpecials().includes('wall_donut'));
+
+// applyDonutWall：HPと見た目・当たり判定が基準から増す。敵には付かない
+let wn2 = API.createWorld(W, H); API.world = wn2;
+const dn = API.makeFighters('donut', 'p', W, H, 'army')[0];
+dn.appear = 1; wn2.units.push(dn);
+API.makeFighters('donut', 'e', W, H, 'army').forEach(f => { f.appear = 1; wn2.units.push(f); });
+const dHp = dn.baseMaxHp, dScale = dn.spriteScale, dR = dn.baseR;
+API.applyDonutWall(wn2, 'p');
+check('HPが大幅に上がる', dn.maxHp > dHp && dn.hp === dn.maxHp, { base: dHp, now: dn.maxHp });
+check('見た目が大きくなる', dn.spriteScale > dScale, { base: dScale, now: dn.spriteScale });
+check('当たり判定も増す', dn.r > dR, { base: dR, now: dn.r });
+check('donutWall フラグが立つ', dn.donutWall === true);
+check('敵ドーナッツには適用されない', wn2.units.filter(u => u.side === 'e' && u.key === 'donut').every(u => !u.donutWall && u.maxHp === u.baseMaxHp));
+// 冪等性
+API.applyDonutWall(wn2, 'p');
+check('2回適用しても重ねがけしない（HP不変）', dn.maxHp === Math.round(dHp * (1 + 0.9)));
+
+// pickCard で state.youDonutWall が立ち、盤面ドーナッツが鉄壁化
+API.resetState();
+API.setMyDeck(['donut', 'cookie', 'shoe', 'choco']);
+API.startGame();
+let stn = API.state; let wdn = API.world;
+API.makeFighters('donut', 'p', wdn.W, wdn.H, 'army').forEach(f => { f.appear = 1; wdn.units.push(f); });
+const dnHp0 = wdn.units.find(u => u.side === 'p' && u.key === 'donut').baseMaxHp;
+stn.pickTotal = 5; stn.pickStep = 1;
+API.pickCard('wall_donut');
+check('pickCardでstate.youDonutWall=true', API.state.youDonutWall === true);
+check('盤面ドーナッツが鉄壁化', API.world.units.filter(u => u.side === 'p' && u.key === 'donut').every(u => u.donutWall === true && u.maxHp > dnHp0));
+
+// 鉄壁ドーナッツ vs 通常ドーナッツ：硬い側が勝ち越す（40戦）。攻撃が弱いタンクなので
+// 効果量はHP/サイズの決定論テストで担保し、ここは「勝ち越す傾向」を緩めに確認する。
+let dwRes = { win: 0, lose: 0, draw: 0, stuck: 0 };
+for (let g = 0; g < 40; g++) {
+  let wd = API.createWorld(W, H); API.world = wd;
+  // 同数のクッキー＋ドーナッツ。自分のドーナッツだけ鉄壁
+  for (let i = 0; i < 2; i++) {
+    API.makeFighters('cookie', 'p', W, H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+    API.makeFighters('cookie', 'e', W, H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+  }
+  API.makeFighters('donut', 'p', W, H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+  API.makeFighters('donut', 'e', W, H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+  API.applyDonutWall(wd, 'p'); // 自分のドーナッツだけ鉄壁
+  API.arrangeFormation(wd, 'p', true); API.arrangeFormation(wd, 'e', true);
+  wd.phase = 'battle'; wd.intro = 0; wd.done = false;
+  let frames = 0;
+  while (!wd.done && frames < 60 * 50) { API.stepWorld(wd, 1 / 60); frames++; }
+  dwRes[wd.done ? wd.result : 'stuck']++;
+}
+console.log('  鉄壁有利戦績:', JSON.stringify(dwRes));
+check('鉄壁側が詰まりゼロ', dwRes.stuck === 0, dwRes);
+check('鉄壁側が勝ち越す傾向(win率>0.5)', dwRes.win / (dwRes.win + dwRes.lose || 1) > 0.5, dwRes);
+
+console.log('\n=== 24) はや焼きパンケーキ（パンケーキキング固有強化・1回限り） ===');
+check('fast_pancake が SPECIALS にある', !!API.SPECIALS.fast_pancake);
+check('fast_pancake は upgrade+pancakeFast, target=pancake', API.SPECIALS.fast_pancake && API.SPECIALS.fast_pancake.upgrade && API.SPECIALS.fast_pancake.pancakeFast && API.SPECIALS.fast_pancake.target === 'pancake');
+check('isSpecial(fast_pancake)', API.isSpecial('fast_pancake'));
+
+// 出現条件：パンケーキがいれば出る／取得済みでは出ない／居なければ出ない
+API.resetState();
+let wp2 = API.createWorld(W, H); API.world = wp2;
+API.makeFighters('pancake', 'p', W, H, 'army').forEach(f => { f.appear = 1; wp2.units.push(f); });
+check('パンケーキがいれば候補に出る', API.eligibleSpecials().includes('fast_pancake'));
+API.state.youPancakeFast = true;
+check('取得済みなら候補に出ない', !API.eligibleSpecials().includes('fast_pancake'));
+API.state.youPancakeFast = false;
+let wp0 = API.createWorld(W, H); API.world = wp0;
+API.makeFighters('cookie', 'p', W, H, 'army').forEach(f => { f.appear = 1; wp0.units.push(f); });
+check('パンケーキが居なければ候補に出ない', !API.eligibleSpecials().includes('fast_pancake'));
+
+// applyPancakeFast：味方パンケーキの evolveAt が25%短縮（10→7.5）。敵には付かない
+let wp3 = API.createWorld(W, H); API.world = wp3;
+const pkBase = API.UNIT_BY_KEY['pancake'].evolveAt;
+API.makeFighters('pancake', 'p', W, H, 'army').forEach(f => { f.appear = 1; wp3.units.push(f); });
+API.makeFighters('pancake', 'e', W, H, 'army').forEach(f => { f.appear = 1; wp3.units.push(f); });
+API.applyPancakeFast(wp3, 'p');
+const myPk = wp3.units.find(u => u.side === 'p' && u.key === 'pancake');
+check('進化時間が短縮(10→7.5)', Math.abs(myPk.evolveAt - pkBase * 0.75) < 1e-6, { base: pkBase, now: myPk.evolveAt });
+check('fastEvo フラグが立つ', myPk.fastEvo === true);
+check('敵パンケーキは据え置き(10)', wp3.units.filter(u => u.side === 'e' && u.key === 'pancake').every(u => u.evolveAt === pkBase));
+
+// 実際に早く進化する：t=8秒で強化版は進化済み・通常版はまだ
+function evolvedByTime(fast, T) {
+  let wd = API.createWorld(W, H); API.world = wd;
+  wd.phase = 'battle'; wd.intro = 0; wd.t = 0;
+  const pk = API.makeFighters('pancake', 'p', W, H, 'army')[0];
+  pk.x = W / 2; pk.y = H - 50; pk.appear = 1; pk.hp = pk.maxHp = 99999; wd.units.push(pk);
+  if (fast) pk.evolveAt = pkBase * 0.75;
+  const foe = API.makeFighters('choco', 'e', W, H, 'army')[0]; foe.x = W / 2; foe.y = 50; foe.appear = 1; foe.hp = foe.maxHp = 99999; wd.units.push(foe);
+  for (let i = 0; i < 60 * T && !pk.evolved; i++) API.stepWorld(wd, 1 / 60);
+  return pk.evolved;
+}
+check('はや焼きはt=8秒までに進化済み', evolvedByTime(true, 8) === true);
+check('通常はt=8秒ではまだ未進化', evolvedByTime(false, 8) === false);
+
+// pickCard で state.youPancakeFast が立ち、盤面パンケーキに付与
+API.resetState();
+API.setMyDeck(['pancake', 'cookie', 'shoe', 'choco']);
+API.startGame();
+let stpf = API.state; let wdpf = API.world;
+API.makeFighters('pancake', 'p', wdpf.W, wdpf.H, 'army').forEach(f => { f.appear = 1; wdpf.units.push(f); });
+stpf.pickTotal = 5; stpf.pickStep = 1;
+API.pickCard('fast_pancake');
+check('pickCardでstate.youPancakeFast=true', API.state.youPancakeFast === true);
+check('盤面パンケーキが短縮された', API.world.units.filter(u => u.side === 'p' && u.key === 'pancake').every(u => u.fastEvo === true && u.evolveAt < pkBase));
+
+// はや焼きパンケーキ入りデッキで戦闘が詰まらない（10戦）
+let pfDeck = { win: 0, lose: 0, draw: 0, stuck: 0 };
+for (let g = 0; g < 10; g++) {
+  API.resetState();
+  API.setMyDeck(['pancake', 'cookie', 'shoe', 'choco']);
+  API.startGame();
+  let st = API.state;
+  let guard = 0;
+  while (st.pickStep < st.pickTotal && guard++ < 50) {
+    const key = st.offer3.find(k => !API.isSpecial(k)) || st.offer3[0];
+    API.pickCard(key);
+  }
+  API.lockAndFight();
+  let wd = API.world; wd.intro = 0;
+  let frames = 0;
+  while (!wd.done && frames < 60 * 50) { API.stepWorld(wd, 1 / 60); frames++; }
+  pfDeck[wd.done ? wd.result : 'stuck']++;
+}
+console.log('  パンケーキデッキ戦績:', JSON.stringify(pfDeck));
+check('はや焼き入りデッキで詰まりゼロ', pfDeck.stuck === 0, pfDeck);
+
+console.log('\n=== 25) 特盛りシュークリーム（シュークリームアーチャー固有強化・1回限り） ===');
+check('buff_shoe が SPECIALS にある', !!API.SPECIALS.buff_shoe);
+check('buff_shoe は upgrade+shoeBuff, target=shoe', API.SPECIALS.buff_shoe && API.SPECIALS.buff_shoe.upgrade && API.SPECIALS.buff_shoe.shoeBuff && API.SPECIALS.buff_shoe.target === 'shoe');
+check('isSpecial(buff_shoe)', API.isSpecial('buff_shoe'));
+
+// 出現条件：シューが SHOE_MIN(2) 以上で出る／取得済みでは出ない／1体では出ない
+API.resetState();
+let wsh = API.createWorld(W, H); API.world = wsh;
+API.makeFighters('shoe', 'p', W, H, 'army').forEach(f => { f.appear = 1; wsh.units.push(f); }); // 2体
+check('シュー2体で候補に出る', API.eligibleSpecials().includes('buff_shoe'));
+API.state.youShoeBuff = true;
+check('取得済みなら候補に出ない', !API.eligibleSpecials().includes('buff_shoe'));
+API.state.youShoeBuff = false;
+let wsh0 = API.createWorld(W, H); API.world = wsh0;
+API.makeFighters('shoe', 'p', W, H, 'army').slice(0, 1).forEach(f => { f.appear = 1; wsh0.units.push(f); });
+check('シュー1体(<2)では候補に出ない', !API.eligibleSpecials().includes('buff_shoe'));
+
+// applyShoeBuff：HPと攻撃が基準から増す。敵には付かない
+let wsh2 = API.createWorld(W, H); API.world = wsh2;
+const sh = API.makeFighters('shoe', 'p', W, H, 'army')[0];
+sh.appear = 1; wsh2.units.push(sh);
+API.makeFighters('shoe', 'e', W, H, 'army').forEach(f => { f.appear = 1; wsh2.units.push(f); });
+const shHp = sh.baseMaxHp, shAtk = sh.baseAtk;
+API.applyShoeBuff(wsh2, 'p');
+check('HPが上がる', sh.maxHp > shHp && sh.hp === sh.maxHp, { base: shHp, now: sh.maxHp });
+check('攻撃が上がる', sh.atk > shAtk, { base: shAtk, now: sh.atk });
+check('shoeBuff フラグが立つ', sh.shoeBuff === true);
+check('敵シューには適用されない', wsh2.units.filter(u => u.side === 'e' && u.key === 'shoe').every(u => !u.shoeBuff && u.maxHp === u.baseMaxHp));
+// 冪等性
+API.applyShoeBuff(wsh2, 'p');
+check('2回適用しても重ねがけしない（HP不変）', sh.maxHp === Math.round(shHp * (1 + 0.6)));
+
+// pickCard で state.youShoeBuff が立ち、盤面シューが強化
+API.resetState();
+API.setMyDeck(['shoe', 'cookie', 'choco', 'donut']);
+API.startGame();
+let stsh = API.state; let wdsh = API.world;
+API.makeFighters('shoe', 'p', wdsh.W, wdsh.H, 'army').forEach(f => { f.appear = 1; wdsh.units.push(f); });
+const shHp0 = wdsh.units.find(u => u.side === 'p' && u.key === 'shoe').baseMaxHp;
+stsh.pickTotal = 5; stsh.pickStep = 1;
+API.pickCard('buff_shoe');
+check('pickCardでstate.youShoeBuff=true', API.state.youShoeBuff === true);
+check('盤面シューが強化された', API.world.units.filter(u => u.side === 'p' && u.key === 'shoe').every(u => u.shoeBuff === true && u.maxHp > shHp0));
+
+// 特盛りシュー vs 通常シュー：強化側が勝ち越す（30戦）
+let shRes = { win: 0, lose: 0, draw: 0, stuck: 0 };
+for (let g = 0; g < 30; g++) {
+  let wd = API.createWorld(W, H); API.world = wd;
+  for (let i = 0; i < 2; i++) {
+    API.makeFighters('shoe', 'p', W, H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+    API.makeFighters('shoe', 'e', W, H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+  }
+  API.applyShoeBuff(wd, 'p'); // 自分のシューだけ特盛り
+  API.arrangeFormation(wd, 'p', true); API.arrangeFormation(wd, 'e', true);
+  wd.phase = 'battle'; wd.intro = 0; wd.done = false;
+  let frames = 0;
+  while (!wd.done && frames < 60 * 45) { API.stepWorld(wd, 1 / 60); frames++; }
+  shRes[wd.done ? wd.result : 'stuck']++;
+}
+console.log('  特盛り有利戦績:', JSON.stringify(shRes));
+check('特盛り側が詰まりゼロ', shRes.stuck === 0, shRes);
+check('特盛り側が勝ち越す(win率>0.7)', shRes.win / (shRes.win + shRes.lose || 1) > 0.7, shRes);
+
+console.log('\n=== 26) ラストベイク（ジンジャーベーカリー固有強化・1回限り） ===');
+check('last_bake が SPECIALS にある', !!API.SPECIALS.last_bake);
+check('last_bake は upgrade+bakeryBuff, target=bakery', API.SPECIALS.last_bake && API.SPECIALS.last_bake.upgrade && API.SPECIALS.last_bake.bakeryBuff && API.SPECIALS.last_bake.target === 'bakery');
+check('isSpecial(last_bake)', API.isSpecial('last_bake'));
+
+// 出現条件：ベーカリーがいれば出る／取得済みでは出ない／居なければ出ない
+API.resetState();
+let wb = API.createWorld(W, H); API.world = wb;
+API.makeFighters('bakery', 'p', W, H, 'army').forEach(f => { f.appear = 1; wb.units.push(f); });
+check('ベーカリーがいれば候補に出る', API.eligibleSpecials().includes('last_bake'));
+API.state.youBakeryBuff = true;
+check('取得済みなら候補に出ない', !API.eligibleSpecials().includes('last_bake'));
+API.state.youBakeryBuff = false;
+let wb0 = API.createWorld(W, H); API.world = wb0;
+API.makeFighters('cookie', 'p', W, H, 'army').forEach(f => { f.appear = 1; wb0.units.push(f); });
+check('ベーカリーが居なければ候補に出ない', !API.eligibleSpecials().includes('last_bake'));
+
+// applyBakeryBuff：HPが基準から増し、deathSpawn が付く。敵には付かない
+let wb2 = API.createWorld(W, H); API.world = wb2;
+const bk = API.makeFighters('bakery', 'p', W, H, 'army')[0];
+bk.appear = 1; wb2.units.push(bk);
+API.makeFighters('bakery', 'e', W, H, 'army').forEach(f => { f.appear = 1; wb2.units.push(f); });
+const bkHp = bk.baseMaxHp;
+API.applyBakeryBuff(wb2, 'p');
+check('HPが上がる', bk.maxHp > bkHp && bk.hp === bk.maxHp, { base: bkHp, now: bk.maxHp });
+check('deathSpawn が設定される', bk.deathSpawn > 0, bk.deathSpawn);
+check('bakeryBuff フラグが立つ', bk.bakeryBuff === true);
+check('敵ベーカリーには適用されない', wb2.units.filter(u => u.side === 'e' && u.key === 'bakery').every(u => !u.bakeryBuff && u.maxHp === u.baseMaxHp));
+
+// 死亡時召喚：強化ベーカリーが倒れると、ジンジャーがまとめて湧く（通常ベーカリーは湧かない）
+function gingersOnDeath(buff) {
+  let wd = API.createWorld(W, H); API.world = wd;
+  const b = API.makeFighters('bakery', 'p', W, H, 'army')[0];
+  b.x = W / 2; b.y = H * 0.85; b.appear = 1; wd.units.push(b);
+  if (buff) API.applyBakeryBuff(wd, 'p');
+  const before = wd.units.filter(u => u.key === 'ginger').length;
+  API.killUnit(wd, b);
+  return wd.units.filter(u => u.key === 'ginger').length - before;
+}
+check('強化ベーカリーの死亡でジンジャーが湧く', gingersOnDeath(true) === 5, gingersOnDeath(true));
+check('通常ベーカリーの死亡では湧かない', gingersOnDeath(false) === 0);
+// 湧いたジンジャーは味方側
+let wb3 = API.createWorld(W, H); API.world = wb3;
+const b3 = API.makeFighters('bakery', 'p', W, H, 'army')[0]; b3.x = W / 2; b3.y = H * 0.85; b3.appear = 1; wb3.units.push(b3);
+API.applyBakeryBuff(wb3, 'p'); API.killUnit(wb3, b3);
+check('湧いたジンジャーは味方側', wb3.units.filter(u => u.key === 'ginger').every(u => u.side === 'p'));
+
+// pickCard で state.youBakeryBuff が立ち、盤面ベーカリーが強化
+API.resetState();
+API.setMyDeck(['bakery', 'cookie', 'choco', 'shoe']);
+API.startGame();
+let stb2 = API.state; let wdb2 = API.world;
+API.makeFighters('bakery', 'p', wdb2.W, wdb2.H, 'army').forEach(f => { f.appear = 1; wdb2.units.push(f); });
+const bkHp0 = wdb2.units.find(u => u.side === 'p' && u.key === 'bakery').baseMaxHp;
+stb2.pickTotal = 5; stb2.pickStep = 1;
+API.pickCard('last_bake');
+check('pickCardでstate.youBakeryBuff=true', API.state.youBakeryBuff === true);
+check('盤面ベーカリーが強化された', API.world.units.filter(u => u.side === 'p' && u.key === 'bakery').every(u => u.bakeryBuff === true && u.maxHp > bkHp0 && u.deathSpawn > 0));
+
+// ラストベイク入りデッキで戦闘が詰まらない（10戦）
+let bkDeck = { win: 0, lose: 0, draw: 0, stuck: 0 };
+for (let g = 0; g < 10; g++) {
+  API.resetState();
+  API.setMyDeck(['bakery', 'cookie', 'choco', 'shoe']);
+  API.startGame();
+  let st = API.state;
+  let guard = 0;
+  while (st.pickStep < st.pickTotal && guard++ < 50) {
+    const key = st.offer3.find(k => !API.isSpecial(k)) || st.offer3[0];
+    API.pickCard(key);
+  }
+  API.lockAndFight();
+  let wd = API.world; wd.intro = 0;
+  let frames = 0;
+  while (!wd.done && frames < 60 * 50) { API.stepWorld(wd, 1 / 60); frames++; }
+  bkDeck[wd.done ? wd.result : 'stuck']++;
+}
+console.log('  ベーカリーデッキ戦績:', JSON.stringify(bkDeck));
+check('ラストベイク入りデッキで詰まりゼロ', bkDeck.stuck === 0, bkDeck);
 
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
 process.exit(fail ? 1 : 0);
