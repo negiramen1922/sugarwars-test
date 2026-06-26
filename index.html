@@ -309,6 +309,7 @@ const UNITS = [
   {key:'donut', name:'バキュームドーナッツ', icon:'🍩', role:'tank', tier:1.5, count:1, atk:6, hp:430, speed:50, range:32, cd:1.1, tag:'吸引タンク', text:'眼の前へ敵を吸い寄せる超大型タンク。攻撃は弱いが非常に硬く、大勢の攻撃を受け止める（味方の範囲攻撃と好相性）。', vacuum:true, pullR:155, pullForce:150, vacOn:2.4, vacOff:1.6, spriteScale:1.15},
   {key:'bakery', name:'ジンジャーベーカリー', icon:'🏠', role:'back', tier:3.2, count:1, atk:0, hp:230, speed:0, range:0, cd:1, tag:'生産工場', text:'動かない生産工場。生きている間、約2秒ごとにジンジャーソルジャーを3体まとめて焼いて送り出す（最大7体まで）。倒すと供給が止まる。', spawner:true, spawnKey:'ginger', spawnCd:2.0, spawnCount:3, spawnCap:7, spriteScale:1.3},
   {key:'ginger', name:'ジンジャーソルジャー', icon:'🍪', role:'fodder', tier:0, count:1, atk:10, hp:32, speed:112, range:22, cd:0.55, tag:'召喚', text:'ジンジャーベーカリーが焼き上げる小さな兵士。脆いが足が速く、数で押し寄せる。', summonOnly:true},
+  {key:'popcorn_mini', name:'小型ポップコーン', icon:'🍿', role:'fodder', tier:1, count:1, atk:0, hp:24, speed:132, range:22, cd:1.0, tag:'自爆', text:'ポップコーンTNTの爆発から飛び出す小型。すぐに自爆する（さらに分裂はしない）。', suicide:true, blast:60, blastR:48, fuse:0.4, summonOnly:true, spriteScale:0.62},
   {key:'shoe',  name:'シュークリームアーチャー', icon:'🧁', role:'back', tier:3, count:2, atk:21, hp:72, speed:64, range:120, cd:0.9, tag:'後衛', text:'2人で矢を放つ後衛の射手。', ranged:true},
   {key:'ghost', name:'わたあめゴースト', icon:'☁️', role:'back', tier:3.5, count:3, atk:16, hp:44, speed:95, range:28, cd:0.43, tag:'強襲', text:'3体で出る奇襲役。戦闘開始から少し経つと消えて、敵陣の最後尾あたりへワープ。出現直後はすり抜け(無敵)で後衛を最優先に叩く（脆い）。', warper:true, warpDelay:0.8, target:'back'},
   {key:'cannon',name:'キャンディキャノン', icon:'🎆', role:'back', tier:4, count:1, atk:0, hp:140, speed:0, range:9999, cd:2.8, tag:'迫撃', text:'最後尾から動かず、ステージ全域へ範囲迫撃。遅いが密集地点で大爆発。', artillery:true, mortar:60, splash:62, shotSpeed:230, arcH:80, spriteScale:1.5},
@@ -342,6 +343,10 @@ const CHOCO_ATK = 0.5;          // 攻撃上昇率（+50%）
 const CHOCO_SCALE = 0.16;       // 見た目サイズ上昇率（ごっつくなる）
 const CHOCO_R = 0.10;           // 当たり判定上昇率（壁としての存在感）
 const FOE_CHOCO_CHANCE = 0.4;   // 敵（ライバル）がビター装甲を使う確率
+/* ★おかわりポップコーン（ポップコーンTNT固有強化）の調整値。1回限りの単発強化。 */
+const BOMB_MIN = 2;             // 盤面にこの数以上ポップコーンがいると「おかわりポップコーン」カードが出る
+const FOE_BOMB_CHANCE = 0.4;    // 敵（ライバル）がおかわりを使う確率
+// ※小型ポップコーンの強さ（HP/爆発力など）は UNITS の 'popcorn_mini' 行で調整。
 /* 各キャラぶんの「○○ ×2」強化カードを自動生成（召喚専用と除外キーは作らない） */
 UNITS.filter(u=>!u.summonOnly && !X2_EXCLUDE.has(u.key)).forEach(function(u){
   SPECIALS['x2_'+u.key] = {
@@ -359,6 +364,11 @@ SPECIALS['party_cookie'] = {
 SPECIALS['buff_choco'] = {
   key:'buff_choco', name:'ビター装甲', icon:'🍫', upgrade:true, chocoBuff:true, target:'choco',
   text:'チョコレートナイトのHPと攻撃を大幅強化し、体がごっつく巨大化する（以後ずっと有効）。',
+};
+/* ポップコーンTNT固有強化「おかわりポップコーン」：爆発のあと小型が1体飛び出してもう一度爆発。 */
+SPECIALS['split_bomb'] = {
+  key:'split_bomb', name:'おかわりポップコーン', icon:'🍿', upgrade:true, bombSplit:true, target:'bomb',
+  text:'ポップコーンTNTが爆発したあと、小型ポップコーンが1体飛び出してもう一度爆発する（以後ずっと有効）。',
 };
 function isSpecial(key){ return !!SPECIALS[key]; }
 
@@ -386,6 +396,7 @@ function resetState(){
     youX2:{}, foeX2:{},                 // これまでに獲得したX2強化（key→回数。永続・毎ラウンド再適用）
     youParty:false, foeParty:false,     // クッキーパーティーを獲得済みか（永続・毎ラウンド再適用）
     youChocoBuff:false, foeChocoBuff:false, // ビター装甲を獲得済みか（永続・毎ラウンド再適用・1回限り）
+    youBombSplit:false, foeBombSplit:false, // おかわりポップコーンを獲得済みか（永続・毎ラウンド再適用・1回限り）
     roundPicks:[], pickStep:0, pickTotal:CONFIG.picksBase, offer3:[],
     foeRoundPicks:[], foeRevealIdx:0, foePickTotal:CONFIG.picksBase, playerExtra:0,
   };
@@ -573,6 +584,14 @@ function applyChocoBuff(world, side){
   return any;
 }
 
+/* ---- おかわりポップコーン（ポップコーンTNT固有強化）---- */
+// 指定陣営のポップコーンTNT全員に「爆発後に小型を1体出す」フラグを付ける（毎ラウンド再適用）
+function applyBombSplit(world, side){
+  let any=false;
+  world.units.forEach(u=>{ if(u.side===side && u.key==='bomb'){ u.spawnMini=true; any=true; } });
+  return any;
+}
+
 /* ---- スライム融合まわり ---- */
 // 表示用スプライトの解決（スライムは陣営＆サイズで切替、大福は抜刀/納刀）
 function spriteFor(u){
@@ -580,6 +599,7 @@ function spriteFor(u){
   if(u.key==='soda'){ return SPRITES['soda_'+(u.side==='p'?'blue':'red')]; }   // 味方=青/敵=赤
   if(u.key==='daifuku' && u.drawn && SPRITES['daifuku_draw']) return SPRITES['daifuku_draw'];
   if(u.key==='pancake' && u.evolved && SPRITES['pancake_evo']) return SPRITES['pancake_evo'];   // 進化後は3段パンケーキ
+  if(u.key==='popcorn_mini') return SPRITES['bomb'];   // 小型ポップコーンは本体と同じ絵を縮小して使う
   return SPRITES[u.key];
 }
 // 盤上の「未融合・生存スライム」の数
@@ -693,6 +713,7 @@ function eligibleSpecials(){
   if(playerCanMergeSlime()) list.push('up_slime');
   if(playerCanParty()) list.push('party_cookie');
   if(!state.youChocoBuff && countSideKey('p','choco')>=CHOCO_MIN) list.push('buff_choco');   // 1回限り：未取得かつチョコがいれば出る
+  if(!state.youBombSplit && countSideKey('p','bomb')>=BOMB_MIN) list.push('split_bomb');   // 1回限り：未取得かつポップコーンがいれば出る
   return list.concat(eligibleX2Specials());
 }
 
@@ -778,6 +799,7 @@ function beginDraft(){
   applyX2Replay(world,'p',state.youX2);   // 獲得済みX2を再適用
   if(state.youParty) applyPartyFlag(world,'p');   // クッキーパーティーを再適用（永続）
   if(state.youChocoBuff) applyChocoBuff(world,'p');   // ビター装甲を再適用（永続・1回限り）
+  if(state.youBombSplit) applyBombSplit(world,'p');   // おかわりポップコーンを再適用（永続・1回限り）
   arrangeFormation(world,'p',true);
   // 敵の引き継ぎ軍も上に並べる（ドラフト中から見える）
   capArmy(state.foeArmy).forEach(k=> makeFighters(k,'e',CW,CH,'army').forEach(f=>{ f.appear=1; world.units.push(f); }));
@@ -787,6 +809,7 @@ function beginDraft(){
   applyX2Replay(world,'e',state.foeX2);   // 敵の獲得済みX2を再適用
   if(state.foeParty) applyPartyFlag(world,'e');   // 敵のクッキーパーティーを再適用（永続）
   if(state.foeChocoBuff) applyChocoBuff(world,'e');   // 敵のビター装甲を再適用（永続・1回限り）
+  if(state.foeBombSplit) applyBombSplit(world,'e');   // 敵のおかわりポップコーンを再適用（永続・1回限り）
   arrangeFormation(world,'e',true);
   // 敵の今回ピックを準備（プレイヤーが1枚選ぶたびに1枚ずつ上に召喚して公開）
   state.foePickTotal = picksFor(state.foeLostLast, state.lostLast);
@@ -851,7 +874,7 @@ function renderPickOffer(){
       const s=SPECIALS[key];
       el.className='card upgrade';
       const ico = (s.target && UNIT_BY_KEY[s.target]) ? iconHTML(UNIT_BY_KEY[s.target]) : s.icon;
-      const tag = s.x2 ? '×2' : s.party ? 'パーティー' : s.chocoBuff ? '装甲' : '融合';
+      const tag = s.x2 ? '×2' : s.party ? 'パーティー' : s.chocoBuff ? '装甲' : s.bombSplit ? 'おかわり' : '融合';
       el.innerHTML=`<div class="up-badge">強化</div>
         <div class="icon">${ico}</div>
         <div class="cname">${s.name}</div>
@@ -908,6 +931,12 @@ function pickCard(key){
       const ck = world.units.filter(u=>u.side==='p'&&u.key==='choco'&&u.hp>0);
       if(ck.length){ const cx=ck.reduce((s,u)=>s+u.x,0)/ck.length, cy=ck.reduce((s,u)=>s+u.y,0)/ck.length;
         burst(world,cx,cy,'#8a5a2b',20,110); world.rings.push({x:cx,y:cy,r:5,max:46,life:0.45,color:'#c98a4a'}); world.shake=Math.max(world.shake,6); }
+    } else if(SPECIALS[key].bombSplit){
+      state.youBombSplit = true;
+      applyBombSplit(world,'p');   // 今いるポップコーン全員に「おかわり」付与（以後ずっと有効）
+      const bk = world.units.filter(u=>u.side==='p'&&u.key==='bomb'&&u.hp>0);
+      if(bk.length){ const cx=bk.reduce((s,u)=>s+u.x,0)/bk.length, cy=bk.reduce((s,u)=>s+u.y,0)/bk.length;
+        burst(world,cx,cy,'#ffd9a8',18,110); world.rings.push({x:cx,y:cy,r:4,max:44,life:0.4,color:'#ffe1b0'}); }
     }
     state.pickStep++;
     maybeRevealFoe();   // 敵も1枚ぶん公開（ただし自分の逆転ボーナス中は敵は待つ）
@@ -986,6 +1015,10 @@ function lockAndFight(){
   if(!state.foeChocoBuff && countSideKey('e','choco')>=CHOCO_MIN && Math.random()<FOE_CHOCO_CHANCE){
     state.foeChocoBuff = true; applyChocoBuff(world,'e');
   }
+  // 敵のおかわりポップコーン（パリティ）：ポップコーンが規定数いれば確率で発動し永続化（1回限り）
+  if(!state.foeBombSplit && countSideKey('e','bomb')>=BOMB_MIN && Math.random()<FOE_BOMB_CHANCE){
+    state.foeBombSplit = true; applyBombSplit(world,'e');
+  }
   // 自軍を確定（引き継ぎ＋今回のピック）
   state.youArmy = capArmy(state.youArmy.concat(state.roundPicks));
   // 敵軍も確定（敵ユニットはドラフト中に出現済み）
@@ -1053,6 +1086,15 @@ function killUnit(world, t){
     world.rings.push({x:t.x,y:t.y,r:4,max:t.blastR,life:0.35,color:'#ffb24d'});
     burst(world,t.x,t.y,'#ffb24d',22,150);
     for(const o of world.units){ if(o.side===t.side||o.hp<=0) continue; if((o.x-t.x)**2+(o.y-t.y)**2 < t.blastR*t.blastR){ o.hp-=t.blast; o.flash=0.2; popDmg(world,o.x,o.y-o.r-4,t.blast,'#ffb24d'); if(o.hp<=0) killUnit(world,o); } }
+  }
+  // おかわりポップコーン：爆発したポップコーンTNTから小型が1体飛び出す（小型はspawnMiniを持たないので再分裂しない）
+  if(t.key==='bomb' && t.spawnMini){
+    const baby = makeFighters('popcorn_mini', t.side, world.W, world.H)[0];
+    baby.x=Math.max(baby.r,Math.min(world.W-baby.r, t.x+(Math.random()-0.5)*16));
+    baby.y=Math.max(baby.r,Math.min(world.H-baby.r, t.y+(Math.random()-0.5)*16));
+    baby.appear=0;
+    world.units.push(baby);
+    burst(world, baby.x, baby.y, '#ffd9a8', 8, 90);
   }
   // 炭酸沼：爆発した場所に残り、上に乗った敵へ持続ダメージ＋移動速度低下
   if(t.puddle){
