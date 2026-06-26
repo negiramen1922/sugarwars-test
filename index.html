@@ -106,6 +106,8 @@
   .card .icon img{width:42px;height:42px;image-rendering:pixelated;display:inline-block;vertical-align:middle}
   .loadout-mini .chip{padding:2px 4px} .loadout-mini .chip img{width:24px;height:24px;image-rendering:pixelated;display:block}
   .loadout-mini .lbl{font-size:11px;color:var(--muted);align-self:center;letter-spacing:.08em;text-transform:uppercase;margin-right:2px}
+  .loadout-mini .buff-lbl{color:var(--brass);margin-left:8px}
+  .loadout-mini .buffchip{background:linear-gradient(180deg,#3a2f12,#2a2410);border:1px solid var(--brass);box-shadow:0 0 6px rgba(212,165,68,.4)}
 
   .battle-controls{display:flex;gap:10px;justify-content:center;margin-top:14px}
   .result-line{font-family:"Oswald",sans-serif;text-transform:uppercase;letter-spacing:.06em;font-size:18px;text-align:center;margin:12px 0 0}
@@ -879,6 +881,27 @@ function applyBakeryBuff(world, side){
   return any;
 }
 
+/* ---- 強化表示まわり ---- */
+// このユニットが何らかの固有強化を受けているか（盤面の「強化中」バッジ用）。おとり分身は除外。
+function isBuffed(u){
+  if(u.isDecoy) return false;
+  return !!(u.chocoBuff||u.donutWall||u.shoeBuff||u.bakeryBuff||u.slash||u.cloneOn||u.cluster||u.fizz||u.spawnMini||u.fastEvo||u.party);
+}
+// プレイヤーが取得済みの強化（融合・X2・各固有強化）を、表示用の{icon,name}配列で返す
+function acquiredBuffs(){
+  const out=[]; const S=state; if(!S) return out;
+  if(S.youMerges>0) out.push({icon:'🔵', name:'スライム融合'});
+  for(const k in (S.youX2||{})){ if(S.youX2[k]>0){ const u=UNIT_BY_KEY[k]; out.push({icon:u?u.icon:'✦', name:(u?u.name:k)+' ×2'}); } }
+  const flags=[
+    ['youParty','🍪','クッキーパーティー'],['youChocoBuff','🍫','ビター装甲'],['youBombSplit','🍿','おかわりポップコーン'],
+    ['youDaifukuSlash','🍡','一刀両断'],['youGhostClone','☁️','分身'],['youCannonCluster','🎆','クラスター花火弾'],
+    ['youSodaFizz','🥤','メガ炭酸沼'],['youDonutWall','🍩','鉄壁ドーナッツ'],['youPancakeFast','🥞','はや焼きパンケーキ'],
+    ['youShoeBuff','🧁','特盛りシュークリーム'],['youBakeryBuff','🏠','ラストベイク'],
+  ];
+  flags.forEach(([f,ic,nm])=>{ if(S[f]) out.push({icon:ic, name:nm}); });
+  return out;
+}
+
 /* ---- スライム融合まわり ---- */
 // 表示用スプライトの解決（スライムは陣営＆サイズで切替、大福は抜刀/納刀）
 function spriteFor(u){
@@ -1153,7 +1176,12 @@ function beginDraft(){
 }
 function renderLoadoutMini(){
   const el=$('loadoutMini');
-  el.innerHTML = `<span class="lbl">あなたのデッキ</span>` + state.loadout.map(k=>`<span class="chip">${iconHTML(UNIT_BY_KEY[k])}</span>`).join('');
+  let html = `<span class="lbl">あなたのデッキ</span>` + state.loadout.map(k=>`<span class="chip">${iconHTML(UNIT_BY_KEY[k])}</span>`).join('');
+  const bs = acquiredBuffs();   // 取得済みの強化を「強化」ラベル付きチップで表示
+  if(bs.length){
+    html += `<span class="lbl buff-lbl">強化</span>` + bs.map(b=>`<span class="chip buffchip" title="${b.name}">${b.icon}</span>`).join('');
+  }
+  el.innerHTML = html;
 }
 function nextPick(){
   if(state.pickStep >= state.pickTotal){
@@ -2092,6 +2120,16 @@ function render(){
       const bw=u.r*1.8,bh=4,bx=u.x-bw/2,by=u.y-u.r-9+bob,ratio=Math.max(0,u.hp/u.maxHp);
       ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(bx,by,bw,bh);
       ctx.fillStyle=ratio<.35?'#d2603a':ratio<.66?'#d4a544':'#6fbf73'; ctx.fillRect(bx,by,bw*ratio,bh);
+      // 強化中バッジ：強化されているユニットの頭上にキラッと光る✦
+      if(isBuffed(u)){
+        const pulse=0.7+0.3*Math.sin(world.t*6+u.bob);
+        const bxx=u.x, byy=u.y-u.r-16+bob;
+        ctx.save(); ctx.globalAlpha=1; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.font='bold '+(11+2*pulse).toFixed(1)+'px sans-serif';
+        ctx.lineWidth=3; ctx.strokeStyle='rgba(70,45,10,.85)'; ctx.strokeText('✦', bxx, byy);
+        ctx.fillStyle=u.side==='p'?'#ffe26a':'#ffd0a0'; ctx.fillText('✦', bxx, byy);
+        ctx.restore();
+      }
     }
     ctx.globalAlpha=1;
   }
