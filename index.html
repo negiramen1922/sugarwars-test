@@ -295,8 +295,12 @@ const CONFIG = {
   picksComeback:4,   // 前回負けた側のピック回数（逆転ボーナスで4回）
   picksAfterWin:3,   // 前回勝った側のピック回数（そのまま3回）
   armyCap:30,        // 軍の上限（増えすぎ防止）
-  timeLimit:24,      // 1戦の制限時間(秒)
+  timeLimit:30,      // 1戦の制限時間(秒)。ユニットを小さく・遅くしたぶん中央が空き衝突まで時間がかかるので延長
 };
+/* ★全体のユニット移動速度の倍率。小さくするほど端まで進むのに時間がかかる（衝突がゆっくり）。 */
+const SPEED_MUL = 0.82;
+/* ★盤面の見た目スケール。ユニットのスプライト/当たり判定の全体的な大きさを調整。 */
+const SPRITE_MUL = 3.1;   // スプライト描画の倍率（小さいほどユニットが小さく見える。元は3.3）
 
 /* お菓子の王国の軍勢。HPは100前後をベースにした数値感。
    role=隊列の段（fodder=最前列, tank=中列, back=後列）。
@@ -307,7 +311,7 @@ const UNITS = [
   {key:'slime', name:'ゼリースライム',   icon:'🔵', role:'fodder', tier:0.5, count:3, atk:12, hp:55, speed:90, range:24, cd:0.6, tag:'モブ', text:'3体で出るスライム。強化カード「融合」で1体の巨大スライムに合体できる（倒れると3体に分裂）。', slime:true},
   {key:'bomb',  name:'ポップコーンTNT',   icon:'🍿', role:'fodder', tier:1, count:2, atk:0,  hp:55,  speed:128, range:22, cd:1.0,  tag:'自爆', text:'敵が射程に入ると起爆モードに移行し、短い導火の後に周囲へ大爆発（残りHPに関係なく起爆）。倒されたときも爆発する。', suicide:true, blast:120, blastR:74, fuse:0.5},
   {key:'soda',  name:'ランニングソーダ',   icon:'🥤', role:'fodder', tier:1, count:2, atk:0,  hp:50,  speed:150, range:22, cd:1.0,  tag:'自爆+沼', text:'敵陣へ走り込んで自爆。爆発した場所に炭酸沼を残し、沼の上の敵に持続ダメージと移動速度低下を与える。倒されたときも爆発する。', suicide:true, blast:80, blastR:64, fuse:0.45, puddle:true, puddleR:70, puddleLife:4.0, puddleDps:16, puddleSlow:0.45},
-  {key:'choco', name:'チョコレートナイト', icon:'🍫', role:'tank',   tier:2, count:2, atk:24, hp:260, speed:66,  range:30, cd:0.95, tag:'前衛', text:'2体で並ぶ非常に硬い前衛。最前線で受け止める。', spriteScale:0.78},
+  {key:'choco', name:'チョコレートナイト', icon:'🍫', role:'tank',   tier:2, count:2, atk:24, hp:260, speed:66,  range:30, cd:0.95, tag:'前衛', text:'2体で並ぶ非常に硬い前衛。最前線で受け止める。', spriteScale:0.6},
   {key:'pancake', name:'パンケーキキング', icon:'🥞', role:'tank', tier:2.5, count:1, atk:22, hp:150, speed:58, range:30, cd:1.0, tag:'進化', text:'最初は1枚のパンケーキ（やや脆い前衛）。戦闘開始から約10秒で3段に進化し、HPが大幅アップ＋ジャンプ着地の衝撃波で周囲を範囲攻撃するようになる。', evolve:true, evolveAt:10, evoHpMul:3.5, evoScale:1.5, shockR:88, shockDmg:52, jumpDur:0.55, jumpPeak:30, evoCd:2.4},
   {key:'donut', name:'バキュームドーナッツ', icon:'🍩', role:'tank', tier:1.5, count:1, atk:6, hp:430, speed:50, range:32, cd:1.1, tag:'吸引タンク', text:'眼の前へ敵を吸い寄せる超大型タンク。攻撃は弱いが非常に硬く、大勢の攻撃を受け止める（味方の範囲攻撃と好相性）。', vacuum:true, pullR:155, pullForce:150, vacOn:2.4, vacOff:1.6, spriteScale:1.15},
   {key:'bakery', name:'ジンジャーベーカリー', icon:'🏠', role:'back', tier:3.2, count:1, atk:0, hp:230, speed:0, range:0, cd:1, tag:'生産工場', text:'動かない生産工場。生きている間、約2秒ごとにジンジャーソルジャーを3体まとめて焼いて送り出す（最大7体まで）。倒すと供給が止まる。', spawner:true, spawnKey:'ginger', spawnCd:2.0, spawnCount:3, spawnCap:7, spriteScale:1.3},
@@ -660,12 +664,12 @@ function makeFighters(key, side, W, H, slot){
   const yMax = side==='p' ? B : mid;
   const xMin = playL(W), xMax = playR(W);
   for(let c=0;c<u.count;c++){
-    const hp=u.hp, atk=u.atk, r=Math.max(7,Math.min(15,6+hp*0.035));
+    const hp=u.hp, atk=u.atk, r=Math.max(5,Math.min(11,5+hp*0.028));   // 当たり判定を小さめに（密集して陣地に食い込みにくく）
     arr.push({
       side, key, name:u.name, icon:u.icon, slot, role:u.role, tier:u.tier||0, spriteScale:u.spriteScale||1,
       x:xMin+Math.random()*(xMax-xMin), y:yMin+Math.random()*(yMax-yMin),
       vx:0, vy:0, r, baseR:r, hp, maxHp:hp, baseMaxHp:hp, atk, baseAtk:atk,
-      speed:u.speed, baseSpeed:u.speed, range:u.range, cd:u.cd, cool:Math.random()*u.cd,
+      speed:u.speed*SPEED_MUL, baseSpeed:u.speed*SPEED_MUL, range:u.range, cd:u.cd, cool:Math.random()*u.cd,
       party:false, partyStage:0,
       ranged:!!u.ranged, splash:u.splash||0, blast:u.blast||0, blastR:u.blastR||0,
       suicide:!!u.suicide, armed:false, fuseT:0, fuse:u.fuse||0.5,
@@ -1053,9 +1057,9 @@ function centerMergedSlimes(group){
 function arrangeFormation(world, side, snap){
   const us = world.units.filter(u=>u.side===side);
   if(!us.length) return;
-  const W=world.W, H=world.H, rowGap=30;
+  const W=world.W, H=world.H, rowGap=21;                    // 段の間隔を詰める（ユニットを小さくしたぶん密集）
   const L=playL(W), Rr=playR(W), T=playT(H), Bb=playB(H);   // 盤面（クリーム枠）の内側
-  const cols = Math.max(4, Math.min(12, Math.floor((Rr-L)/34)));
+  const cols = Math.max(4, Math.min(16, Math.floor((Rr-L)/20)));   // 1段あたりの最大数を増やし、横も詰める
 
   // 段(tier)ごとにグループ化（小さいtier=最前列、負の値もOK）。同じ段は種類でまとめる
   const rows=[];
@@ -2109,7 +2113,7 @@ function render(){
       ctx.strokeStyle='rgba(214,158,92,'+(0.3+0.2*p)+')'; ctx.lineWidth=2.6; ctx.stroke();
     }
     if(spr && spr.complete && spr.naturalWidth){
-      const S=u.r*3.3*sc*vis; ctx.imageSmoothingEnabled=false;
+      const S=u.r*SPRITE_MUL*sc*vis; ctx.imageSmoothingEnabled=false;
       ctx.drawImage(spr, u.x-S/2, u.y+bob-S*0.60, S, S);
       if(u.flash>0){ ctx.globalAlpha=Math.min(.7,u.flash*4); ctx.beginPath(); ctx.arc(u.x,u.y+bob,u.r+2,0,6.28); ctx.fillStyle='#fff'; ctx.fill(); ctx.globalAlpha=1; }
     } else {

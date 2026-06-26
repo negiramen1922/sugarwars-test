@@ -199,7 +199,7 @@ function runBattleSym(buildArmy) {
 }
 let sym = { win: 0, lose: 0, draw: 0, stuck: 0 };
 const symKeys = ['cookie', 'choco', 'shoe', 'bomb', 'donut'];
-for (let g = 0; g < 40; g++) {
+for (let g = 0; g < 60; g++) {   // 試行数を増やして勝率の分散を抑える（左右対称はエンジンの毎フレームshuffleで担保）
   const r = runBattleSym((wd) => {
     symKeys.forEach(k => {
       API.makeFighters(k, 'p', W, H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
