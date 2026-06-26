@@ -58,7 +58,7 @@ code += `
   evolvePancake, evolvedStep, nearestEnemy,
   beginDraft, nextPick, pickCard, lockAndFight, aiPicks, startGame,
   applyPartyFlag, applyCookieParty, playerCanParty, countSideKey,
-  applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff,
+  applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff, buffCountFor,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck,
   setupCanvas, CW_get:()=>CW, CH_get:()=>CH,
 };
@@ -1322,6 +1322,37 @@ for (let g = 0; g < 10; g++) {
 }
 console.log('  ベーカリーデッキ戦績:', JSON.stringify(bkDeck));
 check('ラストベイク入りデッキで詰まりゼロ', bkDeck.stuck === 0, bkDeck);
+
+console.log('\n=== 27) CPUの強化はプレイヤーの取得数を超えない（自動強化バグ防止） ===');
+// プレイヤーが強化を一切取らなければ、CPUは何戦やっても強化0（以前は1戦目から勝手に強化されていた）
+API.resetState();
+API.setMyDeck(['choco', 'cookie', 'shoe', 'bomb']);
+API.startGame();
+{
+  const wd = API.world;
+  // 敵盤面に各種強化の条件を満たすユニットを用意（choco2/bomb2/cookie5/donut1）
+  ['choco', 'choco', 'bomb', 'bomb', 'cookie', 'donut'].forEach(k => API.makeFighters(k, 'e', wd.W, wd.H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); }));
+}
+check('開始時は両者とも強化0', API.buffCountFor('p') === 0 && API.buffCountFor('e') === 0);
+let foeMax = 0;
+for (let r = 0; r < 8; r++) { API.lockAndFight(); foeMax = Math.max(foeMax, API.buffCountFor('e')); }
+check('プレイヤー強化0なら8戦してもCPU強化0', foeMax === 0, { foeMax, p: API.buffCountFor('p') });
+
+// プレイヤーが強化を持っていれば、CPUはそれを上限に追従できる（超えない）
+API.resetState();
+API.setMyDeck(['choco', 'cookie', 'shoe', 'bomb']);
+API.startGame();
+{
+  const wd = API.world;
+  ['choco', 'choco', 'bomb', 'bomb'].forEach(k => API.makeFighters(k, 'e', wd.W, wd.H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); }));
+}
+// プレイヤーが3つ強化を持っている体にする
+API.state.youChocoBuff = true; API.state.youParty = true; API.state.youBombSplit = true;
+let foeAfter = 0;
+for (let r = 0; r < 12; r++) { API.lockAndFight(); }
+foeAfter = API.buffCountFor('e');
+check('CPUはプレイヤーの強化数を超えない', foeAfter <= API.buffCountFor('p'), { foe: foeAfter, p: API.buffCountFor('p') });
+check('プレイヤーが強化を持てばCPUも追従して取得できる', foeAfter >= 1, { foe: foeAfter });
 
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
 process.exit(fail ? 1 : 0);
