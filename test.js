@@ -58,7 +58,7 @@ code += `
   evolvePancake, evolvedStep, nearestEnemy,
   beginDraft, nextPick, pickCard, lockAndFight, aiPicks, startGame,
   applyPartyFlag, applyCookieParty, playerCanParty, countSideKey,
-  applyChocoBuff, applyBombSplit, applyDaifukuSlash, applyGhostClone, applyHit, applyCannonCluster,
+  applyChocoBuff, applyBombSplit, applyDaifukuSlash, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck,
   setupCanvas, CW_get:()=>CW, CH_get:()=>CH,
 };
@@ -942,6 +942,85 @@ for (let g = 0; g < 10; g++) {
 }
 console.log('  キャノンデッキ戦績:', JSON.stringify(cnDeck));
 check('クラスター入りデッキで詰まりゼロ', cnDeck.stuck === 0, cnDeck);
+
+console.log('\n=== 22) メガ炭酸沼（ランニングソーダ固有強化・1回限り） ===');
+check('fizz_soda が SPECIALS にある', !!API.SPECIALS.fizz_soda);
+check('fizz_soda は upgrade+sodaFizz, target=soda', API.SPECIALS.fizz_soda && API.SPECIALS.fizz_soda.upgrade && API.SPECIALS.fizz_soda.sodaFizz && API.SPECIALS.fizz_soda.target === 'soda');
+check('isSpecial(fizz_soda)', API.isSpecial('fizz_soda'));
+
+// 出現条件：ソーダが SODA_MIN(2) 以上で出る／取得済みでは出ない／1体では出ない
+API.resetState();
+let wf = API.createWorld(W, H); API.world = wf;
+API.makeFighters('soda', 'p', W, H, 'army').forEach(f => { f.appear = 1; wf.units.push(f); }); // 2体
+check('ソーダ2体で候補に出る', API.eligibleSpecials().includes('fizz_soda'));
+API.state.youSodaFizz = true;
+check('取得済みなら候補に出ない', !API.eligibleSpecials().includes('fizz_soda'));
+API.state.youSodaFizz = false;
+let wf0 = API.createWorld(W, H); API.world = wf0;
+API.makeFighters('soda', 'p', W, H, 'army').slice(0, 1).forEach(f => { f.appear = 1; wf0.units.push(f); });
+check('ソーダ1体(<2)では候補に出ない', !API.eligibleSpecials().includes('fizz_soda'));
+
+// applySodaFizz：味方ソーダの沼の半径とダメージが基準より上がる。敵には付かない
+let wf2 = API.createWorld(W, H); API.world = wf2;
+const sBase = API.UNIT_BY_KEY['soda'];
+API.makeFighters('soda', 'p', W, H, 'army').forEach(f => { f.appear = 1; wf2.units.push(f); });
+API.makeFighters('soda', 'e', W, H, 'army').forEach(f => { f.appear = 1; wf2.units.push(f); });
+API.applySodaFizz(wf2, 'p');
+const ps = wf2.units.find(u => u.side === 'p' && u.key === 'soda');
+check('沼の半径が基準より拡大', ps.puddleR > sBase.puddleR, { base: sBase.puddleR, now: ps.puddleR });
+check('沼のダメージが基準より増加', ps.puddleDps > sBase.puddleDps, { base: sBase.puddleDps, now: ps.puddleDps });
+check('fizz フラグが立つ', ps.fizz === true);
+check('敵ソーダには適用されない', wf2.units.filter(u => u.side === 'e' && u.key === 'soda').every(u => !u.fizz && u.puddleR === sBase.puddleR));
+// 冪等性：2回適用しても基準ベース計算で同じ値
+API.applySodaFizz(wf2, 'p');
+const ps2 = wf2.units.find(u => u.side === 'p' && u.key === 'soda');
+check('2回適用しても同じ値（冪等）', ps2.puddleR === ps.puddleR && ps2.puddleDps === ps.puddleDps);
+
+// 実際の沼：強化ソーダが自爆すると、より大きく強い沼ができる（killUnit経由）
+function sodaPuddle(fizz) {
+  let wd = API.createWorld(W, H); API.world = wd;
+  const s = API.makeFighters('soda', 'p', W, H, 'army')[0];
+  s.x = W / 2; s.y = H / 2; s.appear = 1;
+  if (fizz) { s.puddleR = Math.round(sBase.puddleR * 1.6); s.puddleDps = Math.round(sBase.puddleDps * 1.8); }
+  wd.units.push(s);
+  API.killUnit(wd, s);
+  return wd.puddles[0];
+}
+const basePud = sodaPuddle(false), fizzPud = sodaPuddle(true);
+check('強化で沼の半径が大きい', fizzPud.r > basePud.r, { base: basePud.r, fizz: fizzPud.r });
+check('強化で沼のDPSが高い', fizzPud.dps > basePud.dps, { base: basePud.dps, fizz: fizzPud.dps });
+
+// pickCard で state.youSodaFizz が立ち、盤面ソーダに付与
+API.resetState();
+API.setMyDeck(['soda', 'cookie', 'shoe', 'choco']);
+API.startGame();
+let stf = API.state; let wdf = API.world;
+API.makeFighters('soda', 'p', wdf.W, wdf.H, 'army').forEach(f => { f.appear = 1; wdf.units.push(f); });
+stf.pickTotal = 5; stf.pickStep = 1;
+API.pickCard('fizz_soda');
+check('pickCardでstate.youSodaFizz=true', API.state.youSodaFizz === true);
+check('盤面ソーダに fizz 付与', API.world.units.filter(u => u.side === 'p' && u.key === 'soda').every(u => u.fizz));
+
+// メガ炭酸沼入りデッキで戦闘が詰まらない（10戦）
+let sdDeck = { win: 0, lose: 0, draw: 0, stuck: 0 };
+for (let g = 0; g < 10; g++) {
+  API.resetState();
+  API.setMyDeck(['soda', 'cookie', 'shoe', 'choco']);
+  API.startGame();
+  let st = API.state;
+  let guard = 0;
+  while (st.pickStep < st.pickTotal && guard++ < 50) {
+    const key = st.offer3.find(k => !API.isSpecial(k)) || st.offer3[0];
+    API.pickCard(key);
+  }
+  API.lockAndFight();
+  let wd = API.world; wd.intro = 0;
+  let frames = 0;
+  while (!wd.done && frames < 60 * 45) { API.stepWorld(wd, 1 / 60); frames++; }
+  sdDeck[wd.done ? wd.result : 'stuck']++;
+}
+console.log('  ソーダデッキ戦績:', JSON.stringify(sdDeck));
+check('メガ炭酸沼入りデッキで詰まりゼロ', sdDeck.stuck === 0, sdDeck);
 
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
 process.exit(fail ? 1 : 0);

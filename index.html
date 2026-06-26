@@ -364,6 +364,11 @@ const CANNON_CLUSTER_SPREAD = 1.7;    // 小爆発の散布半径（本体splash
 const CANNON_CLUSTER_SPLASH_MUL = 0.55; // 各小爆発の爆発半径（本体splashの倍率）
 const CANNON_CLUSTER_DMG_MUL = 0.5;   // 各小爆発の威力（本体mortarの倍率）
 const FOE_CANNON_CHANCE = 0.4;    // 敵（ライバル）がクラスター花火弾を使う確率
+/* ★メガ炭酸沼（ランニングソーダ固有強化）の調整値。1回限りの単発強化。 */
+const SODA_MIN = 2;            // 盤面にこの数以上ソーダがいると「メガ炭酸沼」カードが出る
+const SODA_R_MUL = 1.6;        // 炭酸沼の半径倍率（範囲拡大）
+const SODA_DPS_MUL = 1.8;      // 炭酸沼の継続ダメージ倍率
+const FOE_SODA_CHANCE = 0.4;   // 敵（ライバル）がメガ炭酸沼を使う確率
 /* 各キャラぶんの「○○ ×2」強化カードを自動生成（召喚専用と除外キーは作らない） */
 UNITS.filter(u=>!u.summonOnly && !X2_EXCLUDE.has(u.key)).forEach(function(u){
   SPECIALS['x2_'+u.key] = {
@@ -402,6 +407,11 @@ SPECIALS['cluster_cannon'] = {
   key:'cluster_cannon', name:'クラスター花火弾', icon:'🎆', upgrade:true, cannonCluster:true, target:'cannon',
   text:'キャンディキャノンの弾が着弾すると、小さな爆発がいくつも周囲に飛び散る（クラスター弾・広範囲制圧）。以後ずっと有効。',
 };
+/* ランニングソーダ固有強化「メガ炭酸沼」：自爆で残る炭酸沼の範囲とダメージが大幅UP。 */
+SPECIALS['fizz_soda'] = {
+  key:'fizz_soda', name:'メガ炭酸沼', icon:'🥤', upgrade:true, sodaFizz:true, target:'soda',
+  text:'ランニングソーダが残す炭酸沼の範囲が広がり、継続ダメージも大幅にアップする（以後ずっと有効）。',
+};
 function isSpecial(key){ return !!SPECIALS[key]; }
 
 /* スプライト画像（アップロードされたドット絵を埋め込み）。preloadしてcanvasに描画 */
@@ -434,6 +444,7 @@ function resetState(){
     youDaifukuSlash:false, foeDaifukuSlash:false, // 一刀両断を獲得済みか（永続・毎ラウンド再適用・1回限り）
     youGhostClone:false, foeGhostClone:false, // 分身を獲得済みか（永続・毎ラウンド再適用・1回限り）
     youCannonCluster:false, foeCannonCluster:false, // クラスター花火弾を獲得済みか（永続・毎ラウンド再適用・1回限り）
+    youSodaFizz:false, foeSodaFizz:false, // メガ炭酸沼を獲得済みか（永続・毎ラウンド再適用・1回限り）
     roundPicks:[], pickStep:0, pickTotal:CONFIG.picksBase, offer3:[],
     foeRoundPicks:[], foeRevealIdx:0, foePickTotal:CONFIG.picksBase, playerExtra:0,
   };
@@ -700,6 +711,19 @@ function clusterBurst(world, s){
   world.shake=Math.max(world.shake,7);
 }
 
+/* ---- メガ炭酸沼（ランニングソーダ固有強化）---- */
+// 指定陣営のソーダ全員の炭酸沼を、基準値から範囲・ダメージ強化（毎ラウンド再適用・冪等）
+function applySodaFizz(world, side){
+  const base=UNIT_BY_KEY['soda'];
+  let any=false;
+  world.units.forEach(u=>{ if(u.side===side && u.key==='soda'){
+    u.puddleR = Math.round((base.puddleR||70)*SODA_R_MUL);
+    u.puddleDps = Math.round((base.puddleDps||16)*SODA_DPS_MUL);
+    u.fizz = true; any=true;
+  }});
+  return any;
+}
+
 /* ---- スライム融合まわり ---- */
 // 表示用スプライトの解決（スライムは陣営＆サイズで切替、大福は抜刀/納刀）
 function spriteFor(u){
@@ -825,6 +849,7 @@ function eligibleSpecials(){
   if(!state.youDaifukuSlash && countSideKey('p','daifuku')>=DAIFUKU_MIN) list.push('slash_daifuku');   // 1回限り：未取得かつ大福がいれば出る
   if(!state.youGhostClone && countSideKey('p','ghost')>=GHOST_MIN) list.push('clone_ghost');   // 1回限り：未取得かつゴーストがいれば出る
   if(!state.youCannonCluster && countSideKey('p','cannon')>=CANNON_MIN) list.push('cluster_cannon');   // 1回限り：未取得かつキャノンがいれば出る
+  if(!state.youSodaFizz && countSideKey('p','soda')>=SODA_MIN) list.push('fizz_soda');   // 1回限り：未取得かつソーダがいれば出る
   return list.concat(eligibleX2Specials());
 }
 
@@ -915,6 +940,7 @@ function beginDraft(){
   if(state.youDaifukuSlash) applyDaifukuSlash(world,'p');   // 一刀両断を再適用（永続・1回限り）
   if(state.youGhostClone) applyGhostClone(world,'p');   // 分身を再適用（永続・1回限り）
   if(state.youCannonCluster) applyCannonCluster(world,'p');   // クラスター花火弾を再適用（永続・1回限り）
+  if(state.youSodaFizz) applySodaFizz(world,'p');   // メガ炭酸沼を再適用（永続・1回限り）
   arrangeFormation(world,'p',true);
   // 敵の引き継ぎ軍も上に並べる（ドラフト中から見える）
   capArmy(state.foeArmy).forEach(k=> makeFighters(k,'e',CW,CH,'army').forEach(f=>{ f.appear=1; world.units.push(f); }));
@@ -928,6 +954,7 @@ function beginDraft(){
   if(state.foeDaifukuSlash) applyDaifukuSlash(world,'e');   // 敵の一刀両断を再適用（永続・1回限り）
   if(state.foeGhostClone) applyGhostClone(world,'e');   // 敵の分身を再適用（永続・1回限り）
   if(state.foeCannonCluster) applyCannonCluster(world,'e');   // 敵のクラスター花火弾を再適用（永続・1回限り）
+  if(state.foeSodaFizz) applySodaFizz(world,'e');   // 敵のメガ炭酸沼を再適用（永続・1回限り）
   arrangeFormation(world,'e',true);
   // 敵の今回ピックを準備（プレイヤーが1枚選ぶたびに1枚ずつ上に召喚して公開）
   state.foePickTotal = picksFor(state.foeLostLast, state.lostLast);
@@ -992,7 +1019,7 @@ function renderPickOffer(){
       const s=SPECIALS[key];
       el.className='card upgrade';
       const ico = (s.target && UNIT_BY_KEY[s.target]) ? iconHTML(UNIT_BY_KEY[s.target]) : s.icon;
-      const tag = s.x2 ? '×2' : s.party ? 'パーティー' : s.chocoBuff ? '装甲' : s.bombSplit ? 'おかわり' : s.daifukuSlash ? '一刀両断' : s.ghostClone ? '分身' : s.cannonCluster ? '花火' : '融合';
+      const tag = s.x2 ? '×2' : s.party ? 'パーティー' : s.chocoBuff ? '装甲' : s.bombSplit ? 'おかわり' : s.daifukuSlash ? '一刀両断' : s.ghostClone ? '分身' : s.cannonCluster ? '花火' : s.sodaFizz ? '炭酸' : '融合';
       el.innerHTML=`<div class="up-badge">強化</div>
         <div class="icon">${ico}</div>
         <div class="cname">${s.name}</div>
@@ -1073,6 +1100,12 @@ function pickCard(key){
       const nk = world.units.filter(u=>u.side==='p'&&u.key==='cannon'&&u.hp>0);
       if(nk.length){ const cx=nk.reduce((s,u)=>s+u.x,0)/nk.length, cy=nk.reduce((s,u)=>s+u.y,0)/nk.length;
         burst(world,cx,cy,'#ff8fd0',22,150); world.rings.push({x:cx,y:cy,r:4,max:50,life:0.42,color:'#ffd0ec'}); world.shake=Math.max(world.shake,6); }
+    } else if(SPECIALS[key].sodaFizz){
+      state.youSodaFizz = true;
+      applySodaFizz(world,'p');   // 今いるソーダ全員の炭酸沼を強化（以後ずっと有効）
+      const sk = world.units.filter(u=>u.side==='p'&&u.key==='soda'&&u.hp>0);
+      if(sk.length){ const cx=sk.reduce((s,u)=>s+u.x,0)/sk.length, cy=sk.reduce((s,u)=>s+u.y,0)/sk.length;
+        burst(world,cx,cy,'#7fe3ff',20,130); world.rings.push({x:cx,y:cy,r:4,max:52,life:0.42,color:'#cdf4ff'}); }
     }
     state.pickStep++;
     maybeRevealFoe();   // 敵も1枚ぶん公開（ただし自分の逆転ボーナス中は敵は待つ）
@@ -1166,6 +1199,10 @@ function lockAndFight(){
   // 敵のクラスター花火弾（パリティ）：キャノンが規定数いれば確率で発動し永続化（1回限り）
   if(!state.foeCannonCluster && countSideKey('e','cannon')>=CANNON_MIN && Math.random()<FOE_CANNON_CHANCE){
     state.foeCannonCluster = true; applyCannonCluster(world,'e');
+  }
+  // 敵のメガ炭酸沼（パリティ）：ソーダが規定数いれば確率で発動し永続化（1回限り）
+  if(!state.foeSodaFizz && countSideKey('e','soda')>=SODA_MIN && Math.random()<FOE_SODA_CHANCE){
+    state.foeSodaFizz = true; applySodaFizz(world,'e');
   }
   // 自軍を確定（引き継ぎ＋今回のピック）
   state.youArmy = capArmy(state.youArmy.concat(state.roundPicks));
@@ -1782,6 +1819,12 @@ function render(){
       const p=0.5+0.5*Math.sin(world.t*5+u.bob);
       ctx.beginPath(); ctx.arc(u.x,u.y+bob,(u.r+4)*sc*vis,0,6.28);
       ctx.strokeStyle='rgba(255,143,208,'+(0.28+0.22*p)+')'; ctx.lineWidth=2.4; ctx.stroke();
+    }
+    // メガ炭酸沼：強化ソーダは炭酸色のシュワシュワしたオーラ
+    if(u.fizz){
+      const p=0.5+0.5*Math.sin(world.t*9+u.bob);
+      ctx.beginPath(); ctx.arc(u.x,u.y+bob,(u.r+3)*sc*vis,0,6.28);
+      ctx.strokeStyle='rgba(127,227,255,'+(0.28+0.24*p)+')'; ctx.lineWidth=2.2; ctx.stroke();
     }
     if(spr && spr.complete && spr.naturalWidth){
       const S=u.r*3.3*sc*vis; ctx.imageSmoothingEnabled=false;
