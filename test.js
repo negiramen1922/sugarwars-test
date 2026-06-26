@@ -495,19 +495,20 @@ for (let g = 0; g < 10; g++) {
 console.log('  クッキーデッキ戦績:', JSON.stringify(cpRes));
 check('クッキーパーティー入りデッキで詰まりゼロ', cpRes.stuck === 0, cpRes);
 
-console.log('\n=== 17) ビター装甲（チョコレートナイト固有強化・重ねがけ） ===');
+console.log('\n=== 17) ビター装甲（チョコレートナイト固有強化・1回限り） ===');
 check('buff_choco が SPECIALS にある', !!API.SPECIALS.buff_choco);
 check('buff_choco は upgrade+chocoBuff, target=choco', API.SPECIALS.buff_choco && API.SPECIALS.buff_choco.upgrade && API.SPECIALS.buff_choco.chocoBuff && API.SPECIALS.buff_choco.target === 'choco');
 check('isSpecial(buff_choco)', API.isSpecial('buff_choco'));
 check('choco は x2 も生成される(装甲と併存)', !!API.SPECIALS.x2_choco);
 
-// 出現条件：チョコが CHOCO_MIN(2) 以上で出る／未満では出ない。重ねがけ可なので取得済みでも出続ける
+// 出現条件：チョコが CHOCO_MIN(2) 以上で出る／未満では出ない。1回限りなので取得済みでは出ない
 API.resetState();
 let wbc = API.createWorld(W, H); API.world = wbc;
 API.makeFighters('choco', 'p', W, H, 'army').forEach(f => { f.appear = 1; wbc.units.push(f); }); // 2体
 check('チョコ2体で装甲候補に出る', API.eligibleSpecials().includes('buff_choco'));
-API.state.youChocoBuff = 2;
-check('取得済みでも重ねがけで出続ける', API.eligibleSpecials().includes('buff_choco'));
+API.state.youChocoBuff = true;
+check('取得済みなら候補に出ない', !API.eligibleSpecials().includes('buff_choco'));
+API.state.youChocoBuff = false;
 let wbc0 = API.createWorld(W, H); API.world = wbc0;
 let one = API.makeFighters('choco', 'p', W, H, 'army').slice(0, 1);
 one.forEach(f => { f.appear = 1; wbc0.units.push(f); });
@@ -520,25 +521,25 @@ cs.forEach(f => { f.appear = 1; wbc2.units.push(f); });
 API.makeFighters('choco', 'e', W, H, 'army').forEach(f => { f.appear = 1; wbc2.units.push(f); });
 API.makeFighters('cookie', 'p', W, H, 'army').forEach(f => { f.appear = 1; wbc2.units.push(f); });
 const baseHp = cs[0].baseMaxHp, baseAtk2 = cs[0].baseAtk, baseScale = cs[0].spriteScale, baseR = cs[0].baseR;
-API.applyChocoBuff(wbc2, 'p', 1);
+API.applyChocoBuff(wbc2, 'p');
 const me = wbc2.units.find(u => u.side === 'p' && u.key === 'choco');
-check('1回でHPが上がる', me.maxHp > baseHp && me.hp === me.maxHp, { base: baseHp, now: me.maxHp });
-check('1回で攻撃が上がる', me.atk > baseAtk2, { base: baseAtk2, now: me.atk });
-check('1回で見た目が大きくなる', me.spriteScale > baseScale, { base: baseScale, now: me.spriteScale });
-check('1回で当たり判定も増す', me.r > baseR, { base: baseR, now: me.r });
-check('chocoBuff 回数が記録される', me.chocoBuff === 1);
+check('HPが上がる', me.maxHp > baseHp && me.hp === me.maxHp, { base: baseHp, now: me.maxHp });
+check('攻撃が上がる', me.atk > baseAtk2, { base: baseAtk2, now: me.atk });
+check('見た目が大きくなる', me.spriteScale > baseScale, { base: baseScale, now: me.spriteScale });
+check('当たり判定も増す', me.r > baseR, { base: baseR, now: me.r });
+check('chocoBuff フラグが立つ', me.chocoBuff === true);
 check('敵チョコには適用されない', wbc2.units.filter(u => u.side === 'e' && u.key === 'choco').every(u => !u.chocoBuff && u.maxHp === u.baseMaxHp));
 check('味方クッキーには適用されない', wbc2.units.filter(u => u.key === 'cookie').every(u => !u.chocoBuff));
 
-// 重ねがけ：2回のほうが1回より強い（基準から再計算なので冪等で累積）
+// 冪等性：2回呼んでも1回ぶんの強化のまま（重ねがけしない）
 let wbc3 = API.createWorld(W, H); API.world = wbc3;
 let cs1 = API.makeFighters('choco', 'p', W, H, 'army'); cs1.forEach(f => { f.appear = 1; wbc3.units.push(f); });
-API.applyChocoBuff(wbc3, 'p', 1); const hp1 = cs1[0].maxHp, atk1 = cs1[0].atk;
-API.applyChocoBuff(wbc3, 'p', 2); const hp2 = cs1[0].maxHp, atk2 = cs1[0].atk;
-check('2回重ねがけでHPがさらに増える', hp2 > hp1, { hp1, hp2 });
-check('2回重ねがけで攻撃がさらに増える', atk2 > atk1, { atk1, atk2 });
+API.applyChocoBuff(wbc3, 'p'); const hp1 = cs1[0].maxHp, atk1 = cs1[0].atk;
+API.applyChocoBuff(wbc3, 'p'); const hp2 = cs1[0].maxHp, atk2 = cs1[0].atk;
+check('2回適用しても重ねがけしない(HP不変)', hp2 === hp1, { hp1, hp2 });
+check('2回適用しても重ねがけしない(攻撃不変)', atk2 === atk1, { atk1, atk2 });
 
-// pickCard('buff_choco') で state.youChocoBuff が加算され、盤面チョコが強化される
+// pickCard('buff_choco') で state.youChocoBuff が立ち、盤面チョコが強化される
 API.resetState();
 API.setMyDeck(['choco', 'cookie', 'shoe', 'donut']);
 API.startGame();
@@ -547,8 +548,8 @@ API.makeFighters('choco', 'p', wdc.W, wdc.H, 'army').forEach(f => { f.appear = 1
 const chHp0 = wdc.units.find(u => u.side === 'p' && u.key === 'choco').baseMaxHp;
 stc.pickTotal = 5; stc.pickStep = 1;
 API.pickCard('buff_choco');
-check('pickCardでstate.youChocoBuff=1', API.state.youChocoBuff === 1);
-check('盤面チョコが強化された', API.world.units.filter(u => u.side === 'p' && u.key === 'choco').every(u => u.chocoBuff === 1 && u.maxHp > chHp0));
+check('pickCardでstate.youChocoBuff=true', API.state.youChocoBuff === true);
+check('盤面チョコが強化された', API.world.units.filter(u => u.side === 'p' && u.key === 'choco').every(u => u.chocoBuff === true && u.maxHp > chHp0));
 
 // 装甲チョコ軍 vs 無強化チョコ軍：強化側が勝ち越す（30戦）
 let bcRes = { win: 0, lose: 0, draw: 0, stuck: 0 };
@@ -558,7 +559,7 @@ for (let g = 0; g < 30; g++) {
     API.makeFighters('choco', 'p', W, H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
     API.makeFighters('choco', 'e', W, H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
   }
-  API.applyChocoBuff(wd, 'p', 2); // 自分だけ2重ねがけ
+  API.applyChocoBuff(wd, 'p'); // 自分だけ装甲
   API.arrangeFormation(wd, 'p', true); API.arrangeFormation(wd, 'e', true);
   wd.phase = 'battle'; wd.intro = 0; wd.done = false;
   let frames = 0;
