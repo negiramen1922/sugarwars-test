@@ -58,7 +58,7 @@ code += `
   evolvePancake, evolvedStep, nearestEnemy,
   beginDraft, nextPick, pickCard, lockAndFight, aiPicks, startGame,
   applyPartyFlag, applyCookieParty, playerCanParty, countSideKey,
-  applyChocoBuff, applyBombSplit, applyDaifukuSlash,
+  applyChocoBuff, applyBombSplit, applyDaifukuSlash, applyGhostClone, applyHit,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck,
   setupCanvas, CW_get:()=>CW, CH_get:()=>CH,
 };
@@ -782,6 +782,84 @@ for (let g = 0; g < 10; g++) {
 }
 console.log('  大福デッキ戦績:', JSON.stringify(dfDeck));
 check('一刀両断入りデッキで詰まりゼロ', dfDeck.stuck === 0, dfDeck);
+
+console.log('\n=== 20) 分身（わたあめゴースト固有強化・1回限り） ===');
+check('clone_ghost が SPECIALS にある', !!API.SPECIALS.clone_ghost);
+check('clone_ghost は upgrade+ghostClone, target=ghost', API.SPECIALS.clone_ghost && API.SPECIALS.clone_ghost.upgrade && API.SPECIALS.clone_ghost.ghostClone && API.SPECIALS.clone_ghost.target === 'ghost');
+check('isSpecial(clone_ghost)', API.isSpecial('clone_ghost'));
+
+// 出現条件：ゴーストがいれば出る／取得済みでは出ない／居なければ出ない
+API.resetState();
+let wg = API.createWorld(W, H); API.world = wg;
+API.makeFighters('ghost', 'p', W, H, 'army').forEach(f => { f.appear = 1; wg.units.push(f); });
+check('ゴーストがいれば候補に出る', API.eligibleSpecials().includes('clone_ghost'));
+API.state.youGhostClone = true;
+check('取得済みなら候補に出ない', !API.eligibleSpecials().includes('clone_ghost'));
+API.state.youGhostClone = false;
+let wg0 = API.createWorld(W, H); API.world = wg0;
+API.makeFighters('cookie', 'p', W, H, 'army').forEach(f => { f.appear = 1; wg0.units.push(f); });
+check('ゴーストが居なければ候補に出ない', !API.eligibleSpecials().includes('clone_ghost'));
+
+// applyGhostClone：味方ゴーストにだけ cloneOn
+let wg2 = API.createWorld(W, H); API.world = wg2;
+API.makeFighters('ghost', 'p', W, H, 'army').forEach(f => { f.appear = 1; wg2.units.push(f); });
+API.makeFighters('ghost', 'e', W, H, 'army').forEach(f => { f.appear = 1; wg2.units.push(f); });
+API.applyGhostClone(wg2, 'p');
+check('味方ゴーストに cloneOn 付与', wg2.units.filter(u => u.side === 'p' && u.key === 'ghost').every(u => u.cloneOn));
+check('敵ゴーストには付かない', wg2.units.filter(u => u.side === 'e' && u.key === 'ghost').every(u => !u.cloneOn));
+
+// 被弾で分身が1体でる（HP1・おとり）／2回目の被弾では増えない
+let wg3 = API.createWorld(W, H); API.world = wg3;
+wg3.phase = 'battle'; wg3.intro = 0;
+const gho = API.makeFighters('ghost', 'p', W, H, 'army')[0];
+gho.x = W / 2; gho.y = H / 2; gho.appear = 1; gho.invuln = 0; gho.cloneOn = true; gho.hp = gho.maxHp = 500;
+wg3.units.push(gho);
+const atkr = API.makeFighters('shoe', 'e', W, H, 'army')[0]; atkr.x = W / 2; atkr.y = H / 2 + 20; atkr.appear = 1; wg3.units.push(atkr);
+API.applyHit(wg3, atkr, gho, 10);
+let decoys = wg3.units.filter(u => u.key === 'ghost' && u.isDecoy);
+check('被弾で分身が1体でる', decoys.length === 1, decoys.length);
+check('分身はHP1（1撃で消える）', decoys[0] && decoys[0].maxHp === 1 && decoys[0].hp === 1);
+check('分身は味方側', decoys[0] && decoys[0].side === 'p');
+check('分身はワープしない・再分身しない', decoys[0] && decoys[0].warper === false && !decoys[0].cloneOn);
+API.applyHit(wg3, atkr, gho, 10);   // 2回目
+check('2回目の被弾では分身は増えない', wg3.units.filter(u => u.key === 'ghost' && u.isDecoy).length === 1);
+
+// 分身は1撃で消える
+const dec = decoys[0];
+API.applyHit(wg3, atkr, dec, 1);
+check('分身は1ダメージで死ぬ', dec.hp <= 0);
+
+// pickCard で state.youGhostClone が立ち、盤面ゴーストに付与
+API.resetState();
+API.setMyDeck(['ghost', 'cookie', 'shoe', 'choco']);
+API.startGame();
+let stg = API.state; let wdg = API.world;
+API.makeFighters('ghost', 'p', wdg.W, wdg.H, 'army').forEach(f => { f.appear = 1; wdg.units.push(f); });
+stg.pickTotal = 5; stg.pickStep = 1;
+API.pickCard('clone_ghost');
+check('pickCardでstate.youGhostClone=true', API.state.youGhostClone === true);
+check('盤面ゴーストに cloneOn 付与', API.world.units.filter(u => u.side === 'p' && u.key === 'ghost').every(u => u.cloneOn));
+
+// 分身入りデッキで戦闘が詰まらない（10戦）
+let ghDeck = { win: 0, lose: 0, draw: 0, stuck: 0 };
+for (let g = 0; g < 10; g++) {
+  API.resetState();
+  API.setMyDeck(['ghost', 'cookie', 'shoe', 'choco']);
+  API.startGame();
+  let st = API.state;
+  let guard = 0;
+  while (st.pickStep < st.pickTotal && guard++ < 50) {
+    const key = st.offer3[0];
+    API.pickCard(key);
+  }
+  API.lockAndFight();
+  let wd = API.world; wd.intro = 0;
+  let frames = 0;
+  while (!wd.done && frames < 60 * 45) { API.stepWorld(wd, 1 / 60); frames++; }
+  ghDeck[wd.done ? wd.result : 'stuck']++;
+}
+console.log('  ゴーストデッキ戦績:', JSON.stringify(ghDeck));
+check('分身入りデッキで詰まりゼロ', ghDeck.stuck === 0, ghDeck);
 
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
 process.exit(fail ? 1 : 0);

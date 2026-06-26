@@ -353,6 +353,10 @@ const DAIFUKU_DMG_MUL = 1.4;    // 抜刀タックルの威力倍率
 const DAIFUKU_SLASH_R = 2.6;    // 薙ぎ払いの巻き込み半径（dashRangeの倍率。通常は1.5）
 const DAIFUKU_SLASH_FRAC = 0.6; // 巻き込みダメージの割合（通常は0.35）
 const FOE_DAIFUKU_CHANCE = 0.4; // 敵（ライバル）が一刀両断を使う確率
+/* ★分身（わたあめゴースト固有強化）の調整値。1回限りの単発強化。 */
+const GHOST_MIN = 1;            // 盤面にこの数以上ゴーストがいると「分身」カードが出る
+const FOE_GHOST_CHANCE = 0.4;   // 敵（ライバル）が分身を使う確率
+// ※分身は各ゴーストが初被弾時に1回だけ出る、HP1（1撃で消える）のおとり。
 /* 各キャラぶんの「○○ ×2」強化カードを自動生成（召喚専用と除外キーは作らない） */
 UNITS.filter(u=>!u.summonOnly && !X2_EXCLUDE.has(u.key)).forEach(function(u){
   SPECIALS['x2_'+u.key] = {
@@ -380,6 +384,11 @@ SPECIALS['split_bomb'] = {
 SPECIALS['slash_daifuku'] = {
   key:'slash_daifuku', name:'一刀両断', icon:'🍡', upgrade:true, daifukuSlash:true, target:'daifuku',
   text:'大福サムライの抜刀タックルが強化され、威力UP＋広範囲の薙ぎ払いで複数の敵をまとめて斬る（以後ずっと有効）。',
+};
+/* わたあめゴースト固有強化「分身」：攻撃を受けると、おとりの分身を1体出す（分身は1撃で消える）。 */
+SPECIALS['clone_ghost'] = {
+  key:'clone_ghost', name:'分身', icon:'☁️', upgrade:true, ghostClone:true, target:'ghost',
+  text:'わたあめゴーストが攻撃を受けると、おとりの分身を1体出す（分身は1撃で消える・各ゴースト1回ずつ）。以後ずっと有効。',
 };
 function isSpecial(key){ return !!SPECIALS[key]; }
 
@@ -411,6 +420,7 @@ function resetState(){
     youChocoBuff:false, foeChocoBuff:false, // ビター装甲を獲得済みか（永続・毎ラウンド再適用・1回限り）
     youBombSplit:false, foeBombSplit:false, // おかわりポップコーンを獲得済みか（永続・毎ラウンド再適用・1回限り）
     youDaifukuSlash:false, foeDaifukuSlash:false, // 一刀両断を獲得済みか（永続・毎ラウンド再適用・1回限り）
+    youGhostClone:false, foeGhostClone:false, // 分身を獲得済みか（永続・毎ラウンド再適用・1回限り）
     roundPicks:[], pickStep:0, pickTotal:CONFIG.picksBase, offer3:[],
     foeRoundPicks:[], foeRevealIdx:0, foePickTotal:CONFIG.picksBase, playerExtra:0,
   };
@@ -630,6 +640,27 @@ function applyDaifukuSlash(world, side){
   return any;
 }
 
+/* ---- 分身（わたあめゴースト固有強化）---- */
+// 指定陣営のゴースト全員に「被弾時おとり分身」フラグを付ける（毎ラウンド再適用）
+function applyGhostClone(world, side){
+  let any=false;
+  world.units.forEach(u=>{ if(u.side===side && u.key==='ghost'){ u.cloneOn=true; any=true; } });
+  return any;
+}
+// ゴーストのそばに、HP1（1撃で消える）のおとり分身を1体だす。分身はワープも再分身もしない
+function spawnGhostClone(world, src){
+  const c = cloneFighter(src);
+  c.hp = c.maxHp = 1;                    // 1撃で消える
+  c.cloneOn = false; c.cloned = true;    // 分身はさらに分身しない
+  c.warper = false; c.warped = true; c.vanishing = false; c.vanP = 0; c.invuln = 0;  // 再ワープ・無敵はしない
+  c.isDecoy = true; c.appear = 0;
+  c.x = src.x + (Math.random()<0.5?-1:1)*(src.r+6);
+  c.y = src.y + (Math.random()-0.5)*10;
+  clampToStage(c, world.W, world.H);
+  world.units.push(c);
+  burst(world, c.x, c.y, '#ffd9f2', 8, 80);
+}
+
 /* ---- スライム融合まわり ---- */
 // 表示用スプライトの解決（スライムは陣営＆サイズで切替、大福は抜刀/納刀）
 function spriteFor(u){
@@ -753,6 +784,7 @@ function eligibleSpecials(){
   if(!state.youChocoBuff && countSideKey('p','choco')>=CHOCO_MIN) list.push('buff_choco');   // 1回限り：未取得かつチョコがいれば出る
   if(!state.youBombSplit && countSideKey('p','bomb')>=BOMB_MIN) list.push('split_bomb');   // 1回限り：未取得かつポップコーンがいれば出る
   if(!state.youDaifukuSlash && countSideKey('p','daifuku')>=DAIFUKU_MIN) list.push('slash_daifuku');   // 1回限り：未取得かつ大福がいれば出る
+  if(!state.youGhostClone && countSideKey('p','ghost')>=GHOST_MIN) list.push('clone_ghost');   // 1回限り：未取得かつゴーストがいれば出る
   return list.concat(eligibleX2Specials());
 }
 
@@ -841,6 +873,7 @@ function beginDraft(){
   if(state.youChocoBuff) applyChocoBuff(world,'p');   // ビター装甲を再適用（永続・1回限り）
   if(state.youBombSplit) applyBombSplit(world,'p');   // おかわりポップコーンを再適用（永続・1回限り）
   if(state.youDaifukuSlash) applyDaifukuSlash(world,'p');   // 一刀両断を再適用（永続・1回限り）
+  if(state.youGhostClone) applyGhostClone(world,'p');   // 分身を再適用（永続・1回限り）
   arrangeFormation(world,'p',true);
   // 敵の引き継ぎ軍も上に並べる（ドラフト中から見える）
   capArmy(state.foeArmy).forEach(k=> makeFighters(k,'e',CW,CH,'army').forEach(f=>{ f.appear=1; world.units.push(f); }));
@@ -852,6 +885,7 @@ function beginDraft(){
   if(state.foeChocoBuff) applyChocoBuff(world,'e');   // 敵のビター装甲を再適用（永続・1回限り）
   if(state.foeBombSplit) applyBombSplit(world,'e');   // 敵のおかわりポップコーンを再適用（永続・1回限り）
   if(state.foeDaifukuSlash) applyDaifukuSlash(world,'e');   // 敵の一刀両断を再適用（永続・1回限り）
+  if(state.foeGhostClone) applyGhostClone(world,'e');   // 敵の分身を再適用（永続・1回限り）
   arrangeFormation(world,'e',true);
   // 敵の今回ピックを準備（プレイヤーが1枚選ぶたびに1枚ずつ上に召喚して公開）
   state.foePickTotal = picksFor(state.foeLostLast, state.lostLast);
@@ -916,7 +950,7 @@ function renderPickOffer(){
       const s=SPECIALS[key];
       el.className='card upgrade';
       const ico = (s.target && UNIT_BY_KEY[s.target]) ? iconHTML(UNIT_BY_KEY[s.target]) : s.icon;
-      const tag = s.x2 ? '×2' : s.party ? 'パーティー' : s.chocoBuff ? '装甲' : s.bombSplit ? 'おかわり' : s.daifukuSlash ? '一刀両断' : '融合';
+      const tag = s.x2 ? '×2' : s.party ? 'パーティー' : s.chocoBuff ? '装甲' : s.bombSplit ? 'おかわり' : s.daifukuSlash ? '一刀両断' : s.ghostClone ? '分身' : '融合';
       el.innerHTML=`<div class="up-badge">強化</div>
         <div class="icon">${ico}</div>
         <div class="cname">${s.name}</div>
@@ -985,6 +1019,12 @@ function pickCard(key){
       const dk = world.units.filter(u=>u.side==='p'&&u.key==='daifuku'&&u.hp>0);
       if(dk.length){ const cx=dk.reduce((s,u)=>s+u.x,0)/dk.length, cy=dk.reduce((s,u)=>s+u.y,0)/dk.length;
         burst(world,cx,cy,'#fff3c0',20,150); world.rings.push({x:cx,y:cy,r:4,max:50,life:0.4,color:'#fff3c0'}); world.shake=Math.max(world.shake,6); }
+    } else if(SPECIALS[key].ghostClone){
+      state.youGhostClone = true;
+      applyGhostClone(world,'p');   // 今いるゴースト全員に「分身」付与（以後ずっと有効）
+      const gk = world.units.filter(u=>u.side==='p'&&u.key==='ghost'&&u.hp>0);
+      if(gk.length){ const cx=gk.reduce((s,u)=>s+u.x,0)/gk.length, cy=gk.reduce((s,u)=>s+u.y,0)/gk.length;
+        burst(world,cx,cy,'#ffd9f2',18,120); world.rings.push({x:cx,y:cy,r:4,max:48,life:0.4,color:'#ffd9f2'}); }
     }
     state.pickStep++;
     maybeRevealFoe();   // 敵も1枚ぶん公開（ただし自分の逆転ボーナス中は敵は待つ）
@@ -1071,6 +1111,10 @@ function lockAndFight(){
   if(!state.foeDaifukuSlash && countSideKey('e','daifuku')>=DAIFUKU_MIN && Math.random()<FOE_DAIFUKU_CHANCE){
     state.foeDaifukuSlash = true; applyDaifukuSlash(world,'e');
   }
+  // 敵の分身（パリティ）：ゴーストが規定数いれば確率で発動し永続化（1回限り）
+  if(!state.foeGhostClone && countSideKey('e','ghost')>=GHOST_MIN && Math.random()<FOE_GHOST_CHANCE){
+    state.foeGhostClone = true; applyGhostClone(world,'e');
+  }
   // 自軍を確定（引き継ぎ＋今回のピック）
   state.youArmy = capArmy(state.youArmy.concat(state.roundPicks));
   // 敵軍も確定（敵ユニットはドラフト中に出現済み）
@@ -1117,6 +1161,8 @@ function applyHit(world, atk, tgt, dmg){
   if((tgt.invuln||0) > 0){ world.dmgs.push({txt:'すり抜け',x:tgt.x,y:tgt.y-tgt.r-4,vy:-20,life:0.5,color:'#ffd9f2'}); return; }  // 無敵中は無効
   const real = Math.max(1, dmg - wallReduce(tgt, world));
   tgt.hp -= real; tgt.flash = 0.18;
+  // 分身：強化ゴーストが攻撃を受けたら、初回だけおとり分身を1体だす
+  if(tgt.key==='ghost' && tgt.cloneOn && !tgt.cloned){ tgt.cloned=true; spawnGhostClone(world, tgt); }
   if((tgt.kbImmune||0) <= 0 && !tgt.vacuum && !tgt.armed){    // 無効時間中/吸引アンカー/起爆モード中は押されない
     const dx=tgt.x-atk.x, dy=tgt.y-atk.y, d=Math.hypot(dx,dy)||1;
     // 重い相手ほどノックバックが小さい（maxHpベースの耐性）。基礎値も控えめに
@@ -1630,6 +1676,7 @@ function render(){
       else if(u.appearFx>0){ const p=1-u.appearFx/0.3; sc*=(0.5+0.5*p); wAlpha=Math.max(0,Math.min(1,p)); }
       else if(u.invuln>0){ wAlpha=0.5+0.25*Math.sin(world.t*22); }   // すり抜け中は点滅
     }
+    if(u.isDecoy) wAlpha*=0.55;   // おとり分身は半透明の幻
     ctx.globalAlpha=wAlpha;
     if(u.melting){ const mp=Math.min(1,(u.melt||0)/0.65); sc*=Math.max(0,1-mp*mp); bob*=(1-mp); wAlpha=Math.min(wAlpha, Math.max(0,1-mp)); ctx.globalAlpha=wAlpha; }   // 砂糖にとける（本体は完全に消える）
     // 足元の陣営リング（青=味方／赤=敵）でハッキリ判別
