@@ -58,7 +58,7 @@ code += `
   evolvePancake, evolvedStep, nearestEnemy,
   beginDraft, nextPick, pickCard, lockAndFight, aiPicks, startGame,
   applyPartyFlag, applyCookieParty, playerCanParty, countSideKey,
-  applyChocoBuff, applyBombSplit, applyDaifukuSlash, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff,
+  applyChocoBuff, applyBombSplit, applyDaifukuSlash, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck,
   setupCanvas, CW_get:()=>CW, CH_get:()=>CH,
 };
@@ -1226,6 +1226,86 @@ for (let g = 0; g < 30; g++) {
 console.log('  特盛り有利戦績:', JSON.stringify(shRes));
 check('特盛り側が詰まりゼロ', shRes.stuck === 0, shRes);
 check('特盛り側が勝ち越す(win率>0.7)', shRes.win / (shRes.win + shRes.lose || 1) > 0.7, shRes);
+
+console.log('\n=== 26) ラストベイク（ジンジャーベーカリー固有強化・1回限り） ===');
+check('last_bake が SPECIALS にある', !!API.SPECIALS.last_bake);
+check('last_bake は upgrade+bakeryBuff, target=bakery', API.SPECIALS.last_bake && API.SPECIALS.last_bake.upgrade && API.SPECIALS.last_bake.bakeryBuff && API.SPECIALS.last_bake.target === 'bakery');
+check('isSpecial(last_bake)', API.isSpecial('last_bake'));
+
+// 出現条件：ベーカリーがいれば出る／取得済みでは出ない／居なければ出ない
+API.resetState();
+let wb = API.createWorld(W, H); API.world = wb;
+API.makeFighters('bakery', 'p', W, H, 'army').forEach(f => { f.appear = 1; wb.units.push(f); });
+check('ベーカリーがいれば候補に出る', API.eligibleSpecials().includes('last_bake'));
+API.state.youBakeryBuff = true;
+check('取得済みなら候補に出ない', !API.eligibleSpecials().includes('last_bake'));
+API.state.youBakeryBuff = false;
+let wb0 = API.createWorld(W, H); API.world = wb0;
+API.makeFighters('cookie', 'p', W, H, 'army').forEach(f => { f.appear = 1; wb0.units.push(f); });
+check('ベーカリーが居なければ候補に出ない', !API.eligibleSpecials().includes('last_bake'));
+
+// applyBakeryBuff：HPが基準から増し、deathSpawn が付く。敵には付かない
+let wb2 = API.createWorld(W, H); API.world = wb2;
+const bk = API.makeFighters('bakery', 'p', W, H, 'army')[0];
+bk.appear = 1; wb2.units.push(bk);
+API.makeFighters('bakery', 'e', W, H, 'army').forEach(f => { f.appear = 1; wb2.units.push(f); });
+const bkHp = bk.baseMaxHp;
+API.applyBakeryBuff(wb2, 'p');
+check('HPが上がる', bk.maxHp > bkHp && bk.hp === bk.maxHp, { base: bkHp, now: bk.maxHp });
+check('deathSpawn が設定される', bk.deathSpawn > 0, bk.deathSpawn);
+check('bakeryBuff フラグが立つ', bk.bakeryBuff === true);
+check('敵ベーカリーには適用されない', wb2.units.filter(u => u.side === 'e' && u.key === 'bakery').every(u => !u.bakeryBuff && u.maxHp === u.baseMaxHp));
+
+// 死亡時召喚：強化ベーカリーが倒れると、ジンジャーがまとめて湧く（通常ベーカリーは湧かない）
+function gingersOnDeath(buff) {
+  let wd = API.createWorld(W, H); API.world = wd;
+  const b = API.makeFighters('bakery', 'p', W, H, 'army')[0];
+  b.x = W / 2; b.y = H * 0.85; b.appear = 1; wd.units.push(b);
+  if (buff) API.applyBakeryBuff(wd, 'p');
+  const before = wd.units.filter(u => u.key === 'ginger').length;
+  API.killUnit(wd, b);
+  return wd.units.filter(u => u.key === 'ginger').length - before;
+}
+check('強化ベーカリーの死亡でジンジャーが湧く', gingersOnDeath(true) === 5, gingersOnDeath(true));
+check('通常ベーカリーの死亡では湧かない', gingersOnDeath(false) === 0);
+// 湧いたジンジャーは味方側
+let wb3 = API.createWorld(W, H); API.world = wb3;
+const b3 = API.makeFighters('bakery', 'p', W, H, 'army')[0]; b3.x = W / 2; b3.y = H * 0.85; b3.appear = 1; wb3.units.push(b3);
+API.applyBakeryBuff(wb3, 'p'); API.killUnit(wb3, b3);
+check('湧いたジンジャーは味方側', wb3.units.filter(u => u.key === 'ginger').every(u => u.side === 'p'));
+
+// pickCard で state.youBakeryBuff が立ち、盤面ベーカリーが強化
+API.resetState();
+API.setMyDeck(['bakery', 'cookie', 'choco', 'shoe']);
+API.startGame();
+let stb2 = API.state; let wdb2 = API.world;
+API.makeFighters('bakery', 'p', wdb2.W, wdb2.H, 'army').forEach(f => { f.appear = 1; wdb2.units.push(f); });
+const bkHp0 = wdb2.units.find(u => u.side === 'p' && u.key === 'bakery').baseMaxHp;
+stb2.pickTotal = 5; stb2.pickStep = 1;
+API.pickCard('last_bake');
+check('pickCardでstate.youBakeryBuff=true', API.state.youBakeryBuff === true);
+check('盤面ベーカリーが強化された', API.world.units.filter(u => u.side === 'p' && u.key === 'bakery').every(u => u.bakeryBuff === true && u.maxHp > bkHp0 && u.deathSpawn > 0));
+
+// ラストベイク入りデッキで戦闘が詰まらない（10戦）
+let bkDeck = { win: 0, lose: 0, draw: 0, stuck: 0 };
+for (let g = 0; g < 10; g++) {
+  API.resetState();
+  API.setMyDeck(['bakery', 'cookie', 'choco', 'shoe']);
+  API.startGame();
+  let st = API.state;
+  let guard = 0;
+  while (st.pickStep < st.pickTotal && guard++ < 50) {
+    const key = st.offer3.find(k => !API.isSpecial(k)) || st.offer3[0];
+    API.pickCard(key);
+  }
+  API.lockAndFight();
+  let wd = API.world; wd.intro = 0;
+  let frames = 0;
+  while (!wd.done && frames < 60 * 50) { API.stepWorld(wd, 1 / 60); frames++; }
+  bkDeck[wd.done ? wd.result : 'stuck']++;
+}
+console.log('  ベーカリーデッキ戦績:', JSON.stringify(bkDeck));
+check('ラストベイク入りデッキで詰まりゼロ', bkDeck.stuck === 0, bkDeck);
 
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
 process.exit(fail ? 1 : 0);
