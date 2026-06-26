@@ -57,6 +57,7 @@ code += `
   mergeAllSlimeGroups, countUnmergedSlimes, stepWorld, isSpecial, killUnit,
   evolvePancake, evolvedStep, nearestEnemy,
   beginDraft, nextPick, pickCard, lockAndFight, aiPicks, startGame,
+  applyPartyFlag, applyCookieParty, playerCanParty, countSideKey,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck,
   setupCanvas, CW_get:()=>CW, CH_get:()=>CH,
 };
@@ -389,6 +390,109 @@ for (let g = 0; g < 10; g++) {
 }
 console.log('  パンケーキ戦績:', JSON.stringify(pkRes));
 check('パンケーキ戦で詰まりゼロ', pkRes.stuck === 0, pkRes);
+
+console.log('\n=== 16) クッキーパーティー（固有強化カード） ===');
+check('party_cookie が SPECIALS にある', !!API.SPECIALS.party_cookie);
+check('party_cookie は upgrade+party, target=cookie', API.SPECIALS.party_cookie && API.SPECIALS.party_cookie.upgrade && API.SPECIALS.party_cookie.party && API.SPECIALS.party_cookie.target === 'cookie');
+check('isSpecial(party_cookie)', API.isSpecial('party_cookie'));
+check('cookie は x2 も生成される(party と併存)', !!API.SPECIALS.x2_cookie);
+
+// 出現条件：クッキーが PARTY_MIN(3) 未満では出ない、3以上で出る（未取得時）
+API.resetState();
+let wcp = API.createWorld(W, H); API.world = wcp;
+API.makeFighters('cookie', 'p', W, H, 'army').forEach(f => { f.appear = 1; wcp.units.push(f); }); // 5体
+check('クッキー5体・未取得ならパーティー候補に出る', API.eligibleSpecials().includes('party_cookie'));
+API.state.youParty = true;
+check('取得済みなら候補に出ない', !API.eligibleSpecials().includes('party_cookie'));
+API.state.youParty = false;
+// 2体だけの状況では出ない
+let wcp2 = API.createWorld(W, H); API.world = wcp2;
+let two = API.makeFighters('cookie', 'p', W, H, 'army').slice(0, 2);
+two.forEach(f => { f.appear = 1; wcp2.units.push(f); });
+check('クッキー2体(<3)では候補に出ない', !API.eligibleSpecials().includes('party_cookie'));
+
+// applyPartyFlag：味方クッキーだけに party が付く
+let wcp3 = API.createWorld(W, H); API.world = wcp3;
+API.makeFighters('cookie', 'p', W, H, 'army').forEach(f => { f.appear = 1; wcp3.units.push(f); });
+API.makeFighters('cookie', 'e', W, H, 'army').forEach(f => { f.appear = 1; wcp3.units.push(f); });
+API.makeFighters('choco', 'p', W, H, 'army').forEach(f => { f.appear = 1; wcp3.units.push(f); });
+API.applyPartyFlag(wcp3, 'p');
+check('味方クッキーに party 付与', wcp3.units.filter(u => u.side === 'p' && u.key === 'cookie').every(u => u.party));
+check('敵クッキーには付かない', wcp3.units.filter(u => u.side === 'e' && u.key === 'cookie').every(u => !u.party));
+check('味方チョコには付かない', wcp3.units.filter(u => u.key === 'choco').every(u => !u.party));
+
+// 近接段階バフ：密集したパーティークッキーは攻撃が上がる／孤立クッキーは素のまま
+let wcp4 = API.createWorld(W, H); API.world = wcp4;
+wcp4.phase = 'battle'; wcp4.intro = 0;
+let cluster = API.makeFighters('cookie', 'p', W, H, 'army'); // 5体
+cluster.forEach((f, i) => { f.x = W / 2 + (i - 2) * 6; f.y = H / 2; f.appear = 1; f.party = true; wcp4.units.push(f); }); // 密集
+let lone = API.makeFighters('cookie', 'p', W, H, 'army')[0];
+lone.x = 10; lone.y = 10; lone.appear = 1; lone.party = true; wcp4.units.push(lone); // 遠く離して孤立
+let baseAtk = cluster[0].baseAtk;
+API.applyCookieParty(wcp4, 1 / 60);
+let clusterMid = cluster[2]; // 中央のクッキーは近接数が最大
+check('密集クッキーは段階>0', clusterMid.partyStage > 0, clusterMid.partyStage);
+check('密集クッキーの攻撃が素より上がる', clusterMid.atk > baseAtk, { base: baseAtk, now: clusterMid.atk });
+check('孤立クッキーは段階0・素の攻撃', lone.partyStage === 0 && lone.atk === baseAtk, { stage: lone.partyStage, atk: lone.atk });
+check('密集クッキーは速度も上がる', clusterMid.speed > clusterMid.baseSpeed, { base: clusterMid.baseSpeed, now: clusterMid.speed });
+
+// party 無しのクッキーはバフを受けない
+let wcp5 = API.createWorld(W, H); API.world = wcp5;
+let plain = API.makeFighters('cookie', 'p', W, H, 'army');
+plain.forEach((f, i) => { f.x = W / 2 + (i - 2) * 6; f.y = H / 2; f.appear = 1; wcp5.units.push(f); }); // party=false
+API.applyCookieParty(wcp5, 1 / 60);
+check('party未取得クッキーはバフ無し(atk=base)', plain.every(u => u.atk === u.baseAtk && u.partyStage === 0));
+
+// pickCard('party_cookie') で state.youParty が立ち、盤面クッキーに付与される
+API.resetState();
+API.setMyDeck(['cookie', 'choco', 'shoe', 'donut']);
+API.startGame();
+let stp = API.state; let wdp = API.world;
+API.makeFighters('cookie', 'p', wdp.W, wdp.H, 'army').forEach(f => { f.appear = 1; wdp.units.push(f); });
+stp.pickTotal = 5; stp.pickStep = 1;
+API.pickCard('party_cookie');
+check('pickCardでstate.youParty=true', API.state.youParty === true);
+check('盤面クッキーがparty状態に', API.world.units.filter(u => u.side === 'p' && u.key === 'cookie').every(u => u.party));
+
+// パーティー軍は無強化クッキー軍に勝ち越す（密度バフの実効性, 30戦）
+let partyRes = { win: 0, lose: 0, draw: 0, stuck: 0 };
+for (let g = 0; g < 30; g++) {
+  let wd = API.createWorld(W, H); API.world = wd;
+  for (let i = 0; i < 3; i++) {
+    API.makeFighters('cookie', 'p', W, H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+    API.makeFighters('cookie', 'e', W, H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+  }
+  API.applyPartyFlag(wd, 'p'); // 自分だけパーティー
+  API.arrangeFormation(wd, 'p', true); API.arrangeFormation(wd, 'e', true);
+  wd.phase = 'battle'; wd.intro = 0; wd.done = false;
+  let frames = 0;
+  while (!wd.done && frames < 60 * 45) { API.stepWorld(wd, 1 / 60); frames++; }
+  partyRes[wd.done ? wd.result : 'stuck']++;
+}
+console.log('  パーティー有利戦績:', JSON.stringify(partyRes));
+check('パーティー側が詰まりゼロ', partyRes.stuck === 0, partyRes);
+check('パーティー側が勝ち越す(win率>0.6)', partyRes.win / (partyRes.win + partyRes.lose || 1) > 0.6, partyRes);
+
+// クッキーパーティー入りデッキで戦闘が詰まらない（10戦）
+let cpRes = { win: 0, lose: 0, draw: 0, stuck: 0 };
+for (let g = 0; g < 10; g++) {
+  API.resetState();
+  API.setMyDeck(['cookie', 'choco', 'shoe', 'bomb']);
+  API.startGame();
+  let st = API.state;
+  let guard = 0;
+  while (st.pickStep < st.pickTotal && guard++ < 50) {
+    const key = st.offer3[0];
+    API.pickCard(key);
+  }
+  API.lockAndFight();
+  let wd = API.world; wd.intro = 0;
+  let frames = 0;
+  while (!wd.done && frames < 60 * 45) { API.stepWorld(wd, 1 / 60); frames++; }
+  cpRes[wd.done ? wd.result : 'stuck']++;
+}
+console.log('  クッキーデッキ戦績:', JSON.stringify(cpRes));
+check('クッキーパーティー入りデッキで詰まりゼロ', cpRes.stuck === 0, cpRes);
 
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
 process.exit(fail ? 1 : 0);
