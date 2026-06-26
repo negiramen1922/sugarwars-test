@@ -312,14 +312,14 @@ const UNITS = [
   {key:'bomb',  name:'ポップコーンTNT',   icon:'🍿', role:'fodder', tier:1, count:2, atk:0,  hp:55,  speed:128, range:22, cd:1.0,  tag:'自爆', text:'敵が射程に入ると起爆モードに移行し、短い導火の後に周囲へ大爆発（残りHPに関係なく起爆）。倒されたときも爆発する。', suicide:true, blast:120, blastR:74, fuse:0.5},
   {key:'soda',  name:'ランニングソーダ',   icon:'🥤', role:'fodder', tier:1, count:2, atk:0,  hp:50,  speed:150, range:22, cd:1.0,  tag:'自爆+沼', text:'敵陣へ走り込んで自爆。爆発した場所に炭酸沼を残し、沼の上の敵に持続ダメージと移動速度低下を与える。倒されたときも爆発する。', suicide:true, blast:80, blastR:64, fuse:0.45, puddle:true, puddleR:70, puddleLife:4.0, puddleDps:16, puddleSlow:0.45},
   {key:'choco', name:'チョコレートナイト', icon:'🍫', role:'tank',   tier:2, count:2, atk:24, hp:260, speed:66,  range:30, cd:0.95, tag:'前衛', text:'2体で並ぶ非常に硬い前衛。最前線で受け止める。', spriteScale:0.6},
-  {key:'pancake', name:'パンケーキキング', icon:'🥞', role:'tank', tier:2.5, count:1, atk:22, hp:150, speed:58, range:30, cd:1.0, tag:'進化', text:'最初は1枚のパンケーキ（やや脆い前衛）。戦闘開始から約10秒で3段に進化し、HPが大幅アップ＋ジャンプ着地の衝撃波で周囲を範囲攻撃するようになる。', evolve:true, evolveAt:10, evoHpMul:3.5, evoScale:1.5, shockR:88, shockDmg:52, jumpDur:0.55, jumpPeak:30, evoCd:2.4},
-  {key:'donut', name:'バキュームドーナッツ', icon:'🍩', role:'tank', tier:1.5, count:1, atk:6, hp:430, speed:50, range:32, cd:1.1, tag:'吸引タンク', text:'眼の前へ敵を吸い寄せる超大型タンク。攻撃は弱いが非常に硬く、大勢の攻撃を受け止める（味方の範囲攻撃と好相性）。', vacuum:true, pullR:155, pullForce:150, vacOn:2.4, vacOff:1.6, spriteScale:1.15},
-  {key:'bakery', name:'ジンジャーベーカリー', icon:'🏠', role:'back', tier:3.2, count:1, atk:0, hp:230, speed:0, range:0, cd:1, tag:'生産工場', text:'動かない生産工場。生きている間、約2秒ごとにジンジャーソルジャーを3体まとめて焼いて送り出す（最大7体まで）。倒すと供給が止まる。', spawner:true, spawnKey:'ginger', spawnCd:2.0, spawnCount:3, spawnCap:7, spriteScale:1.3},
+  {key:'pancake', name:'パンケーキキング', icon:'🥞', role:'tank', tier:2.5, count:1, atk:22, hp:150, speed:58, range:30, cd:1.0, tag:'進化', text:'最初は1枚のパンケーキ（やや脆い前衛）。戦闘開始から約10秒で3段に進化し、HPが大幅アップ＋ジャンプ着地の衝撃波で周囲を範囲攻撃するようになる。', evolve:true, evolveAt:10, evoHpMul:3.5, evoScale:1.3, shockR:88, shockDmg:52, jumpDur:0.55, jumpPeak:30, evoCd:2.4},
+  {key:'donut', name:'バキュームドーナッツ', icon:'🍩', role:'tank', tier:1.5, count:1, atk:6, hp:430, speed:50, range:32, cd:1.1, tag:'吸引タンク', text:'眼の前へ敵を吸い寄せる超大型タンク。攻撃は弱いが非常に硬く、大勢の攻撃を受け止める（味方の範囲攻撃と好相性）。', vacuum:true, pullR:155, pullForce:150, vacOn:2.4, vacOff:1.6, spriteScale:1.0},
+  {key:'bakery', name:'ジンジャーベーカリー', icon:'🏠', role:'back', tier:3.2, count:1, atk:0, hp:230, speed:0, range:0, cd:1, tag:'生産工場', text:'動かない生産工場。生きている間、約2秒ごとにジンジャーソルジャーを3体まとめて焼いて送り出す（最大7体まで）。倒すと供給が止まる。', spawner:true, spawnKey:'ginger', spawnCd:2.0, spawnCount:3, spawnCap:7, spriteScale:1.1},
   {key:'ginger', name:'ジンジャーソルジャー', icon:'🍪', role:'fodder', tier:0, count:1, atk:10, hp:32, speed:112, range:22, cd:0.55, tag:'召喚', text:'ジンジャーベーカリーが焼き上げる小さな兵士。脆いが足が速く、数で押し寄せる。', summonOnly:true},
   {key:'popcorn_mini', name:'小型ポップコーン', icon:'🍿', role:'fodder', tier:1, count:1, atk:0, hp:24, speed:132, range:22, cd:1.0, tag:'自爆', text:'ポップコーンTNTの爆発から飛び出す小型。すぐに自爆する（さらに分裂はしない）。', suicide:true, blast:60, blastR:48, fuse:0.4, summonOnly:true, spriteScale:0.62},
   {key:'shoe',  name:'シュークリームアーチャー', icon:'🧁', role:'back', tier:3, count:2, atk:21, hp:72, speed:64, range:120, cd:0.9, tag:'後衛', text:'2人で矢を放つ後衛の射手。', ranged:true},
   {key:'ghost', name:'わたあめゴースト', icon:'☁️', role:'back', tier:3.5, count:3, atk:16, hp:44, speed:95, range:28, cd:0.43, tag:'強襲', text:'3体で出る奇襲役。戦闘開始から少し経つと消えて、敵陣の最後尾あたりへワープ。出現直後はすり抜け(無敵)で後衛を最優先に叩く（脆い）。', warper:true, warpDelay:0.8, target:'back'},
-  {key:'cannon',name:'キャンディキャノン', icon:'🎆', role:'back', tier:4, count:1, atk:0, hp:140, speed:0, range:9999, cd:2.8, tag:'迫撃', text:'最後尾から動かず、ステージ全域へ範囲迫撃。遅いが密集地点で大爆発。', artillery:true, mortar:60, splash:62, shotSpeed:230, arcH:80, spriteScale:1.5},
+  {key:'cannon',name:'キャンディキャノン', icon:'🎆', role:'back', tier:4, count:1, atk:0, hp:140, speed:0, range:9999, cd:2.8, tag:'迫撃', text:'最後尾から動かず、ステージ全域へ範囲迫撃。遅いが密集地点で大爆発。', artillery:true, mortar:60, splash:62, shotSpeed:230, arcH:80, spriteScale:1.25},
 ];
 const UNIT_BY_KEY = Object.fromEntries(UNITS.map(u=>[u.key,u]));
 
@@ -928,8 +928,8 @@ const FUSE = {
   hpMul:2.2,        // 巨大スライムHP = 合体3体の最大HP合計 × この倍率
   atkMul:2.4,       // 巨大スライムの攻撃力 = 通常スライム攻撃 × この倍率
   rangeAdd:4,       // 体が大きいぶん間合いを少し広げる
-  spriteScale:1.3,  // 見た目の大きさ倍率（小さくした）
-  rBase:7, rPerHp:0.02, rMax:15,  // 当たり半径 = min(rMax, rBase + maxHp*rPerHp)
+  spriteScale:1.15, // 見た目の大きさ倍率（他の小型化に合わせて縮小）
+  rBase:6, rPerHp:0.02, rMax:11,  // 当たり半径 = min(rMax, rBase + maxHp*rPerHp)。全体の小型化に合わせ縮小
 };
 
 // その陣営の未融合スライム3体を1体の巨大スライムに合体。成功でtrue
@@ -1570,7 +1570,7 @@ function evolvePancake(world, u){
   u.evolved=true;
   u.maxHp=Math.round(u.baseMaxHp*u.evoHpMul);
   u.hp=u.maxHp;                                   // 進化で全回復＆大幅増
-  u.r=Math.min(20, Math.round(u.r*1.25));
+  u.r=Math.min(15, Math.round(u.r*1.25));   // 進化後の当たり判定も全体の小型化に合わせて縮小
   u.spriteScale=(u.spriteScale||1)*u.evoScale;
   u.cd=u.evoCd; u.cool=u.cd*0.4;
   u.name='パンケーキキング(3段)';
