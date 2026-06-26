@@ -58,7 +58,7 @@ code += `
   evolvePancake, evolvedStep, nearestEnemy,
   beginDraft, nextPick, pickCard, lockAndFight, aiPicks, startGame,
   applyPartyFlag, applyCookieParty, playerCanParty, countSideKey,
-  applyChocoBuff, applyBombSplit,
+  applyChocoBuff, applyBombSplit, applyDaifukuSlash,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck,
   setupCanvas, CW_get:()=>CW, CH_get:()=>CH,
 };
@@ -700,6 +700,88 @@ for (let g = 0; g < 10; g++) {
 }
 console.log('  ポップコーンデッキ戦績:', JSON.stringify(bombDeck));
 check('おかわり入りデッキで詰まりゼロ', bombDeck.stuck === 0, bombDeck);
+
+console.log('\n=== 19) 一刀両断（大福サムライ固有強化・1回限り） ===');
+check('slash_daifuku が SPECIALS にある', !!API.SPECIALS.slash_daifuku);
+check('slash_daifuku は upgrade+daifukuSlash, target=daifuku', API.SPECIALS.slash_daifuku && API.SPECIALS.slash_daifuku.upgrade && API.SPECIALS.slash_daifuku.daifukuSlash && API.SPECIALS.slash_daifuku.target === 'daifuku');
+check('isSpecial(slash_daifuku)', API.isSpecial('slash_daifuku'));
+
+// 出現条件：大福が1体以上で出る／取得済みでは出ない／0体では出ない
+API.resetState();
+let wds = API.createWorld(W, H); API.world = wds;
+API.makeFighters('daifuku', 'p', W, H, 'army').forEach(f => { f.appear = 1; wds.units.push(f); });
+check('大福がいれば候補に出る', API.eligibleSpecials().includes('slash_daifuku'));
+API.state.youDaifukuSlash = true;
+check('取得済みなら候補に出ない', !API.eligibleSpecials().includes('slash_daifuku'));
+API.state.youDaifukuSlash = false;
+let wds0 = API.createWorld(W, H); API.world = wds0;
+API.makeFighters('cookie', 'p', W, H, 'army').forEach(f => { f.appear = 1; wds0.units.push(f); });
+check('大福が居なければ候補に出ない', !API.eligibleSpecials().includes('slash_daifuku'));
+
+// applyDaifukuSlash：味方大福にだけ slash フラグ
+let wds2 = API.createWorld(W, H); API.world = wds2;
+API.makeFighters('daifuku', 'p', W, H, 'army').forEach(f => { f.appear = 1; wds2.units.push(f); });
+API.makeFighters('daifuku', 'e', W, H, 'army').forEach(f => { f.appear = 1; wds2.units.push(f); });
+API.applyDaifukuSlash(wds2, 'p');
+check('味方大福に slash 付与', wds2.units.filter(u => u.side === 'p' && u.key === 'daifuku').every(u => u.slash));
+check('敵大福には付かない', wds2.units.filter(u => u.side === 'e' && u.key === 'daifuku').every(u => !u.slash));
+
+// 効果：薙ぎ払いは通常より広範囲＆高ダメージ（同一配置で総ダメージを比較）
+function dashDamageTotal(slash) {
+  let wd = API.createWorld(W, H); API.world = wd;
+  wd.phase = 'battle'; wd.intro = 0;
+  const cx = W / 2, cy = H / 2;
+  const foes = [];
+  // 本命＋距離違いの巻き込み対象（30/46/60px）。倒れず測れるようHP高め
+  [[0, 8], [0, 33], [0, 49], [0, 63]].forEach(([dx, dy]) => {
+    const f = API.makeFighters('cookie', 'e', W, H, 'army')[0];
+    f.x = cx + dx; f.y = cy + dy; f.appear = 1; f.hp = f.maxHp = 9999; f.cool = 999; wd.units.push(f); foes.push(f);
+  });
+  const d = API.makeFighters('daifuku', 'p', W, H, 'army')[0];
+  d.x = cx; d.y = cy; d.appear = 1; d.cstate = 'dash'; d.dashT = 0; d.ddx = 0; d.ddy = 1; d.cool = 0;
+  if (slash) d.slash = true;
+  d.hp = d.maxHp = 9999;
+  wd.units.push(d);
+  // 数フレーム回して抜刀の一撃を確実に発生させる
+  for (let i = 0; i < 8; i++) API.stepWorld(wd, 1 / 60);
+  return foes.reduce((s, f) => s + (f.maxHp - f.hp), 0);
+}
+const baseDmg = dashDamageTotal(false);
+const slashDmg = dashDamageTotal(true);
+check('抜刀でダメージが入る（基準）', baseDmg > 0, baseDmg);
+check('一刀両断は総ダメージが増える', slashDmg > baseDmg, { base: baseDmg, slash: slashDmg });
+
+// pickCard で state.youDaifukuSlash が立ち、盤面大福に付与
+API.resetState();
+API.setMyDeck(['daifuku', 'cookie', 'shoe', 'choco']);
+API.startGame();
+let stds = API.state; let wdds = API.world;
+API.makeFighters('daifuku', 'p', wdds.W, wdds.H, 'army').forEach(f => { f.appear = 1; wdds.units.push(f); });
+stds.pickTotal = 5; stds.pickStep = 1;
+API.pickCard('slash_daifuku');
+check('pickCardでstate.youDaifukuSlash=true', API.state.youDaifukuSlash === true);
+check('盤面大福に slash 付与', API.world.units.filter(u => u.side === 'p' && u.key === 'daifuku').every(u => u.slash));
+
+// 一刀両断入りデッキで戦闘が詰まらない（10戦）
+let dfDeck = { win: 0, lose: 0, draw: 0, stuck: 0 };
+for (let g = 0; g < 10; g++) {
+  API.resetState();
+  API.setMyDeck(['daifuku', 'cookie', 'shoe', 'choco']);
+  API.startGame();
+  let st = API.state;
+  let guard = 0;
+  while (st.pickStep < st.pickTotal && guard++ < 50) {
+    const key = st.offer3[0];
+    API.pickCard(key);
+  }
+  API.lockAndFight();
+  let wd = API.world; wd.intro = 0;
+  let frames = 0;
+  while (!wd.done && frames < 60 * 45) { API.stepWorld(wd, 1 / 60); frames++; }
+  dfDeck[wd.done ? wd.result : 'stuck']++;
+}
+console.log('  大福デッキ戦績:', JSON.stringify(dfDeck));
+check('一刀両断入りデッキで詰まりゼロ', dfDeck.stuck === 0, dfDeck);
 
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
 process.exit(fail ? 1 : 0);

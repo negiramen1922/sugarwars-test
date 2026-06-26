@@ -347,6 +347,12 @@ const FOE_CHOCO_CHANCE = 0.4;   // 敵（ライバル）がビター装甲を使
 const BOMB_MIN = 2;             // 盤面にこの数以上ポップコーンがいると「おかわりポップコーン」カードが出る
 const FOE_BOMB_CHANCE = 0.4;    // 敵（ライバル）がおかわりを使う確率
 // ※小型ポップコーンの強さ（HP/爆発力など）は UNITS の 'popcorn_mini' 行で調整。
+/* ★一刀両断（大福サムライ固有強化）の調整値。1回限りの単発強化。 */
+const DAIFUKU_MIN = 1;          // 盤面にこの数以上大福がいると「一刀両断」カードが出る
+const DAIFUKU_DMG_MUL = 1.4;    // 抜刀タックルの威力倍率
+const DAIFUKU_SLASH_R = 2.6;    // 薙ぎ払いの巻き込み半径（dashRangeの倍率。通常は1.5）
+const DAIFUKU_SLASH_FRAC = 0.6; // 巻き込みダメージの割合（通常は0.35）
+const FOE_DAIFUKU_CHANCE = 0.4; // 敵（ライバル）が一刀両断を使う確率
 /* 各キャラぶんの「○○ ×2」強化カードを自動生成（召喚専用と除外キーは作らない） */
 UNITS.filter(u=>!u.summonOnly && !X2_EXCLUDE.has(u.key)).forEach(function(u){
   SPECIALS['x2_'+u.key] = {
@@ -369,6 +375,11 @@ SPECIALS['buff_choco'] = {
 SPECIALS['split_bomb'] = {
   key:'split_bomb', name:'おかわりポップコーン', icon:'🍿', upgrade:true, bombSplit:true, target:'bomb',
   text:'ポップコーンTNTが爆発したあと、小型ポップコーンが1体飛び出してもう一度爆発する（以後ずっと有効）。',
+};
+/* 大福サムライ固有強化「一刀両断」：抜刀タックルが威力UP＋広範囲の薙ぎ払いになり複数の敵をまとめて斬る。 */
+SPECIALS['slash_daifuku'] = {
+  key:'slash_daifuku', name:'一刀両断', icon:'🍡', upgrade:true, daifukuSlash:true, target:'daifuku',
+  text:'大福サムライの抜刀タックルが強化され、威力UP＋広範囲の薙ぎ払いで複数の敵をまとめて斬る（以後ずっと有効）。',
 };
 function isSpecial(key){ return !!SPECIALS[key]; }
 
@@ -399,6 +410,7 @@ function resetState(){
     youParty:false, foeParty:false,     // クッキーパーティーを獲得済みか（永続・毎ラウンド再適用）
     youChocoBuff:false, foeChocoBuff:false, // ビター装甲を獲得済みか（永続・毎ラウンド再適用・1回限り）
     youBombSplit:false, foeBombSplit:false, // おかわりポップコーンを獲得済みか（永続・毎ラウンド再適用・1回限り）
+    youDaifukuSlash:false, foeDaifukuSlash:false, // 一刀両断を獲得済みか（永続・毎ラウンド再適用・1回限り）
     roundPicks:[], pickStep:0, pickTotal:CONFIG.picksBase, offer3:[],
     foeRoundPicks:[], foeRevealIdx:0, foePickTotal:CONFIG.picksBase, playerExtra:0,
   };
@@ -610,6 +622,14 @@ function applyBombSplit(world, side){
   return any;
 }
 
+/* ---- 一刀両断（大福サムライ固有強化）---- */
+// 指定陣営の大福全員に「薙ぎ払い」フラグを付ける（毎ラウンド再適用）
+function applyDaifukuSlash(world, side){
+  let any=false;
+  world.units.forEach(u=>{ if(u.side===side && u.key==='daifuku'){ u.slash=true; any=true; } });
+  return any;
+}
+
 /* ---- スライム融合まわり ---- */
 // 表示用スプライトの解決（スライムは陣営＆サイズで切替、大福は抜刀/納刀）
 function spriteFor(u){
@@ -732,6 +752,7 @@ function eligibleSpecials(){
   if(playerCanParty()) list.push('party_cookie');
   if(!state.youChocoBuff && countSideKey('p','choco')>=CHOCO_MIN) list.push('buff_choco');   // 1回限り：未取得かつチョコがいれば出る
   if(!state.youBombSplit && countSideKey('p','bomb')>=BOMB_MIN) list.push('split_bomb');   // 1回限り：未取得かつポップコーンがいれば出る
+  if(!state.youDaifukuSlash && countSideKey('p','daifuku')>=DAIFUKU_MIN) list.push('slash_daifuku');   // 1回限り：未取得かつ大福がいれば出る
   return list.concat(eligibleX2Specials());
 }
 
@@ -819,6 +840,7 @@ function beginDraft(){
   if(state.youParty) applyPartyFlag(world,'p');   // クッキーパーティーを再適用（永続）
   if(state.youChocoBuff) applyChocoBuff(world,'p');   // ビター装甲を再適用（永続・1回限り）
   if(state.youBombSplit) applyBombSplit(world,'p');   // おかわりポップコーンを再適用（永続・1回限り）
+  if(state.youDaifukuSlash) applyDaifukuSlash(world,'p');   // 一刀両断を再適用（永続・1回限り）
   arrangeFormation(world,'p',true);
   // 敵の引き継ぎ軍も上に並べる（ドラフト中から見える）
   capArmy(state.foeArmy).forEach(k=> makeFighters(k,'e',CW,CH,'army').forEach(f=>{ f.appear=1; world.units.push(f); }));
@@ -829,6 +851,7 @@ function beginDraft(){
   if(state.foeParty) applyPartyFlag(world,'e');   // 敵のクッキーパーティーを再適用（永続）
   if(state.foeChocoBuff) applyChocoBuff(world,'e');   // 敵のビター装甲を再適用（永続・1回限り）
   if(state.foeBombSplit) applyBombSplit(world,'e');   // 敵のおかわりポップコーンを再適用（永続・1回限り）
+  if(state.foeDaifukuSlash) applyDaifukuSlash(world,'e');   // 敵の一刀両断を再適用（永続・1回限り）
   arrangeFormation(world,'e',true);
   // 敵の今回ピックを準備（プレイヤーが1枚選ぶたびに1枚ずつ上に召喚して公開）
   state.foePickTotal = picksFor(state.foeLostLast, state.lostLast);
@@ -893,7 +916,7 @@ function renderPickOffer(){
       const s=SPECIALS[key];
       el.className='card upgrade';
       const ico = (s.target && UNIT_BY_KEY[s.target]) ? iconHTML(UNIT_BY_KEY[s.target]) : s.icon;
-      const tag = s.x2 ? '×2' : s.party ? 'パーティー' : s.chocoBuff ? '装甲' : s.bombSplit ? 'おかわり' : '融合';
+      const tag = s.x2 ? '×2' : s.party ? 'パーティー' : s.chocoBuff ? '装甲' : s.bombSplit ? 'おかわり' : s.daifukuSlash ? '一刀両断' : '融合';
       el.innerHTML=`<div class="up-badge">強化</div>
         <div class="icon">${ico}</div>
         <div class="cname">${s.name}</div>
@@ -956,6 +979,12 @@ function pickCard(key){
       const bk = world.units.filter(u=>u.side==='p'&&u.key==='bomb'&&u.hp>0);
       if(bk.length){ const cx=bk.reduce((s,u)=>s+u.x,0)/bk.length, cy=bk.reduce((s,u)=>s+u.y,0)/bk.length;
         burst(world,cx,cy,'#ffd9a8',18,110); world.rings.push({x:cx,y:cy,r:4,max:44,life:0.4,color:'#ffe1b0'}); }
+    } else if(SPECIALS[key].daifukuSlash){
+      state.youDaifukuSlash = true;
+      applyDaifukuSlash(world,'p');   // 今いる大福全員に「一刀両断」付与（以後ずっと有効）
+      const dk = world.units.filter(u=>u.side==='p'&&u.key==='daifuku'&&u.hp>0);
+      if(dk.length){ const cx=dk.reduce((s,u)=>s+u.x,0)/dk.length, cy=dk.reduce((s,u)=>s+u.y,0)/dk.length;
+        burst(world,cx,cy,'#fff3c0',20,150); world.rings.push({x:cx,y:cy,r:4,max:50,life:0.4,color:'#fff3c0'}); world.shake=Math.max(world.shake,6); }
     }
     state.pickStep++;
     maybeRevealFoe();   // 敵も1枚ぶん公開（ただし自分の逆転ボーナス中は敵は待つ）
@@ -1037,6 +1066,10 @@ function lockAndFight(){
   // 敵のおかわりポップコーン（パリティ）：ポップコーンが規定数いれば確率で発動し永続化（1回限り）
   if(!state.foeBombSplit && countSideKey('e','bomb')>=BOMB_MIN && Math.random()<FOE_BOMB_CHANCE){
     state.foeBombSplit = true; applyBombSplit(world,'e');
+  }
+  // 敵の一刀両断（パリティ）：大福が規定数いれば確率で発動し永続化（1回限り）
+  if(!state.foeDaifukuSlash && countSideKey('e','daifuku')>=DAIFUKU_MIN && Math.random()<FOE_DAIFUKU_CHANCE){
+    state.foeDaifukuSlash = true; applyDaifukuSlash(world,'e');
   }
   // 自軍を確定（引き継ぎ＋今回のピック）
   state.youArmy = capArmy(state.youArmy.concat(state.roundPicks));
@@ -1243,11 +1276,15 @@ function chargerStep(world, u, tgt, dt){
     let hit=null,bd=u.dashRange*u.dashRange;
     for(const o of world.units){ if(o.side===u.side||o.hp<=0) continue; const dd=(o.x-u.x)**2+(o.y-u.y)**2; if(dd<bd){bd=dd;hit=o;} }
     if(hit){
-      applyHit(world,u,hit,u.dashDamage);                              // タックルで大ダメージ
-      for(const o of world.units){ if(o.side===u.side||o.hp<=0||o===hit) continue; if((o.x-u.x)**2+(o.y-u.y)**2 < (u.dashRange*1.5)**2) applyHit(world,u,o,Math.round(u.dashDamage*0.35)); }
-      world.shake=Math.max(world.shake,6);
-      world.rings.push({x:u.x,y:u.y,r:3,max:u.dashRange*1.8,life:0.25,color:'#ffffff'});
-      burst(world,u.x,u.y,'#ffe08a',12,150);
+      // 一刀両断(u.slash)なら威力UP＋巻き込み半径と割合を拡大して薙ぎ払う
+      const dmg=Math.round(u.dashDamage*(u.slash?DAIFUKU_DMG_MUL:1));
+      const splashR=u.dashRange*(u.slash?DAIFUKU_SLASH_R:1.5);
+      const frac=u.slash?DAIFUKU_SLASH_FRAC:0.35;
+      applyHit(world,u,hit,dmg);                                       // タックルで大ダメージ
+      for(const o of world.units){ if(o.side===u.side||o.hp<=0||o===hit) continue; if((o.x-u.x)**2+(o.y-u.y)**2 < splashR*splashR) applyHit(world,u,o,Math.round(dmg*frac)); }
+      world.shake=Math.max(world.shake,u.slash?10:6);
+      world.rings.push({x:u.x,y:u.y,r:3,max:(u.slash?splashR*1.5:u.dashRange*1.8),life:u.slash?0.3:0.25,color:u.slash?'#fff3c0':'#ffffff'});
+      burst(world,u.x,u.y,'#ffe08a',u.slash?22:12,u.slash?200:150);
       u.cstate='walk'; u.cool=u.cd*0.5;
     } else if(!tgt || u.dashT>=3.0){    // 安全策：敵が居ない/異常に長いときだけ徒歩へ
       u.cstate='walk'; u.chargeT=0;
@@ -1634,6 +1671,12 @@ function render(){
       const p=0.5+0.5*Math.sin(world.t*4+u.bob);
       ctx.beginPath(); ctx.arc(u.x,u.y+bob,(u.r+3)*sc*vis,0,6.28);
       ctx.strokeStyle='rgba(140,90,43,'+(0.3+0.22*p)+')'; ctx.lineWidth=2.6; ctx.stroke();
+    }
+    // 一刀両断：強化された大福は刃のような金色のオーラ
+    if(u.slash){
+      const p=0.5+0.5*Math.sin(world.t*7+u.bob);
+      ctx.beginPath(); ctx.arc(u.x,u.y+bob,(u.r+3)*sc*vis,0,6.28);
+      ctx.strokeStyle='rgba(255,225,120,'+(0.28+0.24*p)+')'; ctx.lineWidth=2.2; ctx.stroke();
     }
     if(spr && spr.complete && spr.naturalWidth){
       const S=u.r*3.3*sc*vis; ctx.imageSmoothingEnabled=false;
