@@ -983,6 +983,22 @@ function foeEnhanceCandidates(){
   if(!state.foeBakeryBuff   && countSideKey('e','bakery') >=BAKERY_MIN)  cands.push({key:'last_bake',     fn:function(){ state.foeBakeryBuff=true;    applyBakeryBuff(world,'e'); }});
   return cands;
 }
+// 永続フラグ系の強化（X2/融合以外）を、指定陣営の現在の盤面に再適用する。
+// 強化取得後に同じキャラを追加ピックしても、新しい個体が未強化のまま残らないようにする（ラウンド内の整合）。
+function applyFlagBuffs(world, side){
+  const p = side==='p';
+  if(p?state.youParty:state.foeParty)                 applyPartyFlag(world,side);
+  if(p?state.youChocoBuff:state.foeChocoBuff)         applyChocoBuff(world,side);
+  if(p?state.youBombSplit:state.foeBombSplit)         applyBombSplit(world,side);
+  if(p?state.youDaifukuBuff:state.foeDaifukuBuff)     applyDaifukuBuff(world,side);
+  if(p?state.youGhostClone:state.foeGhostClone)       applyGhostClone(world,side);
+  if(p?state.youCannonCluster:state.foeCannonCluster) applyCannonCluster(world,side);
+  if(p?state.youSodaFizz:state.foeSodaFizz)           applySodaFizz(world,side);
+  if(p?state.youDonutWall:state.foeDonutWall)         applyDonutWall(world,side);
+  if(p?state.youPancakeFast:state.foePancakeFast)     applyPancakeFast(world,side);
+  if(p?state.youShoeBuff:state.foeShoeBuff)           applyShoeBuff(world,side);
+  if(p?state.youBakeryBuff:state.foeBakeryBuff)       applyBakeryBuff(world,side);
+}
 // プレイヤーが強化/X2カードを取った瞬間に、CPUも1つ強化して同時に公開する（敵味方同時＝同数を保つ）
 function foeMatchEnhance(){
   if(!world || buffCountFor('e')>=buffCountFor('p')) return;
@@ -1433,6 +1449,7 @@ function pickCard(key){
   state.pickStep++;
   // フィールドにライブ追加（自軍は下から）
   makeFighters(key,'p',CW,CH,'pick').forEach(f=>{ f.x=CW/2+(Math.random()-0.5)*40; f.y=playB(CH)-f.r; world.units.push(f); burst(world,f.x,f.y,'#4ea3c9',9,75); });
+  applyFlagBuffs(world,'p');            // 強化済みなら、新しく加えた同種ユニットもその場で強化（混在防止）
   arrangeFormation(world,'p',false);   // 後方から隊列へ滑り込む
   maybeRevealFoe();   // 敵も1枚ぶん公開（ただし自分の逆転ボーナス中は敵は待つ）
   nextPick();
@@ -1447,6 +1464,7 @@ function revealFoePick(key){
   showFoePickCard(key);                 // ライバルが何を選んだか表示
   SFX.play('deploy');                   // 敵ユニット出現のポップ
   makeFighters(key,'e',CW,CH,'pick').forEach(f=>{ f.x=CW/2+(Math.random()-0.5)*40; f.y=playT(CH)+f.r; world.units.push(f); burst(world,f.x,f.y,'#d2603a',9,75); });
+  applyFlagBuffs(world,'e');            // 敵も強化済みなら新個体をその場で強化（混在防止）
   arrangeFormation(world,'e',false);   // 上の隊列へ滑り込む
 }
 let foePickTimer=0;
