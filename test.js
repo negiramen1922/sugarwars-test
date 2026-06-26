@@ -58,7 +58,7 @@ code += `
   evolvePancake, evolvedStep, nearestEnemy,
   beginDraft, nextPick, pickCard, lockAndFight, aiPicks, startGame,
   applyPartyFlag, applyCookieParty, playerCanParty, countSideKey,
-  applyChocoBuff, applyBombSplit, applyDaifukuSlash, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall,
+  applyChocoBuff, applyBombSplit, applyDaifukuSlash, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck,
   setupCanvas, CW_get:()=>CW, CH_get:()=>CH,
 };
@@ -1089,6 +1089,80 @@ for (let g = 0; g < 40; g++) {
 console.log('  鉄壁有利戦績:', JSON.stringify(dwRes));
 check('鉄壁側が詰まりゼロ', dwRes.stuck === 0, dwRes);
 check('鉄壁側が勝ち越す傾向(win率>0.5)', dwRes.win / (dwRes.win + dwRes.lose || 1) > 0.5, dwRes);
+
+console.log('\n=== 24) はや焼きパンケーキ（パンケーキキング固有強化・1回限り） ===');
+check('fast_pancake が SPECIALS にある', !!API.SPECIALS.fast_pancake);
+check('fast_pancake は upgrade+pancakeFast, target=pancake', API.SPECIALS.fast_pancake && API.SPECIALS.fast_pancake.upgrade && API.SPECIALS.fast_pancake.pancakeFast && API.SPECIALS.fast_pancake.target === 'pancake');
+check('isSpecial(fast_pancake)', API.isSpecial('fast_pancake'));
+
+// 出現条件：パンケーキがいれば出る／取得済みでは出ない／居なければ出ない
+API.resetState();
+let wp2 = API.createWorld(W, H); API.world = wp2;
+API.makeFighters('pancake', 'p', W, H, 'army').forEach(f => { f.appear = 1; wp2.units.push(f); });
+check('パンケーキがいれば候補に出る', API.eligibleSpecials().includes('fast_pancake'));
+API.state.youPancakeFast = true;
+check('取得済みなら候補に出ない', !API.eligibleSpecials().includes('fast_pancake'));
+API.state.youPancakeFast = false;
+let wp0 = API.createWorld(W, H); API.world = wp0;
+API.makeFighters('cookie', 'p', W, H, 'army').forEach(f => { f.appear = 1; wp0.units.push(f); });
+check('パンケーキが居なければ候補に出ない', !API.eligibleSpecials().includes('fast_pancake'));
+
+// applyPancakeFast：味方パンケーキの evolveAt が25%短縮（10→7.5）。敵には付かない
+let wp3 = API.createWorld(W, H); API.world = wp3;
+const pkBase = API.UNIT_BY_KEY['pancake'].evolveAt;
+API.makeFighters('pancake', 'p', W, H, 'army').forEach(f => { f.appear = 1; wp3.units.push(f); });
+API.makeFighters('pancake', 'e', W, H, 'army').forEach(f => { f.appear = 1; wp3.units.push(f); });
+API.applyPancakeFast(wp3, 'p');
+const myPk = wp3.units.find(u => u.side === 'p' && u.key === 'pancake');
+check('進化時間が短縮(10→7.5)', Math.abs(myPk.evolveAt - pkBase * 0.75) < 1e-6, { base: pkBase, now: myPk.evolveAt });
+check('fastEvo フラグが立つ', myPk.fastEvo === true);
+check('敵パンケーキは据え置き(10)', wp3.units.filter(u => u.side === 'e' && u.key === 'pancake').every(u => u.evolveAt === pkBase));
+
+// 実際に早く進化する：t=8秒で強化版は進化済み・通常版はまだ
+function evolvedByTime(fast, T) {
+  let wd = API.createWorld(W, H); API.world = wd;
+  wd.phase = 'battle'; wd.intro = 0; wd.t = 0;
+  const pk = API.makeFighters('pancake', 'p', W, H, 'army')[0];
+  pk.x = W / 2; pk.y = H - 50; pk.appear = 1; pk.hp = pk.maxHp = 99999; wd.units.push(pk);
+  if (fast) pk.evolveAt = pkBase * 0.75;
+  const foe = API.makeFighters('choco', 'e', W, H, 'army')[0]; foe.x = W / 2; foe.y = 50; foe.appear = 1; foe.hp = foe.maxHp = 99999; wd.units.push(foe);
+  for (let i = 0; i < 60 * T && !pk.evolved; i++) API.stepWorld(wd, 1 / 60);
+  return pk.evolved;
+}
+check('はや焼きはt=8秒までに進化済み', evolvedByTime(true, 8) === true);
+check('通常はt=8秒ではまだ未進化', evolvedByTime(false, 8) === false);
+
+// pickCard で state.youPancakeFast が立ち、盤面パンケーキに付与
+API.resetState();
+API.setMyDeck(['pancake', 'cookie', 'shoe', 'choco']);
+API.startGame();
+let stpf = API.state; let wdpf = API.world;
+API.makeFighters('pancake', 'p', wdpf.W, wdpf.H, 'army').forEach(f => { f.appear = 1; wdpf.units.push(f); });
+stpf.pickTotal = 5; stpf.pickStep = 1;
+API.pickCard('fast_pancake');
+check('pickCardでstate.youPancakeFast=true', API.state.youPancakeFast === true);
+check('盤面パンケーキが短縮された', API.world.units.filter(u => u.side === 'p' && u.key === 'pancake').every(u => u.fastEvo === true && u.evolveAt < pkBase));
+
+// はや焼きパンケーキ入りデッキで戦闘が詰まらない（10戦）
+let pfDeck = { win: 0, lose: 0, draw: 0, stuck: 0 };
+for (let g = 0; g < 10; g++) {
+  API.resetState();
+  API.setMyDeck(['pancake', 'cookie', 'shoe', 'choco']);
+  API.startGame();
+  let st = API.state;
+  let guard = 0;
+  while (st.pickStep < st.pickTotal && guard++ < 50) {
+    const key = st.offer3.find(k => !API.isSpecial(k)) || st.offer3[0];
+    API.pickCard(key);
+  }
+  API.lockAndFight();
+  let wd = API.world; wd.intro = 0;
+  let frames = 0;
+  while (!wd.done && frames < 60 * 50) { API.stepWorld(wd, 1 / 60); frames++; }
+  pfDeck[wd.done ? wd.result : 'stuck']++;
+}
+console.log('  パンケーキデッキ戦績:', JSON.stringify(pfDeck));
+check('はや焼き入りデッキで詰まりゼロ', pfDeck.stuck === 0, pfDeck);
 
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
 process.exit(fail ? 1 : 0);
