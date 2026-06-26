@@ -157,6 +157,19 @@
   .modal-card .md-stats{display:flex;gap:18px;justify-content:center;font-family:"Space Mono",monospace;font-size:14px;margin:12px 0}
   .modal-card .md-stats .atk{color:var(--rust)} .modal-card .md-stats .hp{color:var(--green)}
   .modal-card p{color:var(--muted);font-size:13px;line-height:1.65;margin:0}
+  .topbar-actions{display:flex;align-items:center;gap:8px}
+  .iconbtn{background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:8px 12px;font-size:18px;line-height:1;cursor:pointer;transition:border-color .15s,color .15s}
+  .iconbtn:hover{border-color:var(--brass);color:var(--brass)}
+  .menu-card h3,.modal-card h3{font-family:"Oswald",sans-serif;text-transform:uppercase;letter-spacing:.04em;text-align:center;margin:0 0 12px;font-size:20px;color:var(--ink)}
+  .menu-card .menu-row{display:flex;align-items:center;gap:10px;width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:13px 15px;color:var(--ink);font-size:15px;cursor:pointer;margin:8px 0;text-align:left;font-family:inherit;transition:border-color .15s}
+  .menu-card .menu-row:hover{border-color:var(--brass)}
+  .news-list{max-height:55vh;overflow-y:auto;margin-top:4px}
+  .news-item{border-left:3px solid var(--brass);padding:2px 0 8px 12px;margin:14px 0}
+  .news-item .news-ver{font-family:"Space Mono",monospace;color:var(--brass);font-size:12px;font-weight:700}
+  .news-item .news-date{color:var(--muted);font-size:11px;margin-left:8px}
+  .news-item h4{margin:5px 0 7px;font-size:15px;color:var(--ink)}
+  .news-item ul{margin:0;padding-left:18px;color:var(--muted);font-size:13px;line-height:1.65}
+  .news-item p{margin:0 0 6px;color:var(--ink);font-size:13px}
   .footnote{text-align:center;color:var(--muted);font-size:12px;margin-top:20px}
   .footnote code{font-family:"Space Mono",monospace;color:var(--brass)}
 </style>
@@ -165,11 +178,14 @@
 <div class="wrap">
   <header class="topbar">
     <div class="brand"><h1>Sugar <span class="clash">Wars</span></h1><span class="tag">お菓子の王国の戦争</span></div>
-    <button id="sfxBtn" class="btn btn-ghost" onclick="toggleSfx()" title="効果音オン/オフ" style="padding:8px 12px;font-size:18px;line-height:1">🔊</button>
     <div class="score" id="scoreBar">
       <div class="side-score you"><span class="name">You</span><span class="hearts" id="youHearts">❤️❤️❤️</span></div>
       <div class="round-pill" id="roundPill">Round 1</div>
       <div class="side-score foe"><span class="name">Rival</span><span class="hearts" id="foeHearts">❤️❤️❤️</span></div>
+    </div>
+    <div class="topbar-actions">
+      <button id="sfxBtn" class="iconbtn" onclick="toggleSfx()" title="効果音オン/オフ">🔊</button>
+      <button id="menuBtn" class="iconbtn" onclick="toggleMenu()" title="メニュー">☰</button>
     </div>
   </header>
 
@@ -280,6 +296,23 @@
       <div style="text-align:center;margin-top:14px"><button class="btn btn-ghost" onclick="closeDetail()">閉じる</button></div>
     </div>
   </div>
+  <!-- ハンバーガーメニュー -->
+  <div id="menuModal" class="modal-overlay hidden" onclick="closeMenu(event)">
+    <div class="modal-card menu-card" onclick="event.stopPropagation()">
+      <h3>メニュー</h3>
+      <button class="menu-row" onclick="openNews()">📢 お知らせ</button>
+      <button class="menu-row" onclick="toggleSfx()">🔊 効果音 オン / オフ</button>
+      <div style="text-align:center;margin-top:8px"><button class="btn btn-ghost" onclick="closeMenu()">閉じる</button></div>
+    </div>
+  </div>
+  <!-- お知らせモーダル -->
+  <div id="newsModal" class="modal-overlay hidden" onclick="closeNews(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <h3>お知らせ</h3>
+      <div id="newsList" class="news-list"></div>
+      <div style="text-align:center;margin-top:14px"><button class="btn btn-ghost" onclick="closeNews()">閉じる</button></div>
+    </div>
+  </div>
   <p class="footnote">プロトタイプ — ユニットやルールは <code>UNITS</code> と <code>CONFIG</code> を編集して調整できます。</p>
 </div>
 
@@ -333,6 +366,7 @@ const SPECIALS = {
 };
 /* ★X2強化カードの調整値（ここをいじればバランス調整できる） */
 const X2_MIN = 3;                 // 盤面にこの数以上いる種類にX2カードが出る（2→3で厳しめに）
+const X2_COOLDOWN_ROUNDS = 1;     // 同じキャラの2倍を取ったら、そのキャラの2倍は残り同ラウンド＋このラウンド数ぶん出さない（同キャラ連打抑制。別キャラの2倍は出る）
 const SPECIAL_OFFER_CHANCE = 0.3; // 強化カードが出せる状況のとき、1枠を強化カードに差し替える確率（0.6→0.3で出にくく）
 const FOE_X2_CHANCE = 0.4;        // 敵（ライバル）がX2強化を使う確率（0.6→0.4）
 const X2_EXCLUDE = new Set(['slime']); // X2対象から外すキー（スライムは「融合」があるため除外）
@@ -543,6 +577,7 @@ function resetState(){
     lostLast:false, foeLostLast:false,  // 前回負けたか（逆転ボーナス用）
     youMerges:0, foeMerges:0,           // これまでに獲得したスライム融合の回数（永続）
     youX2:{}, foeX2:{},                 // これまでに獲得したX2強化（key→回数。永続・毎ラウンド再適用）
+    x2Block:{}, foeX2Block:{},          // キャラ別：このラウンド番号までそのキャラの2倍を出さない（同キャラ連打クールダウン。味方/敵）
     youParty:false, foeParty:false,     // クッキーパーティーを獲得済みか（永続・毎ラウンド再適用）
     youChocoBuff:false, foeChocoBuff:false, // ビター装甲を獲得済みか（永続・毎ラウンド再適用・1回限り）
     youBombSplit:false, foeBombSplit:false, // おかわりポップコーンを獲得済みか（永続・毎ラウンド再適用・1回限り）
@@ -914,6 +949,50 @@ function acquiredBuffs(){
   flags.forEach(([f,ic,nm])=>{ if(S[f]) out.push({icon:ic, name:nm}); });
   return out;
 }
+// その陣営が取得済みの強化の総数（融合＋X2＋各固有強化）。CPUの強化をプレイヤーと釣り合わせるのに使う
+function buffCountFor(side){
+  const p = side==='p';
+  let n = (p ? state.youMerges : state.foeMerges) || 0;
+  const x2 = (p ? state.youX2 : state.foeX2) || {};
+  for(const k in x2) n += x2[k]||0;
+  const flags = p
+    ? ['youParty','youChocoBuff','youBombSplit','youDaifukuBuff','youGhostClone','youCannonCluster','youSodaFizz','youDonutWall','youPancakeFast','youShoeBuff','youBakeryBuff']
+    : ['foeParty','foeChocoBuff','foeBombSplit','foeDaifukuBuff','foeGhostClone','foeCannonCluster','foeSodaFizz','foeDonutWall','foePancakeFast','foeShoeBuff','foeBakeryBuff'];
+  for(const f of flags) if(state[f]) n++;
+  return n;
+}
+// いまCPUが取得できる強化の候補一覧（{key:表示用SPECIALSキー, fn:適用}）。融合は1グループずつ＝1獲得=カウント+1。
+function foeEnhanceCandidates(){
+  const cands=[];
+  if(countUnmergedSlimes(world,'e')>=3) cands.push({key:'up_slime', fn:function(){ if(mergeOneSlimeGroup(world,'e')) state.foeMerges+=1; }});
+  { const fb=state.foeX2Block||{}; const fc={};
+    world.units.forEach(u=>{ if(u.side==='e'&&u.hp>0){ const unit=UNIT_BY_KEY[u.key]; if(unit&&!unit.summonOnly&&!X2_EXCLUDE.has(u.key) && state.round>(fb[u.key]||0)) fc[u.key]=(fc[u.key]||0)+1; }});  // クールダウン中のキャラは除外
+    let bestKey=null,bestN=0; for(const k in fc){ if(fc[k]>=X2_MIN && fc[k]>bestN){ bestN=fc[k]; bestKey=k; } }
+    if(bestKey) cands.push({key:'x2_'+bestKey, fn:function(){ const n=doubleUnitsOnBoard(world,'e',bestKey); if(n>0){ state.foeX2[bestKey]=(state.foeX2[bestKey]||0)+1; state.foeX2Block[bestKey]=state.round+X2_COOLDOWN_ROUNDS; } }});
+  }
+  if(!state.foeParty        && countSideKey('e','cookie') >=PARTY_MIN)   cands.push({key:'party_cookie',  fn:function(){ state.foeParty=true;         applyPartyFlag(world,'e'); }});
+  if(!state.foeChocoBuff    && countSideKey('e','choco')  >=CHOCO_MIN)   cands.push({key:'buff_choco',    fn:function(){ state.foeChocoBuff=true;     applyChocoBuff(world,'e'); }});
+  if(!state.foeBombSplit    && countSideKey('e','bomb')   >=BOMB_MIN)    cands.push({key:'split_bomb',    fn:function(){ state.foeBombSplit=true;     applyBombSplit(world,'e'); }});
+  if(!state.foeDaifukuBuff  && countSideKey('e','daifuku')>=DAIFUKU_MIN) cands.push({key:'buff_daifuku',  fn:function(){ state.foeDaifukuBuff=true;   applyDaifukuBuff(world,'e'); }});
+  if(!state.foeGhostClone   && countSideKey('e','ghost')  >=GHOST_MIN)   cands.push({key:'clone_ghost',   fn:function(){ state.foeGhostClone=true;    applyGhostClone(world,'e'); }});
+  if(!state.foeCannonCluster&& countSideKey('e','cannon') >=CANNON_MIN)  cands.push({key:'cluster_cannon',fn:function(){ state.foeCannonCluster=true; applyCannonCluster(world,'e'); }});
+  if(!state.foeSodaFizz     && countSideKey('e','soda')   >=SODA_MIN)    cands.push({key:'fizz_soda',     fn:function(){ state.foeSodaFizz=true;      applySodaFizz(world,'e'); }});
+  if(!state.foeDonutWall    && countSideKey('e','donut')  >=DONUT_MIN)   cands.push({key:'wall_donut',    fn:function(){ state.foeDonutWall=true;     applyDonutWall(world,'e'); }});
+  if(!state.foePancakeFast  && countSideKey('e','pancake')>=PANCAKE_MIN) cands.push({key:'fast_pancake',  fn:function(){ state.foePancakeFast=true;   applyPancakeFast(world,'e'); }});
+  if(!state.foeShoeBuff     && countSideKey('e','shoe')   >=SHOE_MIN)    cands.push({key:'buff_shoe',     fn:function(){ state.foeShoeBuff=true;      applyShoeBuff(world,'e'); }});
+  if(!state.foeBakeryBuff   && countSideKey('e','bakery') >=BAKERY_MIN)  cands.push({key:'last_bake',     fn:function(){ state.foeBakeryBuff=true;    applyBakeryBuff(world,'e'); }});
+  return cands;
+}
+// プレイヤーが強化/X2カードを取った瞬間に、CPUも1つ強化して同時に公開する（敵味方同時＝同数を保つ）
+function foeMatchEnhance(){
+  if(!world || buffCountFor('e')>=buffCountFor('p')) return;
+  const cands=foeEnhanceCandidates();
+  if(!cands.length) return;   // 取れる候補が無ければ開戦時(lockAndFight)に追いつく
+  const c=cands[Math.floor(Math.random()*cands.length)];
+  c.fn();
+  arrangeFormation(world,'e',false);
+  showFoePickCard(c.key);     // 「ライバルも強化！」を同時表示
+}
 
 /* ---- スライム融合まわり ---- */
 // 表示用スプライトの解決（スライムは陣営＆サイズで切替、大福は抜刀/納刀）
@@ -1022,10 +1101,12 @@ function applyX2Replay(world, side, x2map){
 function eligibleX2Specials(){
   const list=[];
   if(!world) return list;
+  const block = (state && state.x2Block) || {};
   const counts={};
   world.units.forEach(u=>{ if(u.side==='p' && u.hp>0) counts[u.key]=(counts[u.key]||0)+1; });
   Object.keys(counts).forEach(function(k){
     const unit=UNIT_BY_KEY[k];
+    if(state && state.round <= (block[k]||0)) return;   // そのキャラが連打クールダウン中ならスキップ（別キャラは出る）
     if(unit && !unit.summonOnly && counts[k]>=X2_MIN && SPECIALS['x2_'+k]) list.push('x2_'+k);
   });
   return list;
@@ -1270,6 +1351,7 @@ function pickCard(key){
       const tgt = SPECIALS[key].target;
       const n = doubleUnitsOnBoard(world,'p',tgt);   // 対象キャラを今いる数だけ増殖
       if(n>0){ state.youX2[tgt]=(state.youX2[tgt]||0)+1; arrangeFormation(world,'p',false); }
+      state.x2Block[tgt] = state.round + X2_COOLDOWN_ROUNDS;   // 同キャラ連打防止：このキャラの2倍をしばらく出さない（別キャラは出る）
     } else if(SPECIALS[key].party){
       state.youParty = true;
       applyPartyFlag(world,'p');   // 今いるクッキー全員をパーティー状態に（以後ずっと有効）
@@ -1341,6 +1423,7 @@ function pickCard(key){
       if(bk.length){ const cx=bk.reduce((s,u)=>s+u.x,0)/bk.length, cy=bk.reduce((s,u)=>s+u.y,0)/bk.length;
         burst(world,cx,cy,'#ffcf8a',20,120); world.rings.push({x:cx,y:cy,r:4,max:50,life:0.42,color:'#ffe1b0'}); }
     }
+    foeMatchEnhance();   // 敵味方同時：プレイヤーが強化を取ったらCPUも1つ強化して同時に公開
     state.pickStep++;
     maybeRevealFoe();   // 敵も1枚ぶん公開（ただし自分の逆転ボーナス中は敵は待つ）
     nextPick();
@@ -1397,64 +1480,14 @@ function lockAndFight(){
   while(state.foeRevealIdx < state.foeRoundPicks.length){
     revealFoePick(state.foeRoundPicks[state.foeRevealIdx]); state.foeRevealIdx++;
   }
-  // 敵もスライム融合（プレイヤーとのパリティ。確率0.7で“カードを使った”ように一括合体）
-  if(countUnmergedSlimes(world,'e')>=3 && Math.random()<0.7){
-    state.foeMerges += mergeAllSlimeGroups(world,'e');
-  }
-  // 敵のX2強化（パリティ）：盤面で最大の対象グループを確率FOE_X2_CHANCEで倍に
-  {
-    const fc={};
-    world.units.forEach(u=>{ if(u.side==='e'&&u.hp>0){ const unit=UNIT_BY_KEY[u.key]; if(unit&&!unit.summonOnly&&!X2_EXCLUDE.has(u.key)) fc[u.key]=(fc[u.key]||0)+1; }});
-    let bestKey=null,bestN=0;
-    for(const k in fc){ if(fc[k]>=X2_MIN && fc[k]>bestN){ bestN=fc[k]; bestKey=k; } }
-    if(bestKey && Math.random()<FOE_X2_CHANCE){
-      const n=doubleUnitsOnBoard(world,'e',bestKey);
-      if(n>0) state.foeX2[bestKey]=(state.foeX2[bestKey]||0)+1;
+  // 敵(CPU)の強化の取りこぼし catch-up：ドラフト中に取れなかったぶんを開戦までにプレイヤーと同数まで揃える
+  // （通常はプレイヤーが強化カードを取った瞬間に foeMatchEnhance() で同時取得済み。超えることはない）
+  { let guard=0;
+    while(buffCountFor('e') < buffCountFor('p') && guard++<24){
+      const cands=foeEnhanceCandidates();
+      if(!cands.length) break;
+      cands[Math.floor(Math.random()*cands.length)].fn();
     }
-  }
-  // 敵のクッキーパーティー（パリティ）：クッキーが規定数いれば確率で発動し永続化
-  if(!state.foeParty && countSideKey('e','cookie')>=PARTY_MIN && Math.random()<FOE_PARTY_CHANCE){
-    state.foeParty = true; applyPartyFlag(world,'e');
-  }
-  // 敵のビター装甲（パリティ）：チョコが規定数いれば確率で発動し永続化（1回限り）
-  if(!state.foeChocoBuff && countSideKey('e','choco')>=CHOCO_MIN && Math.random()<FOE_CHOCO_CHANCE){
-    state.foeChocoBuff = true; applyChocoBuff(world,'e');
-  }
-  // 敵のおかわりポップコーン（パリティ）：ポップコーンが規定数いれば確率で発動し永続化（1回限り）
-  if(!state.foeBombSplit && countSideKey('e','bomb')>=BOMB_MIN && Math.random()<FOE_BOMB_CHANCE){
-    state.foeBombSplit = true; applyBombSplit(world,'e');
-  }
-  // 敵の一刀両断（パリティ）：大福が規定数いれば確率で発動し永続化（1回限り）
-  if(!state.foeDaifukuBuff && countSideKey('e','daifuku')>=DAIFUKU_MIN && Math.random()<FOE_DAIFUKU_CHANCE){
-    state.foeDaifukuBuff = true; applyDaifukuBuff(world,'e');
-  }
-  // 敵の分身（パリティ）：ゴーストが規定数いれば確率で発動し永続化（1回限り）
-  if(!state.foeGhostClone && countSideKey('e','ghost')>=GHOST_MIN && Math.random()<FOE_GHOST_CHANCE){
-    state.foeGhostClone = true; applyGhostClone(world,'e');
-  }
-  // 敵のクラスター花火弾（パリティ）：キャノンが規定数いれば確率で発動し永続化（1回限り）
-  if(!state.foeCannonCluster && countSideKey('e','cannon')>=CANNON_MIN && Math.random()<FOE_CANNON_CHANCE){
-    state.foeCannonCluster = true; applyCannonCluster(world,'e');
-  }
-  // 敵のメガ炭酸沼（パリティ）：ソーダが規定数いれば確率で発動し永続化（1回限り）
-  if(!state.foeSodaFizz && countSideKey('e','soda')>=SODA_MIN && Math.random()<FOE_SODA_CHANCE){
-    state.foeSodaFizz = true; applySodaFizz(world,'e');
-  }
-  // 敵の鉄壁ドーナッツ（パリティ）：ドーナッツが規定数いれば確率で発動し永続化（1回限り）
-  if(!state.foeDonutWall && countSideKey('e','donut')>=DONUT_MIN && Math.random()<FOE_DONUT_CHANCE){
-    state.foeDonutWall = true; applyDonutWall(world,'e');
-  }
-  // 敵のはや焼きパンケーキ（パリティ）：パンケーキが規定数いれば確率で発動し永続化（1回限り）
-  if(!state.foePancakeFast && countSideKey('e','pancake')>=PANCAKE_MIN && Math.random()<FOE_PANCAKE_CHANCE){
-    state.foePancakeFast = true; applyPancakeFast(world,'e');
-  }
-  // 敵の特盛りシュークリーム（パリティ）：シューが規定数いれば確率で発動し永続化（1回限り）
-  if(!state.foeShoeBuff && countSideKey('e','shoe')>=SHOE_MIN && Math.random()<FOE_SHOE_CHANCE){
-    state.foeShoeBuff = true; applyShoeBuff(world,'e');
-  }
-  // 敵のラストベイク（パリティ）：ベーカリーが規定数いれば確率で発動し永続化（1回限り）
-  if(!state.foeBakeryBuff && countSideKey('e','bakery')>=BAKERY_MIN && Math.random()<FOE_BAKERY_CHANCE){
-    state.foeBakeryBuff = true; applyBakeryBuff(world,'e');
   }
   // 自軍を確定（引き継ぎ＋今回のピック）
   state.youArmy = capArmy(state.youArmy.concat(state.roundPicks));
@@ -2179,6 +2212,28 @@ function render(){
 }
 function toggleSpeed(){ SFX.play('button'); speedMul=speedMul===1?3:1; $('skipBtn').textContent=speedMul===1?'早送り ▶▶':'等速 ▶'; }
 function toggleSfx(){ const m=SFX.toggle(); const b=$('sfxBtn'); if(b) b.textContent=m?'🔇':'🔊'; if(!m) SFX.play('button'); }
+
+/* ===== ハンバーガーメニュー＆お知らせ ===== */
+// お知らせ（新しいものを先頭に追加していく）
+const NEWS = [
+  { ver:'β0.1', date:'2026-06-26', title:'β0.1 を公開しました🍬', lines:[
+    'お菓子の王国をテーマにしたカードドラフト＋オートバトラー（CPU対戦）',
+    '全13種のお菓子ユニットと、各キャラの固有強化カード',
+    'お菓子フレームのバトル背景＆盤面の見やすさ調整',
+    'お菓子ポップな効果音＋ミュート切り替え',
+    'まだβ版です。バランスや演出は今後どんどん調整していきます！',
+  ] },
+];
+function renderNews(){
+  const el=$('newsList'); if(!el) return;
+  el.innerHTML = NEWS.map(n=>
+    `<div class="news-item"><span class="news-ver">${n.ver}</span><span class="news-date">${n.date}</span>`+
+    `<h4>${n.title}</h4><ul>${n.lines.map(l=>`<li>${l}</li>`).join('')}</ul></div>`).join('');
+}
+function toggleMenu(){ SFX.play('button'); $('menuModal').classList.remove('hidden'); }
+function closeMenu(e){ if(e && e.target!==e.currentTarget) return; $('menuModal').classList.add('hidden'); }
+function openNews(){ SFX.play('button'); renderNews(); $('menuModal').classList.add('hidden'); $('newsModal').classList.remove('hidden'); }
+function closeNews(e){ if(e && e.target!==e.currentTarget) return; SFX.play('button'); $('newsModal').classList.add('hidden'); }
 
 /* ============================================================
    8) 戦闘後・ライフ精算・引き継ぎ

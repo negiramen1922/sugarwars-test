@@ -58,7 +58,7 @@ code += `
   evolvePancake, evolvedStep, nearestEnemy,
   beginDraft, nextPick, pickCard, lockAndFight, aiPicks, startGame,
   applyPartyFlag, applyCookieParty, playerCanParty, countSideKey,
-  applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff,
+  applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff, buffCountFor,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck,
   setupCanvas, CW_get:()=>CW, CH_get:()=>CH,
 };
@@ -1322,6 +1322,87 @@ for (let g = 0; g < 10; g++) {
 }
 console.log('  ベーカリーデッキ戦績:', JSON.stringify(bkDeck));
 check('ラストベイク入りデッキで詰まりゼロ', bkDeck.stuck === 0, bkDeck);
+
+console.log('\n=== 27) CPUの強化はプレイヤーの取得数を超えない（自動強化バグ防止） ===');
+// プレイヤーが強化を一切取らなければ、CPUは何戦やっても強化0（以前は1戦目から勝手に強化されていた）
+API.resetState();
+API.setMyDeck(['choco', 'cookie', 'shoe', 'bomb']);
+API.startGame();
+{
+  const wd = API.world;
+  // 敵盤面に各種強化の条件を満たすユニットを用意（choco2/bomb2/cookie5/donut1）
+  ['choco', 'choco', 'bomb', 'bomb', 'cookie', 'donut'].forEach(k => API.makeFighters(k, 'e', wd.W, wd.H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); }));
+}
+check('開始時は両者とも強化0', API.buffCountFor('p') === 0 && API.buffCountFor('e') === 0);
+let foeMax = 0;
+for (let r = 0; r < 8; r++) { API.lockAndFight(); foeMax = Math.max(foeMax, API.buffCountFor('e')); }
+check('プレイヤー強化0なら8戦してもCPU強化0', foeMax === 0, { foeMax, p: API.buffCountFor('p') });
+
+// プレイヤーが強化を持っていれば、CPUはそれを上限に追従できる（超えない）
+API.resetState();
+API.setMyDeck(['choco', 'cookie', 'shoe', 'bomb']);
+API.startGame();
+{
+  const wd = API.world;
+  ['choco', 'choco', 'bomb', 'bomb'].forEach(k => API.makeFighters(k, 'e', wd.W, wd.H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); }));
+}
+// プレイヤーが3つ強化を持っている体にする
+API.state.youChocoBuff = true; API.state.youParty = true; API.state.youBombSplit = true;
+let foeAfter = 0;
+for (let r = 0; r < 12; r++) { API.lockAndFight(); }
+foeAfter = API.buffCountFor('e');
+check('CPUはプレイヤーの強化数を超えない', foeAfter <= API.buffCountFor('p'), { foe: foeAfter, p: API.buffCountFor('p') });
+check('プレイヤーが強化を持てばCPUも追従して取得できる', foeAfter >= 1, { foe: foeAfter });
+
+// 敵味方同時：プレイヤーが強化カードを取った瞬間にCPUも1つ強化される（同数になる）
+API.resetState();
+API.setMyDeck(['choco', 'cookie', 'shoe', 'bomb']);
+API.startGame();
+{
+  const wd = API.world;
+  // 両陣にchocoを2体ずつ（装甲条件）。CPUが同時取得できる候補を用意
+  ['choco', 'choco'].forEach(k => {
+    API.makeFighters(k, 'p', wd.W, wd.H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+    API.makeFighters(k, 'e', wd.W, wd.H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+  });
+}
+API.state.pickTotal = 5; API.state.pickStep = 1;
+const pPre = API.buffCountFor('p'), ePre = API.buffCountFor('e');
+API.pickCard('buff_choco');   // プレイヤーが強化を取得
+check('取得前は両者0', pPre === 0 && ePre === 0);
+check('プレイヤー強化取得と同時にCPUも+1（同数）', API.buffCountFor('p') === 1 && API.buffCountFor('e') === 1, { p: API.buffCountFor('p'), e: API.buffCountFor('e') });
+
+console.log('\n=== 28) 2倍カードの「同キャラ」連打クールダウン ===');
+API.resetState();
+let wcd = API.createWorld(W, H); API.world = wcd;
+// cannon 3体・cookie 5体 → 両方x2対象
+for (let i = 0; i < 3; i++) API.makeFighters('cannon', 'p', W, H, 'army').forEach(f => { f.appear = 1; wcd.units.push(f); });
+API.makeFighters('cookie', 'p', W, H, 'army').forEach(f => { f.appear = 1; wcd.units.push(f); });
+API.state.round = 1; API.state.x2Block = {};
+check('クールダウン前は両方のX2候補に出る', API.eligibleX2Specials().includes('x2_cannon') && API.eligibleX2Specials().includes('x2_cookie'));
+// cannonのX2を取得（cannonだけクールダウン、cookieは出る）
+API.state.x2Block.cannon = API.state.round + 1;
+check('取得した同キャラ(cannon)のX2は出ない', !API.eligibleX2Specials().includes('x2_cannon'));
+check('別キャラ(cookie)のX2は引き続き出る', API.eligibleX2Specials().includes('x2_cookie'));
+API.state.round = 2;
+check('次の1ラウンドも同キャラ(cannon)は出ない', !API.eligibleX2Specials().includes('x2_cannon'));
+API.state.round = 3;
+check('クールダウン明けで同キャラ(cannon)が再び出る', API.eligibleX2Specials().includes('x2_cannon'));
+
+// pickCard(x2)でそのキャラのクールダウンが設定される
+API.resetState();
+API.setMyDeck(['cannon', 'cookie', 'shoe', 'choco']);
+API.startGame();
+{
+  const wd = API.world;
+  for (let i = 0; i < 3; i++) API.makeFighters('cannon', 'p', wd.W, wd.H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+  API.makeFighters('cookie', 'p', wd.W, wd.H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+}
+API.state.round = 1; API.state.pickTotal = 5; API.state.pickStep = 1;
+API.pickCard('x2_cannon');
+check('X2取得でそのキャラのx2Blockが設定される', (API.state.x2Block.cannon || 0) >= API.state.round + 1, API.state.x2Block);
+check('取得後そのキャラのX2は出ない（連打不可）', !API.eligibleX2Specials().includes('x2_cannon'));
+check('別キャラのX2はまだ出る（キャラは増やせる）', API.eligibleX2Specials().includes('x2_cookie'));
 
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
 process.exit(fail ? 1 : 0);
