@@ -1404,5 +1404,22 @@ check('X2取得でそのキャラのx2Blockが設定される', (API.state.x2Blo
 check('取得後そのキャラのX2は出ない（連打不可）', !API.eligibleX2Specials().includes('x2_cannon'));
 check('別キャラのX2はまだ出る（キャラは増やせる）', API.eligibleX2Specials().includes('x2_cookie'));
 
+console.log('\n=== 29) 強化後に同じキャラを追加しても全員強化される（混在防止） ===');
+API.resetState();
+API.setMyDeck(['choco', 'cookie', 'shoe', 'bomb']);
+API.startGame();
+{
+  const wd = API.world;
+  API.makeFighters('choco', 'p', wd.W, wd.H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); }); // choco 2体
+}
+API.state.pickTotal = 8; API.state.pickStep = 1;
+API.pickCard('buff_choco');
+check('装甲取得で既存chocoが全員強化', API.world.units.filter(u => u.key === 'choco' && u.side === 'p').every(u => u.chocoBuff));
+const nBefore = API.world.units.filter(u => u.key === 'choco' && u.side === 'p').length;
+API.pickCard('choco');   // 同じキャラを追加ピック（通常ユニット）
+const chocos = API.world.units.filter(u => u.key === 'choco' && u.side === 'p');
+check('chocoが増えている（追加ピック成功）', chocos.length > nBefore, { before: nBefore, after: chocos.length });
+check('追加した同種chocoも全員その場で強化される（未強化が混じらない）', chocos.every(u => u.chocoBuff === true && u.maxHp > u.baseMaxHp), chocos.map(u => !!u.chocoBuff));
+
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
 process.exit(fail ? 1 : 0);
