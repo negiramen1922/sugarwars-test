@@ -489,11 +489,27 @@ function closeDetail(){ $('detailModal').classList.add('hidden'); }
 /* ============================================================
    4) 生成・シナジー（純粋関数）
    ============================================================ */
+/* バトル盤面（背景のお菓子フレームの内側＝クリーム色の領域）。ユニットはこの内側だけで動く。
+   値は背景画像のクリーム領域に合わせた割合。背景を差し替えたらここを調整する。 */
+const STAGE_PAD_X = 0.16;    // 左右の余白（割合）
+const STAGE_PAD_TOP = 0.18;  // 上の余白（敵側・割合）
+const STAGE_PAD_BOT = 0.15;  // 下の余白（味方側・割合）
+function playL(W){ return W*STAGE_PAD_X; }
+function playR(W){ return W*(1-STAGE_PAD_X); }
+function playT(H){ return H*STAGE_PAD_TOP; }
+function playB(H){ return H*(1-STAGE_PAD_BOT); }
+// ユニットを盤面（クリーム枠）の内側に収める
+function clampToStage(u,W,H){
+  u.x=Math.max(playL(W)+u.r, Math.min(playR(W)-u.r, u.x));
+  u.y=Math.max(playT(H)+u.r, Math.min(playB(H)-u.r, u.y));
+}
+
 function makeFighters(key, side, W, H, slot){
   const u = UNIT_BY_KEY[key]; const arr=[];
-  const yMin = side==='p' ? H*0.58 : H*0.06;
-  const yMax = side==='p' ? H*0.93 : H*0.40;
-  const xMin = W*0.08, xMax = W*0.92;
+  const T=playT(H), B=playB(H), mid=(T+B)/2;
+  const yMin = side==='p' ? mid : T;          // 味方は下半分・敵は上半分（盤面内）
+  const yMax = side==='p' ? B : mid;
+  const xMin = playL(W), xMax = playR(W);
   for(let c=0;c<u.count;c++){
     const hp=u.hp, atk=u.atk, r=Math.max(7,Math.min(15,6+hp*0.035));
     arr.push({
@@ -737,8 +753,9 @@ function centerMergedSlimes(group){
 function arrangeFormation(world, side, snap){
   const us = world.units.filter(u=>u.side===side);
   if(!us.length) return;
-  const W=world.W, H=world.H, rowGap=30, margin=18;
-  const cols = Math.max(4, Math.min(12, Math.floor((W-margin*2)/34)));
+  const W=world.W, H=world.H, rowGap=30;
+  const L=playL(W), Rr=playR(W), T=playT(H), Bb=playB(H);   // 盤面（クリーム枠）の内側
+  const cols = Math.max(4, Math.min(12, Math.floor((Rr-L)/34)));
 
   // 段(tier)ごとにグループ化（小さいtier=最前列、負の値もOK）。同じ段は種類でまとめる
   const rows=[];
@@ -753,13 +770,13 @@ function arrangeFormation(world, side, snap){
   rows.forEach((row, ri)=>{
     // 奥（自陣の端）を基準に、手前(ri=0)へ向かって積む
     let y;
-    if(side==='p'){ const backY=H*0.93; y = backY - (nRows-1-ri)*rowGap; }   // 下端が奥
-    else          { const backY=H*0.07; y = backY + (nRows-1-ri)*rowGap; }   // 上端が奥
+    if(side==='p'){ const backY=Bb; y = backY - (nRows-1-ri)*rowGap; }   // 下端（盤面内）が奥
+    else          { const backY=T;  y = backY + (nRows-1-ri)*rowGap; }   // 上端（盤面内）が奥
     const n=row.length;
     row.forEach((u,ci)=>{
-      u.fx = margin + (ci+0.5)*(W-2*margin)/n;          // 横幅いっぱいに均等配置
-      u.fy = Math.max(u.r, Math.min(H-u.r, y));
-      u.fx = Math.max(u.r, Math.min(W-u.r, u.fx));
+      u.fx = L + (ci+0.5)*(Rr-L)/n;                      // 盤面の横幅いっぱいに均等配置
+      u.fy = Math.max(T+u.r, Math.min(Bb-u.r, y));
+      u.fx = Math.max(L+u.r, Math.min(Rr-u.r, u.fx));
       if(snap){ u.x=u.fx; u.y=u.fy; }
     });
   });
@@ -948,7 +965,7 @@ function pickCard(key){
   state.roundPicks.push(key);
   state.pickStep++;
   // フィールドにライブ追加（自軍は下から）
-  makeFighters(key,'p',CW,CH,'pick').forEach(f=>{ f.x=CW/2+(Math.random()-0.5)*40; f.y=CH*0.97; world.units.push(f); burst(world,f.x,f.y,'#4ea3c9',9,75); });
+  makeFighters(key,'p',CW,CH,'pick').forEach(f=>{ f.x=CW/2+(Math.random()-0.5)*40; f.y=playB(CH)-f.r; world.units.push(f); burst(world,f.x,f.y,'#4ea3c9',9,75); });
   arrangeFormation(world,'p',false);   // 後方から隊列へ滑り込む
   maybeRevealFoe();   // 敵も1枚ぶん公開（ただし自分の逆転ボーナス中は敵は待つ）
   nextPick();
@@ -961,7 +978,7 @@ function maybeRevealFoe(){
 }
 function revealFoePick(key){
   showFoePickCard(key);                 // ライバルが何を選んだか表示
-  makeFighters(key,'e',CW,CH,'pick').forEach(f=>{ f.x=CW/2+(Math.random()-0.5)*40; f.y=CH*0.03; world.units.push(f); burst(world,f.x,f.y,'#d2603a',9,75); });
+  makeFighters(key,'e',CW,CH,'pick').forEach(f=>{ f.x=CW/2+(Math.random()-0.5)*40; f.y=playT(CH)+f.r; world.units.push(f); burst(world,f.x,f.y,'#d2603a',9,75); });
   arrangeFormation(world,'e',false);   // 上の隊列へ滑り込む
 }
 let foePickTimer=0;
@@ -1183,6 +1200,7 @@ function musterStep(world, dt){
       u.y += (u.fy-u.y)*Math.min(1,dt*9);
     }
     if(u.flash>0) u.flash-=dt;
+    clampToStage(u,world.W,world.H);   // 整列中も盤面内に収める
   }
   for(const p of world.parts){ p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=120*dt; p.life-=dt; } world.parts=world.parts.filter(p=>p.life>0);
 }
@@ -1415,9 +1433,10 @@ function stepWorld(world, dt){
       if(u.flash>0)u.flash-=dt;
       if(u.warpT>=wd){
         // 敵陣の最後尾あたりの“ほぼ固定座標”へワープ（特定の敵は狙わない。横にだけ少しばらける）
-        const dx=world.W*0.5+(Math.random()*2-1)*world.W*0.32;
-        const dy=(u.side==='p')? (u.r+28) : (world.H-u.r-28);
-        u.x=Math.max(u.r,Math.min(world.W-u.r,dx)); u.y=Math.max(u.r,Math.min(world.H-u.r,dy));
+        const W=world.W, H=world.H, L=playL(W), Rr=playR(W);
+        const dx=L+u.r+Math.random()*Math.max(1,(Rr-L-2*u.r));        // 横は盤面内でばらける
+        const dy=(u.side==='p')? (playT(H)+u.r+8) : (playB(H)-u.r-8);  // 敵陣/自陣の最後尾（盤面内）
+        u.x=dx; u.y=dy; clampToStage(u,W,H);
         u.warped=true; u.vanishing=false; u.vanP=0; u.appearFx=0.3; u.kbImmune=0.3; u.invuln=0.6;
         burst(world,u.x,u.y,'#ffd9f2',16,160); world.rings.push({x:u.x,y:u.y,r:3,max:32,life:0.32,color:'#ffd9f2'});
       } else if(u.vanP>0 && Math.random()<0.6){ burst(world,u.x,u.y,'#ffe6f6',3,55); }    // 消え際の煙
@@ -1478,6 +1497,7 @@ function stepWorld(world, dt){
   for(const d of world.dmgs){ d.y+=d.vy*dt; d.life-=dt; } world.dmgs=world.dmgs.filter(d=>d.life>0);
   for(const p of world.parts){ p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=120*dt; p.life-=dt; } world.parts=world.parts.filter(p=>p.life>0);
   for(const r of world.rings){ r.r+=(r.max-r.r)*Math.min(1,dt*10); r.life-=dt; } world.rings=world.rings.filter(r=>r.life>0);
+  for(const u of world.units){ if(u.hp>0) clampToStage(u,world.W,world.H); }   // 盤面（クリーム枠）の内側に収める
   world.units=world.units.filter(u=>u.hp>0);
   const p=world.units.filter(u=>u.side==='p').length, e=world.units.filter(u=>u.side==='e').length;
   if(p===0||e===0){ beginOutro(world, (p>0&&e===0)?'win':(e>0&&p===0)?'lose':'draw'); }
