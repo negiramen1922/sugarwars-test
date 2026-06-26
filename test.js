@@ -58,7 +58,7 @@ code += `
   evolvePancake, evolvedStep, nearestEnemy,
   beginDraft, nextPick, pickCard, lockAndFight, aiPicks, startGame,
   applyPartyFlag, applyCookieParty, playerCanParty, countSideKey,
-  applyChocoBuff,
+  applyChocoBuff, applyBombSplit,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck,
   setupCanvas, CW_get:()=>CW, CH_get:()=>CH,
 };
@@ -590,6 +590,116 @@ for (let g = 0; g < 10; g++) {
 }
 console.log('  チョコデッキ戦績:', JSON.stringify(chDeck));
 check('チョコ装甲入りデッキで詰まりゼロ', chDeck.stuck === 0, chDeck);
+
+console.log('\n=== 18) おかわりポップコーン（ポップコーンTNT固有強化・1回限り） ===');
+check('split_bomb が SPECIALS にある', !!API.SPECIALS.split_bomb);
+check('split_bomb は upgrade+bombSplit, target=bomb', API.SPECIALS.split_bomb && API.SPECIALS.split_bomb.upgrade && API.SPECIALS.split_bomb.bombSplit && API.SPECIALS.split_bomb.target === 'bomb');
+check('isSpecial(split_bomb)', API.isSpecial('split_bomb'));
+const miniDef = API.UNIT_BY_KEY['popcorn_mini'];
+check('popcorn_mini が UNITS にある', !!miniDef);
+check('popcorn_mini は summonOnly（ドラフト/X2に出ない）', miniDef && miniDef.summonOnly === true);
+check('popcorn_mini は suicide+blast', miniDef && miniDef.suicide && miniDef.blast > 0);
+check('popcorn_mini は X2自動生成されない', !API.SPECIALS.x2_popcorn_mini);
+check('小型は本体より弱い（HP/爆発）', miniDef.hp < API.UNIT_BY_KEY['bomb'].hp && miniDef.blast < API.UNIT_BY_KEY['bomb'].blast);
+
+// 出現条件：ポップコーンが BOMB_MIN(2) 以上で出る／未満では出ない／取得済みでは出ない
+API.resetState();
+let wsb = API.createWorld(W, H); API.world = wsb;
+API.makeFighters('bomb', 'p', W, H, 'army').forEach(f => { f.appear = 1; wsb.units.push(f); }); // 2体
+check('ポップコーン2体で候補に出る', API.eligibleSpecials().includes('split_bomb'));
+API.state.youBombSplit = true;
+check('取得済みなら候補に出ない', !API.eligibleSpecials().includes('split_bomb'));
+API.state.youBombSplit = false;
+let wsb0 = API.createWorld(W, H); API.world = wsb0;
+API.makeFighters('bomb', 'p', W, H, 'army').slice(0, 1).forEach(f => { f.appear = 1; wsb0.units.push(f); });
+check('ポップコーン1体(<2)では候補に出ない', !API.eligibleSpecials().includes('split_bomb'));
+
+// applyBombSplit：味方ポップコーンに spawnMini フラグが付く（敵・他キャラには付かない）
+let wsb2 = API.createWorld(W, H); API.world = wsb2;
+API.makeFighters('bomb', 'p', W, H, 'army').forEach(f => { f.appear = 1; wsb2.units.push(f); });
+API.makeFighters('bomb', 'e', W, H, 'army').forEach(f => { f.appear = 1; wsb2.units.push(f); });
+API.makeFighters('cookie', 'p', W, H, 'army').forEach(f => { f.appear = 1; wsb2.units.push(f); });
+API.applyBombSplit(wsb2, 'p');
+check('味方ポップコーンに spawnMini 付与', wsb2.units.filter(u => u.side === 'p' && u.key === 'bomb').every(u => u.spawnMini));
+check('敵ポップコーンには付かない', wsb2.units.filter(u => u.side === 'e' && u.key === 'bomb').every(u => !u.spawnMini));
+check('味方クッキーには付かない', wsb2.units.filter(u => u.key === 'cookie').every(u => !u.spawnMini));
+
+// killUnit：spawnMini付きが死ぬと小型が1体出現／フラグ無しでは出ない
+let wsb3 = API.createWorld(W, H); API.world = wsb3;
+let bomb1 = API.makeFighters('bomb', 'p', W, H, 'army')[0];
+bomb1.x = W / 2; bomb1.y = H / 2; bomb1.appear = 1; bomb1.spawnMini = true; wsb3.units.push(bomb1);
+API.killUnit(wsb3, bomb1);
+let minis = wsb3.units.filter(u => u.key === 'popcorn_mini');
+check('おかわりで小型が1体出る', minis.length === 1, minis.length);
+check('小型は味方側', minis[0] && minis[0].side === 'p');
+check('小型は spawnMini を持たない（再分裂しない）', minis[0] && !minis[0].spawnMini);
+
+let wsb4 = API.createWorld(W, H); API.world = wsb4;
+let bomb2 = API.makeFighters('bomb', 'p', W, H, 'army')[0];
+bomb2.x = W / 2; bomb2.y = H / 2; bomb2.appear = 1; wsb4.units.push(bomb2); // spawnMini無し
+API.killUnit(wsb4, bomb2);
+check('フラグ無しでは小型が出ない', wsb4.units.filter(u => u.key === 'popcorn_mini').length === 0);
+
+// 小型ポップコーンも自爆して敵にダメージを与える（killUnitで爆発）
+let wsb5 = API.createWorld(W, H); API.world = wsb5;
+let mini = API.makeFighters('popcorn_mini', 'p', W, H, 'army')[0];
+mini.x = W / 2; mini.y = H / 2; mini.appear = 1; wsb5.units.push(mini);
+let near = API.makeFighters('cookie', 'e', W, H, 'army');
+near.forEach((f, i) => { f.x = W / 2 + (i - 2) * 6; f.y = H / 2 + 4; f.appear = 1; wsb5.units.push(f); });
+let nHp0 = near[0].hp;
+API.killUnit(wsb5, mini);
+check('小型の自爆で近くの敵にダメージ', near[0].hp < nHp0, { before: nHp0, after: near[0].hp });
+
+// pickCard('split_bomb') で state.youBombSplit が立ち、盤面ポップコーンに付与
+API.resetState();
+API.setMyDeck(['bomb', 'cookie', 'shoe', 'donut']);
+API.startGame();
+let stb = API.state; let wdb = API.world;
+API.makeFighters('bomb', 'p', wdb.W, wdb.H, 'army').forEach(f => { f.appear = 1; wdb.units.push(f); });
+stb.pickTotal = 5; stb.pickStep = 1;
+API.pickCard('split_bomb');
+check('pickCardでstate.youBombSplit=true', API.state.youBombSplit === true);
+check('盤面ポップコーンに spawnMini 付与', API.world.units.filter(u => u.side === 'p' && u.key === 'bomb').every(u => u.spawnMini));
+
+// おかわり側 vs 無強化側：おかわり側が勝ち越す（30戦）。詰まりゼロも確認。
+let sbRes = { win: 0, lose: 0, draw: 0, stuck: 0 };
+for (let g = 0; g < 30; g++) {
+  let wd = API.createWorld(W, H); API.world = wd;
+  for (let i = 0; i < 3; i++) {
+    API.makeFighters('bomb', 'p', W, H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+    API.makeFighters('bomb', 'e', W, H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+  }
+  API.applyBombSplit(wd, 'p'); // 自分だけおかわり
+  API.arrangeFormation(wd, 'p', true); API.arrangeFormation(wd, 'e', true);
+  wd.phase = 'battle'; wd.intro = 0; wd.done = false;
+  let frames = 0;
+  while (!wd.done && frames < 60 * 45) { API.stepWorld(wd, 1 / 60); frames++; }
+  sbRes[wd.done ? wd.result : 'stuck']++;
+}
+console.log('  おかわり有利戦績:', JSON.stringify(sbRes));
+check('おかわり側が詰まりゼロ', sbRes.stuck === 0, sbRes);
+check('おかわり側が勝ち越す(win率>0.6)', sbRes.win / (sbRes.win + sbRes.lose || 1) > 0.6, sbRes);
+
+// おかわりポップコーン入りデッキで戦闘が詰まらない（10戦）
+let bombDeck = { win: 0, lose: 0, draw: 0, stuck: 0 };
+for (let g = 0; g < 10; g++) {
+  API.resetState();
+  API.setMyDeck(['bomb', 'cookie', 'shoe', 'choco']);
+  API.startGame();
+  let st = API.state;
+  let guard = 0;
+  while (st.pickStep < st.pickTotal && guard++ < 50) {
+    const key = st.offer3[0];
+    API.pickCard(key);
+  }
+  API.lockAndFight();
+  let wd = API.world; wd.intro = 0;
+  let frames = 0;
+  while (!wd.done && frames < 60 * 45) { API.stepWorld(wd, 1 / 60); frames++; }
+  bombDeck[wd.done ? wd.result : 'stuck']++;
+}
+console.log('  ポップコーンデッキ戦績:', JSON.stringify(bombDeck));
+check('おかわり入りデッキで詰まりゼロ', bombDeck.stuck === 0, bombDeck);
 
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
 process.exit(fail ? 1 : 0);
