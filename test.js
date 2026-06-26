@@ -1354,5 +1354,23 @@ foeAfter = API.buffCountFor('e');
 check('CPUはプレイヤーの強化数を超えない', foeAfter <= API.buffCountFor('p'), { foe: foeAfter, p: API.buffCountFor('p') });
 check('プレイヤーが強化を持てばCPUも追従して取得できる', foeAfter >= 1, { foe: foeAfter });
 
+// 敵味方同時：プレイヤーが強化カードを取った瞬間にCPUも1つ強化される（同数になる）
+API.resetState();
+API.setMyDeck(['choco', 'cookie', 'shoe', 'bomb']);
+API.startGame();
+{
+  const wd = API.world;
+  // 両陣にchocoを2体ずつ（装甲条件）。CPUが同時取得できる候補を用意
+  ['choco', 'choco'].forEach(k => {
+    API.makeFighters(k, 'p', wd.W, wd.H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+    API.makeFighters(k, 'e', wd.W, wd.H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+  });
+}
+API.state.pickTotal = 5; API.state.pickStep = 1;
+const pPre = API.buffCountFor('p'), ePre = API.buffCountFor('e');
+API.pickCard('buff_choco');   // プレイヤーが強化を取得
+check('取得前は両者0', pPre === 0 && ePre === 0);
+check('プレイヤー強化取得と同時にCPUも+1（同数）', API.buffCountFor('p') === 1 && API.buffCountFor('e') === 1, { p: API.buffCountFor('p'), e: API.buffCountFor('e') });
+
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
 process.exit(fail ? 1 : 0);
