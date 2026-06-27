@@ -1454,5 +1454,62 @@ API.startGame();
   check('決着時は自動で次ラウンドへ進まない', API.state.round === r0, { r0, now: API.state.round });
 }
 
+console.log('\n=== 32) ドラフト完了で自動開戦（開戦ボタン不要）===');
+API.resetState();
+API.setMyDeck(['choco', 'cookie', 'shoe', 'bomb']);
+API.startGame();
+{
+  check('ドラフト中はまだ戦闘前（phase=muster）', API.world.phase === 'muster');
+  let guard = 0;
+  while (API.state.pickStep < API.state.pickTotal && guard++ < 50) {
+    const k = (API.state.offer3 && API.state.offer3[0]) || 'cookie';
+    API.pickCard(k);   // lockAndFight は呼ばない（自動で始まるはず）
+  }
+  check('全ピック完了で自動的に開戦している（phase=battle）', API.world.phase === 'battle');
+  // 多重呼び出しに対する保護（既に戦闘中なら no-op）
+  const armyLen = API.world.units.filter(u => u.side === 'p').length;
+  API.lockAndFight();
+  check('開戦後にlockAndFightを呼んでも二重展開しない', API.world.units.filter(u => u.side === 'p').length === armyLen);
+}
+
+console.log('\n=== 33) 攻撃モーション（攻撃したのが分かる）===');
+{
+  let wa = API.createWorld(W, H); API.world = wa; wa.phase = 'battle'; wa.intro = 0;
+  const A = API.makeFighters('cookie', 'p', W, H, 'army')[0]; A.x = W / 2; A.y = H / 2; A.appear = 1; A.cool = 0; wa.units.push(A);
+  const B = API.makeFighters('cookie', 'e', W, H, 'army')[0]; B.x = W / 2; B.y = H / 2 - 10; B.appear = 1; B.cool = 999; B.hp = B.maxHp = 9999; wa.units.push(B);
+  API.stepWorld(wa, 1 / 60);
+  check('攻撃するとatkAnimが立つ', A.atkAnim > 0, A.atkAnim);
+  check('攻撃方向(atkDx/atkDy)が記録される', typeof A.atkDx === 'number' && (A.atkDx !== 0 || A.atkDy !== 0));
+}
+
+console.log('\n=== 34) やられた立ち絵を横倒し→消す演出 ===');
+{
+  let wd2 = API.createWorld(W, H); API.world = wd2; wd2.phase = 'battle'; wd2.intro = 0;
+  const ally = API.makeFighters('cookie', 'p', W, H, 'army')[0]; ally.x = W * 0.3; ally.y = H * 0.7; ally.appear = 1; ally.cool = 999; ally.hp = ally.maxHp = 9999; wd2.units.push(ally);
+  const foe = API.makeFighters('cookie', 'e', W, H, 'army')[0]; foe.x = W * 0.7; foe.y = H * 0.3; foe.appear = 1; foe.cool = 999; foe.hp = foe.maxHp = 9999; wd2.units.push(foe);
+  const victim = API.makeFighters('cookie', 'e', W, H, 'army')[0]; victim.x = W / 2; victim.y = H / 2; victim.appear = 1; wd2.units.push(victim);
+  API.killUnit(wd2, victim);
+  check('やられると dying フラグが立つ', victim.dying === true);
+  check('やられた直後はまだ盤面に残る（演出中）', wd2.units.includes(victim));
+  let g = 0;
+  while (wd2.units.includes(victim) && g++ < 120 && wd2.phase === 'battle') API.stepWorld(wd2, 1 / 60);
+  check('演出（約' + 0.5 + '秒）が終わると盤面から消える', !wd2.units.includes(victim), { frames: g, phase: wd2.phase });
+}
+
+console.log('\n=== 35) シュークリームの矢：山なりに飛ぶ ===');
+{
+  let ws = API.createWorld(W, H); API.world = ws; ws.phase = 'battle'; ws.intro = 0;
+  const sh = API.makeFighters('shoe', 'p', W, H, 'army')[0]; sh.x = W / 2; sh.y = H * 0.7; sh.appear = 1; sh.cool = 0; ws.units.push(sh);
+  const tg = API.makeFighters('cookie', 'e', W, H, 'army')[0]; tg.x = W / 2; tg.y = H * 0.7 - 60; tg.appear = 1; tg.cool = 999; tg.hp = tg.maxHp = 9999; ws.units.push(tg);
+  API.stepWorld(ws, 1 / 60);
+  const arrow = ws.shots.find(s => s.sprite === 'arrow');
+  check('シューが矢(sprite=arrow)を放つ', !!arrow);
+  check('矢は山なり（arcH>0・total>0）', !!arrow && arrow.arcH > 0 && arrow.total > 0, arrow && { arcH: arrow.arcH, total: arrow.total });
+  check('矢に発射地点(sx,sy)が記録される', !!arrow && typeof arrow.sx === 'number' && typeof arrow.sy === 'number');
+  check('矢はちゃんと敵に当たる（着弾でダメージ）', (() => {
+    let g = 0; const h0 = tg.hp; while (g++ < 200 && tg.hp === h0 && ws.shots.length) API.stepWorld(ws, 1 / 60); return tg.hp < h0;
+  })());
+}
+
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
 process.exit(fail ? 1 : 0);
