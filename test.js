@@ -1496,5 +1496,20 @@ console.log('\n=== 34) やられた立ち絵を横倒し→消す演出 ===');
   check('演出（約' + 0.5 + '秒）が終わると盤面から消える', !wd2.units.includes(victim), { frames: g, phase: wd2.phase });
 }
 
+console.log('\n=== 35) シュークリームの矢：山なりに飛ぶ ===');
+{
+  let ws = API.createWorld(W, H); API.world = ws; ws.phase = 'battle'; ws.intro = 0;
+  const sh = API.makeFighters('shoe', 'p', W, H, 'army')[0]; sh.x = W / 2; sh.y = H * 0.7; sh.appear = 1; sh.cool = 0; ws.units.push(sh);
+  const tg = API.makeFighters('cookie', 'e', W, H, 'army')[0]; tg.x = W / 2; tg.y = H * 0.7 - 60; tg.appear = 1; tg.cool = 999; tg.hp = tg.maxHp = 9999; ws.units.push(tg);
+  API.stepWorld(ws, 1 / 60);
+  const arrow = ws.shots.find(s => s.sprite === 'arrow');
+  check('シューが矢(sprite=arrow)を放つ', !!arrow);
+  check('矢は山なり（arcH>0・total>0）', !!arrow && arrow.arcH > 0 && arrow.total > 0, arrow && { arcH: arrow.arcH, total: arrow.total });
+  check('矢に発射地点(sx,sy)が記録される', !!arrow && typeof arrow.sx === 'number' && typeof arrow.sy === 'number');
+  check('矢はちゃんと敵に当たる（着弾でダメージ）', (() => {
+    let g = 0; const h0 = tg.hp; while (g++ < 200 && tg.hp === h0 && ws.shots.length) API.stepWorld(ws, 1 / 60); return tg.hp < h0;
+  })());
+}
+
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
 process.exit(fail ? 1 : 0);
