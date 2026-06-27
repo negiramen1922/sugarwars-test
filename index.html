@@ -328,10 +328,10 @@ const CONFIG = {
   picksComeback:4,   // 前回負けた側のピック回数（逆転ボーナスで4回）
   picksAfterWin:3,   // 前回勝った側のピック回数（そのまま3回）
   armyCap:30,        // 軍の上限（増えすぎ防止）
-  timeLimit:30,      // 1戦の制限時間(秒)。ユニットを小さく・遅くしたぶん中央が空き衝突まで時間がかかるので延長
+  timeLimit:38,      // 1戦の制限時間(秒)。移動を遅くしたぶん延長（遠距離・ワープが活きる）
 };
 /* ★全体のユニット移動速度の倍率。小さくするほど端まで進むのに時間がかかる（衝突がゆっくり）。 */
-const SPEED_MUL = 0.82;
+const SPEED_MUL = 0.62;   // 全体の移動速度を遅く＝接近に時間がかかり、遠距離攻撃・ワープが相対的に強くなる
 /* ★盤面の見た目スケール。ユニットのスプライト/当たり判定の全体的な大きさを調整。 */
 const SPRITE_MUL = 3.1;   // スプライト描画の倍率（小さいほどユニットが小さく見える。元は3.3）
 
@@ -342,8 +342,8 @@ const UNITS = [
   {key:'daifuku',name:'大福サムライ',   icon:'🍡', role:'fodder', tier:-1, count:1, atk:22, hp:160, speed:60, range:30, cd:0.9, tag:'前衛', text:'納刀→チャージ→抜刀タックルで突撃。通常攻撃も突撃も前方の複数の敵をまとめて薙ぎ払う。近ければ徒歩で斬り、離れると再び居合チャージ。', charger:true, cleave:true, dashDamage:90, dashSpeed:300, chargeTime:0.8, dashMax:0.5, dashFar:72, dashRange:26},
   {key:'cookie', name:'クッキーアーミー',     icon:'🍪', role:'fodder', tier:0, count:5, atk:14, hp:50,  speed:115, range:24, cd:0.5,  tag:'モブ', text:'5体の群れで数で押す前衛。数が多いほど攻撃UP。', flock:true},
   {key:'slime', name:'ゼリースライム',   icon:'🔵', role:'fodder', tier:0.5, count:3, atk:12, hp:55, speed:90, range:24, cd:0.6, tag:'モブ', text:'3体で出るスライム。強化カード「融合」で1体の巨大スライムに合体できる（倒れると3体に分裂）。', slime:true},
-  {key:'bomb',  name:'ポップコーンTNT',   icon:'🍿', role:'fodder', tier:1, count:2, atk:0,  hp:55,  speed:128, range:22, cd:1.0,  tag:'自爆', text:'純粋な爆発力が持ち味。敵が射程に入ると起爆モードに移行し、短い導火の後に周囲へ特大爆発（残りHPに関係なく起爆）。倒されたときも爆発する。', suicide:true, blast:150, blastR:84, fuse:0.5},
-  {key:'soda',  name:'ランニングソーダ',   icon:'🥤', role:'fodder', tier:1, count:2, atk:0,  hp:50,  speed:150, range:22, cd:1.0,  tag:'自爆+沼', text:'本命は炭酸沼。敵陣へ走り込んで小さく自爆し、その場に広く長く残る炭酸沼を作る。沼の上の敵に強い持続ダメージと移動速度低下を与える（爆発自体は控えめ）。倒されたときも爆発する。', suicide:true, blast:40, blastR:46, fuse:0.45, puddle:true, puddleR:92, puddleLife:5.5, puddleDps:24, puddleSlow:0.5},
+  {key:'bomb',  name:'ポップコーンTNT',   icon:'🍿', role:'fodder', tier:-2, count:2, atk:0,  hp:55,  speed:128, range:22, cd:1.0,  tag:'自爆', text:'純粋な爆発力が持ち味。敵が射程に入ると起爆モードに移行し、短い導火の後に周囲へ特大爆発（残りHPに関係なく起爆）。倒されたときも爆発する。', suicide:true, blast:150, blastR:84, fuse:0.5},
+  {key:'soda',  name:'ランニングソーダ',   icon:'🥤', role:'fodder', tier:-2, count:2, atk:0,  hp:50,  speed:150, range:22, cd:1.0,  tag:'自爆+沼', text:'本命は炭酸沼。敵陣へ走り込んで小さく自爆し、その場に広く長く残る炭酸沼を作る。沼の上の敵に強い持続ダメージと移動速度低下を与える（爆発自体は控えめ）。倒されたときも爆発する。', suicide:true, blast:40, blastR:46, fuse:0.45, puddle:true, puddleR:92, puddleLife:5.5, puddleDps:24, puddleSlow:0.5},
   {key:'choco', name:'チョコレートナイト', icon:'🍫', role:'tank',   tier:2, count:2, atk:24, hp:260, speed:66,  range:30, cd:0.95, tag:'前衛', text:'2体で並ぶ非常に硬い前衛。最前線で受け止める。', spriteScale:0.6},
   {key:'pancake', name:'パンケーキキング', icon:'🥞', role:'tank', tier:2.5, count:1, atk:22, hp:150, speed:58, range:30, cd:1.0, tag:'進化', text:'最初は1枚のパンケーキ（やや脆い前衛）。戦闘開始から約10秒で3段に進化し、HPが大幅アップ＋ジャンプ着地の衝撃波で周囲を範囲攻撃するようになる。', evolve:true, evolveAt:10, evoHpMul:3.5, evoScale:1.3, shockR:88, shockDmg:52, jumpDur:0.55, jumpPeak:30, evoCd:2.4},
   {key:'donut', name:'バキュームドーナッツ', icon:'🍩', role:'tank', tier:1.5, count:1, atk:6, hp:430, speed:50, range:32, cd:1.1, tag:'吸引タンク', text:'眼の前へ敵を吸い寄せる超大型タンク。攻撃は弱いが非常に硬く、大勢の攻撃を受け止める（味方の範囲攻撃と好相性）。', vacuum:true, pullR:155, pullForce:150, vacOn:2.4, vacOff:1.6, spriteScale:1.0},
