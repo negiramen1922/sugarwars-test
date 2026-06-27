@@ -136,6 +136,11 @@
   .menu-btn.disabled:hover{border-color:var(--line);filter:grayscale(.4)}
   .badge-soon{font-family:"Space Mono",monospace;font-size:11px;color:#1c1408;background:var(--brass);border-radius:999px;padding:3px 9px;flex:0 0 auto}
   /* 編成スロット（バトルで使う4枚デッキ） */
+  /* 編成画面：上部（デッキ4枠）は固定し、下のキャラ一覧だけスクロール */
+  #roster:not(.hidden){display:flex;flex-direction:column;height:calc(100dvh - 132px);min-height:300px}
+  #roster .roster-head{flex:0 0 auto}
+  #roster #rosterGrid{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:120px;padding:2px 2px 6px;margin:8px 0 0;align-content:start}
+  #roster .roster-foot{flex:0 0 auto;text-align:center;padding-top:10px}
   .deck-slots{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-width:420px;margin:10px auto 4px}
   .deck-slot{position:relative;min-height:78px;border:2px dashed var(--line);border-radius:12px;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
   .deck-slot.filled{border-style:solid;border-color:var(--steel);background:linear-gradient(180deg,var(--panel),var(--bg2));cursor:pointer}
@@ -228,15 +233,17 @@
 
     <!-- roster (character list) -->
     <section id="roster" class="hidden">
-      <div class="draft-top">
-        <h2 class="stage-title">編成 — バトルで使うデッキ</h2>
-        <span class="pick-status">デッキ <b id="deckCount">0</b> / 4</span>
+      <div class="roster-head">
+        <div class="draft-top">
+          <h2 class="stage-title">編成 — バトルで使うデッキ</h2>
+          <span class="pick-status">デッキ <b id="deckCount">0</b> / 4</span>
+        </div>
+        <div id="deckNote" class="comeback-banner hidden"></div>
+        <div class="deck-slots" id="deckSlots"></div>
+        <p class="stage-sub" style="text-align:center;margin-bottom:8px">下のキャラをタップして4枚のデッキを作ろう。スロットをタップで外せます。</p>
       </div>
-      <div id="deckNote" class="comeback-banner hidden"></div>
-      <div class="deck-slots" id="deckSlots"></div>
-      <p class="stage-sub" style="text-align:center">下のキャラをタップして4枚のデッキを作ろう。スロットをタップで外せます。</p>
       <div class="offer" id="rosterGrid"></div>
-      <div style="text-align:center;margin-top:16px">
+      <div class="roster-foot">
         <button class="btn btn-ghost" onclick="goHome()">← ホームへ戻る</button>
       </div>
     </section>
@@ -274,7 +281,6 @@
         <p class="result-line hidden" id="resultLine"></p>
         <div class="battle-controls">
           <button class="btn btn-ghost" id="skipBtn" onclick="toggleSpeed()">早送り ▶▶</button>
-          <button class="btn btn-primary hidden" id="nextBtn" onclick="nextRound()">次のラウンドへ</button>
         </div>
       </div>
     </section>
@@ -339,20 +345,20 @@ const SPRITE_MUL = 3.1;   // スプライト描画の倍率（小さいほどユ
    role=隊列の段（fodder=最前列, tank=中列, back=後列）。
    count=出撃数, atk/hp=1体ぶん, speed=移動, range=間合い, cd=攻撃間隔(秒) */
 const UNITS = [
-  {key:'daifuku',name:'大福サムライ',   icon:'🍡', role:'fodder', tier:-1, count:1, atk:22, hp:160, speed:60, range:30, cd:0.9, tag:'前衛', text:'納刀→チャージ→抜刀タックルで突撃。突撃ヒットは前方の複数の敵をまとめて薙ぎ払う範囲攻撃、通常攻撃は単体。近ければ徒歩で斬り、離れると再び居合チャージ。', charger:true, cleave:true, dashDamage:90, dashSpeed:300, chargeTime:0.8, dashMax:0.5, dashFar:72, dashRange:26},
-  {key:'cookie', name:'クッキーアーミー',     icon:'🍪', role:'fodder', tier:0, count:5, atk:14, hp:50,  speed:115, range:24, cd:0.5,  tag:'モブ', text:'5体の群れで数で押す前衛。数が多いほど攻撃UP。', flock:true},
-  {key:'slime', name:'ゼリースライム',   icon:'🔵', role:'fodder', tier:0.5, count:3, atk:12, hp:55, speed:90, range:24, cd:0.6, tag:'モブ', text:'3体で出るスライム。強化カード「融合」で1体の巨大スライムに合体できる（倒れると3体に分裂）。', slime:true},
-  {key:'bomb',  name:'ポップコーンTNT',   icon:'🍿', role:'fodder', tier:-2, count:2, atk:0,  hp:55,  speed:128, range:22, cd:1.0,  tag:'自爆', text:'純粋な爆発力が持ち味。敵が射程に入ると起爆モードに移行し、短い導火の後に周囲へ特大爆発（残りHPに関係なく起爆）。倒されたときも爆発する。', suicide:true, blast:150, blastR:84, fuse:0.5},
-  {key:'soda',  name:'ランニングソーダ',   icon:'🥤', role:'fodder', tier:-2, count:2, atk:0,  hp:50,  speed:150, range:22, cd:1.0,  tag:'自爆+沼', text:'本命は炭酸沼。敵陣へ走り込んで小さく自爆し、その場に広く長く残る炭酸沼を作る。沼の上の敵に強い持続ダメージと移動速度低下を与える（爆発自体は控えめ）。倒されたときも爆発する。', suicide:true, blast:40, blastR:46, fuse:0.45, puddle:true, puddleR:92, puddleLife:5.5, puddleDps:24, puddleSlow:0.5},
-  {key:'choco', name:'チョコレートナイト', icon:'🍫', role:'tank',   tier:2, count:2, atk:24, hp:260, speed:66,  range:30, cd:0.95, tag:'前衛', text:'2体で並ぶ非常に硬い前衛。最前線で受け止める。', spriteScale:0.6},
-  {key:'pancake', name:'パンケーキキング', icon:'🥞', role:'tank', tier:2.5, count:1, atk:22, hp:150, speed:58, range:30, cd:1.0, tag:'進化', text:'最初は1枚のパンケーキ（やや脆い前衛）。戦闘開始から約10秒で3段に進化し、HPが大幅アップ＋ジャンプ着地の衝撃波で周囲を範囲攻撃するようになる。', evolve:true, evolveAt:10, evoHpMul:3.5, evoScale:1.3, shockR:88, shockDmg:52, jumpDur:0.55, jumpPeak:30, evoCd:2.4},
-  {key:'donut', name:'バキュームドーナッツ', icon:'🍩', role:'tank', tier:1.5, count:1, atk:6, hp:430, speed:50, range:32, cd:1.1, tag:'吸引タンク', text:'眼の前へ敵を吸い寄せる超大型タンク。攻撃は弱いが非常に硬く、大勢の攻撃を受け止める（味方の範囲攻撃と好相性）。', vacuum:true, pullR:155, pullForce:150, vacOn:2.4, vacOff:1.6, spriteScale:1.0},
-  {key:'bakery', name:'ジンジャーベーカリー', icon:'🏠', role:'back', tier:3.2, count:1, atk:0, hp:230, speed:0, range:0, cd:1, tag:'生産工場', text:'動かない生産工場。生きている間、約2秒ごとにジンジャーソルジャーを3体まとめて焼いて送り出す（最大7体まで）。倒すと供給が止まる。', spawner:true, spawnKey:'ginger', spawnCd:2.0, spawnCount:3, spawnCap:7, spriteScale:1.1},
-  {key:'ginger', name:'ジンジャーソルジャー', icon:'🍪', role:'fodder', tier:0, count:1, atk:10, hp:32, speed:112, range:22, cd:0.55, tag:'召喚', text:'ジンジャーベーカリーが焼き上げる小さな兵士。脆いが足が速く、数で押し寄せる。', summonOnly:true},
-  {key:'popcorn_mini', name:'小型ポップコーン', icon:'🍿', role:'fodder', tier:1, count:1, atk:0, hp:24, speed:132, range:22, cd:1.0, tag:'自爆', text:'ポップコーンTNTの爆発から飛び出す小型。すぐに自爆する（さらに分裂はしない）。', suicide:true, blast:60, blastR:48, fuse:0.4, summonOnly:true, spriteScale:0.62},
-  {key:'shoe',  name:'シュークリームアーチャー', icon:'🧁', role:'back', tier:3, count:2, atk:21, hp:72, speed:64, range:120, cd:0.9, tag:'後衛', text:'2人で矢を放つ後衛の射手。', ranged:true},
-  {key:'ghost', name:'わたあめゴースト', icon:'☁️', role:'back', tier:3.5, count:3, atk:16, hp:44, speed:95, range:28, cd:0.43, tag:'強襲', text:'3体で出る奇襲役。戦闘開始から少し経つと消えて、敵陣の最後尾あたりへワープ。出現直後はすり抜け(無敵)で後衛を最優先に叩く（脆い）。', warper:true, warpDelay:0.8, target:'back'},
-  {key:'cannon',name:'キャンディキャノン', icon:'🎆', role:'back', tier:4, count:1, atk:0, hp:140, speed:0, range:9999, cd:2.8, tag:'迫撃', text:'最後尾から動かず、ステージ全域へ範囲迫撃。遅いが密集地点で大爆発。', artillery:true, mortar:60, splash:62, shotSpeed:230, arcH:80, spriteScale:1.25},
+  {key:'daifuku',name:'大福サムライ',   icon:'🍡', role:'fodder', tier:-1, count:1, atk:22, hp:160, speed:60, range:30, cd:0.9, tag:'前衛', short:'居合チャージから抜刀タックル！突撃は範囲、通常は単体の侍', text:'納刀→チャージ→抜刀タックルで突撃。突撃ヒットは前方の複数の敵をまとめて薙ぎ払う範囲攻撃、通常攻撃は単体。近ければ徒歩で斬り、離れると再び居合チャージ。', charger:true, cleave:true, dashDamage:90, dashSpeed:300, chargeTime:0.8, dashMax:0.5, dashFar:72, dashRange:26},
+  {key:'cookie', name:'クッキーアーミー',     icon:'🍪', role:'fodder', tier:0, count:5, atk:14, hp:50,  speed:115, range:24, cd:0.5,  tag:'モブ', short:'数で押すクッキーの群れ。仲間が多いほど攻撃が上がる', text:'5体の群れで数で押す前衛。数が多いほど攻撃UP。', flock:true},
+  {key:'slime', name:'ゼリースライム',   icon:'🔵', role:'fodder', tier:0.5, count:3, atk:12, hp:55, speed:90, range:24, cd:0.6, tag:'モブ', short:'「融合」で巨大化、倒れても3体に分裂するゼリー', text:'3体で出るスライム。強化カード「融合」で1体の巨大スライムに合体できる（倒れると3体に分裂）。', slime:true},
+  {key:'bomb',  name:'ポップコーンTNT',   icon:'🍿', role:'fodder', tier:-2, count:2, atk:0,  hp:55,  speed:128, range:22, cd:1.0,  tag:'自爆', short:'敵に近づいて自爆するクレイジーなポップコーン', text:'純粋な爆発力が持ち味。敵が射程に入ると起爆モードに移行し、短い導火の後に周囲へ特大爆発（残りHPに関係なく起爆）。倒されたときも爆発する。', suicide:true, blast:150, blastR:84, fuse:0.5},
+  {key:'soda',  name:'ランニングソーダ',   icon:'🥤', role:'fodder', tier:-2, count:2, atk:0,  hp:50,  speed:150, range:22, cd:1.0,  tag:'自爆+沼', short:'走って自爆し、長く残る炭酸沼で敵を溶かすソーダ', text:'本命は炭酸沼。敵陣へ走り込んで小さく自爆し、その場に広く長く残る炭酸沼を作る。沼の上の敵に強い持続ダメージと移動速度低下を与える（爆発自体は控えめ）。倒されたときも爆発する。', suicide:true, blast:40, blastR:46, fuse:0.45, puddle:true, puddleR:92, puddleLife:5.5, puddleDps:24, puddleSlow:0.5},
+  {key:'choco', name:'チョコレートナイト', icon:'🍫', role:'tank',   tier:2, count:2, atk:24, hp:260, speed:66,  range:30, cd:0.95, tag:'前衛', short:'とにかく硬いチョコの壁。最前線で攻撃を受け止める', text:'2体で並ぶ非常に硬い前衛。最前線で受け止める。', spriteScale:0.6},
+  {key:'pancake', name:'パンケーキキング', icon:'🥞', role:'tank', tier:2.5, count:1, atk:22, hp:150, speed:58, range:30, cd:1.0, tag:'進化', short:'約10秒で巨大進化し、着地の衝撃波で暴れる王様', text:'最初は1枚のパンケーキ（やや脆い前衛）。戦闘開始から約10秒で3段に進化し、HPが大幅アップ＋ジャンプ着地の衝撃波で周囲を範囲攻撃するようになる。', evolve:true, evolveAt:10, evoHpMul:3.5, evoScale:1.3, shockR:88, shockDmg:52, jumpDur:0.55, jumpPeak:30, evoCd:2.4},
+  {key:'donut', name:'バキュームドーナッツ', icon:'🍩', role:'tank', tier:1.5, count:1, atk:6, hp:430, speed:50, range:32, cd:1.1, tag:'吸引タンク', short:'敵を吸い寄せる超硬タンク。味方の範囲攻撃と好相性', text:'眼の前へ敵を吸い寄せる超大型タンク。攻撃は弱いが非常に硬く、大勢の攻撃を受け止める（味方の範囲攻撃と好相性）。', vacuum:true, pullR:155, pullForce:150, vacOn:2.4, vacOff:1.6, spriteScale:1.0},
+  {key:'bakery', name:'ジンジャーベーカリー', icon:'🏠', role:'back', tier:3.2, count:1, atk:0, hp:230, speed:0, range:0, cd:1, tag:'生産工場', short:'動かず2秒ごとにジンジャーを焼き続ける生産工場', text:'動かない生産工場。生きている間、約2秒ごとにジンジャーソルジャーを3体まとめて焼いて送り出す（最大7体まで）。倒すと供給が止まる。', spawner:true, spawnKey:'ginger', spawnCd:2.0, spawnCount:3, spawnCap:7, spriteScale:1.1},
+  {key:'ginger', name:'ジンジャーソルジャー', icon:'🍪', role:'fodder', tier:0, count:1, atk:10, hp:32, speed:112, range:22, cd:0.55, tag:'召喚', short:'ベーカリーが焼く足の速い小さな兵士', text:'ジンジャーベーカリーが焼き上げる小さな兵士。脆いが足が速く、数で押し寄せる。', summonOnly:true},
+  {key:'popcorn_mini', name:'小型ポップコーン', icon:'🍿', role:'fodder', tier:1, count:1, atk:0, hp:24, speed:132, range:22, cd:1.0, tag:'自爆', short:'TNTの爆発から飛び出してもう一度自爆する小型', text:'ポップコーンTNTの爆発から飛び出す小型。すぐに自爆する（さらに分裂はしない）。', suicide:true, blast:60, blastR:48, fuse:0.4, summonOnly:true, spriteScale:0.62},
+  {key:'shoe',  name:'シュークリームアーチャー', icon:'🧁', role:'back', tier:3, count:2, atk:21, hp:72, speed:64, range:120, cd:0.9, tag:'後衛', short:'後方から矢を放つシュークリームの射手', text:'2人で矢を放つ後衛の射手。', ranged:true},
+  {key:'ghost', name:'わたあめゴースト', icon:'☁️', role:'back', tier:3.5, count:3, atk:16, hp:44, speed:95, range:28, cd:0.43, tag:'強襲', short:'敵陣の後ろへワープして後衛を急襲するわたあめ', text:'3体で出る奇襲役。戦闘開始から少し経つと消えて、敵陣の最後尾あたりへワープ。出現直後はすり抜け(無敵)で後衛を最優先に叩く（脆い）。', warper:true, warpDelay:0.8, target:'back'},
+  {key:'cannon',name:'キャンディキャノン', icon:'🎆', role:'back', tier:4, count:1, atk:0, hp:140, speed:0, range:9999, cd:2.8, tag:'迫撃', short:'最後尾から全域へ撃ち込む花火の迫撃砲', text:'最後尾から動かず、ステージ全域へ範囲迫撃。遅いが密集地点で大爆発。', artillery:true, mortar:60, splash:62, shotSpeed:230, arcH:80, spriteScale:1.25},
 ];
 const UNIT_BY_KEY = Object.fromEntries(UNITS.map(u=>[u.key,u]));
 
@@ -1337,7 +1343,7 @@ function renderPickOffer(){
       el.className='card';
       el.innerHTML=`<div class="icon">${iconHTML(u)}${u.count>1?`<span class="count">×${u.count}</span>`:''}</div>
         <div class="cname">${u.name}</div>
-        <div class="tagline">${u.text}</div>
+        <div class="tagline">${u.short||u.text}</div>
         <div class="stats"><span class="atk">⚔ ${u.atk}</span><span class="hp">✚ ${u.hp}</span></div>`;
       el.onclick=()=>pickCardAnimated(el,key);
     }
@@ -1523,7 +1529,6 @@ function lockAndFight(){
   $('offerOverlay').classList.add('hidden');
   $('battlePanel').classList.remove('hidden');
   $('battleHead').classList.remove('hidden');
-  $('nextBtn').classList.add('hidden');
   $('skipBtn').classList.remove('hidden'); $('skipBtn').textContent='早送り ▶▶';
   speedMul=1;
 }
@@ -2261,10 +2266,12 @@ function endBattle(result){
   else if(result==='lose'){ state.youLives--; state.lostLast=true; state.foeLostLast=false; line.classList.add('lose'); line.textContent='敗北… でも軍は引き継がれる'; }
   else { state.lostLast=false; state.foeLostLast=false; line.classList.add('draw'); line.textContent='相討ち。ライフの増減なし'; }
   renderScore();
-  if(state.youLives<=0||state.foeLives<=0) setTimeout(endGame,800);
-  else $('nextBtn').classList.remove('hidden');
+  $('skipBtn').classList.add('hidden');
+  // 最後のライフを削り切ったときだけ決着画面へ。それ以外は勝敗表示のあと自動で次ラウンドへ。
+  if(state.youLives<=0||state.foeLives<=0) setTimeout(endGame,1400);
+  else setTimeout(nextRound,1800);
 }
-function nextRound(){ SFX.play('button'); state.round++; beginDraft(); }
+function nextRound(){ state.round++; beginDraft(); }
 function endGame(){
   cancelAnimationFrame(raf);
   const won=state.foeLives<=0;
