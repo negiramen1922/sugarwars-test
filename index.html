@@ -340,6 +340,8 @@ const CONFIG = {
 const SPEED_MUL = 0.62;   // 全体の移動速度を遅く＝接近に時間がかかり、遠距離攻撃・ワープが相対的に強くなる
 /* ★盤面の見た目スケール。ユニットのスプライト/当たり判定の全体的な大きさを調整。 */
 const SPRITE_MUL = 3.1;   // スプライト描画の倍率（小さいほどユニットが小さく見える。元は3.3）
+const ATK_ANIM = 0.18;    // 攻撃モーション（前方への突き）の長さ(秒)。攻撃したのが見て分かる
+const DIE_DUR = 0.5;      // やられたときに横倒し→消えるまでの長さ(秒)
 
 /* お菓子の王国の軍勢。HPは100前後をベースにした数値感。
    role=隊列の段（fodder=最前列, tank=中列, back=後列）。
@@ -1307,8 +1309,10 @@ function nextPick(){
     $('offer').innerHTML='';
     $('offerOverlay').classList.add('hidden');
     $('pickStep').textContent = state.pickTotal;
-    $('draftHint').textContent = '編成完了！ 開戦できます';
-    $('lockBtn').classList.remove('hidden');
+    $('draftHint').textContent = '編成完了！ まもなく開戦…';
+    $('lockBtn').classList.add('hidden');
+    // ボタンを押さずに自動で開戦（編成完了の確認のため少し待つ）
+    setTimeout(()=>{ if(!$('play').classList.contains('hidden')) lockAndFight(); }, 900);
     return;
   }
   $('pickStep').textContent = state.pickStep+1;
@@ -1502,6 +1506,7 @@ function aiPicks(loadout, n){
 }
 
 function lockAndFight(){
+  if(!world || world.phase==='battle') return;   // 自動開戦と多重呼び出しの保護（既に戦闘中なら無視）
   SFX.play('button');
   // 残っている敵ピックを公開（敵の枚数が多い場合など）
   while(state.foeRevealIdx < state.foeRoundPicks.length){
@@ -1578,6 +1583,7 @@ function applyHit(world, atk, tgt, dmg){
 }
 function killUnit(world, t){
   if(t._dead) return; t._dead=true; t.hp=0;
+  t.dying=true; t.dieT=0; t.dieDir=(Math.random()<0.5?-1:1);   // 立ち絵を横に倒してから消す演出
   burst(world, t.x, t.y, t.side==='p'?'#4ea3c9':'#d2603a', 12, 90);
   if(t.blast){
     SFX.play('explode');                // 自爆のポフッ
@@ -1934,6 +1940,7 @@ function stepWorld(world, dt){
   for(const u of live){
     if(u.hp<=0) continue;            // 同フレームで倒された兵は行動しない（死に際の一撃を防ぐ＝公平化）
     u.bob+=dt*8;
+    if(u.atkAnim>0) u.atkAnim-=dt;   // 攻撃モーションの減衰
     if(u.appear<1) u.appear=Math.min(1,u.appear+dt*5);
     if(u.berserk && !u.raged && u.hp<=u.maxHp/2){ u.raged=true; u.atk=Math.round(u.baseAtk*u.berserk); u.speed*=1.4; }
     if(u.heal){
@@ -2000,6 +2007,7 @@ function stepWorld(world, dt){
       const dist=Math.hypot(tgt.x-u.x,tgt.y-u.y);
       if(dist<=u.range && u.cool<=0){
         u.cool=u.cd;
+        u.atkAnim=ATK_ANIM; u.atkDx=(tgt.x-u.x)/(dist||1); u.atkDy=(tgt.y-u.y)/(dist||1);   // 攻撃モーション（前方への突き）
         if(u.ranged){ world.shots.push({x:u.x,y:u.y,tx:tgt.x,ty:tgt.y,target:tgt,owner:u,side:u.side,atk:u.atk,splash:u.splash,sp:340,color:u.splash?'#b98cff':'#ffe08a'}); }
         else { u.knockx-=(tgt.x-u.x)/(dist||1)*0.9; u.knocky-=(tgt.y-u.y)/(dist||1)*0.9; applyHit(world,u,tgt,u.atk); }
       }
@@ -2019,8 +2027,9 @@ function stepWorld(world, dt){
   for(const p of world.parts){ p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=120*dt; p.life-=dt; } world.parts=world.parts.filter(p=>p.life>0);
   for(const r of world.rings){ r.r+=(r.max-r.r)*Math.min(1,dt*10); r.life-=dt; } world.rings=world.rings.filter(r=>r.life>0);
   for(const u of world.units){ if(u.hp>0) clampToStage(u,world.W,world.H); }   // 盤面（クリーム枠）の内側に収める
-  world.units=world.units.filter(u=>u.hp>0);
-  const p=world.units.filter(u=>u.side==='p').length, e=world.units.filter(u=>u.side==='e').length;
+  for(const u of world.units){ if(u.dying) u.dieT=(u.dieT||0)+dt; }             // 横倒し演出のタイマーを進める
+  world.units=world.units.filter(u=> u.hp>0 || (u.dying && u.dieT < DIE_DUR) );  // 倒れた兵は演出が終わるまで残す
+  const p=world.units.filter(u=>u.side==='p'&&u.hp>0).length, e=world.units.filter(u=>u.side==='e'&&u.hp>0).length;
   if(p===0||e===0){ beginOutro(world, (p>0&&e===0)?'win':(e>0&&p===0)?'lose':'draw'); }
   else if(world.t>=CONFIG.timeLimit){ const ph=world.units.filter(u=>u.side==='p').reduce((s,u)=>s+u.hp,0), eh=world.units.filter(u=>u.side==='e').reduce((s,u)=>s+u.hp,0); beginOutro(world, ph>eh?'win':eh>ph?'lose':'draw'); }
 }
@@ -2071,7 +2080,27 @@ function loop(now){
   if(world.done){ endBattle(world.result); return; }
   raf=requestAnimationFrame(loop);
 }
-function updateRemain(){ $('youRemain').textContent=world.units.filter(u=>u.side==='p').length; $('foeRemain').textContent=world.units.filter(u=>u.side==='e').length; }
+function updateRemain(){ $('youRemain').textContent=world.units.filter(u=>u.side==='p'&&u.hp>0).length; $('foeRemain').textContent=world.units.filter(u=>u.side==='e'&&u.hp>0).length; }
+// やられた兵：足元を軸に立ち絵を横へ倒し、後半でフェードして消える
+function drawDyingUnit(u){
+  const dp=Math.min(1,(u.dieT||0)/DIE_DUR);
+  const vis=u.spriteScale||1;
+  const ang=(u.dieDir||1)*dp*1.45;                       // 約83°まで横倒し
+  const alpha=dp<0.55?1:Math.max(0,1-(dp-0.55)/0.45);    // 後半でフェードアウト
+  // 足元の陣営リング（薄れて消える）
+  ctx.globalAlpha=0.22*(1-dp);
+  ctx.beginPath(); ctx.ellipse(u.x,u.y+u.r*0.85,u.r*1.1*vis,u.r*0.44*vis,0,0,6.28);
+  ctx.fillStyle=u.side==='p'?'rgba(78,163,201,1)':'rgba(210,96,58,1)'; ctx.fill();
+  ctx.globalAlpha=1;
+  const spr=spriteFor(u);
+  const S=u.r*SPRITE_MUL*vis;
+  const drawY=u.y-S*0.60, pivotY=u.y+S*0.40;             // 足元あたりを軸に倒れる
+  ctx.save(); ctx.globalAlpha=alpha;
+  ctx.translate(u.x,pivotY); ctx.rotate(ang); ctx.translate(-u.x,-pivotY);
+  if(spr && spr.complete && spr.naturalWidth){ ctx.imageSmoothingEnabled=false; ctx.drawImage(spr, u.x-S/2, drawY, S, S); }
+  else { ctx.font=(u.r*1.7*vis)+'px serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#fff'; ctx.fillText(u.icon||'',u.x,u.y); }
+  ctx.restore(); ctx.globalAlpha=1;
+}
 function render(){
   ctx.clearRect(0,0,CW,CH);
   let ox=0,oy=0; if(world.shake>0){ ox=(Math.random()-0.5)*world.shake; oy=(Math.random()-0.5)*world.shake; }
@@ -2106,8 +2135,12 @@ function render(){
     }
   }
   for(const u of world.units){
+    if(u.dying){ drawDyingUnit(u); continue; }   // やられた兵は横倒し→フェードのみ描画
     let bob=Math.sin(u.bob)*1.5 - (u.jumpH||0), sc=u.appear<1?(0.4+0.6*u.appear):1;
     const vis=u.spriteScale||1;   // 見た目だけのサイズ倍率（当たり判定は据え置き）
+    // 攻撃モーション：攻撃した瞬間だけ前方へ「ツン」と突き出す（誰が攻撃したか分かる）
+    let lungeX=0, lungeY=0;
+    if(u.atkAnim>0){ const a=1-u.atkAnim/ATK_ANIM, j=Math.sin(a*Math.PI); lungeX=(u.atkDx||0)*j*7; lungeY=(u.atkDy||0)*j*7; sc*=1+0.10*j; }
     // ワープの消える/現れる演出
     let wAlpha=1;
     if(u.warper){
@@ -2202,11 +2235,11 @@ function render(){
     }
     if(spr && spr.complete && spr.naturalWidth){
       const S=u.r*SPRITE_MUL*sc*vis; ctx.imageSmoothingEnabled=false;
-      ctx.drawImage(spr, u.x-S/2, u.y+bob-S*0.60, S, S);
-      if(u.flash>0){ ctx.globalAlpha=Math.min(.7,u.flash*4); ctx.beginPath(); ctx.arc(u.x,u.y+bob,u.r+2,0,6.28); ctx.fillStyle='#fff'; ctx.fill(); ctx.globalAlpha=1; }
+      ctx.drawImage(spr, u.x+lungeX-S/2, u.y+bob+lungeY-S*0.60, S, S);
+      if(u.flash>0){ ctx.globalAlpha=Math.min(.7,u.flash*4); ctx.beginPath(); ctx.arc(u.x+lungeX,u.y+bob+lungeY,u.r+2,0,6.28); ctx.fillStyle='#fff'; ctx.fill(); ctx.globalAlpha=1; }
     } else {
-      if(u.flash>0){ ctx.beginPath(); ctx.arc(u.x,u.y+bob,u.r+2,0,6.28); ctx.fillStyle='rgba(255,255,255,.6)'; ctx.fill(); }
-      ctx.font=(u.r*1.7*sc*vis)+'px serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(u.icon,u.x,u.y+bob);
+      if(u.flash>0){ ctx.beginPath(); ctx.arc(u.x+lungeX,u.y+bob+lungeY,u.r+2,0,6.28); ctx.fillStyle='rgba(255,255,255,.6)'; ctx.fill(); }
+      ctx.font=(u.r*1.7*sc*vis)+'px serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(u.icon,u.x+lungeX,u.y+bob+lungeY);
     }
     if(world.phase==='battle' && u.appear>=1){
       const bw=u.r*1.8,bh=4,bx=u.x-bw/2,by=u.y-u.r-9+bob,ratio=Math.max(0,u.hp/u.maxHp);
