@@ -343,6 +343,7 @@ const SPRITE_MUL = 3.1;   // スプライト描画の倍率（小さいほどユ
 const ATK_ANIM = 0.18;    // 攻撃モーション（前方への突き）の長さ(秒)。攻撃したのが見て分かる
 const DIE_DUR = 0.5;      // やられたときに横倒し→消えるまでの長さ(秒)
 const SHOE_ARC = 26;      // シュークリームの矢が「ポーンと」山なりに飛ぶ弧の高さ(px)
+const SEP_MUL = 1.45;     // 味方同士の「重ならない」間隔の倍率（当たり半径の何倍離すか。大きいほど立ち絵が被らないが軍は広がる）
 
 /* お菓子の王国の軍勢。HPは100前後をベースにした数値感。
    role=隊列の段（fodder=最前列, tank=中列, back=後列）。
@@ -1910,6 +1911,30 @@ function spawnerStep(world, u, dt){
   }
 }
 
+// ユニット同士のめり込みを直接ほどく（位置ベースの分離）。被ったぶんだけ押し戻して重ならないようにする。
+// speed===0 の不動ユニット（キャノン/ベーカリー）は押されず、相手側がよける。
+function resolveOverlaps(world){
+  const arr=world.units;
+  for(let pass=0; pass<2; pass++){
+    for(let i=0;i<arr.length;i++){
+      const u=arr[i]; if(u.hp<=0) continue;
+      for(let j=i+1;j<arr.length;j++){
+        const o=arr[j]; if(o.hp<=0) continue;
+        const pad=(u.side===o.side)?SEP_MUL:1;   // 味方同士は広めに離す（立ち絵が被らない）／敵味方は接近戦のため密のまま
+        let ox=u.x-o.x, oy=u.y-o.y, d2=ox*ox+oy*oy; const rr=(u.r+o.r)*pad;
+        if(d2>=rr*rr) continue;
+        let d=Math.sqrt(d2);
+        if(d<1e-3){ ox=0.6; oy=(j%2?0.4:-0.4); d=Math.hypot(ox,oy); }   // 完全に重なっている場合は決め打ちの向きへ
+        const overlap=rr-d, nx=ox/d, ny=oy/d;
+        const ua=(u.speed===0), oa=(o.speed===0);
+        let us, os;
+        if(ua&&oa){ us=0; os=0; } else if(ua){ us=0; os=1; } else if(oa){ us=1; os=0; } else { us=0.5; os=0.5; }
+        u.x+=nx*overlap*us; u.y+=ny*overlap*us;
+        o.x-=nx*overlap*os; o.y-=ny*overlap*os;
+      }
+    }
+  }
+}
 function stepWorld(world, dt){
   world.t += dt;
   if(world.shake>0) world.shake=Math.max(0,world.shake-dt*30);   // 揺れ減衰はどのフェーズでも進める（強化の揺れがドラフト中ずっと残るバグ防止）
@@ -2029,6 +2054,7 @@ function stepWorld(world, dt){
   for(const d of world.dmgs){ d.y+=d.vy*dt; d.life-=dt; } world.dmgs=world.dmgs.filter(d=>d.life>0);
   for(const p of world.parts){ p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=120*dt; p.life-=dt; } world.parts=world.parts.filter(p=>p.life>0);
   for(const r of world.rings){ r.r+=(r.max-r.r)*Math.min(1,dt*10); r.life-=dt; } world.rings=world.rings.filter(r=>r.life>0);
+  resolveOverlaps(world);                                                       // ユニット同士が重ならないように押し分ける
   for(const u of world.units){ if(u.hp>0) clampToStage(u,world.W,world.H); }   // 盤面（クリーム枠）の内側に収める
   for(const u of world.units){ if(u.dying) u.dieT=(u.dieT||0)+dt; }             // 横倒し演出のタイマーを進める
   world.units=world.units.filter(u=> u.hp>0 || (u.dying && u.dieT < DIE_DUR) );  // 倒れた兵は演出が終わるまで残す
