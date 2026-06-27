@@ -1912,10 +1912,10 @@ function spawnerStep(world, u, dt){
 
 function stepWorld(world, dt){
   world.t += dt;
+  if(world.shake>0) world.shake=Math.max(0,world.shake-dt*30);   // 揺れ減衰はどのフェーズでも進める（強化の揺れがドラフト中ずっと残るバグ防止）
   if(world.phase==='muster'){ musterStep(world,dt); return; }
   if(world.phase==='outro'){ outroStep(world,dt); return; }   // 戦闘後：砂糖にとける演出
   if(world.intro>0){ world.intro-=dt; return; }
-  if(world.shake>0) world.shake=Math.max(0,world.shake-dt*30);
   // 炭酸沼の処理：寿命を減らし、沼上の敵に持続ダメージ＋移動速度低下(slowMul)を付与
   for(const u of world.units){ u.slowMul=1; }   // まずスロー解除（毎フレーム再判定。沼が無ければ全員等速）
   if(world.puddles && world.puddles.length){

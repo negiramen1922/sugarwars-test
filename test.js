@@ -1511,5 +1511,14 @@ console.log('\n=== 35) シュークリームの矢：山なりに飛ぶ ===');
   })());
 }
 
+console.log('\n=== 36) 強化の画面揺れがドラフト中(muster)に残り続けない ===');
+{
+  let wm = API.createWorld(W, H); API.world = wm; wm.phase = 'muster';
+  wm.shake = 6;                                  // 強化（例：ビター装甲）で揺れがセットされた状態
+  check('揺れがセットされている', wm.shake > 0);
+  for (let i = 0; i < 60; i++) API.stepWorld(wm, 1 / 60);   // muster のまま1秒ぶんステップ
+  check('muster中でも揺れが減衰してゼロになる', wm.shake === 0, wm.shake);
+}
+
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
 process.exit(fail ? 1 : 0);
