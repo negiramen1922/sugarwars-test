@@ -701,8 +701,8 @@ for (let g = 0; g < 10; g++) {
 console.log('  ポップコーンデッキ戦績:', JSON.stringify(bombDeck));
 check('おかわり入りデッキで詰まりゼロ', bombDeck.stuck === 0, bombDeck);
 
-console.log('\n=== 19) 大福サムライ：デフォルト前方薙ぎ払い＋固有強化「特大大福」 ===');
-// (A) デフォルト：通常攻撃・突撃が前方の複数の敵をまとめて斬る
+console.log('\n=== 19) 大福サムライ：突撃のみ前方薙ぎ払い・通常攻撃は単体＋固有強化「特大大福」 ===');
+// (A) デフォルト：突撃ヒットは前方の複数の敵をまとめて斬る（通常攻撃は単体）
 const dfDef = API.UNIT_BY_KEY['daifuku'];
 check('daifuku は cleave フラグ持ち', dfDef.cleave === true);
 let cf = API.makeFighters('daifuku', 'p', W, H, 'army')[0];
@@ -723,7 +723,7 @@ API.daifukuCleave(wcl, dd, dd.atk, dd.range * 2.4, 0, -1); // 前方=上向き
 check('前方の複数の敵をまとめて斬る(3体ヒット)', front.every((f, i) => f.hp < fh0[i]), front.map(f => f.hp));
 check('後方(逆向き)の敵は斬らない', back.hp === bh0);
 
-// 通常攻撃も薙ぎ払い：壁役の前で複数の敵がまとめて削れる（数フレーム）
+// 通常攻撃は単体：前方に複数の敵がいても1体だけ削れる（数フレーム）
 function walkCleaveHits() {
   let wd = API.createWorld(W, H); API.world = wd;
   wd.phase = 'battle'; wd.intro = 0;
@@ -735,7 +735,7 @@ function walkCleaveHits() {
   for (let i = 0; i < 3; i++) API.stepWorld(wd, 1 / 60);
   return foes.filter((f, i) => f.hp < h0[i]).length;
 }
-check('通常攻撃も前方の複数体に当たる(2体以上)', walkCleaveHits() >= 2);
+check('通常攻撃は単体（1体だけに当たる）', walkCleaveHits() === 1);
 
 // (B) 固有強化「特大大福」：HP＆攻撃（突撃威力も）アップ
 check('buff_daifuku が SPECIALS にある', !!API.SPECIALS.buff_daifuku);

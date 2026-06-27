@@ -339,7 +339,7 @@ const SPRITE_MUL = 3.1;   // スプライト描画の倍率（小さいほどユ
    role=隊列の段（fodder=最前列, tank=中列, back=後列）。
    count=出撃数, atk/hp=1体ぶん, speed=移動, range=間合い, cd=攻撃間隔(秒) */
 const UNITS = [
-  {key:'daifuku',name:'大福サムライ',   icon:'🍡', role:'fodder', tier:-1, count:1, atk:22, hp:160, speed:60, range:30, cd:0.9, tag:'前衛', text:'納刀→チャージ→抜刀タックルで突撃。通常攻撃も突撃も前方の複数の敵をまとめて薙ぎ払う。近ければ徒歩で斬り、離れると再び居合チャージ。', charger:true, cleave:true, dashDamage:90, dashSpeed:300, chargeTime:0.8, dashMax:0.5, dashFar:72, dashRange:26},
+  {key:'daifuku',name:'大福サムライ',   icon:'🍡', role:'fodder', tier:-1, count:1, atk:22, hp:160, speed:60, range:30, cd:0.9, tag:'前衛', text:'納刀→チャージ→抜刀タックルで突撃。突撃ヒットは前方の複数の敵をまとめて薙ぎ払う範囲攻撃、通常攻撃は単体。近ければ徒歩で斬り、離れると再び居合チャージ。', charger:true, cleave:true, dashDamage:90, dashSpeed:300, chargeTime:0.8, dashMax:0.5, dashFar:72, dashRange:26},
   {key:'cookie', name:'クッキーアーミー',     icon:'🍪', role:'fodder', tier:0, count:5, atk:14, hp:50,  speed:115, range:24, cd:0.5,  tag:'モブ', text:'5体の群れで数で押す前衛。数が多いほど攻撃UP。', flock:true},
   {key:'slime', name:'ゼリースライム',   icon:'🔵', role:'fodder', tier:0.5, count:3, atk:12, hp:55, speed:90, range:24, cd:0.6, tag:'モブ', text:'3体で出るスライム。強化カード「融合」で1体の巨大スライムに合体できる（倒れると3体に分裂）。', slime:true},
   {key:'bomb',  name:'ポップコーンTNT',   icon:'🍿', role:'fodder', tier:-2, count:2, atk:0,  hp:55,  speed:128, range:22, cd:1.0,  tag:'自爆', text:'純粋な爆発力が持ち味。敵が射程に入ると起爆モードに移行し、短い導火の後に周囲へ特大爆発（残りHPに関係なく起爆）。倒されたときも爆発する。', suicide:true, blast:150, blastR:84, fuse:0.5},
@@ -390,7 +390,6 @@ const FOE_BOMB_CHANCE = 0.4;    // 敵（ライバル）がおかわりを使う
 // ※小型ポップコーンの強さ（HP/爆発力など）は UNITS の 'popcorn_mini' 行で調整。
 /* ★一刀両断（大福サムライ固有強化）の調整値。1回限りの単発強化。 */
 /* ★大福サムライの「前方複数攻撃（薙ぎ払い）」の調整値。デフォルト挙動。 */
-const DAIFUKU_CLEAVE_WALK = 2.4;  // 通常攻撃の薙ぎ払い到達（range倍率）
 const DAIFUKU_CLEAVE_DASH = 2.4;  // 突撃ヒットの薙ぎ払い到達（dashRange倍率）
 /* ★特大大福サムライ（大福固有強化）の調整値。1回限りの単発強化（HP＆攻撃UP）。 */
 const DAIFUKU_MIN = 1;          // 盤面にこの数以上大福がいると「特大大福」カードが出る
@@ -1726,12 +1725,8 @@ function chargerStep(world, u, tgt, dt){
       u.cool-=dt;
       if(d<=u.range && u.cool<=0){
         u.cool=u.cd;
-        if(u.cleave){
-          // 通常攻撃も前方の複数の敵をまとめて薙ぐ
-          daifukuCleave(world,u,u.atk,u.range*DAIFUKU_CLEAVE_WALK, dx/d, dy/d);
-          SFX.play('slash');
-          world.rings.push({x:u.x+dx/d*u.r, y:u.y+dy/d*u.r, r:2, max:u.range*DAIFUKU_CLEAVE_WALK*0.8, life:0.18, color:'#fff0c0'});
-        } else { applyHit(world,u,tgt,u.atk); }
+        // 通常攻撃は単体（突撃のみ範囲薙ぎ払い）
+        applyHit(world,u,tgt,u.atk);
         u.knockx-=dx/d*1.2; u.knocky-=dy/d*1.2;
       }
     }
