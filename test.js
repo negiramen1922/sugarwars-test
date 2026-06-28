@@ -1404,7 +1404,7 @@ check('X2取得でそのキャラのx2Blockが設定される', (API.state.x2Blo
 check('取得後そのキャラのX2は出ない（連打不可）', !API.eligibleX2Specials().includes('x2_cannon'));
 check('別キャラのX2はまだ出る（キャラは増やせる）', API.eligibleX2Specials().includes('x2_cookie'));
 
-console.log('\n=== 29) 強化後に同じキャラを追加しても全員強化される（混在防止） ===');
+console.log('\n=== 29) 強化は取得時にいた数だけ。あとから追加した同種は強化されない ===');
 API.resetState();
 API.setMyDeck(['choco', 'cookie', 'shoe', 'bomb']);
 API.startGame();
@@ -1413,13 +1413,16 @@ API.startGame();
   API.makeFighters('choco', 'p', wd.W, wd.H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); }); // choco 2体
 }
 API.state.pickTotal = 8; API.state.pickStep = 1;
-API.pickCard('buff_choco');
-check('装甲取得で既存chocoが全員強化', API.world.units.filter(u => u.key === 'choco' && u.side === 'p').every(u => u.chocoBuff));
 const nBefore = API.world.units.filter(u => u.key === 'choco' && u.side === 'p').length;
+API.pickCard('buff_choco');
+check('装甲取得で“取得時にいた”chocoが全員強化', API.world.units.filter(u => u.key === 'choco' && u.side === 'p').every(u => u.chocoBuff));
+check('取得時の数だけ記録される', API.state.youBuffN.choco === nBefore, { rec: API.state.youBuffN.choco, nBefore });
 API.pickCard('choco');   // 同じキャラを追加ピック（通常ユニット）
 const chocos = API.world.units.filter(u => u.key === 'choco' && u.side === 'p');
 check('chocoが増えている（追加ピック成功）', chocos.length > nBefore, { before: nBefore, after: chocos.length });
-check('追加した同種chocoも全員その場で強化される（未強化が混じらない）', chocos.every(u => u.chocoBuff === true && u.maxHp > u.baseMaxHp), chocos.map(u => !!u.chocoBuff));
+const buffed = chocos.filter(u => u.chocoBuff).length;
+check('あとから追加したchocoは強化されない（強化数は取得時のまま）', buffed === nBefore, { buffed, nBefore });
+check('未強化のchocoが存在する（混在＝正しい挙動）', chocos.some(u => !u.chocoBuff));
 
 console.log('\n=== 30) カードの短い説明文（short）===');
 {
@@ -1598,6 +1601,38 @@ console.log('\n=== 39) CPUのデッキ選択（おまかせ／自分で決める
   API.setCpuDeckMode('manual'); API.setCpuDeck(['cookie']);
   API.startGame();
   check('デッキ選択が不完全ならランダムにフォールバック', API.state.foeLoadout.length === 4);
+}
+
+console.log('\n=== 40) 開戦時に隊列が一気に広がらない（分離は隊列密度に合わせる）===');
+{
+  let wf = API.createWorld(W, H); API.world = wf;
+  // 密な同段の群れ（クッキー多数＝隊列が最も詰まるケース）＋大型タンクも混ぜる
+  for (let i = 0; i < 20; i++) { const f = API.makeFighters('cookie', 'p', W, H, 'army')[0]; wf.units.push(f); }
+  for (let i = 0; i < 6; i++) { const f = API.makeFighters('choco', 'p', W, H, 'army')[0]; wf.units.push(f); }
+  wf.units.forEach(u => u.appear = 1);
+  API.arrangeFormation(wf, 'p', true);                 // 隊列に整列（開戦前の状態）
+  const before = wf.units.map(u => ({ x: u.x, y: u.y }));
+  for (let k = 0; k < 4; k++) API.resolveOverlaps(wf); // 開戦直後の分離
+  let maxMove = 0;
+  wf.units.forEach((u, i) => { const dx = u.x - before[i].x, dy = u.y - before[i].y; maxMove = Math.max(maxMove, Math.hypot(dx, dy)); });
+  check('開戦前の隊列密度では分離でほとんど動かない（広がらない）', maxMove < 6, { maxMove });
+}
+
+console.log('\n=== 41) ラウンドをまたいでも「取得時の数」だけ強化（追加分は未強化のまま）===');
+{
+  API.resetState();
+  API.setMyDeck(['choco', 'cookie', 'shoe', 'bomb']);
+  API.state.loadout = ['choco', 'cookie', 'shoe', 'bomb'];
+  API.state.foeLoadout = ['cookie', 'choco', 'shoe', 'bomb'];   // beginDraft の aiPicks 用
+  // choco を2体ぶん強化済み、軍には choco 4体相当（あとから2体増やした想定）
+  API.state.youChocoBuff = true;
+  API.state.youBuffN = { choco: 2 };
+  API.state.youArmy = ['choco', 'choco'];   // choco は count=2 → 1キーで2体。2キーで4体
+  API.beginDraft();                          // 次ラウンド開始：軍を再生成して強化を再適用
+  const ch = API.world.units.filter(u => u.key === 'choco' && u.side === 'p');
+  check('ラウンド開始時に choco が4体そろう', ch.length === 4, ch.length);
+  check('強化されているのは取得時の2体だけ', ch.filter(u => u.chocoBuff).length === 2, ch.filter(u => u.chocoBuff).length);
+  check('残り2体は未強化のまま', ch.filter(u => !u.chocoBuff).length === 2);
 }
 
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
