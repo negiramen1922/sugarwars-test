@@ -1598,10 +1598,14 @@ console.log('\n=== 39) CPUのデッキ選択（おまかせ／自分で決める
   const fl = API.state.foeLoadout;
   check('おまかせ：ライバルは4枚のランダムデッキ', fl.length === 4);
   check('おまかせ：召喚専用キャラは含まない', fl.every(k => !API.UNIT_BY_KEY[k].summonOnly), fl);
-  // manual でも cpuDeck が4枚未満なら自動でランダムにフォールバック
+  // manual は1枚でもそのデッキで対戦できる（4枚未満OK）
   API.setCpuDeckMode('manual'); API.setCpuDeck(['cookie']);
   API.startGame();
-  check('デッキ選択が不完全ならランダムにフォールバック', API.state.foeLoadout.length === 4);
+  check('CPUデッキが1枚でもそのまま使う', JSON.stringify(API.state.foeLoadout) === JSON.stringify(['cookie']), API.state.foeLoadout);
+  // manual で0枚（未設定）ならランダムにフォールバック
+  API.setCpuDeckMode('manual'); API.setCpuDeck([]);
+  API.startGame();
+  check('CPUデッキが0枚ならランダムにフォールバック', API.state.foeLoadout.length === 4);
 }
 
 console.log('\n=== 40) 開戦時に隊列が一気に広がらない（分離は隊列密度に合わせる）===');

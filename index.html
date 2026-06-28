@@ -706,8 +706,8 @@ function randomFoeDeck(){ return shuffle(UNITS.filter(u=>!u.summonOnly).map(u=>u
 function startGame(){
   resetState();
   state.loadout = myDeck.slice();                                   // 編成画面で作ったデッキを使用
-  // ライバルのデッキ：manual（自分で選んだcpuDeck）/ auto（ランダム）
-  state.foeLoadout = (cpuDeckMode==='manual' && cpuDeck.length===CONFIG.deckSize) ? cpuDeck.slice() : randomFoeDeck();
+  // ライバルのデッキ：manual（自分で選んだcpuDeck・1枚でもOK）/ auto（ランダム）
+  state.foeLoadout = (cpuDeckMode==='manual' && cpuDeck.length>=1) ? cpuDeck.slice() : randomFoeDeck();
   renderScore();
   beginDraft();
 }
@@ -772,7 +772,7 @@ function cpuManual(){ SFX.play('button'); cpuDeckMode='manual'; rosterMode='cpu'
 // CPUデッキ編成画面の「このデッキで対戦」
 function startRosterCpu(){
   SFX.play('button');
-  if(cpuDeck.length < CONFIG.deckSize){ showDeckNote('CPUのデッキを4枚そろえてください。'); return; }
+  if(cpuDeck.length===0){ showDeckNote('CPUのデッキを1枚以上選んでください。'); return; }   // 1枚でも対戦可（4枚未満は警告のみ）
   rosterMode='you';
   if(needPlayerDeck()) return;
   startGame();
@@ -818,6 +818,9 @@ function renderRoster(){
     slots.appendChild(el);
   }
   $('deckCount').textContent = deck.length;
+  // 4枚未満でもバトルできるが警告を出す（0枚はそのまま＝別の案内を消さない）
+  if(deck.length===CONFIG.deckSize) hideDeckNote();
+  else if(deck.length>=1) showDeckNote('⚠ '+(cpu?'CPUは':'')+'4枚未満でもバトルできますが、4枚そろえると有利です。');
   // 下部：簡潔なキャラリスト（立ち絵・名前・召喚数・攻撃・体力＋詳細）
   const wrap=$('rosterGrid'); wrap.innerHTML='';
   UNITS.filter(u=>!u.summonOnly).forEach(u=>{
