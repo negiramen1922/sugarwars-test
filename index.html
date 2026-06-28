@@ -63,6 +63,9 @@
   .tut-text{font-size:14px;line-height:1.65;color:var(--ink);white-space:pre-line}
   .tut-btns{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
   .tut-btns .hidden{display:none !important}
+  /* チュートリアル：選べる3枚をハイライト */
+  #offer.tut-pick .card{border-color:var(--brass);box-shadow:0 0 0 3px rgba(212,165,68,.55),0 0 16px rgba(212,165,68,.5),0 6px 18px rgba(0,0,0,.5);animation:tutCardPulse 1s ease-in-out infinite}
+  @keyframes tutCardPulse{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-5px) scale(1.04)}}
   .result-banner.win{color:#7be08e} .result-banner.lose{color:#ff7a5c} .result-banner.draw{color:#ffd56a}
   .result-banner.show{animation:resultPop .45s cubic-bezier(.2,1.4,.4,1) both}
   @keyframes resultPop{0%{opacity:0;transform:translateY(-50%) scale(.4)}60%{opacity:1;transform:translateY(-50%) scale(1.12)}100%{opacity:1;transform:translateY(-50%) scale(1)}}
@@ -732,7 +735,7 @@ function showTut(text, opts){
   $('tutNext').textContent = opts.cta || '次へ ›';
   tutAction = opts.onNext || null;
 }
-function hideTut(){ const l=$('tutLayer'); if(l) l.classList.add('hidden'); tutAction=null; }
+function hideTut(){ const l=$('tutLayer'); if(l) l.classList.add('hidden'); const o=$('offer'); if(o) o.classList.remove('tut-pick'); tutAction=null; }
 function tutNext(){ SFX.play('button'); const a=tutAction; tutAction=null; if(a) a(); }
 function tutSkip(){ SFX.play('button'); endTutorial(); }
 function startTutorial(){
@@ -744,7 +747,7 @@ function startTutorial(){
 }
 function endTutorial(){ tutorial=false; hideTut(); markTutSeen(); cpuDeckMode='auto'; cpuDeck=[]; goHome(); }
 // ドラフトが表示された直後（tutorial）：1枚選ぶよう促す
-function tutOnDraft(){ showTut('上の3枚から1枚をタップ！\n選んだ仲間が、毎ラウンドよみがえる「軍」に加わるよ。', {tag:'① ドラフト', interactive:true}); }
+function tutOnDraft(){ const o=$('offer'); if(o) o.classList.add('tut-pick'); showTut('上の3枚から1枚をタップ！\n選んだ仲間が、毎ラウンドよみがえる「軍」に加わるよ。', {tag:'① ドラフト', interactive:true}); }
 // 1枚選び終えた直後（tutorial）：軍の説明→自動バトルへ
 function tutAfterPick(){
   showTut('仲間が軍に加わった！\nバトルは毎ラウンド「3枚→1枚」をくり返し、選んだ軍はどんどん増えていくよ。', {tag:'② 軍を育てる', onNext:()=>{
