@@ -60,7 +60,7 @@ code += `
   applyPartyFlag, applyCookieParty, playerCanParty, countSideKey,
   applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff, buffCountFor,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck,
-  endBattle, endGame, nextRound,
+  endBattle, endGame, nextRound, resolveOverlaps,
   setupCanvas, CW_get:()=>CW, CH_get:()=>CH,
 };
 `;
@@ -1509,6 +1509,50 @@ console.log('\n=== 35) シュークリームの矢：山なりに飛ぶ ===');
   check('矢はちゃんと敵に当たる（着弾でダメージ）', (() => {
     let g = 0; const h0 = tg.hp; while (g++ < 200 && tg.hp === h0 && ws.shots.length) API.stepWorld(ws, 1 / 60); return tg.hp < h0;
   })());
+}
+
+console.log('\n=== 36) 強化の画面揺れがドラフト中(muster)に残り続けない ===');
+{
+  let wm = API.createWorld(W, H); API.world = wm; wm.phase = 'muster';
+  wm.shake = 6;                                  // 強化（例：ビター装甲）で揺れがセットされた状態
+  check('揺れがセットされている', wm.shake > 0);
+  for (let i = 0; i < 60; i++) API.stepWorld(wm, 1 / 60);   // muster のまま1秒ぶんステップ
+  check('muster中でも揺れが減衰してゼロになる', wm.shake === 0, wm.shake);
+}
+
+console.log('\n=== 37) ユニット同士が重ならない（位置ベースの分離）===');
+{
+  // 重なった味方同士はほどけて rr 以上離れる
+  let wo = API.createWorld(W, H); API.world = wo;
+  const a = API.makeFighters('cookie', 'p', W, H, 'army')[0]; a.x = 100; a.y = 100; a.appear = 1; wo.units.push(a);
+  const b = API.makeFighters('cookie', 'p', W, H, 'army')[0]; b.x = 101; b.y = 100; b.appear = 1; wo.units.push(b);
+  const before = Math.hypot(a.x - b.x, a.y - b.y);
+  for (let k = 0; k < 4; k++) API.resolveOverlaps(wo);
+  const after = Math.hypot(a.x - b.x, a.y - b.y), need = a.r + b.r;
+  check('重なりが解消され rr 以上離れる', after >= need - 0.5, { before, after, need });
+  check('分離後の距離は分離前より広い', after > before);
+
+  // 不動ユニット（キャノン=speed0）は押されず、相手側がよける
+  let wa = API.createWorld(W, H); API.world = wa;
+  const can = API.makeFighters('cannon', 'p', W, H, 'army')[0]; can.x = 200; can.y = 200; can.appear = 1; wa.units.push(can);
+  const ck = API.makeFighters('cookie', 'e', W, H, 'army')[0]; ck.x = 201; ck.y = 200; ck.appear = 1; wa.units.push(ck);
+  const cx0 = can.x, cy0 = can.y;
+  for (let k = 0; k < 4; k++) API.resolveOverlaps(wa);
+  check('不動ユニット(キャノン)は動かない', can.x === cx0 && can.y === cy0);
+  check('相手側がよけて重ならない', Math.hypot(can.x - ck.x, can.y - ck.y) >= (can.r + ck.r) - 0.5);
+
+  // 戦闘中に多数を密集させても、最終的にどのペアも重ならない
+  let wb = API.createWorld(W, H); API.world = wb; wb.phase = 'battle'; wb.intro = 0;
+  for (let i = 0; i < 10; i++) { const f = API.makeFighters('cookie', 'p', W, H, 'army')[0]; f.x = W / 2 + (i % 3); f.y = H / 2 + (i % 2); f.appear = 1; f.cool = 999; wb.units.push(f); }
+  const far = API.makeFighters('cookie', 'e', W, H, 'army')[0]; far.x = W * 0.92; far.y = H * 0.08; far.appear = 1; far.cool = 999; far.speed = 0; far.hp = far.maxHp = 9999; wb.units.push(far);
+  for (let i = 0; i < 30 && wb.phase === 'battle'; i++) API.stepWorld(wb, 1 / 60);
+  let worstOverlap = 0;
+  const us = wb.units.filter(u => u.hp > 0 && u.side === 'p');
+  for (let i = 0; i < us.length; i++) for (let j = i + 1; j < us.length; j++) {
+    const d = Math.hypot(us[i].x - us[j].x, us[i].y - us[j].y), rr = us[i].r + us[j].r;
+    if (rr - d > worstOverlap) worstOverlap = rr - d;
+  }
+  check('密集しても重なり(めり込み)がほぼゼロ', worstOverlap < 1.5, { worstOverlap });
 }
 
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
