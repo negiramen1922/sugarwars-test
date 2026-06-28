@@ -60,6 +60,7 @@ code += `
   applyPartyFlag, applyCookieParty, playerCanParty, countSideKey,
   applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff, buffCountFor,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck,
+  setCpuDeck:(d)=>{ cpuDeck = d; }, setCpuDeckMode:(m)=>{ cpuDeckMode = m; },
   endBattle, endGame, nextRound, resolveOverlaps,
   setupCanvas, CW_get:()=>CW, CH_get:()=>CH,
 };
@@ -1576,6 +1577,27 @@ console.log('\n=== 38) シューの射程延長＋重量によるバキューム
   check('軽いクッキー(重量1)はよく吸われる', dCookie > 5, { dCookie });
   check('シュー(重量2)も吸われる', dShoe > 3, { dShoe });
   check('重いチョコ(重量4)も吸われるが軽いより遅い', dChoco > 0 && dChoco < dCookie, { dChoco, dCookie });
+}
+
+console.log('\n=== 39) CPUのデッキ選択（おまかせ／自分で決める）===');
+{
+  API.setMyDeck(['cookie', 'choco', 'shoe', 'bomb']);
+  // manual：cpuDeck をそのままライバルのデッキに使う
+  API.setCpuDeckMode('manual');
+  API.setCpuDeck(['daifuku', 'cannon', 'donut', 'ghost']);
+  API.startGame();
+  check('デッキ選択：ライバルは指定したcpuDeckを使う',
+    JSON.stringify(API.state.foeLoadout) === JSON.stringify(['daifuku', 'cannon', 'donut', 'ghost']), API.state.foeLoadout);
+  // auto：ランダム（4枚・召喚専用を含まない）
+  API.setCpuDeckMode('auto');
+  API.startGame();
+  const fl = API.state.foeLoadout;
+  check('おまかせ：ライバルは4枚のランダムデッキ', fl.length === 4);
+  check('おまかせ：召喚専用キャラは含まない', fl.every(k => !API.UNIT_BY_KEY[k].summonOnly), fl);
+  // manual でも cpuDeck が4枚未満なら自動でランダムにフォールバック
+  API.setCpuDeckMode('manual'); API.setCpuDeck(['cookie']);
+  API.startGame();
+  check('デッキ選択が不完全ならランダムにフォールバック', API.state.foeLoadout.length === 4);
 }
 
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
