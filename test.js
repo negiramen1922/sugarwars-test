@@ -1553,16 +1553,29 @@ console.log('\n=== 37) ユニット同士が重ならない（位置ベースの
   check('密集しても重なり(めり込み)がほぼゼロ', worstOverlap < 1.5, { worstOverlap });
 }
 
-console.log('\n=== 38) シューの射程延長（バキュームの吸引対象には残す）===');
+console.log('\n=== 38) シューの射程延長＋重量によるバキューム吸引のされやすさ ===');
 {
   check('シューの射程が延びている(150)', API.UNIT_BY_KEY['shoe'].range === 150, API.UNIT_BY_KEY['shoe'].range);
-  // シューもバキュームドーナッツの吸引対象（除外しない＝強すぎ防止）
-  let wv = API.createWorld(W, H); API.world = wv; wv.phase = 'battle'; wv.intro = 0;
-  const donut = API.makeFighters('donut', 'p', W, H, 'army')[0]; donut.x = W / 2; donut.y = H * 0.7; donut.appear = 1; wv.units.push(donut);
-  const sh = API.makeFighters('shoe', 'e', W, H, 'army')[0]; sh.x = W / 2; sh.y = H * 0.7 - 60; sh.appear = 1; sh.speed = 0; sh.cool = 999; sh.hp = sh.maxHp = 9999; wv.units.push(sh);
-  const shY0 = sh.y;
-  for (let i = 0; i < 20; i++) API.stepWorld(wv, 1 / 60);
-  check('シューも吸い寄せられてドーナッツへ近づく', sh.y - shY0 > 5, { moved: sh.y - shY0 });
+  // 重量が各 fighter に乗っている
+  const ck1 = API.makeFighters('cookie', 'e', W, H, 'army')[0];
+  const ch1 = API.makeFighters('choco', 'e', W, H, 'army')[0];
+  const ca1 = API.makeFighters('cannon', 'e', W, H, 'army')[0];
+  check('クッキーは重量1', ck1.weight === 1, ck1.weight);
+  check('チョコは重量4', ch1.weight === 4, ch1.weight);
+  check('キャノン/ベーカリー/ドーナッツは重量5', ca1.weight === 5 && API.makeFighters('bakery', 'e', W, H, 'army')[0].weight === 5 && API.makeFighters('donut', 'e', W, H, 'army')[0].weight === 5);
+
+  // ドーナッツの前に置いて20フレーム。下(ドーナッツ側)へどれだけ吸われたか
+  function pulled(key) {
+    let wv = API.createWorld(W, H); API.world = wv; wv.phase = 'battle'; wv.intro = 0;
+    const d = API.makeFighters('donut', 'p', W, H, 'army')[0]; d.x = W / 2; d.y = H * 0.7; d.appear = 1; wv.units.push(d);
+    const o = API.makeFighters(key, 'e', W, H, 'army')[0]; o.x = W / 2; o.y = H * 0.7 - 60; o.appear = 1; o.speed = 0; o.cool = 999; o.hp = o.maxHp = 99999; wv.units.push(o);
+    const y0 = o.y; for (let i = 0; i < 20; i++) API.stepWorld(wv, 1 / 60); return o.y - y0;
+  }
+  const dCookie = pulled('cookie'), dShoe = pulled('shoe'), dChoco = pulled('choco'), dCannon = pulled('cannon');
+  check('重量5(キャノン)は吸い込まれない', Math.abs(dCannon) < 3, { dCannon });
+  check('軽いクッキー(重量1)はよく吸われる', dCookie > 5, { dCookie });
+  check('シュー(重量2)も吸われる', dShoe > 3, { dShoe });
+  check('重いチョコ(重量4)も吸われるが軽いより遅い', dChoco > 0 && dChoco < dCookie, { dChoco, dCookie });
 }
 
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
