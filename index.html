@@ -47,6 +47,13 @@
   .offer.three{grid-template-columns:repeat(3,1fr);max-width:380px;margin-left:auto;margin-right:auto}
   /* 盤面の上にドラフト3枚を重ねる */
   .arena-stage{position:relative;width:100%;max-width:440px;margin:0 auto}
+  .result-banner{position:absolute;left:0;right:0;top:42%;transform:translateY(-50%);text-align:center;pointer-events:none;z-index:8;
+    font-family:"Oswald",sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    font-size:clamp(46px,15vw,84px);line-height:1;text-shadow:0 4px 0 rgba(0,0,0,.45),0 0 18px rgba(0,0,0,.5);-webkit-text-stroke:2px rgba(20,12,4,.55)}
+  .result-banner.hidden{display:none}
+  .result-banner.win{color:#7be08e} .result-banner.lose{color:#ff7a5c} .result-banner.draw{color:#ffd56a}
+  .result-banner.show{animation:resultPop .45s cubic-bezier(.2,1.4,.4,1) both}
+  @keyframes resultPop{0%{opacity:0;transform:translateY(-50%) scale(.4)}60%{opacity:1;transform:translateY(-50%) scale(1.12)}100%{opacity:1;transform:translateY(-50%) scale(1)}}
   .offer-overlay{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);display:flex;justify-content:center;padding:0 8px;pointer-events:none;z-index:5}
   .offer-overlay.hidden{display:none}
   .offer-overlay .offer{pointer-events:auto;width:100%;max-width:420px;gap:8px;margin:0}
@@ -277,6 +284,7 @@
         <div class="arena-stage">
           <canvas id="arena" class="arena-canvas"></canvas>
           <div class="foe-pick hidden" id="foePick"></div>
+          <div class="result-banner hidden" id="resultBanner"></div>
           <div class="offer-overlay hidden" id="offerOverlay">
             <div class="offer three" id="offer"></div>
           </div>
@@ -671,7 +679,7 @@ function startGame(){
 }
 
 /* ホーム/メニュー遷移 */
-function goHome(){ SFX.play('button'); hideDeckNote(); rosterMode='you'; show('home'); }
+function goHome(){ SFX.play('button'); hideDeckNote(); hideResultBanner(); rosterMode='you'; show('home'); }
 function goBattleMenu(){ SFX.play('button'); show('battleMenu'); }
 // CPU対戦：まず「おまかせ / デッキ選択」の二択
 function goCpuMode(){ SFX.play('button'); show('cpuMode'); }
@@ -1291,7 +1299,7 @@ function picksFor(iLost, theyLost){
 function beginDraft(){
   state.pickTotal = picksFor(state.lostLast, state.foeLostLast);
   state.pickStep = 0; state.roundPicks = [];
-  picking=false; hideFoePick();
+  picking=false; hideFoePick(); hideResultBanner();
 
   $('comebackBanner').classList.toggle('hidden', !state.lostLast);
   $('pickTotal').textContent = state.pickTotal;
@@ -2137,7 +2145,12 @@ function beginOutro(world, result){
   SFX.play(result==='win'?'win':result==='lose'?'lose':'button');   // ラウンド決着の音
   world.phase='outro'; world.result=result; world.outro=1.1;
   world.shots.length=0;                       // 飛行中の弾は消す
-  for(const u of world.units){ u.melting=true; u.melt=0; u.knockx=0; u.knocky=0; }
+  // 敗者だけが砂糖に溶ける（勝者は盤面に残す）。倒れた残骸(hp<=0)も溶かして片付ける。引き分けは両者。
+  const loseSide = result==='win' ? 'e' : result==='lose' ? 'p' : null;
+  for(const u of world.units){
+    const melt = (loseSide===null) || (u.side===loseSide) || (u.hp<=0);
+    if(melt){ u.melting=true; u.melt=0; u.dying=false; u.knockx=0; u.knocky=0; }
+  }
 }
 function outroStep(world, dt){
   world.outro-=dt;
@@ -2145,6 +2158,7 @@ function outroStep(world, dt){
   for(const p of world.parts){ p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=120*dt; p.life-=dt; } world.parts=world.parts.filter(p=>p.life>0);
   for(const r of world.rings){ r.r+=(r.max-r.r)*Math.min(1,dt*10); r.life-=dt; } world.rings=world.rings.filter(r=>r.life>0);
   for(const u of world.units){
+    if(!u.melting){ continue; }              // 勝者（生き残り）はそのまま盤面に残す
     u.melt=(u.melt||0)+dt; u.bob+=dt*3;
     if(u.melt<0.6 && Math.random()<0.6){    // とけている間だけ砂糖のキラキラがこぼれ落ちる
       world.parts.push({x:u.x+(Math.random()*2-1)*u.r*0.9, y:u.y+u.r*0.3+(Math.random()*2-1)*u.r*0.4,
@@ -2152,8 +2166,12 @@ function outroStep(world, dt){
         life:0.4+Math.random()*0.35, color: Math.random()<0.5?'#ffffff':'#ffe9c7'});
     }
   }
-  // 全員とけ切り、砂糖の粒も落ち着いてから完了
-  if(world.outro<=0 && world.parts.length===0){ world.units.length=0; world.dmgs.length=0; world.done=true; }
+  // とけ切った敗者は盤面から消す（勝者＝melting以外は残す）
+  world.units = world.units.filter(u=> !(u.melting && u.melt>=0.65));
+  world.dmgs = world.dmgs.filter(d=>d.life>0);
+  // 敗者が全員消え、砂糖の粒も落ち着き、演出時間が経過したら完了（＝敵が倒れきって味方だけになった状態）
+  const meltingLeft = world.units.some(u=>u.melting);
+  if(world.outro<=0 && world.parts.length===0 && !meltingLeft){ world.done=true; }
 }
 
 /* ============================================================
@@ -2175,9 +2193,19 @@ function loop(now){
   for(let i=0;i<steps && !world.done;i++) stepWorld(world, frame);
   render();
   if(world.phase==='battle') updateRemain();
+  if(world.phase==='outro' && !world._bannerShown){ showResultBanner(world.result); world._bannerShown=true; }   // 決着の瞬間に画面上へWIN/LOSE表示
   if(world.done){ endBattle(world.result); return; }
   raf=requestAnimationFrame(loop);
 }
+function showResultBanner(result){
+  const el=$('resultBanner'); if(!el) return;
+  el.classList.remove('hidden','win','lose','draw','show');
+  if(result==='win'){ el.textContent='WIN!'; el.classList.add('win'); }
+  else if(result==='lose'){ el.textContent='LOSE…'; el.classList.add('lose'); }
+  else { el.textContent='DRAW'; el.classList.add('draw'); }
+  void el.offsetWidth; el.classList.add('show');
+}
+function hideResultBanner(){ const el=$('resultBanner'); if(el) el.classList.add('hidden'); }
 function updateRemain(){ $('youRemain').textContent=world.units.filter(u=>u.side==='p'&&u.hp>0).length; $('foeRemain').textContent=world.units.filter(u=>u.side==='e'&&u.hp>0).length; }
 // やられた兵：足元を軸に立ち絵を横へ倒し、後半でフェードして消える
 function drawDyingUnit(u){
@@ -2403,10 +2431,10 @@ function closeNews(e){ if(e && e.target!==e.currentTarget) return; SFX.play('but
 function endBattle(result){
   cancelAnimationFrame(raf);
   $('skipBtn').classList.add('hidden');
-  const line=$('resultLine'); line.classList.remove('hidden','win','lose','draw');
-  if(result==='win'){ state.foeLives--; state.lostLast=false; state.foeLostLast=true; line.classList.add('win'); line.textContent='勝利！ ライバルがライフを失った'; }
-  else if(result==='lose'){ state.youLives--; state.lostLast=true; state.foeLostLast=false; line.classList.add('lose'); line.textContent='敗北… でも軍は引き継がれる'; }
-  else { state.lostLast=false; state.foeLostLast=false; line.classList.add('draw'); line.textContent='相討ち。ライフの増減なし'; }
+  showResultBanner(result);   // 画面上に WIN / LOSE / DRAW（敵が倒れきって味方だけになったタイミング）
+  if(result==='win'){ state.foeLives--; state.lostLast=false; state.foeLostLast=true; }
+  else if(result==='lose'){ state.youLives--; state.lostLast=true; state.foeLostLast=false; }
+  else { state.lostLast=false; state.foeLostLast=false; }
   renderScore();
   $('skipBtn').classList.add('hidden');
   // 最後のライフを削り切ったときだけ決着画面へ。それ以外は勝敗表示のあと自動で次ラウンドへ。
