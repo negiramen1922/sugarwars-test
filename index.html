@@ -370,7 +370,8 @@ const SPRITE_MUL = 3.1;   // スプライト描画の倍率（小さいほどユ
 const ATK_ANIM = 0.18;    // 攻撃モーション（前方への突き）の長さ(秒)。攻撃したのが見て分かる
 const DIE_DUR = 0.5;      // やられたときに横倒し→消えるまでの長さ(秒)
 const SHOE_ARC = 26;      // シュークリームの矢が「ポーンと」山なりに飛ぶ弧の高さ(px)
-const SEP_MUL = 1.45;     // 味方同士の「重ならない」間隔の倍率（当たり半径の何倍離すか。大きいほど立ち絵が被らないが軍は広がる）
+const SEP_R = 10.5;       // 分離（重なり防止）に使う当たり半径の上限(px)。隊列の段間隔 rowGap=21 の半分に合わせてあり、
+                          // 開戦前の隊列の密度では押し合いが起きない＝バトル開始時に一気に広がらない。大型ユニットもこの半径で判定。
 
 /* ★重量システム（1=軽い 〜 5=重い）。バキュームドーナッツの吸引のされやすさを決める。
    5 は吸い込めない。4以下は数字が小さいほど“強く・速く”吸い込まれる。ここを変えれば調整できる。 */
@@ -1995,10 +1996,11 @@ function resolveOverlaps(world){
   for(let pass=0; pass<2; pass++){
     for(let i=0;i<arr.length;i++){
       const u=arr[i]; if(u.hp<=0) continue;
+      const ru=Math.min(u.r, SEP_R);   // 分離用の半径は上限つき（隊列の密度に合わせ、開戦時に広がらない）
       for(let j=i+1;j<arr.length;j++){
         const o=arr[j]; if(o.hp<=0) continue;
-        const pad=(u.side===o.side)?SEP_MUL:1;   // 味方同士は広めに離す（立ち絵が被らない）／敵味方は接近戦のため密のまま
-        let ox=u.x-o.x, oy=u.y-o.y, d2=ox*ox+oy*oy; const rr=(u.r+o.r)*pad;
+        const rr=ru+Math.min(o.r, SEP_R);
+        let ox=u.x-o.x, oy=u.y-o.y, d2=ox*ox+oy*oy;
         if(d2>=rr*rr) continue;
         let d=Math.sqrt(d2);
         if(d<1e-3){ ox=0.6; oy=(j%2?0.4:-0.4); d=Math.hypot(ox,oy); }   // 完全に重なっている場合は決め打ちの向きへ

@@ -1600,5 +1600,20 @@ console.log('\n=== 39) CPUのデッキ選択（おまかせ／自分で決める
   check('デッキ選択が不完全ならランダムにフォールバック', API.state.foeLoadout.length === 4);
 }
 
+console.log('\n=== 40) 開戦時に隊列が一気に広がらない（分離は隊列密度に合わせる）===');
+{
+  let wf = API.createWorld(W, H); API.world = wf;
+  // 密な同段の群れ（クッキー多数＝隊列が最も詰まるケース）＋大型タンクも混ぜる
+  for (let i = 0; i < 20; i++) { const f = API.makeFighters('cookie', 'p', W, H, 'army')[0]; wf.units.push(f); }
+  for (let i = 0; i < 6; i++) { const f = API.makeFighters('choco', 'p', W, H, 'army')[0]; wf.units.push(f); }
+  wf.units.forEach(u => u.appear = 1);
+  API.arrangeFormation(wf, 'p', true);                 // 隊列に整列（開戦前の状態）
+  const before = wf.units.map(u => ({ x: u.x, y: u.y }));
+  for (let k = 0; k < 4; k++) API.resolveOverlaps(wf); // 開戦直後の分離
+  let maxMove = 0;
+  wf.units.forEach((u, i) => { const dx = u.x - before[i].x, dy = u.y - before[i].y; maxMove = Math.max(maxMove, Math.hypot(dx, dy)); });
+  check('開戦前の隊列密度では分離でほとんど動かない（広がらない）', maxMove < 6, { maxMove });
+}
+
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
 process.exit(fail ? 1 : 0);
