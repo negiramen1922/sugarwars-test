@@ -1553,18 +1553,16 @@ console.log('\n=== 37) ユニット同士が重ならない（位置ベースの
   check('密集しても重なり(めり込み)がほぼゼロ', worstOverlap < 1.5, { worstOverlap });
 }
 
-console.log('\n=== 38) バキュームドーナッツはシューを吸わない／シューの射程延長 ===');
+console.log('\n=== 38) シューの射程延長（バキュームの吸引対象には残す）===');
 {
   check('シューの射程が延びている(150)', API.UNIT_BY_KEY['shoe'].range === 150, API.UNIT_BY_KEY['shoe'].range);
+  // シューもバキュームドーナッツの吸引対象（除外しない＝強すぎ防止）
   let wv = API.createWorld(W, H); API.world = wv; wv.phase = 'battle'; wv.intro = 0;
   const donut = API.makeFighters('donut', 'p', W, H, 'army')[0]; donut.x = W / 2; donut.y = H * 0.7; donut.appear = 1; wv.units.push(donut);
-  // 前方(上)・吸引範囲内に、クッキー(吸われる)とシュー(吸われない)を置く。自走しないよう speed/cool を固定
-  const ck = API.makeFighters('cookie', 'e', W, H, 'army')[0]; ck.x = W / 2 - 10; ck.y = H * 0.7 - 60; ck.appear = 1; ck.speed = 0; ck.cool = 999; ck.hp = ck.maxHp = 9999; wv.units.push(ck);
-  const sh = API.makeFighters('shoe', 'e', W, H, 'army')[0]; sh.x = W / 2 + 10; sh.y = H * 0.7 - 60; sh.appear = 1; sh.speed = 0; sh.cool = 999; sh.hp = sh.maxHp = 9999; wv.units.push(sh);
-  const ckY0 = ck.y, shY0 = sh.y;
+  const sh = API.makeFighters('shoe', 'e', W, H, 'army')[0]; sh.x = W / 2; sh.y = H * 0.7 - 60; sh.appear = 1; sh.speed = 0; sh.cool = 999; sh.hp = sh.maxHp = 9999; wv.units.push(sh);
+  const shY0 = sh.y;
   for (let i = 0; i < 20; i++) API.stepWorld(wv, 1 / 60);
-  check('クッキーは吸い寄せられてドーナッツへ近づく', ck.y - ckY0 > 5, { moved: ck.y - ckY0 });
-  check('シューは吸い寄せられない（ほぼ動かない）', Math.abs(sh.y - shY0) < 3, { moved: sh.y - shY0 });
+  check('シューも吸い寄せられてドーナッツへ近づく', sh.y - shY0 > 5, { moved: sh.y - shY0 });
 }
 
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
