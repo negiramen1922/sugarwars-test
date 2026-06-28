@@ -1339,7 +1339,8 @@ let foeMax = 0;
 for (let r = 0; r < 8; r++) { API.lockAndFight(); foeMax = Math.max(foeMax, API.buffCountFor('e')); }
 check('プレイヤー強化0なら8戦してもCPU強化0', foeMax === 0, { foeMax, p: API.buffCountFor('p') });
 
-// プレイヤーが強化を持っていれば、CPUはそれを上限に追従できる（超えない）
+// 開戦時(lockAndFight)にCPUが勝手に追いつかない（廃止した catch-up のバグ防止）
+// プレイヤーが強化を3つ持っていても、CPUは開戦の瞬間に強制で強化されない。
 API.resetState();
 API.setMyDeck(['choco', 'cookie', 'shoe', 'bomb']);
 API.startGame();
@@ -1347,13 +1348,10 @@ API.startGame();
   const wd = API.world;
   ['choco', 'choco', 'bomb', 'bomb'].forEach(k => API.makeFighters(k, 'e', wd.W, wd.H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); }));
 }
-// プレイヤーが3つ強化を持っている体にする
+// プレイヤーが3つ強化を持っている体にする（CPUはピック時に同時取得していない想定）
 API.state.youChocoBuff = true; API.state.youParty = true; API.state.youBombSplit = true;
-let foeAfter = 0;
 for (let r = 0; r < 12; r++) { API.lockAndFight(); }
-foeAfter = API.buffCountFor('e');
-check('CPUはプレイヤーの強化数を超えない', foeAfter <= API.buffCountFor('p'), { foe: foeAfter, p: API.buffCountFor('p') });
-check('プレイヤーが強化を持てばCPUも追従して取得できる', foeAfter >= 1, { foe: foeAfter });
+check('開戦時にCPUが勝手に強化されない（catch-up廃止）', API.buffCountFor('e') === 0, { foe: API.buffCountFor('e'), p: API.buffCountFor('p') });
 
 // 敵味方同時：プレイヤーが強化カードを取った瞬間にCPUも1つ強化される（同数になる）
 API.resetState();

@@ -1516,15 +1516,10 @@ function lockAndFight(){
   while(state.foeRevealIdx < state.foeRoundPicks.length){
     revealFoePick(state.foeRoundPicks[state.foeRevealIdx]); state.foeRevealIdx++;
   }
-  // 敵(CPU)の強化の取りこぼし catch-up：ドラフト中に取れなかったぶんを開戦までにプレイヤーと同数まで揃える
-  // （通常はプレイヤーが強化カードを取った瞬間に foeMatchEnhance() で同時取得済み。超えることはない）
-  { let guard=0;
-    while(buffCountFor('e') < buffCountFor('p') && guard++<24){
-      const cands=foeEnhanceCandidates();
-      if(!cands.length) break;
-      cands[Math.floor(Math.random()*cands.length)].fn();
-    }
-  }
+  // ※以前あった「開戦時の強化 catch-up」は廃止。
+  //   開戦の瞬間にCPUが勝手に強化される／ラウンドをまたぐと未強化のCPUユニットまで強化される、という挙動の原因だった。
+  //   CPUの強化は foeMatchEnhance()（プレイヤーが強化を取った“その瞬間”に同時取得・「ライバルも強化！」表示）だけに統一。
+  //   その時点でCPUに対象ユニットがいない強化は無理に取らない（=持っていないユニットの強化が後から勝手に付かない）。
   // 自軍を確定（引き継ぎ＋今回のピック）
   state.youArmy = capArmy(state.youArmy.concat(state.roundPicks));
   // 敵軍も確定（敵ユニットはドラフト中に出現済み）
