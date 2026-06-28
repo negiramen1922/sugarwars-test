@@ -61,6 +61,7 @@ code += `
   applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff, buffCountFor,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck,
   setCpuDeck:(d)=>{ cpuDeck = d; }, setCpuDeckMode:(m)=>{ cpuDeckMode = m; },
+  startTutorial, tutNext, endTutorial, get tutorial(){ return tutorial; },
   endBattle, endGame, nextRound, resolveOverlaps,
   setupCanvas, CW_get:()=>CW, CH_get:()=>CH,
 };
@@ -1633,6 +1634,19 @@ console.log('\n=== 41) ラウンドをまたいでも「取得時の数」だけ
   check('ラウンド開始時に choco が4体そろう', ch.length === 4, ch.length);
   check('強化されているのは取得時の2体だけ', ch.filter(u => u.chocoBuff).length === 2, ch.filter(u => u.chocoBuff).length);
   check('残り2体は未強化のまま', ch.filter(u => !u.chocoBuff).length === 2);
+}
+
+console.log('\n=== 42) チュートリアル（ガイド付き体験バトル）===');
+{
+  API.startTutorial();
+  check('チュートリアル開始でフラグが立つ', API.tutorial === true);
+  check('固定デッキ(choco/cookie/bomb/shoe)になる', JSON.stringify(API.getMyDeck()) === JSON.stringify(['choco', 'cookie', 'bomb', 'shoe']));
+  API.tutNext();   // イントロ → startGame → beginDraft（チュートリアル設定）
+  check('ドラフトは1ピックだけ', API.state.pickTotal === 1, API.state.pickTotal);
+  check('相手は弱い1ピック(ginger)', JSON.stringify(API.state.foeRoundPicks) === JSON.stringify(['ginger']), API.state.foeRoundPicks);
+  check('戦闘前（muster）から始まる', API.world.phase === 'muster');
+  API.endTutorial();
+  check('終了でフラグが下りる', API.tutorial === false);
 }
 
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);

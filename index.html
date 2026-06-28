@@ -51,6 +51,18 @@
     font-family:"Oswald",sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
     font-size:clamp(46px,15vw,84px);line-height:1;text-shadow:0 4px 0 rgba(0,0,0,.45),0 0 18px rgba(0,0,0,.5);-webkit-text-stroke:2px rgba(20,12,4,.55)}
   .result-banner.hidden{display:none}
+  /* チュートリアルのふきだし */
+  .tut-layer{position:fixed;inset:0;z-index:60;display:flex;align-items:flex-end;justify-content:center;pointer-events:none}
+  .tut-layer.hidden{display:none}
+  .tut-backdrop{position:absolute;inset:0;background:rgba(10,8,16,.42);pointer-events:none}
+  .tut-bubble{position:relative;margin:0 12px 24px;max-width:430px;width:calc(100% - 24px);
+    background:linear-gradient(180deg,var(--panel),var(--bg2));border:2px solid var(--brass);border-radius:16px;
+    padding:14px 16px;box-shadow:0 12px 32px rgba(0,0,0,.6);pointer-events:auto;animation:tutPop .25s ease both}
+  @keyframes tutPop{0%{opacity:0;transform:translateY(14px) scale(.96)}100%{opacity:1;transform:none}}
+  .tut-tag{display:inline-block;font-family:"Oswald",sans-serif;font-size:11px;letter-spacing:.08em;color:#1c1408;background:var(--brass);border-radius:999px;padding:2px 11px;margin-bottom:7px}
+  .tut-text{font-size:14px;line-height:1.65;color:var(--ink);white-space:pre-line}
+  .tut-btns{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
+  .tut-btns .hidden{display:none !important}
   .result-banner.win{color:#7be08e} .result-banner.lose{color:#ff7a5c} .result-banner.draw{color:#ffd56a}
   .result-banner.show{animation:resultPop .45s cubic-bezier(.2,1.4,.4,1) both}
   @keyframes resultPop{0%{opacity:0;transform:translateY(-50%) scale(.4)}60%{opacity:1;transform:translateY(-50%) scale(1.12)}100%{opacity:1;transform:translateY(-50%) scale(1)}}
@@ -333,9 +345,21 @@
   <div id="menuModal" class="modal-overlay hidden" onclick="closeMenu(event)">
     <div class="modal-card menu-card" onclick="event.stopPropagation()">
       <h3>メニュー</h3>
+      <button class="menu-row" onclick="startTutorial()">🎓 あそびかた（チュートリアル）</button>
       <button class="menu-row" onclick="openNews()">📢 お知らせ</button>
       <button class="menu-row" onclick="toggleSfx()">🔊 効果音 オン / オフ</button>
       <div style="text-align:center;margin-top:8px"><button class="btn btn-ghost" onclick="closeMenu()">閉じる</button></div>
+    </div>
+  </div>
+  <!-- チュートリアルのふきだし -->
+  <div id="tutLayer" class="tut-layer hidden">
+    <div class="tut-backdrop"></div>
+    <div class="tut-bubble">
+      <div class="tut-text" id="tutText"></div>
+      <div class="tut-btns">
+        <button class="btn btn-ghost" id="tutSkip" onclick="tutSkip()">スキップ</button>
+        <button class="btn btn-primary" id="tutNext" onclick="tutNext()">次へ ›</button>
+      </div>
     </div>
   </div>
   <!-- お知らせモーダル -->
@@ -669,6 +693,9 @@ let cpuDeck = [];  // 「デッキ選択」で組むCPUのデッキ（4枚）
 let cpuDeckMode = 'auto';   // 'auto'=ランダム / 'manual'=cpuDeckを使う
 let rosterMode = 'you';     // 編成画面の対象 'you'=自分 / 'cpu'=CPUのデッキ
 function activeDeck(){ return rosterMode==='cpu' ? cpuDeck : myDeck; }
+let tutorial = false;        // ガイド付き体験バトル中か
+const TUT_DECK = ['choco','cookie','bomb','shoe'];   // チュートリアル用の固定デッキ
+const TUT_FOE  = ['ginger'];                          // チュートリアルの弱い相手（どのカードを選んでも勝てる）
 function show(sec){ ['home','battleMenu','cpuMode','roster','play','over'].forEach(s=>$(s).classList.toggle('hidden', s!==sec)); const sb=$('scoreBar'); if(sb) sb.classList.toggle('hidden', !(sec==='play'||sec==='over')); }
 function heartStr(n){ return n>0 ? '❤️'.repeat(n) : '🖤'; }
 function renderScore(){ $('youHearts').textContent=heartStr(state.youLives); $('foeHearts').textContent=heartStr(state.foeLives); $('roundPill').textContent='Round '+state.round; }
@@ -690,6 +717,49 @@ function goHome(){ SFX.play('button'); hideDeckNote(); hideResultBanner(); roste
 function goBattleMenu(){ SFX.play('button'); show('battleMenu'); }
 // CPU対戦：まず「おまかせ / デッキ選択」の二択
 function goCpuMode(){ SFX.play('button'); show('cpuMode'); }
+
+/* ===== チュートリアル（ガイド付き体験バトル）===== */
+let tutAction = null;   // ふきだしの「次へ」で実行するコールバック
+function tutSeen(){ try{ return localStorage.getItem('sw_tut_done')==='1'; }catch(e){ return true; } }
+function markTutSeen(){ try{ localStorage.setItem('sw_tut_done','1'); }catch(e){} }
+function showTut(text, opts){
+  opts = opts || {};
+  const t=$('tutText'); if(!t) return;
+  t.innerHTML = (opts.tag?'<span class="tut-tag">'+opts.tag+'</span>':'') + '<div>'+text+'</div>';
+  $('tutLayer').classList.remove('hidden');
+  $('tutNext').classList.toggle('hidden', !!opts.interactive);   // ピック待ちのときは「次へ」を隠す
+  $('tutSkip').classList.toggle('hidden', !!opts.hideSkip);
+  $('tutNext').textContent = opts.cta || '次へ ›';
+  tutAction = opts.onNext || null;
+}
+function hideTut(){ const l=$('tutLayer'); if(l) l.classList.add('hidden'); tutAction=null; }
+function tutNext(){ SFX.play('button'); const a=tutAction; tutAction=null; if(a) a(); }
+function tutSkip(){ SFX.play('button'); endTutorial(); }
+function startTutorial(){
+  SFX.play('button'); closeMenu(); hideResultBanner();
+  tutorial = true;
+  myDeck = TUT_DECK.slice();
+  cpuDeckMode = 'manual'; cpuDeck = TUT_FOE.slice();
+  showTut('ようこそ、シュガーウォーズへ！\nまずは1戦だけ、戦いの流れを体験しよう。', {tag:'チュートリアル', cta:'はじめる', onNext:()=>{ hideTut(); startGame(); }});
+}
+function endTutorial(){ tutorial=false; hideTut(); markTutSeen(); cpuDeckMode='auto'; cpuDeck=[]; goHome(); }
+// ドラフトが表示された直後（tutorial）：1枚選ぶよう促す
+function tutOnDraft(){ showTut('上の3枚から1枚をタップ！\n選んだ仲間が、毎ラウンドよみがえる「軍」に加わるよ。', {tag:'① ドラフト', interactive:true}); }
+// 1枚選び終えた直後（tutorial）：軍の説明→自動バトルへ
+function tutAfterPick(){
+  showTut('仲間が軍に加わった！\nバトルは毎ラウンド「3枚→1枚」をくり返し、選んだ軍はどんどん増えていくよ。', {tag:'② 軍を育てる', onNext:()=>{
+    showTut('編成はこれで完了。\n戦闘は自動で進むので操作は不要！　あとは観戦しよう。', {tag:'③ 自動バトル', cta:'戦う ⚔', onNext:()=>{ hideTut(); lockAndFight(); }});
+  }});
+}
+// 決着後（tutorial）：勝敗とライフの説明→おわり
+function tutAfterBattle(result){
+  const msg = result==='win' ? '勝利！ ライバルのライフ ❤️ が1つ減ったよ。'
+            : result==='lose' ? '今回は負け…。でも軍は次のラウンドへ引き継がれる。'
+            : '相討ち！ ライフは減らないよ。';
+  showTut(msg+'\n先に相手のライフを0にすれば勝ち。自分が0になると負け。全3ライフの勝負だよ。', {tag:'④ 勝敗とライフ', onNext:()=>{
+    showTut('これで基本はバッチリ！🍬\nホームの「バトル」から本番に挑戦しよう。「編成」で自分だけのデッキも作れるよ。', {tag:'準備OK！', cta:'はじめる', hideSkip:true, onNext:()=>{ endTutorial(); }});
+  }});
+}
 // プレイヤーのデッキが未編成なら編成へ誘導（共通）
 function needPlayerDeck(){
   if(myDeck.length===0){ showDeckNote('まず自分のデッキを編成してください。下のキャラをタップして4枚選びましょう。'); rosterMode='you'; goRoster(); return true; }
@@ -1357,6 +1427,7 @@ function beginDraft(){
   state.foePickTotal = picksFor(state.foeLostLast, state.lostLast);
   state.foeRoundPicks = aiPicks(state.foeLoadout, state.foePickTotal);
   state.foeRevealIdx = 0;
+  if(tutorial){ state.pickTotal=1; state.foePickTotal=1; state.foeRoundPicks=['ginger']; }   // チュートリアル：1ピック・弱い相手（必ず勝てる）
   // 逆転ボーナスの「先に選ぶ」分を計算
   state.playerExtra = Math.max(0, state.pickTotal - state.foePickTotal);   // 自分が先に選ぶ枚数（この間は敵が待つ）
   const foeExtra   = Math.max(0, state.foePickTotal - state.pickTotal);    // 敵が先に選ぶ枚数（この間は自分が待つ）
@@ -1380,6 +1451,7 @@ function beginDraft(){
   } else {
     nextPick();
   }
+  if(tutorial) tutOnDraft();   // チュートリアル：1枚選ぶよう促す
 }
 function renderLoadoutMini(){
   const el=$('loadoutMini');
@@ -1397,6 +1469,7 @@ function nextPick(){
     $('pickStep').textContent = state.pickTotal;
     $('draftHint').textContent = '編成完了！ まもなく開戦…';
     $('lockBtn').classList.add('hidden');
+    if(tutorial){ tutAfterPick(); return; }   // チュートリアル：自動開戦せず、ふきだしで案内
     // ボタンを押さずに自動で開戦（編成完了の確認のため少し待つ）
     setTimeout(()=>{ if(!$('play').classList.contains('hidden')) lockAndFight(); }, 900);
     return;
@@ -1405,7 +1478,7 @@ function nextPick(){
   state.offer3 = shuffle(state.loadout).slice(0, CONFIG.offerPerPick); // 4枚から3枚
   // 盤面の状況に応じて、3枠のうち1枠を強化カード（融合 or 各キャラX2）に差し替え
   const specials = eligibleSpecials();
-  if(specials.length && Math.random() < SPECIAL_OFFER_CHANCE){
+  if(!tutorial && specials.length && Math.random() < SPECIAL_OFFER_CHANCE){
     const sp = specials[Math.floor(Math.random()*specials.length)];
     const i = Math.floor(Math.random()*state.offer3.length);
     state.offer3[i] = sp;
@@ -1446,6 +1519,7 @@ function renderPickOffer(){
 let picking=false;
 function pickCardAnimated(el, key){
   if(picking) return; picking=true;
+  if(tutorial) hideTut();   // チュートリアル：ピックしたらヒントを消す（選択後に案内を出す）
   if(el){
     el.classList.add('spin','picked');
     // フリップがエッジオン（薄くなる瞬間）に合わせて 表→裏→表 を切り替える
@@ -2451,6 +2525,7 @@ function endBattle(result){
   else { state.lostLast=false; state.foeLostLast=false; }
   renderScore();
   $('skipBtn').classList.add('hidden');
+  if(tutorial){ setTimeout(()=>tutAfterBattle(result), 1200); return; }   // チュートリアル：自動で次へ進めず、ふきだしで案内
   // 最後のライフを削り切ったときだけ決着画面へ。それ以外は勝敗表示のあと自動で次ラウンドへ。
   if(state.youLives<=0||state.foeLives<=0) setTimeout(endGame,1400);
   else setTimeout(nextRound,1800);
@@ -2466,6 +2541,7 @@ function endGame(){
 }
 
 resetState(); renderScore(); show('home');
+if(!tutSeen()){ try{ startTutorial(); }catch(e){} }   // 初回プレイ時は自動でチュートリアル（メニューからいつでも再生可）
 </script>
 </body>
 </html>
