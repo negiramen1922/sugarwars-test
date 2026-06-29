@@ -97,17 +97,28 @@ const FIREBASE_CONFIG = {
 同じWi-Fiでも繋がらない場合、ルーターの **「プライバシーセパレーター／ネットワーク分離（APアイソレーション）」** が
 ONだと端末同士が直接通信できません。設定でOFFにできればOFFに。別回線同士（モバイル×Wi-Fiなど）でも直接は繋がりにくいです。
 
-これらを確実に超えるには **TURN（中継サーバー）** が要ります。無料枠のある [Metered TURN](https://www.metered.ca/tools/openrelay/) などで
-資格情報を取得し、`index.html` の `TURN_SERVERS` に貼ってください：
+### 一番ラクな回避策（設定不要）
+
+**片方のスマホでテザリング（インターネット共有）をON → もう片方をそのWi-Fiに接続。**
+2台が同じシンプルな回線に入るので端末分離に当たらず、直接つながりやすくなります。まずこれを試すのが速いです。
+
+### 確実な解決：TURN中継を設定（無料Metered）
+
+1. [https://www.metered.ca/](https://www.metered.ca/) で無料登録。
+2. ダッシュボードの **Metered TURN** で、自分の **username** と **credential** を取得。
+3. `index.html` の `TURN_SERVERS` の `//` を外し、`PASTE_TURN_USERNAME` / `PASTE_TURN_CREDENTIAL` を置き換える：
 
 ```js
 const TURN_SERVERS = [
-  { urls:'turn:あなたのTURN:3478', username:'取得したユーザー名', credential:'取得したパスワード' },
+  { urls:'turn:global.relay.metered.ca:80',                 username:'取得した値', credential:'取得した値' },
+  { urls:'turn:global.relay.metered.ca:80?transport=tcp',   username:'取得した値', credential:'取得した値' },
+  { urls:'turn:global.relay.metered.ca:443',                username:'取得した値', credential:'取得した値' },
+  { urls:'turns:global.relay.metered.ca:443?transport=tcp', username:'取得した値', credential:'取得した値' },
 ];
 ```
 
-> 画面下の診断ログで **`relay` の候補が出ているか** を確認できます。`host`/`srflx` だけで `relay` が0なら、
-> 端末間が遮断されていてTURNが必要なサインです。
+> 画面下の診断ログで **`relay` の候補が出るか** を確認できます。設定後に `経路候補[relay]` が出れば中継が効いています。
+> （既定の openrelay 公開TURNは現在不安定で `relay` が出ないことがあります。確実にするには上記の自分のTURNを設定してください）
 
 ## 8. コスト・後始末
 
