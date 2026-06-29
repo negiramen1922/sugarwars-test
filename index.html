@@ -2971,13 +2971,15 @@ function makePvpGuest(conn, hooks){
   hooks = hooks||{};
   conn.onMessage(msg=>{
     if(!msg || !msg.type) return;
-    switch(msg.type){
-      case PVP_MSG.START:    if(hooks.onStart)    hooks.onStart(msg); break;
-      case PVP_MSG.OFFER:    if(hooks.onOffer)    hooks.onOffer(msg, key=> conn.send({ type:PVP_MSG.PICK, round:msg.round, step:msg.step, key })); break;
-      case PVP_MSG.SNAPSHOT: if(hooks.onSnapshot) hooks.onSnapshot(applySnapshot(msg.snap, true), msg); break;   // 子は常に下(青)に見えるようミラー展開
-      case PVP_MSG.RESULT:   if(hooks.onResult)   hooks.onResult(msg); break;
-      case PVP_MSG.GAMEOVER: if(hooks.onGameover) hooks.onGameover(msg); break;
-    }
+    try{
+      switch(msg.type){
+        case PVP_MSG.START:    if(hooks.onStart)    hooks.onStart(msg); break;
+        case PVP_MSG.OFFER:    if(hooks.onOffer)    hooks.onOffer(msg, key=> conn.send({ type:PVP_MSG.PICK, round:msg.round, step:msg.step, key })); break;
+        case PVP_MSG.SNAPSHOT: if(hooks.onSnapshot) hooks.onSnapshot(applySnapshot(msg.snap, true), msg); break;   // 子は常に下(青)に見えるようミラー展開
+        case PVP_MSG.RESULT:   if(hooks.onResult)   hooks.onResult(msg); break;
+        case PVP_MSG.GAMEOVER: if(hooks.onGameover) hooks.onGameover(msg); break;
+      }
+    }catch(e){ try{ console.log('[PVP] guest 受信処理エラー('+msg.type+'): '+(e&&e.message||e)); }catch(_){} }
   });
   return {
     hello(deck){ conn.send({ type:PVP_MSG.HELLO, deck:(deck||[]).slice() }); },   // 参加時に自分のデッキを親へ
@@ -3108,6 +3110,7 @@ function pvpGuestShowOffer(m, reply){
     el.onclick=()=>{ if(pvpGuestPicking) return; pvpGuestPicking=true; SFX.play('pick'); el.classList.add('spin','picked'); $('offerOverlay').classList.add('hidden'); $('draftHint').textContent='相手の選択を待っています…'; pvpTrace('guest PICK 送信 '+key); reply(key); };
     wrap.appendChild(el);
   });
+  pvpTrace('guest 提示表示 完了 '+(m.offer3||[]).length+'枚 (active='+pvpGuestActive+')');
 }
 function pvpGuestOnResult(m){ state.youLives=m.youLives; state.foeLives=m.foeLives; if(m.round) state.round=m.round; renderScore(); showResultBanner(m.result); }
 function pvpGuestOnGameover(m){
