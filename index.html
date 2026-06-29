@@ -18,11 +18,11 @@
   body{background:radial-gradient(1200px 600px at 50% -10%, #20283a 0%, transparent 60%), var(--bg);color:var(--ink);font-family:"Inter",system-ui,sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
   .wrap{max-width:760px;margin:0 auto;padding:18px 16px 60px}
   header.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
-  .brand{display:flex;align-items:baseline;gap:10px}
+  .brand{display:flex;align-items:center;gap:10px}
   .brand h1{font-family:"Oswald",sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:clamp(22px,4.5vw,34px);margin:0}
   .brand h1 .clash{color:var(--brass)}
   .brand .tag{font-size:12px;color:var(--muted);letter-spacing:.18em;text-transform:uppercase}
-  .score{display:flex;align-items:center;gap:14px;background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:12px;padding:8px 14px;box-shadow:var(--shadow)}
+  .score{flex:1 1 100%;display:flex;align-items:center;justify-content:space-between;gap:14px;background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:12px;padding:8px clamp(14px,6vw,48px);box-shadow:var(--shadow)}
   .side-score{display:flex;flex-direction:column;align-items:center;min-width:84px}
   .side-score .name{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
   .side-score.you .name{color:var(--steel)} .side-score.foe .name{color:var(--rust)}
@@ -76,6 +76,9 @@
   @keyframes resultPop{0%{opacity:0;transform:translateY(-50%) scale(.4)}60%{opacity:1;transform:translateY(-50%) scale(1.12)}100%{opacity:1;transform:translateY(-50%) scale(1)}}
   .offer-overlay{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);display:flex;justify-content:center;padding:0 8px;pointer-events:none;z-index:5}
   .offer-overlay.hidden{display:none}
+  .offer-box{pointer-events:none;width:100%;max-width:420px;display:flex;flex-direction:column;align-items:stretch;gap:8px;background:rgba(16,14,20,.66);border:1px solid var(--line);border-radius:14px;padding:10px 10px 12px;box-shadow:0 10px 30px rgba(0,0,0,.5);backdrop-filter:blur(2px)}
+  .offer-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+  .offer-foot{pointer-events:auto;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;text-align:center}
   .offer-overlay .offer{pointer-events:auto;width:100%;max-width:420px;gap:8px;margin:0}
   .offer-overlay .card{padding:8px 7px 7px;box-shadow:0 6px 18px rgba(0,0,0,.55)}
   .offer-overlay .card .tagline{min-height:0}
@@ -213,15 +216,15 @@
 <body>
 <div class="wrap">
   <header class="topbar">
-    <div class="brand"><h1>Sugar <span class="clash">Wars</span></h1><span class="tag">お菓子の王国の戦争</span></div>
+    <div class="brand">
+      <h1>Sugar <span class="clash">Wars</span></h1>
+      <button id="menuBtn" class="iconbtn" onclick="toggleMenu()" title="メニュー">☰</button>
+      <span class="tag">お菓子の王国の戦争</span>
+    </div>
     <div class="score" id="scoreBar">
       <div class="side-score you"><span class="name">You</span><span class="hearts" id="youHearts">❤️❤️❤️</span></div>
       <div class="round-pill" id="roundPill">Round 1</div>
       <div class="side-score foe"><span class="name">Rival</span><span class="hearts" id="foeHearts">❤️❤️❤️</span></div>
-    </div>
-    <div class="topbar-actions">
-      <button id="sfxBtn" class="iconbtn" onclick="toggleSfx()" title="効果音オン/オフ">🔊</button>
-      <button id="menuBtn" class="iconbtn" onclick="toggleMenu()" title="メニュー">☰</button>
     </div>
   </header>
 
@@ -356,23 +359,23 @@
           <div class="foe-pick hidden" id="foePick"></div>
           <div class="result-banner hidden" id="resultBanner"></div>
           <div class="offer-overlay hidden" id="offerOverlay">
-            <div class="offer three" id="offer"></div>
+            <div class="offer-box">
+              <div class="offer-head">
+                <span class="stage-title">ドラフト</span>
+                <span class="pick-status">ピック <b id="pickStep">1</b> / <b id="pickTotal">3</b></span>
+              </div>
+              <div id="comebackBanner" class="comeback-banner hidden"><b>逆転ボーナス！</b> 前回負けたので、今回はピックを多めに選べる。</div>
+              <div class="offer three" id="offer"></div>
+              <div class="offer-foot">
+                <span class="pick-status" id="draftHint">3枚から1枚えらぼう</span>
+                <button class="btn btn-primary hidden" id="lockBtn" onclick="lockAndFight()">開戦 ⚔</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div id="draftPanel">
-        <div class="draft-top">
-          <h2 class="stage-title">ドラフト</h2>
-          <span class="pick-status">ピック <b id="pickStep">1</b> / <b id="pickTotal">3</b></span>
-        </div>
-        <div id="comebackBanner" class="comeback-banner hidden"><b>逆転ボーナス！</b> 前回負けたので、今回はピックを多めに選べる。</div>
-        <div class="loadout-mini" id="loadoutMini"></div>
-        <div class="draft-footer">
-          <span class="pick-status" id="draftHint">3枚から1枚えらぼう</span>
-          <button class="btn btn-primary hidden" id="lockBtn" onclick="lockAndFight()">開戦 ⚔</button>
-        </div>
-      </div>
+      <div id="draftPanel" class="hidden"></div>
 
       <div id="battlePanel" class="hidden">
         <p class="result-line hidden" id="resultLine"></p>
@@ -381,6 +384,8 @@
           <button class="btn btn-ghost hidden" id="hudBtn" onclick="toggleHud()">HP・数値 ON</button>
         </div>
       </div>
+
+      <div class="loadout-mini" id="loadoutMini"></div>
     </section>
 
     <!-- over -->
@@ -406,7 +411,7 @@
       <h3>メニュー</h3>
       <button class="menu-row" onclick="startTutorial()">🎓 あそびかた（チュートリアル）</button>
       <button class="menu-row" onclick="openNews()">📢 お知らせ</button>
-      <button class="menu-row" onclick="toggleSfx()">🔊 効果音 オン / オフ</button>
+      <button class="menu-row" id="muteRow" onclick="toggleSfx()">🔊 効果音 オン / オフ</button>
       <div class="menu-row" style="cursor:default">🎵 BGM音量<input type="range" id="bgmVol" min="0" max="100" oninput="onBgmVol(this.value)" style="flex:1;margin-left:8px"></div>
       <div class="menu-row" style="cursor:default">🔔 効果音音量<input type="range" id="sfxVol" min="0" max="100" oninput="onSfxVol(this.value)" style="flex:1;margin-left:8px"></div>
       <div style="text-align:center;margin-top:8px"><button class="btn btn-ghost" onclick="closeMenu()">閉じる</button></div>
@@ -808,6 +813,11 @@ function resetState(){
   };
 }
 const $ = id => document.getElementById(id);
+// ドラフトの提示ボックス（見出し「ドラフト/ピック」＋カード3枚＋下のヒント）の表示制御。
+// ヒント(draftHint)はボックス内にあるので、待機メッセージを見せたいときは「カードだけ」隠してボックスは残す。
+function showOfferCards(){ const o=$('offerOverlay'); if(o) o.classList.remove('hidden'); const c=$('offer'); if(c) c.classList.remove('hidden'); }
+function hideOfferCards(){ const o=$('offerOverlay'); if(o) o.classList.remove('hidden'); const c=$('offer'); if(c) c.classList.add('hidden'); }   // カードだけ隠し、見出し/ヒントは残す（待機表示用）
+function hideOfferBox(){ const o=$('offerOverlay'); if(o) o.classList.add('hidden'); }   // ボックスごと隠す（開戦時など）
 let myDeck = [];   // バトルで使う永続デッキ（最大4枚・編成画面で作る）
 let cpuDeck = [];  // 「デッキ選択」で組むCPUのデッキ（4枚）
 let cpuDeckMode = 'auto';   // 'auto'=ランダム / 'manual'=cpuDeckを使う
@@ -1563,8 +1573,8 @@ function beginDraft(){
   startLoop();
 
   if(foeExtra > 0){
-    // 敵が敗者：逆転ボーナスぶんを先に選ぶ。プレイヤーは待ち状態
-    $('offerOverlay').classList.add('hidden');
+    // 敵が敗者：逆転ボーナスぶんを先に選ぶ。プレイヤーは待ち状態（カードだけ隠してヒントは残す）
+    hideOfferCards();
     $('draftHint').textContent = 'ライバルが逆転ボーナスで先に選んでいます…';
     let k = 0;
     const revealFoeBonus = ()=>{
@@ -1572,7 +1582,7 @@ function beginDraft(){
         revealFoePick(state.foeRoundPicks[state.foeRevealIdx]); state.foeRevealIdx++; k++;
         setTimeout(revealFoeBonus, 850);
       } else {
-        $('offerOverlay').classList.remove('hidden');
+        showOfferCards();
         nextPick();   // 待機解除：プレイヤーの番
       }
     };
@@ -1583,8 +1593,9 @@ function beginDraft(){
   if(tutorial) tutOnDraft();   // チュートリアル：1枚選ぶよう促す
 }
 function renderLoadoutMini(){
-  const el=$('loadoutMini');
-  let html = `<span class="lbl">あなたのデッキ</span>` + state.loadout.map(k=>`<span class="chip">${iconHTML(UNIT_BY_KEY[k])}</span>`).join('');
+  const el=$('loadoutMini'); if(!el) return;
+  const deck = (state.loadout && state.loadout.length) ? state.loadout : myDeck;   // 子はstate.loadout未設定なのでmyDeckで代替
+  let html = `<span class="lbl">あなたのデッキ</span>` + (deck||[]).map(k=>`<span class="chip">${iconHTML(UNIT_BY_KEY[k])}</span>`).join('');
   const bs = acquiredBuffs();   // 取得済みの強化を「強化」ラベル付きチップで表示
   if(bs.length){
     html += `<span class="lbl buff-lbl">強化</span>` + bs.map(b=>`<span class="chip buffchip" title="${b.name}">${b.icon}</span>`).join('');
@@ -1594,7 +1605,7 @@ function renderLoadoutMini(){
 function nextPick(){
   if(state.pickStep >= state.pickTotal){
     $('offer').innerHTML='';
-    $('offerOverlay').classList.add('hidden');
+    hideOfferCards();   // カードだけ隠して「編成完了」ヒントは残す
     $('pickStep').textContent = state.pickTotal;
     $('draftHint').textContent = '編成完了！ まもなく開戦…';
     $('lockBtn').classList.add('hidden');
@@ -1618,6 +1629,7 @@ function nextPick(){
   }
 }
 function renderPickOffer(){
+  showOfferCards();
   const wrap=$('offer'); wrap.innerHTML='';
   state.offer3.forEach(key=>{
     const el=document.createElement('div');
@@ -2640,7 +2652,8 @@ function toggleSpeed(){ SFX.play('button'); speedMul=speedMul===1?3:1; $('skipBt
 let showHud = (function(){ try{ return localStorage.getItem('sw_hud')!=='0'; }catch(e){ return true; } })();
 function updateHudBtn(){ const b=$('hudBtn'); if(b) b.textContent='HP・数値 '+(showHud?'ON':'OFF'); }
 function toggleHud(){ SFX.play('button'); showHud=!showHud; try{ localStorage.setItem('sw_hud', showHud?'1':'0'); }catch(e){} updateHudBtn(); }
-function toggleSfx(){ const m=SFX.toggle(); const b=$('sfxBtn'); if(b) b.textContent=m?'🔇':'🔊'; if(!m) SFX.play('button'); }
+function toggleSfx(){ const m=SFX.toggle(); if(!m) SFX.play('button'); updateMuteRow(); }
+function updateMuteRow(){ const r=$('muteRow'); if(r) r.textContent = (SFX.muted ? '🔇 効果音 オフ（タップでオン）' : '🔊 効果音 オン（タップでオフ）'); }
 
 /* ===== ハンバーガーメニュー＆お知らせ ===== */
 // お知らせ（新しいものを先頭に追加していく）
@@ -2659,7 +2672,7 @@ function renderNews(){
     `<div class="news-item"><span class="news-ver">${n.ver}</span><span class="news-date">${n.date}</span>`+
     `<h4>${n.title}</h4><ul>${n.lines.map(l=>`<li>${l}</li>`).join('')}</ul></div>`).join('');
 }
-function toggleMenu(){ SFX.play('button'); const bv=$('bgmVol'), sv=$('sfxVol'); if(bv) bv.value=Math.round(SFX.bgmVol*100); if(sv) sv.value=Math.round(SFX.sfxVol*100); $('menuModal').classList.remove('hidden'); }
+function toggleMenu(){ SFX.play('button'); const bv=$('bgmVol'), sv=$('sfxVol'); if(bv) bv.value=Math.round(SFX.bgmVol*100); if(sv) sv.value=Math.round(SFX.sfxVol*100); updateMuteRow(); $('menuModal').classList.remove('hidden'); }
 function onBgmVol(v){ SFX.setBgmVol((+v)/100); }   // BGM音量を反映（ゲインに即時反映）
 let _sfxPrev=0;
 function onSfxVol(v){ SFX.setSfxVol((+v)/100); const n=Date.now?Date.now():0; if(n-_sfxPrev>120){ _sfxPrev=n; SFX.play('button'); } }   // 効果音音量を反映＋試聴
@@ -3266,12 +3279,12 @@ function pvpHostDraftStep(){
     pvpHostObj.notifyGuestWait(state.round, s);
   }
   if(pvpStepHostActive){ pvpHostShowOffer(); }   // 親が選ぶステップ
-  else { $('offerOverlay').classList.add('hidden'); $('draftHint').textContent='相手が逆転ボーナスで先に選んでいます…'; }   // 親は待機（子の逆転ボーナス）
+  else { hideOfferCards(); $('draftHint').textContent='相手が逆転ボーナスで先に選んでいます…'; }   // 親は待機（子の逆転ボーナス・カードは隠してヒントは残す）
 }
 function pvpHostShowOffer(){
   state.offer3 = pvpStepHostOffer || pvpMakeOffer(state.loadout, 'p');   // ドラフトステップで生成した親の提示を使う
   pvpStepHostOffer = null;
-  $('battlePanel').classList.add('hidden'); $('draftPanel').classList.remove('hidden'); $('offerOverlay').classList.remove('hidden');
+  $('battlePanel').classList.add('hidden'); showOfferCards();
   $('pickStep').textContent=Math.min(state.pickStep+1, state.pickTotal); $('pickTotal').textContent=state.pickTotal;
   $('draftHint').textContent = (pvpEnh && state.lostLast && !pvpStepGuestActive) ? '逆転ボーナス！ 先に1枚多く選べる（相手は待機中）' : '3枚から1枚えらぼう（同時選択）';
   const wrap=$('offer'); wrap.innerHTML=''; picking=false;
@@ -3280,7 +3293,7 @@ function pvpHostShowOffer(){
     const card=pvpCardHTML(key);
     const el=document.createElement('div'); el.className=card.cls; el.innerHTML=card.html;
     el.onclick=()=>{ if(pvpStepHostPick!=null) return; pvpStepHostPick=key; SFX.play(isSpecial(key)?'special':'pick'); el.classList.add('spin','picked');
-      $('offerOverlay').classList.add('hidden'); $('draftHint').textContent='相手の選択を待っています…'; pvpTrace('host: 自分の1枚 '+key); pvpHostTryReveal(); };
+      hideOfferCards(); $('draftHint').textContent='相手の選択を待っています…'; pvpTrace('host: 自分の1枚 '+key); pvpHostTryReveal(); };
     wrap.appendChild(el);
   });
 }
@@ -3312,7 +3325,7 @@ function pvpHostTryReveal(){
 }
 function pvpHostLockRound(){
   pvpTrace('host round '+state.round+' 全選択完了→開戦');
-  $('offerOverlay').classList.add('hidden');
+  hideOfferCards();
   $('draftHint').textContent='編成完了！ まもなく開戦…';
   setTimeout(()=>{ if(pvpMode && world && world.phase!=='battle') lockAndFight(); }, 700);
 }
@@ -3330,7 +3343,7 @@ const PVP_GUEST_HOOKS = {
 // 子：相手(親)が逆転ボーナスで先に選ぶ間の待機表示（このステップは選ばない）。
 function pvpGuestShowWait(m){
   hideResultBanner();
-  $('battlePanel').classList.add('hidden'); $('draftPanel').classList.remove('hidden'); $('offerOverlay').classList.add('hidden');
+  $('battlePanel').classList.add('hidden'); hideOfferCards();   // カードは隠してヒント(待機)は残す
   $('comebackBanner').classList.add('hidden');
   $('draftHint').textContent='相手が逆転ボーナスで先に選んでいます…';
 }
@@ -3340,7 +3353,7 @@ function pvpGuestShowStep(m, sendPick){
   const n = m.n || CONFIG.picksBase;
   hideResultBanner();
   $('comebackBanner').classList.toggle('hidden', !(pvpEnh && state.lostLast));   // 子が敗者なら逆転バナー
-  $('battlePanel').classList.add('hidden'); $('draftPanel').classList.remove('hidden'); $('offerOverlay').classList.remove('hidden');
+  $('battlePanel').classList.add('hidden'); showOfferCards();
   $('pickStep').textContent=(m.step+1); $('pickTotal').textContent=n; $('draftHint').textContent='3枚から1枚えらぼう（同時選択）';
   // 提示は権威側=親が生成して送ってくる（強化カード含む）。無ければ（旧版の親）自端末で生成＝v1互換。
   const offer = (m.offer3 && m.offer3.length) ? m.offer3.slice() : shuffle(deck).slice(0, CONFIG.offerPerPick);
@@ -3350,7 +3363,7 @@ function pvpGuestShowStep(m, sendPick){
     const card=pvpCardHTML(key);
     const el=document.createElement('div'); el.className=card.cls; el.innerHTML=card.html;
     el.onclick=()=>{ if(pvpGuestPicking) return; pvpGuestPicking=true; SFX.play(isSpecial(key)?'special':'pick'); el.classList.add('spin','picked');
-      $('offerOverlay').classList.add('hidden'); $('draftHint').textContent='相手の選択を待っています…'; pvpTrace('guest STEPPICK 送信 '+key); sendPick(key); };
+      hideOfferCards(); $('draftHint').textContent='相手の選択を待っています…'; pvpTrace('guest STEPPICK 送信 '+key); sendPick(key); };
     wrap.appendChild(el);
   });
   pvpTrace('guest STEP提示 r'+m.round+' s'+m.step+' ('+offer.length+'枚)');
@@ -3364,10 +3377,10 @@ function pvpGuestRunDraft(m, sendPicks){
   const showStep=()=>{
     if(step>=n){   // 全部選び終えた → まとめて送信して待機表示
       pvpTrace('guest 全'+n+'枚選択→PICKS送信 ['+keys.join(',')+']');
-      $('offerOverlay').classList.add('hidden'); $('draftHint').textContent='相手の選択を待っています…';
+      hideOfferCards(); $('draftHint').textContent='相手の選択を待っています…';
       sendPicks(keys); return;
     }
-    $('battlePanel').classList.add('hidden'); $('draftPanel').classList.remove('hidden'); $('offerOverlay').classList.remove('hidden');
+    $('battlePanel').classList.add('hidden'); showOfferCards();
     $('pickStep').textContent=(step+1); $('pickTotal').textContent=n; $('draftHint').textContent='3枚から1枚えらぼう';
     const offer = shuffle(deck).slice(0, CONFIG.offerPerPick);
     const wrap=$('offer'); wrap.innerHTML=''; pvpGuestPicking=false;
@@ -3393,7 +3406,7 @@ function pvpGuestEnterPlay(m){
   $('draftPanel').classList.add('hidden'); $('offerOverlay').classList.add('hidden');
   $('battlePanel').classList.add('hidden'); $('battleHead').classList.remove('hidden');
   $('lockBtn').classList.add('hidden'); $('skipBtn').classList.add('hidden');
-  renderScore(); pvpGuestLoop();
+  renderScore(); renderLoadoutMini(); pvpGuestLoop();   // 子も自分のデッキを画面下に表示
 }
 function pvpGuestLoop(){
   cancelAnimationFrame(pvpGuestRaf);
@@ -3442,7 +3455,7 @@ function pvpGuestRenderSnapshot(w){
 }
 function pvpGuestShowOffer(m, reply){
   hideResultBanner();   // 旧・1枚ずつ方式（未使用・互換）
-  $('battlePanel').classList.add('hidden'); $('draftPanel').classList.remove('hidden'); $('offerOverlay').classList.remove('hidden');
+  $('battlePanel').classList.add('hidden'); showOfferCards();
   $('pickStep').textContent=(m.step+1); $('pickTotal').textContent=CONFIG.picksBase;
   $('draftHint').textContent='3枚から1枚えらぼう';
   const wrap=$('offer'); wrap.innerHTML=''; pvpGuestPicking=false;
@@ -3452,7 +3465,7 @@ function pvpGuestShowOffer(m, reply){
     el.innerHTML=`<div class="icon">${iconHTML(u)}${u.count>1?`<span class="count">×${u.count}</span>`:''}</div>`+
       `<div class="cname">${u.name}</div><div class="tagline">${u.short||u.text}</div>`+
       `<div class="stats"><span class="atk">⚔ ${u.atk}</span><span class="hp">✚ ${u.hp}</span></div>`;
-    el.onclick=()=>{ if(pvpGuestPicking) return; pvpGuestPicking=true; SFX.play('pick'); el.classList.add('spin','picked'); $('offerOverlay').classList.add('hidden'); $('draftHint').textContent='相手の選択を待っています…'; pvpTrace('guest PICK 送信 '+key); reply(key); };
+    el.onclick=()=>{ if(pvpGuestPicking) return; pvpGuestPicking=true; SFX.play('pick'); el.classList.add('spin','picked'); hideOfferCards(); $('draftHint').textContent='相手の選択を待っています…'; pvpTrace('guest PICK 送信 '+key); reply(key); };
     wrap.appendChild(el);
   });
   pvpTrace('guest 提示表示 完了 '+(m.offer3||[]).length+'枚 (active='+pvpGuestActive+')');
