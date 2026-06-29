@@ -55,7 +55,7 @@ code += `
   resetState, createWorld, makeFighters, arrangeFormation,
   doubleUnitsOnBoard, applyX2Replay, eligibleX2Specials, eligibleSpecials,
   mergeAllSlimeGroups, countUnmergedSlimes, stepWorld, isSpecial, killUnit,
-  evolvePancake, evolvedStep, nearestEnemy,
+  evolvePancake, evolvedStep, nearestEnemy, spawnerStep, BAKERY_SPAWN_PATTERN,
   beginDraft, nextPick, pickCard, lockAndFight, aiPicks, startGame,
   applyPartyFlag, applyCookieParty, playerCanParty, countSideKey,
   applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff, buffCountFor,
@@ -2040,6 +2040,21 @@ console.log('\n=== 64) heavy(ドーナッツ)は大勢の重なりに押し負�
   const movedNormal = pushTest(false);
   check('heavy付きは押し戻される距離が小さい', movedHeavy < movedNormal, { movedHeavy, movedNormal });
   check('heavyでもわずかには動く（完全不動ではない）', movedHeavy >= 0, { movedHeavy });
+}
+
+console.log('\n=== 65) ベーカリーの生産数ループ（3→1→1→3→1→1・速度は不変） ===');
+{
+  const wd = API.createWorld(440, 660); API.world = wd;
+  const bake = API.makeFighters('bakery', 'p', 440, 660, 'army')[0]; bake.x = 220; bake.y = 600; bake.appear = 1; bake.spawnCap = 99; bake.spawnT = 0; wd.units.push(bake);
+  const cd = bake.spawnCd;
+  const counts = [];
+  for (let c = 0; c < 6; c++) {
+    const before = wd.units.filter(u => u.key === 'ginger' && u.hp > 0).length;
+    API.spawnerStep(wd, bake, cd + 0.01);   // 1サイクル分進める
+    counts.push(wd.units.filter(u => u.key === 'ginger' && u.hp > 0).length - before);
+  }
+  check('生産数が 3→1→1→3→1→1 のループ', JSON.stringify(counts) === JSON.stringify([3, 1, 1, 3, 1, 1]), counts);
+  check('パターン定数は [3,1,1]', JSON.stringify(API.BAKERY_SPAWN_PATTERN) === JSON.stringify([3, 1, 1]), API.BAKERY_SPAWN_PATTERN);
 }
 
 Promise.resolve().then(() => {
