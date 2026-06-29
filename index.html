@@ -2445,7 +2445,9 @@ function loop(now){
   const steps=speedMul;
   for(let i=0;i<steps && !world.done;i++) stepWorld(world, frame);
   render();
-  if(pvpMode && pvpHostObj && (now-pvpLastSnap)>80){ pvpLastSnap=now; try{ pvpHostObj.sendSnapshot(world); }catch(e){} }   // 親→子：盤面を約12Hzで配信
+  // 親→子：盤面配信。戦闘中は約10Hz、ドラフト中(盤面ほぼ静止)は約3Hzに落として通信量を削減。
+  const snapEvery = (world.phase==='battle') ? 100 : 340;
+  if(pvpMode && pvpHostObj && (now-pvpLastSnap)>snapEvery){ pvpLastSnap=now; try{ pvpHostObj.sendSnapshot(world); }catch(e){} }
   if(world.phase==='battle') updateRemain();
   if(world.phase==='outro' && !world._bannerShown){ showResultBanner(world.result); world._bannerShown=true; }   // 決着の瞬間に画面上へWIN/LOSE表示
   if(world.done){ endBattle(world.result); return; }
@@ -2667,6 +2669,16 @@ function updateMuteRow(){ const r=$('muteRow'); if(r) r.textContent = (SFX.muted
 /* ===== ハンバーガーメニュー＆お知らせ ===== */
 // お知らせ（新しいものを先頭に追加していく）
 const NEWS = [
+  { ver:'β1.1', date:'2026-06-29', title:'β1.1 アップデート🍰 オンライン対戦＆大量バランス調整', lines:[
+    '🌐 オンラインPVP対戦を追加！「あいことば」で友だちと直接たいせん（同じWi-Fiやテザリングが繋がりやすい）',
+    '🃏 PVPでも倍カード・強化カード・逆転ボーナスが出るように（負けた側はピックが多くもらえる）',
+    '🎵 ホームBGM・キャラごとの攻撃効果音・出撃の合図を追加。BGMと効果音は音量を別々に調整可',
+    '🖥️ バトル画面を整理：メニュー（ミュート）をタイトル横に、ハート＆ラウンドを中央に、デッキを画面下に表示',
+    '💥 バランス調整：ポップコーン/ソーダ/キャンディキャノンの爆発を中心ほど強く＆範囲をスリムに。サムライの突撃・パンケーキ進化も調整',
+    '🍩 ドーナッツが大勢に押し負けないように（群れ耐性）。わたあめゴーストは前衛に釣られず後衛を狙いやすく',
+    '🍪 ジンジャーとシューの噛み合わせ調整（シューの矢2発でジンジャーを倒せる）',
+    'まだβ版です。対戦やバランスは引き続き調整していきます。あそんでみて感想ください！',
+  ] },
   { ver:'β0.1', date:'2026-06-26', title:'β0.1 を公開しました🍬', lines:[
     'お菓子の王国をテーマにしたカードドラフト＋オートバトラー（CPU対戦）',
     '全13種のお菓子ユニットと、各キャラの固有強化カード',
@@ -2791,18 +2803,23 @@ const SNAP_UNIT_FIELDS = ['nid','key','side','x','y','r','hp','maxHp','icon',
   'atkAnim','atkDx','atkDy','warper','vanishing','vanP','invuln','isDecoy','raged','armed',
   'slime','merged','evolved','fizz','shoeBuff','cstate','chargeT','partyStage','wall','wallR',
   'charger','cluster','fastEvo','chocoBuff','bakeryBuff','daifukuBuff','donutWall'];
+// 数値を丸めてJSONを小さくする（TURN中継時の通信量削減）。位置/サイズ/HPは整数、その他(演出値)は小数2桁。
+const SNAP_INT = {x:1,y:1,r:1,hp:1,maxHp:1,tx:1,ty:1,sx:1,sy:1,max:1,wallR:1};
+function snapNum(k,v){ return SNAP_INT[k] ? Math.round(v) : Math.round(v*100)/100; }
 function serializeWorld(world){
   if(!world) return null;
   for(const u of world.units){ if(u.nid==null) u.nid = (world._nidSeq=(world._nidSeq||0)+1); }   // 子の補間用に各ユニットへ安定ID
-  const cloneU = (u)=>{ const r={}; for(let i=0;i<SNAP_UNIT_FIELDS.length;i++){ const k=SNAP_UNIT_FIELDS[i], v=u[k]; if(v!==undefined) r[k]=v; } return r; };
-  const cloneP = (o)=>{ const r={}; for(const k in o){ const v=o[k]; if(typeof v!=='function' && (k[0]!=='_')) r[k]=v; } return r; };
+  // v===false（多くのフラグは大半false）は省略＝子では undefined＝falsy で同じ判定になる（通信量を半減）。
+  const cloneU = (u)=>{ const r={}; for(let i=0;i<SNAP_UNIT_FIELDS.length;i++){ const k=SNAP_UNIT_FIELDS[i], v=u[k]; if(v===undefined||v===false) continue; r[k]=(typeof v==='number')?snapNum(k,v):v; } return r; };
+  const cloneP = (o)=>{ const r={}; for(const k in o){ const v=o[k]; if(typeof v==='function'||k[0]==='_'||v===false) continue; r[k]=(typeof v==='number')?snapNum(k,v):v; } return r; };
+  const battle = world.phase==='battle';
   return {
-    W:world.W, H:world.H, phase:world.phase, t:world.t, result:world.result,
-    shake:world.shake||0, intro:world.intro||0, outro:world.outro||0, done:!!world.done,
+    W:world.W, H:world.H, phase:world.phase, t:Math.round(world.t*100)/100, result:world.result,
+    shake:Math.round((world.shake||0)*10)/10, intro:Math.round((world.intro||0)*100)/100, outro:Math.round((world.outro||0)*100)/100, done:!!world.done,
     units:  world.units.map(cloneU),
     shots:  world.shots.map(cloneP),
-    parts:  world.parts.slice(0, 50).map(cloneP),     // 粒子は上限を設けて転送量スパイクを抑制（見た目用なので間引き可）
-    rings:  world.rings.map(cloneP),
+    parts:  battle ? world.parts.slice(0, 30).map(cloneP) : [],   // 粒子は戦闘中のみ・上限30（ドラフト中は送らない＝通信量削減）
+    rings:  battle ? world.rings.map(cloneP) : [],
     dmgs:  [],   // 子はダメージ数値を描かないので送らない（転送量・解析を節約）
     puddles:(world.puddles||[]).map(cloneP),
   };

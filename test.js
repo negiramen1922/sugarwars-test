@@ -1714,15 +1714,15 @@ console.log('\n=== 46) PVP土台: 盤面スナップショット（親→子の 
   // 非ミラー往復：そのまま復元できる
   const w0 = API.applySnapshot(snap, false);
   check('非ミラー：体数一致', w0.units.length === Wd.units.length);
-  check('非ミラー：座標そのまま', Math.abs(w0.units[0].x - Wd.units[0].x) < 1e-6 && Math.abs(w0.units[0].y - Wd.units[0].y) < 1e-6);
+  check('非ミラー：座標ほぼそのまま（整数丸め誤差<1px）', Math.abs(w0.units[0].x - Wd.units[0].x) < 1 && Math.abs(w0.units[0].y - Wd.units[0].y) < 1);
   check('非ミラー：陣営そのまま', w0.units[0].side === Wd.units[0].side);
   check('非ミラー：phaseが保たれる', w0.phase === 'battle');
   // ミラー（子が親の盤面を見る）：陣営とYが反転し、自分が常に下に見える
   const wm = API.applySnapshot(snap, true);
   const u0 = Wd.units[0], m0 = wm.units[0];
   check('ミラー：陣営が反転（p↔e）', m0.side === (u0.side === 'p' ? 'e' : 'p'), m0.side);
-  check('ミラー：Yが上下反転', Math.abs(m0.y - (660 - u0.y)) < 1e-6, { got: m0.y, exp: 660 - u0.y });
-  check('ミラー：Xは不変', Math.abs(m0.x - u0.x) < 1e-6);
+  check('ミラー：Yが上下反転（整数丸め誤差<1px）', Math.abs(m0.y - (660 - u0.y)) < 1, { got: m0.y, exp: 660 - u0.y });
+  check('ミラー：Xは不変（整数丸め誤差<1px）', Math.abs(m0.x - u0.x) < 1);
 }
 
 console.log('\n=== 47) PVP土台: コントローラ経由でもCPU対戦フローが従来どおり成立 ===');
@@ -1777,7 +1777,7 @@ console.log('\n=== 48) PVP対戦オーケストレーション（親=host / 子=
   // 子側はミラー（親のp→子から見るとe、Y反転）
   const hostU0 = Wd.units[0], guestU0 = got.snaps[0].units[0];
   check('子のスナップショットはミラー（陣営反転）', guestU0.side === (hostU0.side === 'p' ? 'e' : 'p'), guestU0.side);
-  check('子のスナップショットはミラー（Y反転）', Math.abs(guestU0.y - (660 - hostU0.y)) < 1e-6);
+  check('子のスナップショットはミラー（Y反転・整数丸め誤差<1px）', Math.abs(guestU0.y - (660 - hostU0.y)) < 1);
 
   // 結果・決着
   host.sendResult({ result: 'win', youLives: 3, foeLives: 2 });
