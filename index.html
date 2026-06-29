@@ -1437,6 +1437,7 @@ function picksFor(iLost, theyLost){
   return CONFIG.picksBase;
 }
 function beginDraft(){
+  if(pvpMode) pvpTrace('host 自分のドラフト開始 r'+state.round+'（親で3枚タップして開戦）');
   state.pickTotal = picksFor(state.lostLast, state.foeLostLast);
   state.pickStep = 0; state.roundPicks = [];
   picking=false; hideFoePick(); hideResultBanner();
@@ -1746,6 +1747,7 @@ function aiPicks(loadout, n){
 
 function lockAndFight(){
   if(!world || world.phase==='battle') return;   // 自動開戦と多重呼び出しの保護（既に戦闘中なら無視）
+  if(pvpMode) pvpTrace('host 開戦 r'+state.round);
   SFX.play('button');
   // 残っている敵ピックを公開（敵の枚数が多い場合など）
   while(state.foeRevealIdx < state.foeRoundPicks.length){
