@@ -487,8 +487,8 @@ const UNITS = [
   {key:'daifuku',name:'大福サムライ',   icon:'🍡', role:'fodder', tier:-1, count:1, atk:22, hp:160, speed:60, range:30, cd:0.9, tag:'前衛', short:'居合チャージから抜刀タックル！突撃は範囲、通常は単体の侍', text:'納刀→チャージ→抜刀タックルで突撃。突撃ヒットは前方の複数の敵をまとめて薙ぎ払う範囲攻撃、通常攻撃は単体。近ければ徒歩で斬り、離れると再び居合チャージ。', charger:true, cleave:true, dashDamage:90, dashSpeed:300, chargeTime:0.8, dashMax:0.5, dashFar:72, dashRange:26},
   {key:'cookie', name:'クッキーアーミー',     icon:'🍪', role:'fodder', tier:0, count:5, atk:14, hp:50,  speed:115, range:24, cd:0.5,  tag:'モブ', short:'数で押すクッキーの群れ。仲間が多いほど攻撃が上がる', text:'5体の群れで数で押す前衛。数が多いほど攻撃UP。', flock:true},
   {key:'slime', name:'ゼリースライム',   icon:'🔵', role:'fodder', tier:0.5, count:3, atk:12, hp:55, speed:90, range:24, cd:0.6, tag:'モブ', short:'「融合」で巨大化、倒れても3体に分裂するゼリー', text:'3体で出るスライム。強化カード「融合」で1体の巨大スライムに合体できる（倒れると3体に分裂）。', slime:true},
-  {key:'bomb',  name:'ポップコーンTNT',   icon:'🍿', role:'fodder', tier:-2, count:2, atk:0,  hp:55,  speed:128, range:22, cd:1.0,  tag:'自爆', short:'敵に近づいて自爆するクレイジーなポップコーン', text:'純粋な爆発力が持ち味。敵が射程に入ると起爆モードに移行し、短い導火の後に周囲へ特大爆発（残りHPに関係なく起爆）。倒されたときも爆発する。', suicide:true, blast:150, blastR:84, fuse:0.5},
-  {key:'soda',  name:'ランニングソーダ',   icon:'🥤', role:'fodder', tier:-2, count:2, atk:0,  hp:50,  speed:150, range:22, cd:1.0,  tag:'自爆+沼', short:'走って自爆し、長く残る炭酸沼で敵を溶かすソーダ', text:'本命は炭酸沼。敵陣へ走り込んで小さく自爆し、その場に広く長く残る炭酸沼を作る。沼の上の敵に強い持続ダメージと移動速度低下を与える（爆発自体は控えめ）。倒されたときも爆発する。', suicide:true, blast:40, blastR:46, fuse:0.45, puddle:true, puddleR:92, puddleLife:5.5, puddleDps:24, puddleSlow:0.5},
+  {key:'bomb',  name:'ポップコーンTNT',   icon:'🍿', role:'fodder', tier:-2, count:2, atk:0,  hp:55,  speed:128, range:22, cd:1.0,  tag:'自爆', short:'敵に近づいて自爆するクレイジーなポップコーン', text:'純粋な爆発力が持ち味。敵が射程に入ると起爆モードに移行し、短い導火の後に周囲へ特大爆発（残りHPに関係なく起爆）。倒されたときも爆発する。', suicide:true, blast:100, blastR:84, fuse:0.5},
+  {key:'soda',  name:'ランニングソーダ',   icon:'🥤', role:'fodder', tier:-2, count:2, atk:0,  hp:50,  speed:150, range:22, cd:1.0,  tag:'自爆+沼', short:'走って自爆し、長く残る炭酸沼で敵を溶かすソーダ', text:'本命は炭酸沼。敵陣へ走り込んで小さく自爆し、その場に広く長く残る炭酸沼を作る。沼の上の敵に強い持続ダメージと移動速度低下を与える（爆発自体は控えめ）。倒されたときも爆発する。', suicide:true, blast:40, blastR:46, fuse:0.45, puddle:true, puddleR:92, puddleLife:5.5, puddleDps:5, puddleSlow:0.5},
   {key:'choco', name:'チョコレートナイト', icon:'🍫', role:'tank',   tier:2, count:2, atk:24, hp:260, speed:66,  range:30, cd:0.95, tag:'前衛', short:'とにかく硬いチョコの壁。最前線で攻撃を受け止める', text:'2体で並ぶ非常に硬い前衛。最前線で受け止める。', spriteScale:0.6},
   {key:'pancake', name:'パンケーキキング', icon:'🥞', role:'tank', tier:2.5, count:1, atk:22, hp:150, speed:58, range:30, cd:1.0, tag:'進化', short:'約10秒で巨大進化し、着地の衝撃波で暴れる王様', text:'最初は1枚のパンケーキ（やや脆い前衛）。戦闘開始から約10秒で3段に進化し、HPが大幅アップ＋ジャンプ着地の衝撃波で周囲を範囲攻撃するようになる。', evolve:true, evolveAt:10, evoHpMul:3.5, evoScale:1.3, shockR:88, shockDmg:52, jumpDur:0.55, jumpPeak:30, evoCd:2.4},
   {key:'donut', name:'バキュームドーナッツ', icon:'🍩', role:'tank', tier:1.5, count:1, atk:6, hp:430, speed:50, range:32, cd:1.1, tag:'吸引タンク', short:'敵を吸い寄せる超硬タンク。味方の範囲攻撃と好相性', text:'眼の前へ敵を吸い寄せる超大型タンク。攻撃は弱いが非常に硬く、大勢の攻撃を受け止める（味方の範囲攻撃と好相性）。', vacuum:true, pullR:155, pullForce:150, vacOn:2.4, vacOff:1.6, spriteScale:1.0},
@@ -554,8 +554,8 @@ const CANNON_CLUSTER_DMG_MUL = 0.5;   // 各小爆発の威力（本体mortarの
 const FOE_CANNON_CHANCE = 0.4;    // 敵（ライバル）がクラスター花火弾を使う確率
 /* ★メガ炭酸沼（ランニングソーダ固有強化）の調整値。1回限りの単発強化。 */
 const SODA_MIN = 2;            // 盤面にこの数以上ソーダがいると「メガ炭酸沼」カードが出る
-const SODA_R_MUL = 1.6;        // 炭酸沼の半径倍率（範囲拡大）
-const SODA_DPS_MUL = 1.8;      // 炭酸沼の継続ダメージ倍率
+const SODA_R_MUL = 1.25;       // 炭酸沼の半径倍率（強化時の範囲拡大・控えめに）
+const SODA_DPS_MUL = 1.8;      // （未使用）以前は強化で継続ダメージを上げていたが廃止
 const FOE_SODA_CHANCE = 0.4;   // 敵（ライバル）がメガ炭酸沼を使う確率
 /* ★鉄壁ドーナッツ（バキュームドーナッツ固有強化）の調整値。1回限りの単発強化。 */
 const DONUT_MIN = 1;          // 盤面にこの数以上ドーナッツがいると「鉄壁ドーナッツ」カードが出る
@@ -618,7 +618,7 @@ SPECIALS['cluster_cannon'] = {
 /* ランニングソーダ固有強化「メガ炭酸沼」：自爆で残る炭酸沼の範囲とダメージが大幅UP。 */
 SPECIALS['fizz_soda'] = {
   key:'fizz_soda', name:'メガ炭酸沼', icon:'🥤', upgrade:true, sodaFizz:true, target:'soda',
-  text:'ランニングソーダが残す炭酸沼の範囲が広がり、継続ダメージも大幅にアップする（以後ずっと有効）。',
+  text:'ランニングソーダが残す炭酸沼の範囲が広がる（継続ダメージは据え置き・以後ずっと有効）。',
 };
 /* バキュームドーナッツ固有強化「鉄壁ドーナッツ」：HPが大幅UPし、一回り巨大化する超硬化の壁。 */
 SPECIALS['wall_donut'] = {
@@ -1103,8 +1103,8 @@ function clusterBurst(world, s){
 function applySodaFizz(world, side){
   const base=UNIT_BY_KEY['soda'];
   return eachBuffTarget(world, side, 'soda', u=>{
-    u.puddleR = Math.round((base.puddleR||70)*SODA_R_MUL);
-    u.puddleDps = Math.round((base.puddleDps||16)*SODA_DPS_MUL);
+    u.puddleR = Math.round((base.puddleR||70)*SODA_R_MUL);   // 強化は範囲だけ広げる（控えめ）
+    // 強化しても沼の継続ダメージは上げない（base.puddleDps のまま）
     u.fizz = true;
   });
 }

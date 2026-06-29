@@ -990,7 +990,7 @@ API.makeFighters('soda', 'e', W, H, 'army').forEach(f => { f.appear = 1; wf2.uni
 API.applySodaFizz(wf2, 'p');
 const ps = wf2.units.find(u => u.side === 'p' && u.key === 'soda');
 check('沼の半径が基準より拡大', ps.puddleR > sBase.puddleR, { base: sBase.puddleR, now: ps.puddleR });
-check('沼のダメージが基準より増加', ps.puddleDps > sBase.puddleDps, { base: sBase.puddleDps, now: ps.puddleDps });
+check('沼のダメージは基準のまま（強化で上がらない）', ps.puddleDps === sBase.puddleDps, { base: sBase.puddleDps, now: ps.puddleDps });
 check('fizz フラグが立つ', ps.fizz === true);
 check('敵ソーダには適用されない', wf2.units.filter(u => u.side === 'e' && u.key === 'soda').every(u => !u.fizz && u.puddleR === sBase.puddleR));
 // 冪等性：2回適用しても基準ベース計算で同じ値
@@ -1003,14 +1003,14 @@ function sodaPuddle(fizz) {
   let wd = API.createWorld(W, H); API.world = wd;
   const s = API.makeFighters('soda', 'p', W, H, 'army')[0];
   s.x = W / 2; s.y = H / 2; s.appear = 1;
-  if (fizz) { s.puddleR = Math.round(sBase.puddleR * 1.6); s.puddleDps = Math.round(sBase.puddleDps * 1.8); }
   wd.units.push(s);
+  if (fizz) API.applySodaFizz(wd, 'p');   // 実際の強化処理を通す（範囲のみ拡大・ダメージ据え置き）
   API.killUnit(wd, s);
   return wd.puddles[0];
 }
 const basePud = sodaPuddle(false), fizzPud = sodaPuddle(true);
 check('強化で沼の半径が大きい', fizzPud.r > basePud.r, { base: basePud.r, fizz: fizzPud.r });
-check('強化で沼のDPSが高い', fizzPud.dps > basePud.dps, { base: basePud.dps, fizz: fizzPud.dps });
+check('強化でも沼のDPSは同じ（上がらない）', fizzPud.dps === basePud.dps, { base: basePud.dps, fizz: fizzPud.dps });
 
 // pickCard で state.youSodaFizz が立ち、盤面ソーダに付与
 API.resetState();
