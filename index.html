@@ -705,11 +705,13 @@ const SFX = (function(){
     atk_soda(){ if(!throttle('a_soda',70))return; const a=ctx(); if(!a)return; const t=a.currentTime; noise(t,0.28,{vol:0.13,hp:5200}); noise(t+0.05,0.22,{vol:0.10,hp:6500}); },   // シュワシュワ
     atk_daifuku(){ if(!throttle('a_daifuku',60))return; const a=ctx(); if(!a)return; const t=a.currentTime; blip(t,300,0.14,{type:'sine',vol:0.24,slide:0.7}); blip(t+0.05,250,0.12,{type:'sine',vol:0.18,slide:1.35}); },   // もちっ
     atk_daifuku_charge(){ if(!throttle('a_dchg',60))return; const a=ctx(); if(!a)return; const t=a.currentTime; blip(t,1900,0.18,{type:'sawtooth',vol:0.22,slide:1.5}); noise(t,0.05,{vol:0.12,hp:6500}); },   // シャキン
-    atk_slime(){ if(!throttle('a_slime',55))return; const a=ctx(); if(!a)return; const t=a.currentTime; blip(t,240,0.16,{type:'sine',vol:0.20,slide:1.45}); blip(t+0.05,210,0.14,{type:'sine',vol:0.16,slide:1.5}); },   // プルプル
+    atk_slime(){ if(!throttle('a_slime',70))return; const a=ctx(); if(!a)return; const t=a.currentTime;   // プルップルッ（上下に揺れる）
+      [[300,0],[230,0.055],[340,0.11],[250,0.165]].forEach(([f,d])=> blip(t+d,f,0.085,{type:'triangle',vol:0.22,attack:0.004})); },
     atk_donut(){ if(!throttle('a_donut',60))return; const a=ctx(); if(!a)return; const t=a.currentTime; noise(t,0.10,{vol:0.16,hp:320}); blip(t,150,0.15,{type:'sine',vol:0.22,slide:0.85}); },   // ボサッ
     atk_pancake(){ if(!throttle('a_pan',60))return; const a=ctx(); if(!a)return; const t=a.currentTime; noise(t,0.10,{vol:0.15,hp:340}); blip(t,160,0.15,{type:'sine',vol:0.22,slide:0.85}); },   // ボサッ
     atk_pancake_evo(){ if(!throttle('a_panevo',120))return; const a=ctx(); if(!a)return; const t=a.currentTime; blip(t,300,0.22,{type:'sine',vol:0.26,slide:3.2}); blip(t+0.18,120,0.42,{type:'sine',vol:0.28,slide:0.6}); noise(t+0.18,0.22,{vol:0.16,hp:420}); },   // ピョーン→ボワァン
-    atk_shoe(){ if(!throttle('a_shoe',55))return; const a=ctx(); if(!a)return; const t=a.currentTime; noise(t,0.11,{vol:0.20,hp:900}); blip(t,520,0.08,{type:'sine',vol:0.13,slide:0.4}); },   // ベチャッ
+    atk_shoe(){ if(!throttle('a_shoe',60))return; const a=ctx(); if(!a)return; const t=a.currentTime;   // ベチャッ（湿った潰れ音）
+      noise(t,0.14,{vol:0.28,hp:300}); blip(t,460,0.13,{type:'sine',vol:0.24,slide:0.32}); blip(t+0.02,300,0.10,{type:'triangle',vol:0.14,slide:0.4}); },
     atk_bomb(){ if(!throttle('a_bomb',55))return; const a=ctx(); if(!a)return; const t=a.currentTime; noise(t,0.16,{vol:0.30,hp:600}); blip(t,200,0.24,{type:'sine',vol:0.34,slide:0.4}); },   // パーン
     atk_bakery(){ if(!throttle('a_bakery',120))return; const a=ctx(); if(!a)return; const t=a.currentTime; noise(t,0.5,{vol:0.13,hp:1800}); },   // ジュー（焼き）
     battleStart(){ const a=ctx(); if(!a)return; const t=a.currentTime;   // 出撃ラッパ「ブッ・ブッ・ブブー↑」
