@@ -466,6 +466,7 @@ const DIE_DUR = 0.5;      // やられたときに横倒し→消えるまでの
 const SHOE_ARC = 26;      // シュークリームの矢が「ポーンと」山なりに飛ぶ弧の高さ(px)
 const SEP_R = 10.5;       // 分離（重なり防止）に使う当たり半径の上限(px)。隊列の段間隔 rowGap=21 の半分に合わせてあり、
                           // 開戦前の隊列の密度では押し合いが起きない＝バトル開始時に一気に広がらない。大型ユニットもこの半径で判定。
+const HEAVY_PUSH = 0.16;  // heavy(ドーナッツ等)が重なり分離で押される割合。小さいほど大勢に押し負けない（1=通常／0=不動）
 
 /* ★重量システム（1=軽い 〜 5=重い）。バキュームドーナッツの吸引のされやすさを決める。
    5 は吸い込めない。4以下は数字が小さいほど“強く・速く”吸い込まれる。ここを変えれば調整できる。 */
@@ -497,12 +498,12 @@ const UNITS = [
   {key:'bomb',  name:'ポップコーンTNT',   icon:'🍿', role:'fodder', tier:-2.2, count:2, atk:0,  hp:55,  speed:128, range:22, cd:1.0,  tag:'自爆', short:'敵に近づいて自爆するクレイジーなポップコーン', text:'純粋な爆発力が持ち味。敵が射程に入ると起爆モードに移行し、短い導火の後に周囲へ特大爆発（残りHPに関係なく起爆）。倒されたときも爆発する。', suicide:true, blast:100, blastR:60, fuse:0.5},
   {key:'soda',  name:'ランニングソーダ',   icon:'🥤', role:'fodder', tier:-2, count:2, atk:0,  hp:50,  speed:150, range:22, cd:1.0,  tag:'自爆+沼', short:'走って自爆し、長く残る炭酸沼で敵を溶かすソーダ', text:'本命は炭酸沼。敵陣へ走り込んで小さく自爆し、その場に広く長く残る炭酸沼を作る。沼の上の敵に強い持続ダメージと移動速度低下を与える（爆発自体は控えめ）。倒されたときも爆発する。', suicide:true, blast:10, blastR:50, fuse:0.45, puddle:true, puddleR:60, puddleLife:5.5, puddleDps:5, puddleSlow:0.5},
   {key:'choco', name:'チョコレートナイト', icon:'🍫', role:'tank',   tier:2, count:2, atk:24, hp:260, speed:66,  range:30, cd:0.95, tag:'前衛', short:'とにかく硬いチョコの壁。最前線で攻撃を受け止める', text:'2体で並ぶ非常に硬い前衛。最前線で受け止める。', spriteScale:0.6},
-  {key:'pancake', name:'パンケーキキング', icon:'🥞', role:'tank', tier:2.5, count:1, atk:22, hp:150, speed:58, range:30, cd:1.0, tag:'進化', short:'約10秒で巨大進化し、着地の衝撃波で暴れる王様', text:'最初は1枚のパンケーキ（やや脆い前衛）。戦闘開始から約10秒で3段に進化し、HPが大幅アップ＋ジャンプ着地の衝撃波で周囲を範囲攻撃するようになる。', evolve:true, evolveAt:10, evoHpMul:3.5, evoScale:1.3, shockR:88, shockDmg:52, jumpDur:0.55, jumpPeak:30, evoCd:2.4},
-  {key:'donut', name:'バキュームドーナッツ', icon:'🍩', role:'tank', tier:1.5, count:1, atk:6, hp:430, speed:50, range:32, cd:1.1, tag:'吸引タンク', short:'敵を吸い寄せる超硬タンク。味方の範囲攻撃と好相性', text:'眼の前へ敵を吸い寄せる超大型タンク。攻撃は弱いが非常に硬く、大勢の攻撃を受け止める（味方の範囲攻撃と好相性）。', vacuum:true, pullR:155, pullForce:150, vacOn:2.4, vacOff:1.6, spriteScale:1.0},
+  {key:'pancake', name:'パンケーキキング', icon:'🥞', role:'tank', tier:2.5, count:1, atk:22, hp:150, speed:58, range:30, cd:1.0, tag:'進化', short:'約10秒で巨大進化し、着地の衝撃波で暴れる王様', text:'最初は1枚のパンケーキ（やや脆い前衛）。戦闘開始から約10秒で3段に進化し、HPが大幅アップ＋ジャンプ着地の衝撃波で周囲を範囲攻撃するようになる。', evolve:true, evolveAt:10, evoHpMul:3.5, evoScale:1.3, shockR:88, shockDmg:52, jumpDur:0.55, jumpPeak:30, evoCd:1.8},
+  {key:'donut', name:'バキュームドーナッツ', icon:'🍩', role:'tank', tier:1.5, count:1, atk:6, hp:430, speed:50, range:32, cd:1.1, tag:'吸引タンク', short:'敵を吸い寄せる超硬タンク。味方の範囲攻撃と好相性', text:'眼の前へ敵を吸い寄せる超大型タンク。攻撃は弱いが非常に硬く、大勢の攻撃を受け止める（味方の範囲攻撃と好相性）。', vacuum:true, pullR:155, pullForce:150, vacOn:2.4, vacOff:1.6, heavy:true, spriteScale:1.0},
   {key:'bakery', name:'ジンジャーベーカリー', icon:'🏠', role:'back', tier:3.2, count:1, atk:0, hp:230, speed:0, range:0, cd:1, tag:'生産工場', short:'動かず2秒ごとにジンジャーを焼き続ける生産工場', text:'動かない生産工場。生きている間、約2秒ごとにジンジャーソルジャーを3体まとめて焼いて送り出す（最大7体まで）。倒すと供給が止まる。', spawner:true, spawnKey:'ginger', spawnCd:2.0, spawnCount:3, spawnCap:7, spriteScale:1.1},
-  {key:'ginger', name:'ジンジャーソルジャー', icon:'🍪', role:'fodder', tier:0, count:1, atk:10, hp:32, speed:112, range:22, cd:0.55, tag:'召喚', short:'ベーカリーが焼く足の速い小さな兵士', text:'ジンジャーベーカリーが焼き上げる小さな兵士。脆いが足が速く、数で押し寄せる。', summonOnly:true},
+  {key:'ginger', name:'ジンジャーソルジャー', icon:'🍪', role:'fodder', tier:0, count:1, atk:10, hp:25, speed:112, range:22, cd:0.55, tag:'召喚', short:'ベーカリーが焼く足の速い小さな兵士', text:'ジンジャーベーカリーが焼き上げる小さな兵士。脆いが足が速く、数で押し寄せる。', summonOnly:true},
   {key:'popcorn_mini', name:'小型ポップコーン', icon:'🍿', role:'fodder', tier:1, count:1, atk:0, hp:24, speed:132, range:22, cd:1.0, tag:'自爆', short:'TNTの爆発から飛び出してもう一度自爆する小型', text:'ポップコーンTNTの爆発から飛び出す小型。すぐに自爆する（さらに分裂はしない）。', suicide:true, blast:60, blastR:48, fuse:0.4, summonOnly:true, spriteScale:0.62},
-  {key:'shoe',  name:'シュークリームアーチャー', icon:'🧁', role:'back', tier:3, count:4, atk:13, hp:44, speed:64, range:150, cd:0.9, tag:'後衛', short:'後方から矢を放つシュークリームの射手（4人）', text:'4人で矢を放つ後衛の射手。1体ずつは控えめだが数で手数を出す。射程が長い。', ranged:true},
+  {key:'shoe',  name:'シュークリームアーチャー', icon:'🧁', role:'back', tier:3, count:4, atk:16, hp:44, speed:64, range:150, cd:0.9, tag:'後衛', short:'後方から矢を放つシュークリームの射手（4人）', text:'4人で矢を放つ後衛の射手。1体ずつは控えめだが数で手数を出す。射程が長い。', ranged:true},
   {key:'ghost', name:'わたあめゴースト', icon:'☁️', role:'back', tier:3.5, count:3, atk:16, hp:44, speed:95, range:28, cd:0.43, tag:'強襲', short:'敵陣の後ろへワープして後衛を急襲するわたあめ', text:'3体で出る奇襲役。戦闘開始から少し経つと消えて、敵陣の最後尾あたりへワープ。出現直後はすり抜け(無敵)で後衛を最優先に叩く（脆い）。', warper:true, warpDelay:1.5, target:'back'},
   {key:'cannon',name:'キャンディキャノン', icon:'🎆', role:'back', tier:4, count:1, atk:0, hp:140, speed:0, range:9999, cd:3.8, tag:'迫撃', short:'最後尾から全域へ撃ち込む花火の迫撃砲', text:'最後尾から動かず、ステージ全域へ範囲迫撃。遅いが密集地点で大爆発。', artillery:true, mortar:60, splash:35, shotSpeed:230, arcH:80, spriteScale:1.25},
 ];
@@ -1022,7 +1023,7 @@ function makeFighters(key, side, W, H, slot){
       berserk:u.berserk||0, raged:false, targetRule:u.target||'near',
       charger:!!u.charger, cleave:!!u.cleave, dashDamage:u.dashDamage||0, baseDashDamage:u.dashDamage||0, dashSpeed:u.dashSpeed||0, chargeTime:u.chargeTime||0, dashMax:u.dashMax||0, dashFar:u.dashFar||0, dashRange:u.dashRange||0,
       artillery:!!u.artillery, mortar:u.mortar||0, shotSpeed:u.shotSpeed||0, arcH:u.arcH||0,
-      vacuum:!!u.vacuum, pullR:u.pullR||0, pullForce:u.pullForce||0,
+      vacuum:!!u.vacuum, pullR:u.pullR||0, pullForce:u.pullForce||0, heavy:!!u.heavy,
       vacActive:true, vacT:0, vacOn:u.vacOn||2.4, vacOff:u.vacOff||1.6,
       spawner:!!u.spawner, spawnKey:u.spawnKey||'', spawnCd:u.spawnCd||2, spawnCount:u.spawnCount||1, spawnCap:u.spawnCap||6, spawnT:(u.spawnCd||2)*0.4,
       warper:!!u.warper, warped:false, warpT:0, warpDelay:u.warpDelay||1.0, vanishing:false, vanP:0, appearFx:0, invuln:0,
@@ -2241,9 +2242,12 @@ function resolveOverlaps(world){
         let d=Math.sqrt(d2);
         if(d<1e-3){ ox=0.6; oy=(j%2?0.4:-0.4); d=Math.hypot(ox,oy); }   // 完全に重なっている場合は決め打ちの向きへ
         const overlap=rr-d, nx=ox/d, ny=oy/d;
-        const ua=(u.speed===0), oa=(o.speed===0);
+        // 押される割合：不動(speed0)=0／heavy(ドーナッツ等)=小さく／通常=1。重い側ほど動かず、相手がよける。
+        const wu = u.speed===0 ? 0 : (u.heavy ? HEAVY_PUSH : 1);
+        const wo = o.speed===0 ? 0 : (o.heavy ? HEAVY_PUSH : 1);
+        const wsum = wu+wo;
         let us, os;
-        if(ua&&oa){ us=0; os=0; } else if(ua){ us=0; os=1; } else if(oa){ us=1; os=0; } else { us=0.5; os=0.5; }
+        if(wsum<=0){ us=0; os=0; } else { us=wu/wsum; os=wo/wsum; }
         u.x+=nx*overlap*us; u.y+=ny*overlap*us;
         o.x-=nx*overlap*os; o.y-=ny*overlap*os;
       }
