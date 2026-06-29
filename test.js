@@ -66,7 +66,7 @@ code += `
   setupCanvas, CW_get:()=>CW, CH_get:()=>CH,
   PVP_MSG, createLoopbackPair, makeCpuFoeController, makeRemoteFoeController,
   serializeWorld, applySnapshot, makePvpHost, makePvpGuest,
-  PVP_PROTO, pvpMakeOffer, applyPvpSpecial, reapplyEnhancements,
+  PVP_PROTO, pvpMakeOffer, pvpMakeStepOffers, applyPvpSpecial, reapplyEnhancements, X2_OFFER_CAP,
   get pvpEnh(){ return pvpEnh; }, set pvpEnh(v){ pvpEnh = v; },
   get foeCtl(){ return foeCtl; }, set foeCtl(v){ foeCtl = v; },
 };
@@ -1920,6 +1920,44 @@ console.log('\n=== 56) PVP強化: 親が生成した提示(offer3・強化含む
   host.requestGuestStep(1, 0, ['cookie', 'choco'], 3, ['x2_cookie', 'choco', 'shoe']);
   check('STEP: 親生成の提示(強化カード含む)が子に届く', !!offerSeen && offerSeen[0] === 'x2_cookie', offerSeen);
   check('STEP: 子は届いた提示の強化カードを選んで返せる', gotKey === 'x2_cookie', gotKey);
+}
+
+console.log('\n=== 57) X2上限: 多すぎる種類(>=X2_OFFER_CAP)にはX2カードを出さない ===');
+{
+  const cap = API.X2_OFFER_CAP;
+  // ちょうど cap-1 体 → X2が出る
+  API.resetState();
+  let wd = API.createWorld(440, 660); API.world = wd;
+  for (let i = 0; i < cap - 1; i++) { const f = API.makeFighters('choco', 'p', 440, 660, 'army')[0]; f.hp = f.maxHp; wd.units.push(f); }
+  check('cap-1体ならX2は出る', API.eligibleX2Specials().includes('x2_choco'), { n: cap - 1, list: API.eligibleX2Specials() });
+  // cap 体以上 → X2が出ない
+  API.resetState();
+  wd = API.createWorld(440, 660); API.world = wd;
+  for (let i = 0; i < cap; i++) { const f = API.makeFighters('choco', 'p', 440, 660, 'army')[0]; f.hp = f.maxHp; wd.units.push(f); }
+  check('cap体以上ならX2は出ない（増えすぎ防止）', !API.eligibleX2Specials().includes('x2_choco'), { n: cap, list: API.eligibleX2Specials() });
+}
+
+console.log('\n=== 58) PVP強化パリティ: 片方に強化が出たら、もう片方にも出る ===');
+{
+  API.resetState();
+  const wd = API.createWorld(440, 660); API.world = wd;
+  API.state.loadout = ['choco', 'cookie', 'shoe', 'bomb'];
+  API.state.foeLoadout = ['choco', 'cookie', 'shoe', 'bomb'];
+  // 両陣営とも choco を X2_MIN 以上（=資格あり）にしておく
+  for (let i = 0; i < 4; i++) { const p = API.makeFighters('choco', 'p', 440, 660, 'army')[0]; p.hp = p.maxHp; wd.units.push(p);
+                                const e = API.makeFighters('choco', 'e', 440, 660, 'army')[0]; e.hp = e.maxHp; wd.units.push(e); }
+  API.pvpEnh = true;
+  let everBoth = false, mismatch = false;
+  for (let i = 0; i < 400; i++) {
+    const o = API.pvpMakeStepOffers();
+    const pHas = o.pOffer.some(k => API.isSpecial(k));
+    const eHas = o.eOffer.some(k => API.isSpecial(k));
+    if (pHas !== eHas) mismatch = true;        // 両者資格ありなら、出るときは必ず両方に出る
+    if (pHas && eHas) everBoth = true;
+  }
+  check('両者資格あり: 強化は片方だけにならない（必ず両方 or 両方なし）', !mismatch);
+  check('実際に両方へ強化が出るケースがある', everBoth);
+  API.pvpEnh = false;
 }
 
 Promise.resolve().then(() => {

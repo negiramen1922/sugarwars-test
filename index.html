@@ -513,6 +513,7 @@ const SPECIALS = {
 };
 /* ★X2強化カードの調整値（ここをいじればバランス調整できる） */
 const X2_MIN = 3;                 // 盤面にこの数以上いる種類にX2カードが出る（2→3で厳しめに）
+const X2_OFFER_CAP = 15;          // 盤面にこの数以上いる種類にはX2カードを出さない（増えすぎ防止。例：クッキー15体以上ならx2_cookieは提示されない）
 const X2_COOLDOWN_ROUNDS = 1;     // 同じキャラの2倍を取ったら、そのキャラの2倍は残り同ラウンド＋このラウンド数ぶん出さない（同キャラ連打抑制。別キャラの2倍は出る）
 const SPECIAL_OFFER_CHANCE = 0.3; // 強化カードが出せる状況のとき、1枠を強化カードに差し替える確率（0.6→0.3で出にくく）
 const FOE_X2_CHANCE = 0.4;        // 敵（ライバル）がX2強化を使う確率（0.6→0.4）
@@ -1250,7 +1251,7 @@ function foeEnhanceCandidates(){
   if(countUnmergedSlimes(world,'e')>=3) cands.push({key:'up_slime', fn:function(){ if(mergeOneSlimeGroup(world,'e')) state.foeMerges+=1; }});
   { const fb=state.foeX2Block||{}; const fc={};
     world.units.forEach(u=>{ if(u.side==='e'&&u.hp>0){ const unit=UNIT_BY_KEY[u.key]; if(unit&&!unit.summonOnly&&!X2_EXCLUDE.has(u.key) && state.round>(fb[u.key]||0)) fc[u.key]=(fc[u.key]||0)+1; }});  // クールダウン中のキャラは除外
-    let bestKey=null,bestN=0; for(const k in fc){ if(fc[k]>=X2_MIN && fc[k]>bestN){ bestN=fc[k]; bestKey=k; } }
+    let bestKey=null,bestN=0; for(const k in fc){ if(fc[k]>=X2_MIN && fc[k]<X2_OFFER_CAP && fc[k]>bestN){ bestN=fc[k]; bestKey=k; } }   // 多すぎる種類(>=X2_OFFER_CAP)はX2を出さない
     if(bestKey) cands.push({key:'x2_'+bestKey, fn:function(){ const n=doubleUnitsOnBoard(world,'e',bestKey); if(n>0){ state.foeX2[bestKey]=(state.foeX2[bestKey]||0)+1; state.foeX2Block[bestKey]=state.round+X2_COOLDOWN_ROUNDS; } }});
   }
   if(!state.foeParty        && countSideKey('e','cookie') >=PARTY_MIN)   cands.push({key:'party_cookie',  fn:function(){ state.foeParty=true;         setBuffCount('e','cookie',countSideKey('e','cookie'));   applyPartyFlag(world,'e'); }});
@@ -1416,7 +1417,7 @@ function eligibleX2Specials(){
   Object.keys(counts).forEach(function(k){
     const unit=UNIT_BY_KEY[k];
     if(state && state.round <= (block[k]||0)) return;   // そのキャラが連打クールダウン中ならスキップ（別キャラは出る）
-    if(unit && !unit.summonOnly && counts[k]>=X2_MIN && SPECIALS['x2_'+k]) list.push('x2_'+k);
+    if(unit && !unit.summonOnly && counts[k]>=X2_MIN && counts[k]<X2_OFFER_CAP && SPECIALS['x2_'+k]) list.push('x2_'+k);   // 多すぎる種類(>=X2_OFFER_CAP)はX2を出さない
   });
   return list;
 }
@@ -3140,17 +3141,30 @@ function pvpStartAsHost(){
   pvpHostStartRound();
 }
 // --- PVP 強化カード（フェーズ1：倍カード＋強化カード）。pvpEnh が真のときだけ働く ---
-// 提示3枚を作る。pvpEnh時はSPECIAL_OFFER_CHANCEで1枠を強化カードに差し替える。
-// side='p'（親プレイヤー）は eligibleSpecials()、side='e'（子＝相手）は foeEnhanceCandidates() で資格判定。
+// その陣営がいま提示できる強化カードのキー一覧。'p'=親プレイヤー / 'e'=相手(子)。
+function pvpEligibleSpecials(side){ return (side==='p') ? eligibleSpecials() : foeEnhanceCandidates().map(c=>c.key); }
+// 提示3枚に強化カードを1枠差し込む（資格があれば）。差し込めたら true。
+function pvpInjectSpecial(offer, side){
+  const sp = pvpEligibleSpecials(side); if(!sp.length) return false;
+  offer[Math.floor(Math.random()*offer.length)] = sp[Math.floor(Math.random()*sp.length)];
+  return true;
+}
+// 単独で提示3枚を作る（テスト/旧互換）。pvpEnh時はSPECIAL_OFFER_CHANCEで1枠を強化に差し替える。
 function pvpMakeOffer(deck, side){
   const offer = shuffle(deck).slice(0, CONFIG.offerPerPick);
-  if(!pvpEnh || !world) return offer;
-  const specials = (side==='p') ? eligibleSpecials() : foeEnhanceCandidates().map(c=>c.key);
-  if(specials.length && Math.random() < SPECIAL_OFFER_CHANCE){
-    const sp = specials[Math.floor(Math.random()*specials.length)];
-    offer[Math.floor(Math.random()*offer.length)] = sp;
-  }
+  if(pvpEnh && world && Math.random() < SPECIAL_OFFER_CHANCE) pvpInjectSpecial(offer, side);
   return offer;
+}
+// 親子“両方”の提示3枚を1回の抽選で作る。当たれば両陣営に強化を差し込む
+// ＝「片方に強化/X2が出たら、もう片方にも（出せるなら）出る」フェア仕様。
+function pvpMakeStepOffers(){
+  const pOffer = shuffle(state.loadout).slice(0, CONFIG.offerPerPick);
+  const eOffer = shuffle(state.foeLoadout).slice(0, CONFIG.offerPerPick);
+  if(pvpEnh && world && Math.random() < SPECIAL_OFFER_CHANCE){
+    pvpInjectSpecial(pOffer, 'p');   // 自分('p')に出せるなら出す
+    pvpInjectSpecial(eOffer, 'e');   // 同時に相手('e')にも出せるなら出す
+  }
+  return { pOffer, eOffer };
 }
 // 強化カードの効果を指定陣営へ適用（親=自分'p'／子=相手'e'の両方を1関数で扱う）。
 // PVEの pickCard / foeEnhanceCandidates と同じ状態（state.youX2 等）を更新するので、開戦時/次ラウンドの再適用と整合する。
@@ -3200,7 +3214,7 @@ function pvpCardHTML(key){
 }
 
 // 親：1ラウンド分（同時選択ドラフト）。盤面を用意して毎ステップ「両者が1枚ずつ→同時公開」を回す。
-let pvpStepHostPick=null, pvpStepGuestPick=null;
+let pvpStepHostPick=null, pvpStepGuestPick=null, pvpStepHostOffer=null;
 function pvpHostStartRound(){
   pvpTrace('host round '+state.round+' 開始（同時選択ドラフト）');
   state.pickTotal=CONFIG.picksBase; state.pickStep=0; state.roundPicks=[]; state.foeRoundPicks=[]; state.foeRevealIdx=0;
@@ -3224,13 +3238,15 @@ function pvpHostDraftStep(){
   pvpStepHostPick=null; pvpStepGuestPick=null;
   pvpTrace('host step '+state.pickStep+': 両者の1枚を待つ');
   const wait = pvpHostObj.awaitGuestStep();   // 先に待ち受け登録
-  const gOffer = pvpMakeOffer(state.foeLoadout, 'e');   // 子の提示3枚（強化カード含む）は権威側=親が生成
-  pvpHostObj.requestGuestStep(state.round, state.pickStep, state.foeLoadout, CONFIG.picksBase, gOffer);
+  const offers = pvpMakeStepOffers();   // 親子両方の提示を1回の抽選で生成（強化は両者同時に出す）
+  pvpStepHostOffer = offers.pOffer;     // 親の提示は pvpHostShowOffer で使う
+  pvpHostObj.requestGuestStep(state.round, state.pickStep, state.foeLoadout, CONFIG.picksBase, offers.eOffer);
   wait.then(key=>{ pvpStepGuestPick=key; pvpTrace('host: 子の1枚受領 '+key); pvpHostTryReveal(); });
   pvpHostShowOffer();   // 親も自分の1枚を選ぶ
 }
 function pvpHostShowOffer(){
-  state.offer3 = pvpMakeOffer(state.loadout, 'p');   // 強化カードを含む3枚（pvpEnh時）
+  state.offer3 = pvpStepHostOffer || pvpMakeOffer(state.loadout, 'p');   // ドラフトステップで両者同時生成した親の提示を使う
+  pvpStepHostOffer = null;
   $('battlePanel').classList.add('hidden'); $('draftPanel').classList.remove('hidden'); $('offerOverlay').classList.remove('hidden');
   $('pickStep').textContent=(state.pickStep+1); $('pickTotal').textContent=CONFIG.picksBase;
   $('draftHint').textContent='3枚から1枚えらぼう（同時選択）';
