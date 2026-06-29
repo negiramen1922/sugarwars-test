@@ -407,6 +407,8 @@
       <button class="menu-row" onclick="startTutorial()">🎓 あそびかた（チュートリアル）</button>
       <button class="menu-row" onclick="openNews()">📢 お知らせ</button>
       <button class="menu-row" onclick="toggleSfx()">🔊 効果音 オン / オフ</button>
+      <div class="menu-row" style="cursor:default">🎵 BGM音量<input type="range" id="bgmVol" min="0" max="100" oninput="onBgmVol(this.value)" style="flex:1;margin-left:8px"></div>
+      <div class="menu-row" style="cursor:default">🔔 効果音音量<input type="range" id="sfxVol" min="0" max="100" oninput="onSfxVol(this.value)" style="flex:1;margin-left:8px"></div>
       <div style="text-align:center;margin-top:8px"><button class="btn btn-ghost" onclick="closeMenu()">閉じる</button></div>
     </div>
   </div>
@@ -648,14 +650,20 @@ function isSpecial(key){ return !!SPECIALS[key]; }
    ・SFX.play(name) はブラウザ以外（ヘッドレステスト等）では安全に何もしない
    ・頻発する音(deploy/explode等)はthrottleで重なりすぎ防止 */
 const SFX = (function(){
-  let _ac=null, master=null, muted=false; const last={};
+  let _ac=null, master=null, sfxBus=null, bgmBus=null, muted=false; const last={};
+  let sfxVol=(function(){ try{ const v=parseFloat(localStorage.getItem('sw_sfxvol')); return isNaN(v)?0.85:v; }catch(e){ return 0.85; } })();   // SFX音量(0..1)
+  let bgmVol=(function(){ try{ const v=parseFloat(localStorage.getItem('sw_bgmvol')); return isNaN(v)?0.55:v; }catch(e){ return 0.55; } })();   // BGM音量(0..1)
   function ctx(){
     if(_ac) return _ac;
     try{ const C=window.AudioContext||window.webkitAudioContext; if(!C) return null;
-      _ac=new C(); master=_ac.createGain(); master.gain.value=0.32; master.connect(_ac.destination);
+      _ac=new C(); master=_ac.createGain(); master.gain.value=0.4; master.connect(_ac.destination);
+      sfxBus=_ac.createGain(); sfxBus.gain.value=sfxVol; sfxBus.connect(master);   // SFX用バス
+      bgmBus=_ac.createGain(); bgmBus.gain.value=bgmVol; bgmBus.connect(master);   // BGM用バス（音量を別管理）
     }catch(e){ return null; }
     return _ac;
   }
+  function setSfxVol(v){ sfxVol=Math.max(0,Math.min(1,+v||0)); if(sfxBus) sfxBus.gain.value=sfxVol; try{ localStorage.setItem('sw_sfxvol',sfxVol); }catch(e){} }
+  function setBgmVol(v){ bgmVol=Math.max(0,Math.min(1,+v||0)); if(bgmBus) bgmBus.gain.value=bgmVol; try{ localStorage.setItem('sw_bgmvol',bgmVol); }catch(e){} }
   function blip(t0, freq, dur, o){ o=o||{};
     const a=ctx(); if(!a) return;
     const osc=a.createOscillator(), g=a.createGain();
@@ -665,7 +673,7 @@ const SFX = (function(){
     g.gain.setValueAtTime(0.0001, t0);
     g.gain.exponentialRampToValueAtTime(vol, t0+(o.attack||0.005));
     g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
-    osc.connect(g); g.connect(master); osc.start(t0); osc.stop(t0+dur+0.02);
+    osc.connect(g); g.connect(o.bus||sfxBus); osc.start(t0); osc.stop(t0+dur+0.02);
   }
   function noise(t0, dur, o){ o=o||{};
     const a=ctx(); if(!a) return;
@@ -674,7 +682,7 @@ const SFX = (function(){
     const src=a.createBufferSource(); src.buffer=buf;
     const f=a.createBiquadFilter(); f.type='highpass'; f.frequency.value=o.hp||500;
     const g=a.createGain(); g.gain.setValueAtTime(o.vol==null?0.3:o.vol,t0); g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
-    src.connect(f); f.connect(g); g.connect(master); src.start(t0); src.stop(t0+dur+0.02);
+    src.connect(f); f.connect(g); g.connect(o.bus||sfxBus); src.start(t0); src.stop(t0+dur+0.02);
   }
   function throttle(name, ms){ const a=ctx(); if(!a) return false; const t=a.currentTime*1000;
     if(last[name]!=null && t-last[name]<ms) return false; last[name]=t; return true; }
@@ -709,10 +717,10 @@ const SFX = (function(){
   function bgmScheduleBeat(step,t){
     if(!master) return;
     const beat=step%3, bar=Math.floor(step/3)%8;
-    if(beat===0) blip(t, NW[WALTZ_BASS[bar]]||110, 0.30, {type:'triangle',vol:0.18});            // ズン（低音）
-    else WALTZ_CHORD[bar].forEach(n=> blip(t, NW[n]||220, 0.16, {type:'triangle',vol:0.07}));      // チャ（和音刻み）
+    if(beat===0) blip(t, NW[WALTZ_BASS[bar]]||110, 0.30, {type:'triangle',vol:0.18,bus:bgmBus});            // ズン（低音）
+    else WALTZ_CHORD[bar].forEach(n=> blip(t, NW[n]||220, 0.16, {type:'triangle',vol:0.07,bus:bgmBus}));      // チャ（和音刻み）
     const mn=WALTZ_MEL[bar*3+beat];                                                                 // メロディ（オルゴール風）
-    if(mn) blip(t, NW[mn]||440, 0.36, {type:'sine',vol:0.14,attack:0.01});
+    if(mn) blip(t, NW[mn]||440, 0.36, {type:'sine',vol:0.14,attack:0.01,bus:bgmBus});
   }
   function bgmTick(){ const a=ctx(); if(!a) return;
     while(bgmNextT < a.currentTime+0.12){ if(!muted) bgmScheduleBeat(bgmStep,bgmNextT); bgmNextT+=BEAT; bgmStep++; } }
@@ -724,7 +732,7 @@ const SFX = (function(){
 
   function toggle(){ muted=!muted; if(!muted){ const a=ctx(); if(a&&a.state==='suspended') a.resume(); } return muted; }
   try{ document.addEventListener('pointerdown', function once(){ const a=ctx(); if(a&&a.state==='suspended') a.resume(); if(typeof onFirstAudioGesture==='function') onFirstAudioGesture(); document.removeEventListener('pointerdown', once); }); }catch(e){}
-  return { play:play, toggle:toggle, bgm:bgmStart, bgmStop:bgmStop, get bgmName(){ return bgmName; }, get muted(){ return muted; } };
+  return { play:play, toggle:toggle, bgm:bgmStart, bgmStop:bgmStop, setSfxVol:setSfxVol, setBgmVol:setBgmVol, get sfxVol(){ return sfxVol; }, get bgmVol(){ return bgmVol; }, get bgmName(){ return bgmName; }, get muted(){ return muted; } };
 })();
 
 /* スプライト画像（アップロードされたドット絵を埋め込み）。preloadしてcanvasに描画 */
@@ -2626,7 +2634,10 @@ function renderNews(){
     `<div class="news-item"><span class="news-ver">${n.ver}</span><span class="news-date">${n.date}</span>`+
     `<h4>${n.title}</h4><ul>${n.lines.map(l=>`<li>${l}</li>`).join('')}</ul></div>`).join('');
 }
-function toggleMenu(){ SFX.play('button'); $('menuModal').classList.remove('hidden'); }
+function toggleMenu(){ SFX.play('button'); const bv=$('bgmVol'), sv=$('sfxVol'); if(bv) bv.value=Math.round(SFX.bgmVol*100); if(sv) sv.value=Math.round(SFX.sfxVol*100); $('menuModal').classList.remove('hidden'); }
+function onBgmVol(v){ SFX.setBgmVol((+v)/100); }   // BGM音量を反映（ゲインに即時反映）
+let _sfxPrev=0;
+function onSfxVol(v){ SFX.setSfxVol((+v)/100); const n=Date.now?Date.now():0; if(n-_sfxPrev>120){ _sfxPrev=n; SFX.play('button'); } }   // 効果音音量を反映＋試聴
 function closeMenu(e){ if(e && e.target!==e.currentTarget) return; $('menuModal').classList.add('hidden'); }
 function openNews(){ SFX.play('button'); renderNews(); $('menuModal').classList.add('hidden'); $('newsModal').classList.remove('hidden'); }
 function closeNews(e){ if(e && e.target!==e.currentTarget) return; SFX.play('button'); $('newsModal').classList.add('hidden'); }
