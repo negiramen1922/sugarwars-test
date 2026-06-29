@@ -504,7 +504,7 @@ const UNITS = [
   {key:'popcorn_mini', name:'小型ポップコーン', icon:'🍿', role:'fodder', tier:1, count:1, atk:0, hp:24, speed:132, range:22, cd:1.0, tag:'自爆', short:'TNTの爆発から飛び出してもう一度自爆する小型', text:'ポップコーンTNTの爆発から飛び出す小型。すぐに自爆する（さらに分裂はしない）。', suicide:true, blast:60, blastR:48, fuse:0.4, summonOnly:true, spriteScale:0.62},
   {key:'shoe',  name:'シュークリームアーチャー', icon:'🧁', role:'back', tier:3, count:4, atk:13, hp:44, speed:64, range:150, cd:0.9, tag:'後衛', short:'後方から矢を放つシュークリームの射手（4人）', text:'4人で矢を放つ後衛の射手。1体ずつは控えめだが数で手数を出す。射程が長い。', ranged:true},
   {key:'ghost', name:'わたあめゴースト', icon:'☁️', role:'back', tier:3.5, count:3, atk:16, hp:44, speed:95, range:28, cd:0.43, tag:'強襲', short:'敵陣の後ろへワープして後衛を急襲するわたあめ', text:'3体で出る奇襲役。戦闘開始から少し経つと消えて、敵陣の最後尾あたりへワープ。出現直後はすり抜け(無敵)で後衛を最優先に叩く（脆い）。', warper:true, warpDelay:1.5, target:'back'},
-  {key:'cannon',name:'キャンディキャノン', icon:'🎆', role:'back', tier:4, count:1, atk:0, hp:140, speed:0, range:9999, cd:3.8, tag:'迫撃', short:'最後尾から全域へ撃ち込む花火の迫撃砲', text:'最後尾から動かず、ステージ全域へ範囲迫撃。遅いが密集地点で大爆発。', artillery:true, mortar:60, splash:62, shotSpeed:230, arcH:80, spriteScale:1.25},
+  {key:'cannon',name:'キャンディキャノン', icon:'🎆', role:'back', tier:4, count:1, atk:0, hp:140, speed:0, range:9999, cd:3.8, tag:'迫撃', short:'最後尾から全域へ撃ち込む花火の迫撃砲', text:'最後尾から動かず、ステージ全域へ範囲迫撃。遅いが密集地点で大爆発。', artillery:true, mortar:60, splash:20, shotSpeed:230, arcH:80, spriteScale:1.25},
 ];
 const UNIT_BY_KEY = Object.fromEntries(UNITS.map(u=>[u.key,u]));
 
@@ -556,6 +556,7 @@ const FOE_GHOST_CHANCE = 0.4;   // 敵（ライバル）が分身を使う確率
 /* ★クラスター花火弾（キャンディキャノン固有強化）の調整値。1回限りの単発強化。 */
 const CANNON_MIN = 1;              // 盤面にこの数以上キャノンがいると「クラスター花火弾」カードが出る
 const CANNON_CLUSTER_N = 4;       // 着弾時に飛び散る小爆発の数
+const HOMING_TELEPORT = 60;           // 追尾弾：標的がこの距離以上を1フレームで移動したら「ワープした」とみなし追尾解除（急旋回防止）
 const CANNON_CLUSTER_SPREAD = 1.7;    // 小爆発の散布半径（本体splashの倍率）
 const CANNON_CLUSTER_SPLASH_MUL = 0.55; // 各小爆発の爆発半径（本体splashの倍率）
 const CANNON_CLUSTER_DMG_MUL = 0.5;   // 各小爆発の威力（本体mortarの倍率）
@@ -1858,7 +1859,7 @@ function popDmg(world,x,y,txt,color){ world.dmgs.push({x,y,vy:-26,life:0.8,txt,c
 function nearestEnemy(u, world){
   let best=null, bd=1e9;
   for(const o of world.units){
-    if(o.side===u.side || o.hp<=0) continue;
+    if(o.side===u.side || o.hp<=0 || (o.invuln||0)>0) continue;   // 無敵中(ワープ直後のゴースト等)は標的にしない＝サムライ等が吊られない
     let d=(o.x-u.x)**2+(o.y-u.y)**2;
     if(u.targetRule==='low') d = o.hp*1000 + d*0.0005;
     else if(u.targetRule==='ranged') d = (o.ranged?0:1)*1e7 + d;   // 後衛(射手・魔法)を最優先で狙う
@@ -1899,7 +1900,7 @@ function killUnit(world, t){
     world.shake=Math.max(world.shake,8);
     world.rings.push({x:t.x,y:t.y,r:4,max:t.blastR,life:0.35,color:'#ffb24d'});
     burst(world,t.x,t.y,'#ffb24d',22,150);
-    for(const o of world.units){ if(o.side===t.side||o.hp<=0) continue; const dx=o.x-t.x, dy=o.y-t.y, dd=dx*dx+dy*dy; if(dd < t.blastR*t.blastR){
+    for(const o of world.units){ if(o.side===t.side||o.hp<=0||(o.invuln||0)>0) continue; const dx=o.x-t.x, dy=o.y-t.y, dd=dx*dx+dy*dy; if(dd < t.blastR*t.blastR){   // 無敵中は爆発も当たらない
       const dl=Math.sqrt(dd)||1, dmg=Math.max(1,Math.round(t.blast*(1-BLAST_FALLOFF*(dl/t.blastR))));   // 中心ほど高ダメージ（外周は減衰）
       o.hp-=dmg; o.flash=0.2; popDmg(world,o.x,o.y-o.r-4,dmg,'#ffb24d');
       const kf=(1-dl/t.blastR)*BLAST_KB; o.knockx+=dx/dl*kf; o.knocky+=dy/dl*kf;   // 爆発ノックバック（中心ほど強い・kb無敵を貫通）
@@ -2103,7 +2104,7 @@ function artilleryStep(world, u, dt){
   u.knockx=0; u.knocky=0;               // 重い砲台なので動かない
   u.cool-=dt;
   if(u.cool<=0){
-    const foes=world.units.filter(o=>o.side!==u.side && o.hp>0);
+    const foes=world.units.filter(o=>o.side!==u.side && o.hp>0 && (o.invuln||0)<=0);   // 無敵中は狙わない
     if(foes.length){
       // 手前(自分に近い)の敵を優先。最も近い敵から少しの帯に入る敵の中で、最も密集した点を狙う
       let nearD=Infinity;
@@ -2363,7 +2364,11 @@ function stepWorld(world, dt){
     }
   }
   for(const s of world.shots){
-    if(s.homing && s.target && s.target.hp>0){ s.tx=s.target.x; s.ty=s.target.y; }   // 追尾：着弾点を敵に追従
+    if(s.homing && s.target && s.target.hp>0){
+      const jump=Math.hypot(s.target.x-s.tx, s.target.y-s.ty);
+      if(jump>HOMING_TELEPORT){ s.target=null; }   // 標的がワープ（瞬間移動）したら追尾解除＝今の着弾点へそのまま飛ぶ（急旋回を防ぐ）
+      else { s.tx=s.target.x; s.ty=s.target.y; }    // 通常の移動には追従
+    }
     const dx=s.tx-s.x,dy=s.ty-s.y,d=Math.hypot(dx,dy),step=s.sp*dt;
     if(d<=step){
       if(s.splash){ const sc=s.color||'#b98cff'; world.rings.push({x:s.tx,y:s.ty,r:3,max:s.splash,life:0.32,color:sc}); burst(world,s.tx,s.ty,sc,14,140); if(s.sprite==='ball'){ world.shake=Math.max(world.shake,5); } for(const o of world.units){ if(o.side===s.side||o.hp<=0)continue; const dd=(o.x-s.tx)**2+(o.y-s.ty)**2; if(dd<s.splash*s.splash){ const dl=Math.sqrt(dd), dmg=Math.max(1,Math.round(s.atk*(1-BLAST_FALLOFF*(dl/s.splash)))); applyHit(world,s.owner,o,dmg); } } if(s.cluster) clusterBurst(world,s); }   // 範囲攻撃も中心ほど高ダメージ
