@@ -1490,7 +1490,7 @@ function arrangeFormation(world, side, snap){
    5) ドラフト（4枚デッキから「3枚→1枚」を繰り返す）
    ============================================================ */
 function picksFor(iLost, theyLost){
-  if(pvpMode) return CONFIG.picksBase;   // PVP(v1)は逆転ボーナス無し・両者同数で簡潔に
+  if(pvpMode && !pvpEnh) return CONFIG.picksBase;   // PVP旧版(v1)は逆転ボーナス無し・両者同数で簡潔に（新版は下の通常ロジックで逆転あり）
   // 前回負けた側は逆転ボーナスで多く、勝った側は控えめにして逆転を効かせる
   if(iLost) return CONFIG.picksComeback;
   if(theyLost) return CONFIG.picksAfterWin;
@@ -3105,6 +3105,8 @@ function makePvpHost(conn, hooks){
     awaitGuestPicks(){ return new Promise(res=>{ picksResolver=res; }); },
     // 同時選択：このステップの1枚を子に要求し、子の1枚(STEPPICK)が返るまで待つ。
     requestGuestStep(round, step, deck, n, offer3){ conn.send({ type:PVP_MSG.STEP, round, step, deck:(deck||[]).slice(), n:n||CONFIG.picksBase, offer3:(offer3||[]).slice() }); },
+    // 逆転ボーナス：このステップは相手(親)が単独で選ぶので、子は待機（返信不要）。
+    notifyGuestWait(round, step){ conn.send({ type:PVP_MSG.STEP, round, step, wait:true }); },
     awaitGuestStep(){ return new Promise(res=>{ stepResolver=res; }); },
     sendSnapshot(world){ conn.send({ type:PVP_MSG.SNAPSHOT, snap:serializeWorld(world) }); },
     sendResult(info){ conn.send(Object.assign({ type:PVP_MSG.RESULT }, info||{})); },
@@ -3213,13 +3215,21 @@ function pvpCardHTML(key){
   return {cls:'card', html:`<div class="icon">${iconHTML(u)}${u.count>1?`<span class="count">×${u.count}</span>`:''}</div><div class="cname">${u.name}</div><div class="tagline">${u.short||u.text}</div><div class="stats"><span class="atk">⚔ ${u.atk}</span><span class="hp">✚ ${u.hp}</span></div>`};
 }
 
-// 親：1ラウンド分（同時選択ドラフト）。盤面を用意して毎ステップ「両者が1枚ずつ→同時公開」を回す。
+// 親：1ラウンド分（同時選択ドラフト＋逆転ボーナス）。
+// 逆転ボーナス（pvpEnh時）：前回負けた側はピックが多く（picksComeback=4／勝者3）、
+// その差分は「敗者先行」で最初に単独ピック（その間もう片方は待機）。以降は同時選択。
 let pvpStepHostPick=null, pvpStepGuestPick=null, pvpStepHostOffer=null;
+let pvpStepTotal=0, pvpHostExtra=0, pvpGuestExtra=0, pvpStepHostActive=false, pvpStepGuestActive=false;
 function pvpHostStartRound(){
-  pvpTrace('host round '+state.round+' 開始（同時選択ドラフト）');
-  state.pickTotal=CONFIG.picksBase; state.pickStep=0; state.roundPicks=[]; state.foeRoundPicks=[]; state.foeRevealIdx=0;
+  state.pickTotal    = pvpEnh ? picksFor(state.lostLast, state.foeLostLast) : CONFIG.picksBase;   // 親プレイヤーのピック数
+  state.foePickTotal = pvpEnh ? picksFor(state.foeLostLast, state.lostLast) : CONFIG.picksBase;   // 子のピック数
+  pvpHostExtra  = Math.max(0, state.pickTotal - state.foePickTotal);   // 親が敗者＝先に単独で選ぶ枚数
+  pvpGuestExtra = Math.max(0, state.foePickTotal - state.pickTotal);   // 子が敗者＝先に単独で選ぶ枚数
+  pvpStepTotal  = Math.max(state.pickTotal, state.foePickTotal);
+  state.pickStep=0; state.roundPicks=[]; state.foeRoundPicks=[]; state.foeRevealIdx=0;
+  pvpTrace('host round '+state.round+' 開始 自'+state.pickTotal+'枚/相'+state.foePickTotal+'枚（逆転'+(pvpHostExtra?'自先行':pvpGuestExtra?'相先行':'なし')+'）');
   picking=false; hideFoePick(); hideResultBanner();
-  $('comebackBanner').classList.add('hidden'); $('pickTotal').textContent=CONFIG.picksBase;
+  $('comebackBanner').classList.toggle('hidden', !(pvpEnh && state.lostLast)); $('pickTotal').textContent=state.pickTotal;
   $('draftPanel').classList.remove('hidden'); $('offerOverlay').classList.add('hidden');
   $('battlePanel').classList.add('hidden'); $('battleHead').classList.add('hidden');
   $('resultLine').classList.add('hidden'); $('lockBtn').classList.add('hidden');
@@ -3234,22 +3244,36 @@ function pvpHostStartRound(){
   pvpHostDraftStep();
 }
 function pvpHostDraftStep(){
-  if(state.pickStep >= CONFIG.picksBase){ pvpHostLockRound(); return; }   // 全ステップ完了→開戦
+  if(state.pickStep >= pvpStepTotal){ pvpHostLockRound(); return; }   // 全ステップ完了→開戦
   pvpStepHostPick=null; pvpStepGuestPick=null;
-  pvpTrace('host step '+state.pickStep+': 両者の1枚を待つ');
-  const wait = pvpHostObj.awaitGuestStep();   // 先に待ち受け登録
-  const offers = pvpMakeStepOffers();   // 親子両方の提示を1回の抽選で生成（強化は両者同時に出す）
-  pvpStepHostOffer = offers.pOffer;     // 親の提示は pvpHostShowOffer で使う
-  pvpHostObj.requestGuestStep(state.round, state.pickStep, state.foeLoadout, CONFIG.picksBase, offers.eOffer);
-  wait.then(key=>{ pvpStepGuestPick=key; pvpTrace('host: 子の1枚受領 '+key); pvpHostTryReveal(); });
-  pvpHostShowOffer();   // 親も自分の1枚を選ぶ
+  const s = state.pickStep;
+  // 敗者先行：親が敗者なら先頭 pvpHostExtra ステップは親のみ／子が敗者なら先頭 pvpGuestExtra ステップは子のみ。
+  const hostStart = pvpGuestExtra, guestStart = pvpHostExtra;
+  pvpStepHostActive  = (s >= hostStart  && s < hostStart  + state.pickTotal);
+  pvpStepGuestActive = (s >= guestStart && s < guestStart + state.foePickTotal);
+  pvpTrace('host step '+s+' active 自='+pvpStepHostActive+' 相='+pvpStepGuestActive);
+  // 提示生成：両者アクティブなら同時抽選（強化パリティ）、片方だけなら単独生成。
+  let pOffer=null, eOffer=null;
+  if(pvpStepHostActive && pvpStepGuestActive){ const o=pvpMakeStepOffers(); pOffer=o.pOffer; eOffer=o.eOffer; }
+  else if(pvpStepHostActive){ pOffer=pvpMakeOffer(state.loadout,'p'); }
+  else if(pvpStepGuestActive){ eOffer=pvpMakeOffer(state.foeLoadout,'e'); }
+  pvpStepHostOffer = pOffer;
+  if(pvpStepGuestActive){   // 子が選ぶステップ：提示を送って待つ
+    const wait = pvpHostObj.awaitGuestStep();
+    pvpHostObj.requestGuestStep(state.round, s, state.foeLoadout, state.foePickTotal, eOffer);
+    wait.then(key=>{ pvpStepGuestPick=key; pvpTrace('host: 子の1枚受領 '+key); pvpHostTryReveal(); });
+  } else {   // 子は待機（親の逆転ボーナス）。子へ「待って」を通知（返信不要）
+    pvpHostObj.notifyGuestWait(state.round, s);
+  }
+  if(pvpStepHostActive){ pvpHostShowOffer(); }   // 親が選ぶステップ
+  else { $('offerOverlay').classList.add('hidden'); $('draftHint').textContent='相手が逆転ボーナスで先に選んでいます…'; }   // 親は待機（子の逆転ボーナス）
 }
 function pvpHostShowOffer(){
-  state.offer3 = pvpStepHostOffer || pvpMakeOffer(state.loadout, 'p');   // ドラフトステップで両者同時生成した親の提示を使う
+  state.offer3 = pvpStepHostOffer || pvpMakeOffer(state.loadout, 'p');   // ドラフトステップで生成した親の提示を使う
   pvpStepHostOffer = null;
   $('battlePanel').classList.add('hidden'); $('draftPanel').classList.remove('hidden'); $('offerOverlay').classList.remove('hidden');
-  $('pickStep').textContent=(state.pickStep+1); $('pickTotal').textContent=CONFIG.picksBase;
-  $('draftHint').textContent='3枚から1枚えらぼう（同時選択）';
+  $('pickStep').textContent=Math.min(state.pickStep+1, state.pickTotal); $('pickTotal').textContent=state.pickTotal;
+  $('draftHint').textContent = (pvpEnh && state.lostLast && !pvpStepGuestActive) ? '逆転ボーナス！ 先に1枚多く選べる（相手は待機中）' : '3枚から1枚えらぼう（同時選択）';
   const wrap=$('offer'); wrap.innerHTML=''; picking=false;
   state.offer3.forEach(key=>{
     if(!UNIT_BY_KEY[key] && !SPECIALS[key]) return;
@@ -3261,23 +3285,28 @@ function pvpHostShowOffer(){
   });
 }
 function pvpHostTryReveal(){
-  if(pvpStepHostPick==null || pvpStepGuestPick==null) return;   // 両者そろうまで待つ＝同時公開
-  pvpTrace('host step '+state.pickStep+' 同時公開: 自'+pvpStepHostPick+' 相'+pvpStepGuestPick);
-  // 自分の1枚（強化カードなら効果適用・ユニットなら盤面へ／下=青）
-  if(isSpecial(pvpStepHostPick)){ applyPvpSpecial(world,'p',pvpStepHostPick); }
-  else {
-    state.roundPicks.push(pvpStepHostPick);
-    makeFighters(pvpStepHostPick,'p',CW,CH,'pick').forEach(f=>{ f.x=CW/2+(Math.random()-0.5)*40; f.y=playB(CH)-f.r; world.units.push(f); burst(world,f.x,f.y,'#4ea3c9',9,75); });
-    arrangeFormation(world,'p',false);
+  if(pvpStepHostActive && pvpStepHostPick==null) return;    // このステップでアクティブな側がそろうまで待つ
+  if(pvpStepGuestActive && pvpStepGuestPick==null) return;
+  pvpTrace('host step '+state.pickStep+' 公開: 自'+pvpStepHostPick+' 相'+pvpStepGuestPick);
+  // 自分の1枚（アクティブ時のみ。強化カードなら効果適用・ユニットなら盤面へ／下=青）
+  if(pvpStepHostActive){
+    if(isSpecial(pvpStepHostPick)){ applyPvpSpecial(world,'p',pvpStepHostPick); }
+    else {
+      state.roundPicks.push(pvpStepHostPick);
+      makeFighters(pvpStepHostPick,'p',CW,CH,'pick').forEach(f=>{ f.x=CW/2+(Math.random()-0.5)*40; f.y=playB(CH)-f.r; world.units.push(f); burst(world,f.x,f.y,'#4ea3c9',9,75); });
+      arrangeFormation(world,'p',false);
+    }
   }
-  // 相手の1枚（強化カードなら効果を相手陣'e'へ・ユニットなら盤面へ／上=赤）
-  if(isSpecial(pvpStepGuestPick)){ showFoePickCard(pvpStepGuestPick); applyPvpSpecial(world,'e',pvpStepGuestPick); }
-  else {
-    state.foeRoundPicks.push(pvpStepGuestPick); state.foeRevealIdx=state.foeRoundPicks.length;
-    revealFoePick(pvpStepGuestPick);
+  // 相手の1枚（アクティブ時のみ。強化カードなら効果を相手陣'e'へ・ユニットなら盤面へ／上=赤）
+  if(pvpStepGuestActive){
+    if(isSpecial(pvpStepGuestPick)){ showFoePickCard(pvpStepGuestPick); applyPvpSpecial(world,'e',pvpStepGuestPick); }
+    else {
+      state.foeRoundPicks.push(pvpStepGuestPick); state.foeRevealIdx=state.foeRoundPicks.length;
+      revealFoePick(pvpStepGuestPick);
+    }
   }
   state.pickStep++;
-  $('pickStep').textContent=Math.min(state.pickStep+1, CONFIG.picksBase);
+  $('pickStep').textContent=Math.min(state.pickStep+1, pvpStepTotal);
   pvpStepHostPick=null; pvpStepGuestPick=null;
   setTimeout(pvpHostDraftStep, 700);   // 公開を見せてから次ステップ
 }
@@ -3291,18 +3320,26 @@ function pvpHostLockRound(){
 // 子：受信フック
 const PVP_GUEST_HOOKS = {
   onStart:(m)=>{ pvpEnh=((m.proto||1)>=2 && PVP_PROTO>=2); pvpTrace('guest START enh='+pvpEnh); pvpGuestEnterPlay(m); },
-  onStep:(m,sendPick)=>{ pvpTrace('guest STEP要求 受信 r'+m.round+' s'+m.step); pvpGuestShowStep(m,sendPick); },   // 同時選択：このステップの1枚
+  onStep:(m,sendPick)=>{ if(m.wait){ pvpTrace('guest 待機通知 受信（相手の逆転ボーナス）'); pvpGuestShowWait(m); } else { pvpTrace('guest STEP要求 受信 r'+m.round+' s'+m.step); pvpGuestShowStep(m,sendPick); } },   // 同時選択／逆転ボーナス
   onDraft:(m,sendPicks)=>{ pvpTrace('guest DRAFT要求 受信 r'+m.round); pvpGuestRunDraft(m,sendPicks); },   // 一括方式（未使用・互換）
   onOffer:(m,reply)=>{ pvpTrace('guest OFFER 受信 r'+m.round+' s'+m.step); pvpGuestShowOffer(m,reply); },   // 旧方式（未使用・互換）
   onSnapshot:(w)=>pvpGuestRenderSnapshot(w),
   onResult:(m)=>{ pvpTrace('guest RESULT 受信 '+m.result); pvpGuestOnResult(m); },
   onGameover:(m)=>{ pvpTrace('guest GAMEOVER 受信'); pvpGuestOnGameover(m); },
 };
+// 子：相手(親)が逆転ボーナスで先に選ぶ間の待機表示（このステップは選ばない）。
+function pvpGuestShowWait(m){
+  hideResultBanner();
+  $('battlePanel').classList.add('hidden'); $('draftPanel').classList.remove('hidden'); $('offerOverlay').classList.add('hidden');
+  $('comebackBanner').classList.add('hidden');
+  $('draftHint').textContent='相手が逆転ボーナスで先に選んでいます…';
+}
 // 子：このステップの1枚を選ぶ（盤面はSNAPSHOTで見えているので、公開済みの選択を見て選べる）。
 function pvpGuestShowStep(m, sendPick){
   const deck = (m.deck && m.deck.length) ? m.deck : ((myDeck&&myDeck.length)?myDeck.slice():['cookie']);
   const n = m.n || CONFIG.picksBase;
   hideResultBanner();
+  $('comebackBanner').classList.toggle('hidden', !(pvpEnh && state.lostLast));   // 子が敗者なら逆転バナー
   $('battlePanel').classList.add('hidden'); $('draftPanel').classList.remove('hidden'); $('offerOverlay').classList.remove('hidden');
   $('pickStep').textContent=(m.step+1); $('pickTotal').textContent=n; $('draftHint').textContent='3枚から1枚えらぼう（同時選択）';
   // 提示は権威側=親が生成して送ってくる（強化カード含む）。無ければ（旧版の親）自端末で生成＝v1互換。
@@ -3350,6 +3387,7 @@ function pvpGuestRunDraft(m, sendPicks){
 function pvpGuestEnterPlay(m){
   pvpMode=false; pvpGuestActive=true; pvpGuestPicking=false;
   state.youLives=(m&&m.lives)||CONFIG.startLives; state.foeLives=(m&&m.lives)||CONFIG.startLives; state.round=(m&&m.round)||1;
+  state.lostLast=false; state.foeLostLast=false;   // 逆転バナー用（初戦は両者なし）
   show('play'); setupCanvas(); world=null; pvpSnapBuf=[]; pvpGuestLastPhase=null;
   hideResultBanner();
   $('draftPanel').classList.add('hidden'); $('offerOverlay').classList.add('hidden');
@@ -3419,7 +3457,7 @@ function pvpGuestShowOffer(m, reply){
   });
   pvpTrace('guest 提示表示 完了 '+(m.offer3||[]).length+'枚 (active='+pvpGuestActive+')');
 }
-function pvpGuestOnResult(m){ state.youLives=m.youLives; state.foeLives=m.foeLives; if(m.round) state.round=m.round; renderScore(); showResultBanner(m.result); }
+function pvpGuestOnResult(m){ state.youLives=m.youLives; state.foeLives=m.foeLives; if(m.round) state.round=m.round; state.lostLast=(m.result==='lose'); state.foeLostLast=(m.result==='win'); renderScore(); showResultBanner(m.result); }
 function pvpGuestOnGameover(m){
   pvpGuestActive=false; cancelAnimationFrame(pvpGuestRaf);
   const won=!!m.youWon;
