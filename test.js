@@ -66,6 +66,8 @@ code += `
   setupCanvas, CW_get:()=>CW, CH_get:()=>CH,
   PVP_MSG, createLoopbackPair, makeCpuFoeController, makeRemoteFoeController,
   serializeWorld, applySnapshot, makePvpHost, makePvpGuest,
+  PVP_PROTO, pvpMakeOffer, applyPvpSpecial, reapplyEnhancements,
+  get pvpEnh(){ return pvpEnh; }, set pvpEnh(v){ pvpEnh = v; },
   get foeCtl(){ return foeCtl; }, set foeCtl(v){ foeCtl = v; },
 };
 `;
@@ -1857,6 +1859,67 @@ console.log('\n=== 52) 炭酸沼の重ねがけ上限（PUDDLE_DPS_CAP） ===');
   const lost = before - e.hp;
   check('重ねがけは上限/秒で頭打ち（合計20でも10前後）', lost > 9 && lost < 11, { lost });
   check('上限なしの合計(20)より小さい', lost < 19, { lost });
+}
+
+console.log('\n=== 53) PVP強化: pvpMakeOfferはpvpEnhで強化カードを出し分ける ===');
+{
+  API.resetState();
+  const wd = API.createWorld(440, 660); API.world = wd;
+  API.makeFighters('cookie', 'p', 440, 660, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });   // クッキー5体≥X2_MIN
+  const deck = ['cookie', 'choco', 'shoe', 'bomb'];
+  API.pvpEnh = false;
+  let offWhenDisabled = false;
+  for (let i = 0; i < 60; i++) { if (API.pvpMakeOffer(deck, 'p').some(k => API.isSpecial(k))) offWhenDisabled = true; }
+  check('pvpEnh OFF: 強化カードは絶対に出ない（旧版互換）', !offWhenDisabled);
+  API.pvpEnh = true;
+  let onWhenEnabled = false;
+  for (let i = 0; i < 300; i++) { if (API.pvpMakeOffer(deck, 'p').some(k => API.isSpecial(k))) onWhenEnabled = true; }
+  check('pvpEnh ON: 資格があれば強化カードが出ることがある', onWhenEnabled);
+  API.pvpEnh = false;
+}
+
+console.log('\n=== 54) PVP強化: applyPvpSpecialが相手陣(e)へX2を適用し状態を記録 ===');
+{
+  API.resetState();
+  const wd = API.createWorld(440, 660); API.world = wd;
+  API.makeFighters('cookie', 'e', 440, 660, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+  const before = wd.units.filter(u => u.side === 'e' && u.key === 'cookie' && u.hp > 0).length;
+  API.applyPvpSpecial(wd, 'e', 'x2_cookie');
+  const after = wd.units.filter(u => u.side === 'e' && u.key === 'cookie' && u.hp > 0).length;
+  check('×2(相手/e): 対象キャラが倍に増える', after === before * 2, { before, after });
+  check('×2(相手/e): state.foeX2に獲得を記録', API.state.foeX2.cookie === 1, API.state.foeX2);
+}
+
+console.log('\n=== 55) PVP強化: applyPvpSpecialで自分(p)のスライム融合＋次ラウンド再適用 ===');
+{
+  API.resetState();
+  const wd = API.createWorld(440, 660); API.world = wd;
+  API.makeFighters('slime', 'p', 440, 660, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });   // スライム3体
+  API.applyPvpSpecial(wd, 'p', 'up_slime');
+  const merged = wd.units.filter(u => u.side === 'p' && u.slime && u.merged).length;
+  check('融合(自分/p): 巨大スライムが生成され state.youMerges に記録', merged >= 1 && API.state.youMerges >= 1, { merged, youMerges: API.state.youMerges });
+
+  // 次ラウンド想定：新しい盤面でも取得済みX2が再適用される
+  API.resetState();
+  API.state.foeX2.cookie = 1;
+  const wd2 = API.createWorld(440, 660); API.world = wd2;
+  API.makeFighters('cookie', 'e', 440, 660, 'army').forEach(f => { f.appear = 1; wd2.units.push(f); });
+  const b = wd2.units.filter(u => u.side === 'e' && u.key === 'cookie' && u.hp > 0).length;
+  API.reapplyEnhancements(wd2, 'e');
+  const a = wd2.units.filter(u => u.side === 'e' && u.key === 'cookie' && u.hp > 0).length;
+  check('再適用: 取得済みX2が次ラウンドも倍化を維持', a === b * 2, { b, a });
+}
+
+console.log('\n=== 56) PVP強化: 親が生成した提示(offer3・強化含む)がSTEPで子へ届く ===');
+{
+  const [hWire, gWire] = API.createLoopbackPair();
+  let offerSeen = null;
+  API.makePvpGuest(gWire, { onStep: (m, sendPick) => { offerSeen = m.offer3; sendPick((m.offer3 && m.offer3[0]) || 'cookie'); } });
+  let gotKey = null;
+  const host = API.makePvpHost(hWire, { onGuestStep: (m) => { gotKey = m.key; } });
+  host.requestGuestStep(1, 0, ['cookie', 'choco'], 3, ['x2_cookie', 'choco', 'shoe']);
+  check('STEP: 親生成の提示(強化カード含む)が子に届く', !!offerSeen && offerSeen[0] === 'x2_cookie', offerSeen);
+  check('STEP: 子は届いた提示の強化カードを選んで返せる', gotKey === 'x2_cookie', gotKey);
 }
 
 Promise.resolve().then(() => {

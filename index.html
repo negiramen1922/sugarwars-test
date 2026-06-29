@@ -3021,7 +3021,7 @@ function pvpOnConnected(roleLabel){
   if(roleLabel==='親'){
     pvpRole='host';
     pvpHostObj = makePvpHost(pvpConn, {
-      onGuestHello:(deck)=>{ pvpGuestDeck=deck; pvpDiag('相手のデッキを受信。対戦開始！'); pvpStartAsHost(); },
+      onGuestHello:(deck, proto)=>{ pvpGuestDeck=deck; pvpEnh=((proto||1)>=2 && PVP_PROTO>=2); pvpDiag('相手のデッキを受信。対戦開始！'+(pvpEnh?'（強化カードON）':'（相手が旧版のため強化カードOFF）')); pvpStartAsHost(); },
       onGuestPick:()=>{},
     });
     // 親のデッキは openPvpLobby で確認済み。子のHELLO（参加）待ち。
@@ -3079,7 +3079,7 @@ function makePvpGuest(conn, hooks){
     }catch(e){ try{ console.log('[PVP] guest 受信処理エラー('+msg.type+'): '+(e&&e.message||e)); }catch(_){} }
   });
   return {
-    hello(deck){ conn.send({ type:PVP_MSG.HELLO, deck:(deck||[]).slice() }); },   // 参加時に自分のデッキを親へ
+    hello(deck){ conn.send({ type:PVP_MSG.HELLO, deck:(deck||[]).slice(), proto:PVP_PROTO }); },   // 参加時に自分のデッキ＋通信バージョンを親へ
   };
 }
 
@@ -3089,7 +3089,7 @@ function makePvpHost(conn, hooks){
   let guestDeck=null; const pickResolvers=[]; let picksResolver=null, stepResolver=null;
   conn.onMessage(msg=>{
     if(!msg || !msg.type) return;
-    if(msg.type===PVP_MSG.HELLO){ guestDeck=(msg.deck||[]).slice(); if(hooks.onGuestHello) hooks.onGuestHello(guestDeck); }
+    if(msg.type===PVP_MSG.HELLO){ guestDeck=(msg.deck||[]).slice(); if(hooks.onGuestHello) hooks.onGuestHello(guestDeck, (msg.proto||1)); }
     else if(msg.type===PVP_MSG.PICK){ const r=pickResolvers.shift(); if(r) r(msg.key); if(hooks.onGuestPick) hooks.onGuestPick(msg); }   // 旧・1枚ずつ方式（テスト互換）
     else if(msg.type===PVP_MSG.PICKS){ const r=picksResolver; picksResolver=null; if(r) r(msg.keys||[]); if(hooks.onGuestPicks) hooks.onGuestPicks(msg); }   // 一括方式（テスト互換）
     else if(msg.type===PVP_MSG.STEPPICK){ const r=stepResolver; stepResolver=null; if(r) r(msg.key); if(hooks.onGuestStep) hooks.onGuestStep(msg); }   // 同時選択方式：このステップの子の1枚
@@ -3103,7 +3103,7 @@ function makePvpHost(conn, hooks){
     requestGuestDraft(round, deck, n){ conn.send({ type:PVP_MSG.DRAFT, round, deck:(deck||[]).slice(), n:n||CONFIG.picksBase }); },
     awaitGuestPicks(){ return new Promise(res=>{ picksResolver=res; }); },
     // 同時選択：このステップの1枚を子に要求し、子の1枚(STEPPICK)が返るまで待つ。
-    requestGuestStep(round, step, deck, n){ conn.send({ type:PVP_MSG.STEP, round, step, deck:(deck||[]).slice(), n:n||CONFIG.picksBase }); },
+    requestGuestStep(round, step, deck, n, offer3){ conn.send({ type:PVP_MSG.STEP, round, step, deck:(deck||[]).slice(), n:n||CONFIG.picksBase, offer3:(offer3||[]).slice() }); },
     awaitGuestStep(){ return new Promise(res=>{ stepResolver=res; }); },
     sendSnapshot(world){ conn.send({ type:PVP_MSG.SNAPSHOT, snap:serializeWorld(world) }); },
     sendResult(info){ conn.send(Object.assign({ type:PVP_MSG.RESULT }, info||{})); },
@@ -3119,6 +3119,8 @@ function makePvpHost(conn, hooks){
    - 子は計算せず、OFFERで選び・SNAPSHOTを描画するだけ。
    - v1の割り切り：強化カード/逆転ボーナス無し・両者ピック数同じ・切断/タイムアウト未対応。
    ============================================================ */
+const PVP_PROTO = 2;   // PVP通信バージョン。両者がこの版以上のときだけ強化カードを有効化（旧版とは自動でv1互換）
+let pvpEnh=false;      // この対戦で強化カード（融合/X2/固有強化）を有効にするか（接続時のバージョン照合で決定）
 let pvpMode=false, pvpHostObj=null, pvpGuestObj=null, pvpRemoteFoe=null;
 let pvpGuestDeck=null, pvpGuestActive=false, pvpGuestRaf=0, pvpGuestPicking=false, pvpLastSnap=0;
 let pvpSnapBuf=[];   // 子：受信スナップショットのバッファ（時刻つき）。少し過去の2フレーム間を補間してなめらかに描く
@@ -3134,9 +3136,69 @@ function pvpStartAsHost(){
   state.loadout = myDeck.slice();
   state.foeLoadout = (pvpGuestDeck||[]).slice();
   renderScore();
-  pvpHostObj.start({ lives:CONFIG.startLives, round:1 });
+  pvpHostObj.start({ lives:CONFIG.startLives, round:1, proto:PVP_PROTO, enh:pvpEnh });
   pvpHostStartRound();
 }
+// --- PVP 強化カード（フェーズ1：倍カード＋強化カード）。pvpEnh が真のときだけ働く ---
+// 提示3枚を作る。pvpEnh時はSPECIAL_OFFER_CHANCEで1枠を強化カードに差し替える。
+// side='p'（親プレイヤー）は eligibleSpecials()、side='e'（子＝相手）は foeEnhanceCandidates() で資格判定。
+function pvpMakeOffer(deck, side){
+  const offer = shuffle(deck).slice(0, CONFIG.offerPerPick);
+  if(!pvpEnh || !world) return offer;
+  const specials = (side==='p') ? eligibleSpecials() : foeEnhanceCandidates().map(c=>c.key);
+  if(specials.length && Math.random() < SPECIAL_OFFER_CHANCE){
+    const sp = specials[Math.floor(Math.random()*specials.length)];
+    offer[Math.floor(Math.random()*offer.length)] = sp;
+  }
+  return offer;
+}
+// 強化カードの効果を指定陣営へ適用（親=自分'p'／子=相手'e'の両方を1関数で扱う）。
+// PVEの pickCard / foeEnhanceCandidates と同じ状態（state.youX2 等）を更新するので、開戦時/次ラウンドの再適用と整合する。
+function applyPvpSpecial(world, side, key){
+  const p = side==='p', sp = SPECIALS[key]; if(!sp) return;
+  if(key==='up_slime'){
+    const n = mergeAllSlimeGroups(world, side);
+    if(n>0){ if(p) state.youMerges += n; else state.foeMerges += n; }
+  } else if(sp.x2){
+    const tgt = sp.target, n = doubleUnitsOnBoard(world, side, tgt);
+    if(n>0){ if(p){ state.youX2[tgt]=(state.youX2[tgt]||0)+1; state.x2Block[tgt]=state.round+X2_COOLDOWN_ROUNDS; }
+             else { state.foeX2[tgt]=(state.foeX2[tgt]||0)+1; state.foeX2Block[tgt]=state.round+X2_COOLDOWN_ROUNDS; } }
+  } else {
+    const FLAG = {  // SPECIALSキー → [状態サフィックス, 対象ユニット, 適用関数]
+      party_cookie:['Party','cookie',applyPartyFlag], buff_choco:['ChocoBuff','choco',applyChocoBuff],
+      split_bomb:['BombSplit','bomb',applyBombSplit], buff_daifuku:['DaifukuBuff','daifuku',applyDaifukuBuff],
+      clone_ghost:['GhostClone','ghost',applyGhostClone], cluster_cannon:['CannonCluster','cannon',applyCannonCluster],
+      fizz_soda:['SodaFizz','soda',applySodaFizz], wall_donut:['DonutWall','donut',applyDonutWall],
+      fast_pancake:['PancakeFast','pancake',applyPancakeFast], buff_shoe:['ShoeBuff','shoe',applyShoeBuff],
+      last_bake:['BakeryBuff','bakery',applyBakeryBuff],
+    };
+    const m = FLAG[key]; if(!m) return;
+    state[(p?'you':'foe')+m[0]] = true;
+    setBuffCount(side, m[1], countSideKey(side, m[1]));
+    m[2](world, side);
+  }
+  arrangeFormation(world, side, false);
+}
+// 取得済みの永続強化（融合＋X2＋固有強化）を、その陣営の今の盤面へ再適用（毎ラウンド冒頭で呼ぶ）。
+function reapplyEnhancements(world, side){
+  const p = side==='p', merges = (p?state.youMerges:state.foeMerges)||0;
+  for(let i=0;i<merges;i++){ if(!mergeOneSlimeGroup(world,side)) break; }
+  applyX2Replay(world, side, p?state.youX2:state.foeX2);
+  applyFlagBuffs(world, side);
+  arrangeFormation(world, side, true);
+}
+// 提示カード1枚のHTML（ユニット／強化カード両対応）。renderPickOfferと同じ見た目。
+function pvpCardHTML(key){
+  if(isSpecial(key)){
+    const s=SPECIALS[key];
+    const ico=(s.target&&UNIT_BY_KEY[s.target])?iconHTML(UNIT_BY_KEY[s.target]):s.icon;
+    const tag=s.x2?'×2':s.party?'パーティー':s.chocoBuff?'装甲':s.bombSplit?'おかわり':s.daifukuBuff?'特大':s.ghostClone?'分身':s.cannonCluster?'花火':s.sodaFizz?'炭酸':s.donutWall?'鉄壁':s.pancakeFast?'はや焼き':s.shoeBuff?'特盛り':s.bakeryBuff?'ラスト焼き':'融合';
+    return {cls:'card upgrade', html:`<div class="up-badge">強化</div><div class="icon">${ico}</div><div class="cname">${s.name}</div><div class="tagline">${s.text}</div><div class="stats"><span class="up-tag">${tag}</span></div>`};
+  }
+  const u=UNIT_BY_KEY[key];
+  return {cls:'card', html:`<div class="icon">${iconHTML(u)}${u.count>1?`<span class="count">×${u.count}</span>`:''}</div><div class="cname">${u.name}</div><div class="tagline">${u.short||u.text}</div><div class="stats"><span class="atk">⚔ ${u.atk}</span><span class="hp">✚ ${u.hp}</span></div>`};
+}
+
 // 親：1ラウンド分（同時選択ドラフト）。盤面を用意して毎ステップ「両者が1枚ずつ→同時公開」を回す。
 let pvpStepHostPick=null, pvpStepGuestPick=null;
 function pvpHostStartRound(){
@@ -3153,6 +3215,7 @@ function pvpHostStartRound(){
   arrangeFormation(world,'p',true);
   capArmy(state.foeArmy).forEach(k=> makeFighters(k,'e',CW,CH,'army').forEach(f=>{ f.appear=1; world.units.push(f); }));
   arrangeFormation(world,'e',true);
+  if(pvpEnh){ reapplyEnhancements(world,'p'); reapplyEnhancements(world,'e'); }   // 取得済み強化を毎ラウンド再適用
   startLoop();   // 親のループ開始（muster盤面を子へ配信。子はこれを見て選べる）
   pvpHostDraftStep();
 }
@@ -3161,23 +3224,22 @@ function pvpHostDraftStep(){
   pvpStepHostPick=null; pvpStepGuestPick=null;
   pvpTrace('host step '+state.pickStep+': 両者の1枚を待つ');
   const wait = pvpHostObj.awaitGuestStep();   // 先に待ち受け登録
-  pvpHostObj.requestGuestStep(state.round, state.pickStep, state.foeLoadout, CONFIG.picksBase);
+  const gOffer = pvpMakeOffer(state.foeLoadout, 'e');   // 子の提示3枚（強化カード含む）は権威側=親が生成
+  pvpHostObj.requestGuestStep(state.round, state.pickStep, state.foeLoadout, CONFIG.picksBase, gOffer);
   wait.then(key=>{ pvpStepGuestPick=key; pvpTrace('host: 子の1枚受領 '+key); pvpHostTryReveal(); });
   pvpHostShowOffer();   // 親も自分の1枚を選ぶ
 }
 function pvpHostShowOffer(){
-  state.offer3 = shuffle(state.loadout).slice(0, CONFIG.offerPerPick);
+  state.offer3 = pvpMakeOffer(state.loadout, 'p');   // 強化カードを含む3枚（pvpEnh時）
   $('battlePanel').classList.add('hidden'); $('draftPanel').classList.remove('hidden'); $('offerOverlay').classList.remove('hidden');
   $('pickStep').textContent=(state.pickStep+1); $('pickTotal').textContent=CONFIG.picksBase;
   $('draftHint').textContent='3枚から1枚えらぼう（同時選択）';
   const wrap=$('offer'); wrap.innerHTML=''; picking=false;
   state.offer3.forEach(key=>{
-    const u=UNIT_BY_KEY[key]; if(!u) return;
-    const el=document.createElement('div'); el.className='card';
-    el.innerHTML=`<div class="icon">${iconHTML(u)}${u.count>1?`<span class="count">×${u.count}</span>`:''}</div>`+
-      `<div class="cname">${u.name}</div><div class="tagline">${u.short||u.text}</div>`+
-      `<div class="stats"><span class="atk">⚔ ${u.atk}</span><span class="hp">✚ ${u.hp}</span></div>`;
-    el.onclick=()=>{ if(pvpStepHostPick!=null) return; pvpStepHostPick=key; SFX.play('pick'); el.classList.add('spin','picked');
+    if(!UNIT_BY_KEY[key] && !SPECIALS[key]) return;
+    const card=pvpCardHTML(key);
+    const el=document.createElement('div'); el.className=card.cls; el.innerHTML=card.html;
+    el.onclick=()=>{ if(pvpStepHostPick!=null) return; pvpStepHostPick=key; SFX.play(isSpecial(key)?'special':'pick'); el.classList.add('spin','picked');
       $('offerOverlay').classList.add('hidden'); $('draftHint').textContent='相手の選択を待っています…'; pvpTrace('host: 自分の1枚 '+key); pvpHostTryReveal(); };
     wrap.appendChild(el);
   });
@@ -3185,13 +3247,19 @@ function pvpHostShowOffer(){
 function pvpHostTryReveal(){
   if(pvpStepHostPick==null || pvpStepGuestPick==null) return;   // 両者そろうまで待つ＝同時公開
   pvpTrace('host step '+state.pickStep+' 同時公開: 自'+pvpStepHostPick+' 相'+pvpStepGuestPick);
-  // 自分の1枚を盤面へ（下/青）
-  state.roundPicks.push(pvpStepHostPick);
-  makeFighters(pvpStepHostPick,'p',CW,CH,'pick').forEach(f=>{ f.x=CW/2+(Math.random()-0.5)*40; f.y=playB(CH)-f.r; world.units.push(f); burst(world,f.x,f.y,'#4ea3c9',9,75); });
-  arrangeFormation(world,'p',false);
-  // 相手の1枚を盤面へ（上/赤）
-  state.foeRoundPicks.push(pvpStepGuestPick); state.foeRevealIdx=state.foeRoundPicks.length;
-  revealFoePick(pvpStepGuestPick);
+  // 自分の1枚（強化カードなら効果適用・ユニットなら盤面へ／下=青）
+  if(isSpecial(pvpStepHostPick)){ applyPvpSpecial(world,'p',pvpStepHostPick); }
+  else {
+    state.roundPicks.push(pvpStepHostPick);
+    makeFighters(pvpStepHostPick,'p',CW,CH,'pick').forEach(f=>{ f.x=CW/2+(Math.random()-0.5)*40; f.y=playB(CH)-f.r; world.units.push(f); burst(world,f.x,f.y,'#4ea3c9',9,75); });
+    arrangeFormation(world,'p',false);
+  }
+  // 相手の1枚（強化カードなら効果を相手陣'e'へ・ユニットなら盤面へ／上=赤）
+  if(isSpecial(pvpStepGuestPick)){ showFoePickCard(pvpStepGuestPick); applyPvpSpecial(world,'e',pvpStepGuestPick); }
+  else {
+    state.foeRoundPicks.push(pvpStepGuestPick); state.foeRevealIdx=state.foeRoundPicks.length;
+    revealFoePick(pvpStepGuestPick);
+  }
   state.pickStep++;
   $('pickStep').textContent=Math.min(state.pickStep+1, CONFIG.picksBase);
   pvpStepHostPick=null; pvpStepGuestPick=null;
@@ -3206,7 +3274,7 @@ function pvpHostLockRound(){
 
 // 子：受信フック
 const PVP_GUEST_HOOKS = {
-  onStart:(m)=>{ pvpTrace('guest START'); pvpGuestEnterPlay(m); },
+  onStart:(m)=>{ pvpEnh=((m.proto||1)>=2 && PVP_PROTO>=2); pvpTrace('guest START enh='+pvpEnh); pvpGuestEnterPlay(m); },
   onStep:(m,sendPick)=>{ pvpTrace('guest STEP要求 受信 r'+m.round+' s'+m.step); pvpGuestShowStep(m,sendPick); },   // 同時選択：このステップの1枚
   onDraft:(m,sendPicks)=>{ pvpTrace('guest DRAFT要求 受信 r'+m.round); pvpGuestRunDraft(m,sendPicks); },   // 一括方式（未使用・互換）
   onOffer:(m,reply)=>{ pvpTrace('guest OFFER 受信 r'+m.round+' s'+m.step); pvpGuestShowOffer(m,reply); },   // 旧方式（未使用・互換）
@@ -3221,15 +3289,14 @@ function pvpGuestShowStep(m, sendPick){
   hideResultBanner();
   $('battlePanel').classList.add('hidden'); $('draftPanel').classList.remove('hidden'); $('offerOverlay').classList.remove('hidden');
   $('pickStep').textContent=(m.step+1); $('pickTotal').textContent=n; $('draftHint').textContent='3枚から1枚えらぼう（同時選択）';
-  const offer = shuffle(deck).slice(0, CONFIG.offerPerPick);
+  // 提示は権威側=親が生成して送ってくる（強化カード含む）。無ければ（旧版の親）自端末で生成＝v1互換。
+  const offer = (m.offer3 && m.offer3.length) ? m.offer3.slice() : shuffle(deck).slice(0, CONFIG.offerPerPick);
   const wrap=$('offer'); wrap.innerHTML=''; pvpGuestPicking=false;
   offer.forEach(key=>{
-    const u=UNIT_BY_KEY[key]; if(!u) return;
-    const el=document.createElement('div'); el.className='card';
-    el.innerHTML=`<div class="icon">${iconHTML(u)}${u.count>1?`<span class="count">×${u.count}</span>`:''}</div>`+
-      `<div class="cname">${u.name}</div><div class="tagline">${u.short||u.text}</div>`+
-      `<div class="stats"><span class="atk">⚔ ${u.atk}</span><span class="hp">✚ ${u.hp}</span></div>`;
-    el.onclick=()=>{ if(pvpGuestPicking) return; pvpGuestPicking=true; SFX.play('pick'); el.classList.add('spin','picked');
+    if(!UNIT_BY_KEY[key] && !SPECIALS[key]) return;
+    const card=pvpCardHTML(key);
+    const el=document.createElement('div'); el.className=card.cls; el.innerHTML=card.html;
+    el.onclick=()=>{ if(pvpGuestPicking) return; pvpGuestPicking=true; SFX.play(isSpecial(key)?'special':'pick'); el.classList.add('spin','picked');
       $('offerOverlay').classList.add('hidden'); $('draftHint').textContent='相手の選択を待っています…'; pvpTrace('guest STEPPICK 送信 '+key); sendPick(key); };
     wrap.appendChild(el);
   });
