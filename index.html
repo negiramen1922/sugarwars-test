@@ -205,6 +205,10 @@
   .footnote{text-align:center;color:var(--muted);font-size:12px;margin-top:20px}
   .footnote code{font-family:"Space Mono",monospace;color:var(--brass)}
 </style>
+<!-- PVP用：Firebase（部屋の顔合わせ＝シグナリングに使用）。対戦データ自体はWebRTCで直接やり取りする。
+     未設定でもCPU対戦には影響しない（PVPを押したときだけ使う）。-->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -249,13 +253,55 @@
           <span class="mb-txt"><b>CPU対戦</b><small>AI のライバルと1本勝負</small></span>
           <span class="mb-arrow">›</span>
         </button>
-        <button class="menu-btn disabled" disabled aria-disabled="true">
+        <button class="menu-btn" onclick="openPvpLobby()">
           <span class="mb-ico">👥</span>
-          <span class="mb-txt"><b>PVP対戦</b><small>オンラインで対人戦</small></span>
-          <span class="badge-soon">準備中</span>
+          <span class="mb-txt"><b>PVP対戦</b><small>オンラインで対人戦（β）</small></span>
+          <span class="mb-arrow">›</span>
         </button>
       </div>
       <button class="btn btn-ghost" onclick="goHome()">← ホームへ戻る</button>
+    </section>
+
+    <!-- PVP lobby（部屋づくり / 部屋に入る → WebRTC接続） -->
+    <section id="pvpLobby" class="center hidden">
+      <p class="big" style="font-size:clamp(22px,5vw,34px)">PVP対戦（β）</p>
+      <div id="pvpSetupWarn" class="comeback-banner hidden" style="max-width:360px;margin:0 auto 12px">
+        ⚠ Firebaseが未設定です。<code>FIREBASE_CONFIG</code> を設定すると対人戦が使えます（<code>FIREBASE_SETUP.md</code> 参照）。
+      </div>
+      <div class="menu-list" id="pvpChoice">
+        <button class="menu-btn" onclick="pvpHost()">
+          <span class="mb-ico">🏠</span>
+          <span class="mb-txt"><b>部屋を作る</b><small>あいことばを相手に伝える（親）</small></span>
+          <span class="mb-arrow">›</span>
+        </button>
+        <button class="menu-btn" onclick="pvpShowJoin()">
+          <span class="mb-ico">🚪</span>
+          <span class="mb-txt"><b>部屋に入る</b><small>あいことばを入力して参加（子）</small></span>
+          <span class="mb-arrow">›</span>
+        </button>
+      </div>
+      <!-- 親：あいことば表示 -->
+      <div id="pvpHostBox" class="hidden" style="text-align:center;margin-top:14px">
+        <p class="stage-sub">この「あいことば」を相手に伝えてください</p>
+        <div id="pvpCode" style="font-size:38px;font-weight:800;letter-spacing:8px;color:var(--brass);margin:8px 0">----</div>
+        <p class="stage-sub" id="pvpHostStatus">相手の参加を待っています…</p>
+      </div>
+      <!-- 子：あいことば入力 -->
+      <div id="pvpJoinBox" class="hidden" style="text-align:center;margin-top:14px">
+        <p class="stage-sub">相手から聞いた「あいことば」を入力</p>
+        <input id="pvpCodeInput" inputmode="latin" autocomplete="off" maxlength="4"
+          style="font-size:32px;text-transform:uppercase;letter-spacing:8px;text-align:center;width:180px;padding:8px;border-radius:12px;border:2px solid var(--brass);background:#1c1530;color:#fff" placeholder="ABCD">
+        <div style="margin-top:10px"><button class="btn btn-primary" onclick="pvpJoin()">接続する 🔗</button></div>
+        <p class="stage-sub" id="pvpJoinStatus"></p>
+      </div>
+      <!-- 接続テスト（β：接続確認用。次フェーズで対戦本体に差し替え） -->
+      <div id="pvpConnBox" class="hidden" style="text-align:center;margin-top:14px">
+        <p class="big" style="color:var(--green)">接続成功！ 🎉</p>
+        <p class="stage-sub">あなたは <b id="pvpRoleLabel">—</b> です。下のボタンで相手にメッセージを送れます（接続確認）。</p>
+        <button class="btn btn-primary" onclick="pvpSendTest()">テスト送信 📤</button>
+        <div id="pvpLog" style="text-align:left;max-width:340px;margin:12px auto;font-size:13px;background:#1c1530;border-radius:12px;padding:10px;min-height:60px;max-height:160px;overflow:auto"></div>
+      </div>
+      <button class="btn btn-ghost" onclick="pvpLeave()" style="margin-top:8px">← もどる</button>
     </section>
 
     <!-- CPU deck choice -->
@@ -708,7 +754,7 @@ function activeDeck(){ return rosterMode==='cpu' ? cpuDeck : myDeck; }
 let tutorial = false;        // ガイド付き体験バトル中か
 const TUT_DECK = ['choco','cookie','bomb','shoe'];   // チュートリアル用の固定デッキ
 const TUT_FOE  = ['ginger'];                          // チュートリアルの弱い相手（どのカードを選んでも勝てる）
-function show(sec){ ['home','battleMenu','cpuMode','roster','play','over'].forEach(s=>$(s).classList.toggle('hidden', s!==sec)); const sb=$('scoreBar'); if(sb) sb.classList.toggle('hidden', !(sec==='play'||sec==='over')); }
+function show(sec){ ['home','battleMenu','cpuMode','pvpLobby','roster','play','over'].forEach(s=>$(s).classList.toggle('hidden', s!==sec)); const sb=$('scoreBar'); if(sb) sb.classList.toggle('hidden', !(sec==='play'||sec==='over')); }
 function heartStr(n){ return n>0 ? '❤️'.repeat(n) : '🖤'; }
 function renderScore(){ $('youHearts').textContent=heartStr(state.youLives); $('foeHearts').textContent=heartStr(state.foeLives); $('roundPill').textContent='Round '+state.round; }
 function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
@@ -718,8 +764,8 @@ function randomFoeDeck(){ return shuffle(UNITS.filter(u=>!u.summonOnly).map(u=>u
 function startGame(){
   resetState();
   state.loadout = myDeck.slice();                                   // 編成画面で作ったデッキを使用
-  // ライバルのデッキ：manual（自分で選んだcpuDeck・1枚でもOK）/ auto（ランダム）
-  state.foeLoadout = (cpuDeckMode==='manual' && cpuDeck.length>=1) ? cpuDeck.slice() : randomFoeDeck();
+  // ライバルのデッキは「敵コントローラ」が決める（CPU＝従来どおり／将来はPVPの相手プレイヤー）
+  state.foeLoadout = foeCtl.deck();
   renderScore();
   beginDraft();
 }
@@ -1442,7 +1488,7 @@ function beginDraft(){
   arrangeFormation(world,'e',true);
   // 敵の今回ピックを準備（プレイヤーが1枚選ぶたびに1枚ずつ上に召喚して公開）
   state.foePickTotal = picksFor(state.foeLostLast, state.lostLast);
-  state.foeRoundPicks = aiPicks(state.foeLoadout, state.foePickTotal);
+  state.foeRoundPicks = foeCtl.picks(state.foeLoadout, state.foePickTotal);   // 敵の選択は「敵コントローラ」が供給（CPU＝貪欲AI／将来はPVPの相手）
   state.foeRevealIdx = 0;
   if(tutorial){ state.pickTotal=1; state.foePickTotal=1; state.foeRoundPicks=['ginger']; }   // チュートリアル：1ピック・弱い相手（必ず勝てる）
   // 逆転ボーナスの「先に選ぶ」分を計算
@@ -2565,6 +2611,250 @@ function endGame(){
   $('overTitle').style.color=won?'var(--green)':'var(--rust)';
   $('overText').textContent=won?`${state.round} ラウンドで決着。${state.youArmy.length} 体の軍を率いて勝利しました。`:`${state.round} ラウンドで力尽きました。デッキの相性を見直してみましょう。`;
   show('over');
+}
+
+/* ============================================================
+   9) PVP 土台（F1：親=計算 / 子=表示 の分離。通信はまだローカル・ダミー）
+   ----------------------------------------------------------------
+   設計の要点（F2でこの土台の上に Firebase + WebRTC を載せる）：
+   - 「親(host)」だけが戦闘とドラフトの抽選を計算する（=既存エンジンを乱数のまま再利用できる）。
+   - 「子(guest)」は自分の選択を親へ送り、親から届く盤面スナップショットを描画するだけ。
+   - 親と子のやり取りはすべて PVP_MSG のメッセージで表現する。F1では通信路を
+     createLoopbackPair()（メモリ内ループバック）で代用し、F2でWebRTC/Firebaseに差し替える。
+   - 「敵が誰か」は foeCtl（敵コントローラ）で差し替える：CPU＝従来のAI／PVP＝相手プレイヤー。
+   ============================================================ */
+
+// 親⇔子でやり取りするメッセージ種別（F2でこのままネット越しに流す）
+const PVP_MSG = {
+  HELLO:    'hello',      // 子→親：自分のデッキ等を伝えて参加
+  START:    'start',      // 親→子：マッチ開始（初期ライフ・ラウンド等）
+  OFFER:    'offer',      // 親→子：このピックの3枚提示（抽選は親が行う）
+  PICK:     'pick',       // 子→親：提示から選んだ1枚
+  SNAPSHOT: 'snapshot',   // 親→子：盤面の描画用スナップショット（親→子はミラー変換して見せる）
+  RESULT:   'result',     // 親→子：ラウンド決着（ライフ更新）
+  GAMEOVER: 'gameover',   // 親→子：マッチ決着
+};
+
+// 通信路の抽象。F1ではメモリ内ループバックのみ（送ったメッセージはJSON複製して相手へ＝実通信を模す）。
+// 返り値 [a,b] は互いに繋がった2つのエンドポイント。a.send(m) は b.onMessage で受かる。
+function createLoopbackPair(){
+  let aCb=null, bCb=null;
+  const wire = (m)=>JSON.parse(JSON.stringify(m));   // シリアライズ可能性を保証（関数や循環参照が混じれば失敗する＝早期発見）
+  const a = { role:'a', send(m){ if(bCb) bCb(wire(m)); }, onMessage(cb){ aCb=cb; }, close(){ aCb=null; } };
+  const b = { role:'b', send(m){ if(aCb) aCb(wire(m)); }, onMessage(cb){ bCb=cb; }, close(){ bCb=null; } };
+  return [a,b];
+}
+
+// 敵コントローラ：CPU版（従来挙動そのまま）。deck()=相手デッキ、picks()=各ラウンドの選択。
+function makeCpuFoeController(){
+  return {
+    type:'cpu',
+    deck(){ return (cpuDeckMode==='manual' && cpuDeck.length>=1) ? cpuDeck.slice() : randomFoeDeck(); },
+    picks(loadout, n){ return aiPicks(loadout, n); },
+  };
+}
+// 敵コントローラ：リモート版（PVP用）。相手プレイヤーから届いたデッキ／選択を供給する。
+// F1では「供給済みの値を返すだけ」の器。F2で transport から非同期に埋める。
+function makeRemoteFoeController(){
+  let deck=[]; const pickQueue=[];
+  return {
+    type:'remote',
+    setDeck(d){ deck = (d||[]).slice(); },
+    pushPick(key){ pickQueue.push(key); },        // 相手のPICKメッセージ受信時に積む
+    deck(){ return deck.slice(); },
+    picks(loadout, n){ const out=[]; for(let i=0;i<n;i++) out.push(pickQueue.length?pickQueue.shift():(loadout[0]||'cookie')); return out; },
+    pending(){ return pickQueue.length; },
+  };
+}
+let foeCtl = makeCpuFoeController();   // 既定はCPU。PVP開始時に makeRemoteFoeController() へ差し替える。
+
+// 盤面スナップショット：親が計算したworldを、子が描画できる素のデータに変換する。
+// ユニットは全フィールドがプリミティブ（オブジェクト参照なし）なので丸ごと複製してよい。
+function serializeWorld(world){
+  if(!world) return null;
+  const clone = (o)=>{ const r={}; for(const k in o){ const v=o[k]; if(typeof v!=='function' && (k[0]!=='_')) r[k]=v; } return r; };
+  return {
+    W:world.W, H:world.H, phase:world.phase, t:world.t, result:world.result,
+    shake:world.shake||0, intro:world.intro||0, outro:world.outro||0, done:!!world.done,
+    units:  world.units.map(clone),
+    shots:  world.shots.map(clone),
+    parts:  world.parts.map(clone),
+    rings:  world.rings.map(clone),
+    dmgs:  (world.dmgs||[]).map(clone),
+    puddles:(world.puddles||[]).map(clone),
+  };
+}
+// スナップショットを描画用worldへ展開する。
+// mirror=true（子が親の盤面を見るとき）：陣営(p↔e)とY座標(上下)を反転し、自分が常に下(青)に見えるようにする。
+function applySnapshot(snap, mirror){
+  if(!snap) return null;
+  const H = snap.H;
+  const flipSide = s => s==='p' ? 'e' : (s==='e' ? 'p' : s);
+  const fixY = (o)=>{ if(o.y!=null) o.y = H - o.y; if(o.vy!=null) o.vy = -o.vy; if(o.sy!=null) o.sy = H - o.sy; if(o.ty!=null) o.ty = H - o.ty; if(o.atkDy!=null) o.atkDy = -o.atkDy; if(o.dieDir!=null) o.dieDir = -o.dieDir; if(o.knocky!=null) o.knocky = -o.knocky; };
+  const mapArr = (arr, isUnit)=> (arr||[]).map(o=>{ const c={...o}; if(mirror){ if(isUnit && c.side) c.side = flipSide(c.side); fixY(c); } return c; });
+  const w = createWorld(snap.W, snap.H);
+  w.phase=snap.phase; w.t=snap.t; w.result=snap.result;
+  w.shake=snap.shake||0; w.intro=snap.intro||0; w.outro=snap.outro||0; w.done=!!snap.done;
+  w.units  = mapArr(snap.units, true);
+  w.shots  = mapArr(snap.shots, false);
+  w.parts  = mapArr(snap.parts, false);
+  w.rings  = mapArr(snap.rings, false);
+  w.dmgs   = mapArr(snap.dmgs, false);
+  w.puddles= mapArr(snap.puddles, false);
+  return w;
+}
+
+/* ============================================================
+   10) PVP 接続レイヤ（F2-①：Firebaseで顔合わせ → WebRTCで直接対戦）
+   ----------------------------------------------------------------
+   - Firebaseは「あいことば（部屋）」のシグナリング（SDP/ICEの受け渡し）だけに使う。
+     接続が成立したら対戦データは WebRTC の DataChannel で2台が直接やり取りする。
+   - createWebRTCTransport() は F1 の通信路インターフェイス {send,onMessage,close} を返すので、
+     createLoopbackPair() と差し替え可能。対戦本体（F2-②）はこの transport にだけ依存させる。
+   - ※このリポジトリ環境では2台＋Firebaseの実機テストはできない。設定と最終確認は手元で行う。
+   ============================================================ */
+
+// ▼▼▼ あなたのFirebase設定をここに貼り付けてください（手順は FIREBASE_SETUP.md）▼▼▼
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCzkvJCS_f-zGr7IaZM2-U4Ko4xrF3dp9U",
+  authDomain: "sugarwars-c9810.firebaseapp.com",
+  databaseURL: "https://sugarwars-c9810-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "sugarwars-c9810",
+  storageBucket: "sugarwars-c9810.firebasestorage.app",
+  messagingSenderId: "505436918947",
+  appId: "1:505436918947:web:af9b9dcce841498ee79b16",
+  measurementId: "G-XPMEX7D6S0",
+};
+// ▲▲▲ ここまで ▲▲▲
+
+const STUN_SERVERS = { iceServers:[ {urls:'stun:stun.l.google.com:19302'}, {urls:'stun:stun1.l.google.com:19302'} ] };
+
+let pvpDb=null, pvpConn=null, pvpRole=null, pvpRoomRef=null, pvpPC=null;
+
+function firebaseConfigured(){
+  return typeof firebase!=='undefined' && FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.indexOf('PASTE_')!==0;
+}
+function ensureFirebase(){
+  if(!firebaseConfigured()) return null;
+  if(!pvpDb){ try{ if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG); pvpDb=firebase.database(); }catch(e){ console.warn('Firebase init失敗',e); return null; } }
+  return pvpDb;
+}
+function genRoomCode(){ const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<4;i++) s+=c[Math.floor(Math.random()*c.length)]; return s; }
+
+// DataChannel を F1互換の transport にラップする
+function wrapChannel(dc){
+  let cb=null;
+  dc.onmessage = ev=>{ if(!cb) return; try{ cb(JSON.parse(ev.data)); }catch(e){} };
+  return {
+    kind:'webrtc',
+    send(m){ try{ if(dc.readyState==='open') dc.send(JSON.stringify(m)); }catch(e){} },
+    onMessage(fn){ cb=fn; },
+    close(){ try{ dc.close(); }catch(e){} },
+  };
+}
+
+// WebRTC接続を確立して transport を返す（mode:'host'=親 / 'guest'=子）。onOpenで接続成立を通知。
+function createWebRTCTransport(opts){
+  const db=ensureFirebase(); if(!db) return Promise.reject(new Error('Firebase未設定'));
+  const code=opts.code, mode=opts.mode, onOpen=opts.onOpen||function(){}, onState=opts.onState||function(){};
+  pvpPC = new RTCPeerConnection(STUN_SERVERS);
+  const roomRef = db.ref('rooms/'+code); pvpRoomRef=roomRef;
+  pvpPC.onconnectionstatechange = ()=>{ onState(pvpPC.connectionState); };
+
+  if(mode==='host'){
+    const dc = pvpPC.createDataChannel('game');
+    dc.onopen = ()=> onOpen(wrapChannel(dc));
+    pvpPC.onicecandidate = e=>{ if(e.candidate) roomRef.child('callerCandidates').push(e.candidate.toJSON()); };
+    return pvpPC.createOffer().then(offer=> pvpPC.setLocalDescription(offer).then(()=>{
+      roomRef.child('offer').set({ type:offer.type, sdp:offer.sdp });
+      roomRef.child('answer').on('value', snap=>{ const a=snap.val(); if(a && pvpPC.signalingState!=='stable'){ pvpPC.setRemoteDescription(new RTCSessionDescription(a)).catch(()=>{}); } });
+      roomRef.child('calleeCandidates').on('child_added', snap=>{ try{ pvpPC.addIceCandidate(new RTCIceCandidate(snap.val())); }catch(e){} });
+    }));
+  } else {
+    pvpPC.ondatachannel = e=>{ const dc=e.channel; dc.onopen=()=>onOpen(wrapChannel(dc)); };
+    pvpPC.onicecandidate = e=>{ if(e.candidate) roomRef.child('calleeCandidates').push(e.candidate.toJSON()); };
+    return roomRef.child('offer').once('value').then(snap=>{
+      const offer=snap.val(); if(!offer) throw new Error('部屋が見つかりません');
+      return pvpPC.setRemoteDescription(new RTCSessionDescription(offer))
+        .then(()=> pvpPC.createAnswer())
+        .then(ans=> pvpPC.setLocalDescription(ans).then(()=>{
+          roomRef.child('answer').set({ type:ans.type, sdp:ans.sdp });
+          roomRef.child('callerCandidates').on('child_added', s2=>{ try{ pvpPC.addIceCandidate(new RTCIceCandidate(s2.val())); }catch(e){} });
+        }));
+    });
+  }
+}
+
+/* ---- ロビーUI（接続まで） ---- */
+function openPvpLobby(){
+  SFX.play('button');
+  pvpResetLobby();
+  $('pvpSetupWarn').classList.toggle('hidden', firebaseConfigured());
+  show('pvpLobby');
+}
+function pvpResetLobby(){
+  ['pvpHostBox','pvpJoinBox','pvpConnBox'].forEach(id=>$(id).classList.add('hidden'));
+  $('pvpChoice').classList.remove('hidden');
+  const lg=$('pvpLog'); if(lg) lg.innerHTML='';
+}
+function pvpLog(line){ const lg=$('pvpLog'); if(!lg) return; const p=document.createElement('div'); p.textContent=line; lg.appendChild(p); lg.scrollTop=lg.scrollHeight; }
+
+function pvpHost(){
+  SFX.play('button');
+  if(!firebaseConfigured()){ $('pvpSetupWarn').classList.remove('hidden'); return; }
+  pvpRole='host';
+  const code=genRoomCode();
+  $('pvpChoice').classList.add('hidden');
+  $('pvpHostBox').classList.remove('hidden');
+  $('pvpCode').textContent=code;
+  $('pvpHostStatus').textContent='相手の参加を待っています…';
+  createWebRTCTransport({ mode:'host', code, onState:s=>$('pvpHostStatus').textContent='接続状態: '+s,
+    onOpen:tp=>{ pvpConn=tp; pvpOnConnected('親'); } })
+    .catch(err=>{ $('pvpHostStatus').textContent='エラー: '+err.message; });
+}
+function pvpShowJoin(){
+  SFX.play('button');
+  if(!firebaseConfigured()){ $('pvpSetupWarn').classList.remove('hidden'); return; }
+  pvpRole='guest';
+  $('pvpChoice').classList.add('hidden');
+  $('pvpJoinBox').classList.remove('hidden');
+  $('pvpJoinStatus').textContent='';
+}
+function pvpJoin(){
+  SFX.play('button');
+  const code=($('pvpCodeInput').value||'').trim().toUpperCase();
+  if(code.length!==4){ $('pvpJoinStatus').textContent='あいことばは4文字です'; return; }
+  $('pvpJoinStatus').textContent='接続中…';
+  createWebRTCTransport({ mode:'guest', code, onState:s=>$('pvpJoinStatus').textContent='接続状態: '+s,
+    onOpen:tp=>{ pvpConn=tp; pvpOnConnected('子'); } })
+    .catch(err=>{ $('pvpJoinStatus').textContent='エラー: '+err.message; });
+}
+// 接続成立：F2-①では「接続確認」モードを出す。F2-②でここから対戦開始に進める。
+function pvpOnConnected(roleLabel){
+  ['pvpHostBox','pvpJoinBox','pvpChoice'].forEach(id=>$(id).classList.add('hidden'));
+  $('pvpConnBox').classList.remove('hidden');
+  $('pvpRoleLabel').textContent=roleLabel;
+  pvpLog('✅ 接続できました（あなた='+roleLabel+'）');
+  pvpConn.onMessage(msg=>{
+    if(msg && msg.type===PVP_MSG.HELLO){ pvpLog('📥 相手から: '+(msg.text||'(メッセージ)')); }
+    else pvpLog('📥 '+JSON.stringify(msg));
+  });
+  SFX.play('special');
+}
+function pvpSendTest(){
+  if(!pvpConn){ return; }
+  const text='こんにちは！ ('+(pvpRole==='host'?'親':'子')+')';
+  pvpConn.send({ type:PVP_MSG.HELLO, text });
+  pvpLog('📤 送信: '+text);
+}
+function pvpLeave(){
+  SFX.play('button');
+  try{ if(pvpConn) pvpConn.close(); }catch(e){}
+  try{ if(pvpPC) pvpPC.close(); }catch(e){}
+  try{ if(pvpRoomRef){ pvpRoomRef.off(); /* 後始末：部屋データ削除 */ pvpRoomRef.remove().catch(()=>{}); } }catch(e){}
+  pvpConn=null; pvpPC=null; pvpRoomRef=null; pvpRole=null;
+  pvpResetLobby();
+  show('battleMenu');
 }
 
 resetState(); renderScore(); show('home');

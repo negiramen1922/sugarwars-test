@@ -64,6 +64,9 @@ code += `
   startTutorial, tutNext, endTutorial, get tutorial(){ return tutorial; },
   endBattle, endGame, nextRound, resolveOverlaps,
   setupCanvas, CW_get:()=>CW, CH_get:()=>CH,
+  PVP_MSG, createLoopbackPair, makeCpuFoeController, makeRemoteFoeController,
+  serializeWorld, applySnapshot,
+  get foeCtl(){ return foeCtl; }, set foeCtl(v){ foeCtl = v; },
 };
 `;
 
@@ -1651,6 +1654,82 @@ console.log('\n=== 42) チュートリアル（ガイド付き体験バトル）
   check('戦闘前（muster）から始まる', API.world.phase === 'muster');
   API.endTutorial();
   check('終了でフラグが下りる', API.tutorial === false);
+}
+
+console.log('\n=== 43) PVP土台: 敵コントローラ（CPU版が従来挙動を再現） ===');
+{
+  API.setCpuDeckMode('auto');
+  const cpu = API.makeCpuFoeController();
+  check('CPUコントローラのtypeはcpu', cpu.type === 'cpu');
+  const d = cpu.deck();
+  check('deck()はdeckSize枚（既定4）', d.length === API.CONFIG.deckSize, d.length);
+  const lo = ['cookie', 'choco', 'shoe', 'bomb'];
+  const ps = cpu.picks(lo, 3);
+  check('picks(n)はn枚返す', ps.length === 3, ps.length);
+  check('picksの各札はデッキ内のキャラ', ps.every(k => lo.includes(k)), ps);
+}
+
+console.log('\n=== 44) PVP土台: 敵コントローラ（リモート版＝相手プレイヤー供給） ===');
+{
+  const rem = API.makeRemoteFoeController();
+  check('typeはremote', rem.type === 'remote');
+  rem.setDeck(['cookie', 'choco']);
+  check('setDeck()がdeck()へ反映', JSON.stringify(rem.deck()) === JSON.stringify(['cookie', 'choco']));
+  rem.pushPick('cookie'); rem.pushPick('choco');
+  check('pending()で待ち数が分かる', rem.pending() === 2, rem.pending());
+  const p = rem.picks(['shoe'], 2);
+  check('picksはキューから受信順に返す', JSON.stringify(p) === JSON.stringify(['cookie', 'choco']), p);
+  check('消費後はpending=0', rem.pending() === 0);
+  const p2 = rem.picks(['shoe'], 1);
+  check('キュー枯渇時はデッキ先頭で埋める（フェイルセーフ）', JSON.stringify(p2) === JSON.stringify(['shoe']), p2);
+}
+
+console.log('\n=== 45) PVP土台: ループバック通信路（F2でWebRTC/Firebaseに差し替える層） ===');
+{
+  const [a, b] = API.createLoopbackPair();
+  let got = null; b.onMessage(m => { got = m; });
+  const sent = { type: API.PVP_MSG.PICK, key: 'cookie', nested: { x: 1 } };
+  a.send(sent);
+  check('a.send → b.onMessage に届く', !!got && got.type === 'pick' && got.key === 'cookie', got);
+  sent.nested.x = 999;   // 送信後に元を書き換えても受信側は不変であるべき（=実通信のようにシリアライズ複製される）
+  check('受信メッセージは深いコピー（送信側の変更に影響されない）', got.nested.x === 1, got.nested.x);
+  let got2 = null; a.onMessage(m => { got2 = m; });
+  b.send({ type: 'ping' });
+  check('双方向（b.send → a.onMessage）も届く', !!got2 && got2.type === 'ping');
+}
+
+console.log('\n=== 46) PVP土台: 盤面スナップショット（親→子の serialize / 子のapply） ===');
+{
+  const Wd = API.createWorld(440, 660);
+  ['cookie'].forEach(k => API.makeFighters(k, 'p', 440, 660, 'army').forEach(f => { f.appear = 1; Wd.units.push(f); }));
+  ['shoe'].forEach(k => API.makeFighters(k, 'e', 440, 660, 'army').forEach(f => { f.appear = 1; Wd.units.push(f); }));
+  Wd.phase = 'battle';
+  const snap = API.serializeWorld(Wd);
+  check('スナップショットにunitsが入る', snap.units.length === Wd.units.length && snap.units.length > 0, snap.units.length);
+  let serializable = true; try { JSON.stringify(snap); } catch (e) { serializable = false; }
+  check('スナップショットはJSON化できる（通信に乗せられる）', serializable);
+  // 非ミラー往復：そのまま復元できる
+  const w0 = API.applySnapshot(snap, false);
+  check('非ミラー：体数一致', w0.units.length === Wd.units.length);
+  check('非ミラー：座標そのまま', Math.abs(w0.units[0].x - Wd.units[0].x) < 1e-6 && Math.abs(w0.units[0].y - Wd.units[0].y) < 1e-6);
+  check('非ミラー：陣営そのまま', w0.units[0].side === Wd.units[0].side);
+  check('非ミラー：phaseが保たれる', w0.phase === 'battle');
+  // ミラー（子が親の盤面を見る）：陣営とYが反転し、自分が常に下に見える
+  const wm = API.applySnapshot(snap, true);
+  const u0 = Wd.units[0], m0 = wm.units[0];
+  check('ミラー：陣営が反転（p↔e）', m0.side === (u0.side === 'p' ? 'e' : 'p'), m0.side);
+  check('ミラー：Yが上下反転', Math.abs(m0.y - (660 - u0.y)) < 1e-6, { got: m0.y, exp: 660 - u0.y });
+  check('ミラー：Xは不変', Math.abs(m0.x - u0.x) < 1e-6);
+}
+
+console.log('\n=== 47) PVP土台: コントローラ経由でもCPU対戦フローが従来どおり成立 ===');
+{
+  API.foeCtl = API.makeCpuFoeController();   // 既定のCPUに戻す
+  API.setCpuDeckMode('auto');
+  API.setMyDeck(['cookie', 'choco', 'shoe', 'bomb']);
+  API.startGame();
+  check('startGame：敵デッキがコントローラから供給される', API.state.foeLoadout.length === API.CONFIG.deckSize, API.state.foeLoadout);
+  check('beginDraft：敵の選択がコントローラから供給される', API.state.foeRoundPicks.length === API.state.foePickTotal, { picks: API.state.foeRoundPicks.length, total: API.state.foePickTotal });
 }
 
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
