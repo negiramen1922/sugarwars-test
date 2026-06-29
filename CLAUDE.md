@@ -110,12 +110,25 @@
   陣営(p↔e)とY座標を反転し、自分が常に下(青)に見えるようにする。
 - テストは `test.js` の 43〜47（コントローラ／ループバック／スナップショット往復・ミラー／CPUフロー維持）。
 
-### F2以降の残作業（要・実機）
+### F2-①（接続）— 実装済み（`<script>` 末尾「10) PVP 接続レイヤ」）
 
-- Firebaseプロジェクト作成（ユーザー操作）＋設定キー／セキュリティルール。
-- ドラフトを「親が抽選→子へOFFER→子のPICKを待つ」非同期フローに拡張（現状の同期ドラフトを分岐）。
-- 戦闘ループで親が `serializeWorld` を一定間隔で送信し、子は `applySnapshot(…, true)` を描画。
-- 切断・再接続・タイムアウト処理。**2台＋Firebaseの実機テストはこのリポジトリ環境ではできない**ため手元確認が必須。
+- **Firebase＝シグナリング専用**（部屋/あいことばのSDP・ICE受け渡し）。対戦データはWebRTCの DataChannel で直送。
+- `FIREBASE_CONFIG`：ユーザーが自分のキーを貼る（既定は `PASTE_...` プレースホルダ。未設定でもCPU対戦は不変、PVP画面に警告表示）。
+- `createWebRTCTransport({mode,code,onOpen,onState})`：F1の通信路IF `{send,onMessage,close}` を返す＝`createLoopbackPair()` と差し替え可能。
+  接続成立後は**この transport にだけ**対戦本体を依存させる（F2-②）。
+- ロビーUI：`pvpLobby` セクション＋ `openPvpLobby/pvpHost/pvpShowJoin/pvpJoin/pvpLeave/pvpSendTest`。
+  現状は**接続確認モード**（「接続成功！」＋テスト送信）まで。PVPボタンは有効化済み。
+- 設定手順は `FIREBASE_SETUP.md`。Realtime Database のルールは `rooms/$code` のみ read/write 可の割り切り。
+- **2台＋Firebaseの実機テストはこのリポジトリ環境ではできない**ため、接続確認はユーザーの手元で行う。
+
+### F2-②（対戦本体）— 次の作業
+
+- ドラフトを「親が抽選→子へ `OFFER`→子の `PICK` を待つ」非同期フローに拡張（現状の同期ドラフト `nextPick`/`pickCard` を分岐）。
+  対戦本体は通信路に依存させるので、**`createLoopbackPair()` を使い `test.js` でヘッドレス検証できる**設計にする。
+- 戦闘ループで親が `serializeWorld` を一定間隔で送信し、子は `applySnapshot(…, true)` を描画（子は計算しない）。
+- 切断・再接続・タイムアウト処理。
+
+### F3 — 自動マッチング（Firebaseの待機リストでペアリング）
 
 ## 次の候補タスク（未着手・要相談）
 

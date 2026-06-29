@@ -205,6 +205,10 @@
   .footnote{text-align:center;color:var(--muted);font-size:12px;margin-top:20px}
   .footnote code{font-family:"Space Mono",monospace;color:var(--brass)}
 </style>
+<!-- PVP用：Firebase（部屋の顔合わせ＝シグナリングに使用）。対戦データ自体はWebRTCで直接やり取りする。
+     未設定でもCPU対戦には影響しない（PVPを押したときだけ使う）。-->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -249,13 +253,55 @@
           <span class="mb-txt"><b>CPU対戦</b><small>AI のライバルと1本勝負</small></span>
           <span class="mb-arrow">›</span>
         </button>
-        <button class="menu-btn disabled" disabled aria-disabled="true">
+        <button class="menu-btn" onclick="openPvpLobby()">
           <span class="mb-ico">👥</span>
-          <span class="mb-txt"><b>PVP対戦</b><small>オンラインで対人戦</small></span>
-          <span class="badge-soon">準備中</span>
+          <span class="mb-txt"><b>PVP対戦</b><small>オンラインで対人戦（β）</small></span>
+          <span class="mb-arrow">›</span>
         </button>
       </div>
       <button class="btn btn-ghost" onclick="goHome()">← ホームへ戻る</button>
+    </section>
+
+    <!-- PVP lobby（部屋づくり / 部屋に入る → WebRTC接続） -->
+    <section id="pvpLobby" class="center hidden">
+      <p class="big" style="font-size:clamp(22px,5vw,34px)">PVP対戦（β）</p>
+      <div id="pvpSetupWarn" class="comeback-banner hidden" style="max-width:360px;margin:0 auto 12px">
+        ⚠ Firebaseが未設定です。<code>FIREBASE_CONFIG</code> を設定すると対人戦が使えます（<code>FIREBASE_SETUP.md</code> 参照）。
+      </div>
+      <div class="menu-list" id="pvpChoice">
+        <button class="menu-btn" onclick="pvpHost()">
+          <span class="mb-ico">🏠</span>
+          <span class="mb-txt"><b>部屋を作る</b><small>あいことばを相手に伝える（親）</small></span>
+          <span class="mb-arrow">›</span>
+        </button>
+        <button class="menu-btn" onclick="pvpShowJoin()">
+          <span class="mb-ico">🚪</span>
+          <span class="mb-txt"><b>部屋に入る</b><small>あいことばを入力して参加（子）</small></span>
+          <span class="mb-arrow">›</span>
+        </button>
+      </div>
+      <!-- 親：あいことば表示 -->
+      <div id="pvpHostBox" class="hidden" style="text-align:center;margin-top:14px">
+        <p class="stage-sub">この「あいことば」を相手に伝えてください</p>
+        <div id="pvpCode" style="font-size:38px;font-weight:800;letter-spacing:8px;color:var(--brass);margin:8px 0">----</div>
+        <p class="stage-sub" id="pvpHostStatus">相手の参加を待っています…</p>
+      </div>
+      <!-- 子：あいことば入力 -->
+      <div id="pvpJoinBox" class="hidden" style="text-align:center;margin-top:14px">
+        <p class="stage-sub">相手から聞いた「あいことば」を入力</p>
+        <input id="pvpCodeInput" inputmode="latin" autocomplete="off" maxlength="4"
+          style="font-size:32px;text-transform:uppercase;letter-spacing:8px;text-align:center;width:180px;padding:8px;border-radius:12px;border:2px solid var(--brass);background:#1c1530;color:#fff" placeholder="ABCD">
+        <div style="margin-top:10px"><button class="btn btn-primary" onclick="pvpJoin()">接続する 🔗</button></div>
+        <p class="stage-sub" id="pvpJoinStatus"></p>
+      </div>
+      <!-- 接続テスト（β：接続確認用。次フェーズで対戦本体に差し替え） -->
+      <div id="pvpConnBox" class="hidden" style="text-align:center;margin-top:14px">
+        <p class="big" style="color:var(--green)">接続成功！ 🎉</p>
+        <p class="stage-sub">あなたは <b id="pvpRoleLabel">—</b> です。下のボタンで相手にメッセージを送れます（接続確認）。</p>
+        <button class="btn btn-primary" onclick="pvpSendTest()">テスト送信 📤</button>
+        <div id="pvpLog" style="text-align:left;max-width:340px;margin:12px auto;font-size:13px;background:#1c1530;border-radius:12px;padding:10px;min-height:60px;max-height:160px;overflow:auto"></div>
+      </div>
+      <button class="btn btn-ghost" onclick="pvpLeave()" style="margin-top:8px">← もどる</button>
     </section>
 
     <!-- CPU deck choice -->
@@ -708,7 +754,7 @@ function activeDeck(){ return rosterMode==='cpu' ? cpuDeck : myDeck; }
 let tutorial = false;        // ガイド付き体験バトル中か
 const TUT_DECK = ['choco','cookie','bomb','shoe'];   // チュートリアル用の固定デッキ
 const TUT_FOE  = ['ginger'];                          // チュートリアルの弱い相手（どのカードを選んでも勝てる）
-function show(sec){ ['home','battleMenu','cpuMode','roster','play','over'].forEach(s=>$(s).classList.toggle('hidden', s!==sec)); const sb=$('scoreBar'); if(sb) sb.classList.toggle('hidden', !(sec==='play'||sec==='over')); }
+function show(sec){ ['home','battleMenu','cpuMode','pvpLobby','roster','play','over'].forEach(s=>$(s).classList.toggle('hidden', s!==sec)); const sb=$('scoreBar'); if(sb) sb.classList.toggle('hidden', !(sec==='play'||sec==='over')); }
 function heartStr(n){ return n>0 ? '❤️'.repeat(n) : '🖤'; }
 function renderScore(){ $('youHearts').textContent=heartStr(state.youLives); $('foeHearts').textContent=heartStr(state.foeLives); $('roundPill').textContent='Round '+state.round; }
 function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
@@ -2646,6 +2692,156 @@ function applySnapshot(snap, mirror){
   w.dmgs   = mapArr(snap.dmgs, false);
   w.puddles= mapArr(snap.puddles, false);
   return w;
+}
+
+/* ============================================================
+   10) PVP 接続レイヤ（F2-①：Firebaseで顔合わせ → WebRTCで直接対戦）
+   ----------------------------------------------------------------
+   - Firebaseは「あいことば（部屋）」のシグナリング（SDP/ICEの受け渡し）だけに使う。
+     接続が成立したら対戦データは WebRTC の DataChannel で2台が直接やり取りする。
+   - createWebRTCTransport() は F1 の通信路インターフェイス {send,onMessage,close} を返すので、
+     createLoopbackPair() と差し替え可能。対戦本体（F2-②）はこの transport にだけ依存させる。
+   - ※このリポジトリ環境では2台＋Firebaseの実機テストはできない。設定と最終確認は手元で行う。
+   ============================================================ */
+
+// ▼▼▼ あなたのFirebase設定をここに貼り付けてください（手順は FIREBASE_SETUP.md）▼▼▼
+const FIREBASE_CONFIG = {
+  apiKey: "PASTE_YOUR_API_KEY",
+  authDomain: "PASTE_YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://PASTE_YOUR_PROJECT-default-rtdb.firebaseio.com",
+  projectId: "PASTE_YOUR_PROJECT",
+  appId: "PASTE_YOUR_APP_ID",
+};
+// ▲▲▲ ここまで ▲▲▲
+
+const STUN_SERVERS = { iceServers:[ {urls:'stun:stun.l.google.com:19302'}, {urls:'stun:stun1.l.google.com:19302'} ] };
+
+let pvpDb=null, pvpConn=null, pvpRole=null, pvpRoomRef=null, pvpPC=null;
+
+function firebaseConfigured(){
+  return typeof firebase!=='undefined' && FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.indexOf('PASTE_')!==0;
+}
+function ensureFirebase(){
+  if(!firebaseConfigured()) return null;
+  if(!pvpDb){ try{ if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG); pvpDb=firebase.database(); }catch(e){ console.warn('Firebase init失敗',e); return null; } }
+  return pvpDb;
+}
+function genRoomCode(){ const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<4;i++) s+=c[Math.floor(Math.random()*c.length)]; return s; }
+
+// DataChannel を F1互換の transport にラップする
+function wrapChannel(dc){
+  let cb=null;
+  dc.onmessage = ev=>{ if(!cb) return; try{ cb(JSON.parse(ev.data)); }catch(e){} };
+  return {
+    kind:'webrtc',
+    send(m){ try{ if(dc.readyState==='open') dc.send(JSON.stringify(m)); }catch(e){} },
+    onMessage(fn){ cb=fn; },
+    close(){ try{ dc.close(); }catch(e){} },
+  };
+}
+
+// WebRTC接続を確立して transport を返す（mode:'host'=親 / 'guest'=子）。onOpenで接続成立を通知。
+function createWebRTCTransport(opts){
+  const db=ensureFirebase(); if(!db) return Promise.reject(new Error('Firebase未設定'));
+  const code=opts.code, mode=opts.mode, onOpen=opts.onOpen||function(){}, onState=opts.onState||function(){};
+  pvpPC = new RTCPeerConnection(STUN_SERVERS);
+  const roomRef = db.ref('rooms/'+code); pvpRoomRef=roomRef;
+  pvpPC.onconnectionstatechange = ()=>{ onState(pvpPC.connectionState); };
+
+  if(mode==='host'){
+    const dc = pvpPC.createDataChannel('game');
+    dc.onopen = ()=> onOpen(wrapChannel(dc));
+    pvpPC.onicecandidate = e=>{ if(e.candidate) roomRef.child('callerCandidates').push(e.candidate.toJSON()); };
+    return pvpPC.createOffer().then(offer=> pvpPC.setLocalDescription(offer).then(()=>{
+      roomRef.child('offer').set({ type:offer.type, sdp:offer.sdp });
+      roomRef.child('answer').on('value', snap=>{ const a=snap.val(); if(a && pvpPC.signalingState!=='stable'){ pvpPC.setRemoteDescription(new RTCSessionDescription(a)).catch(()=>{}); } });
+      roomRef.child('calleeCandidates').on('child_added', snap=>{ try{ pvpPC.addIceCandidate(new RTCIceCandidate(snap.val())); }catch(e){} });
+    }));
+  } else {
+    pvpPC.ondatachannel = e=>{ const dc=e.channel; dc.onopen=()=>onOpen(wrapChannel(dc)); };
+    pvpPC.onicecandidate = e=>{ if(e.candidate) roomRef.child('calleeCandidates').push(e.candidate.toJSON()); };
+    return roomRef.child('offer').once('value').then(snap=>{
+      const offer=snap.val(); if(!offer) throw new Error('部屋が見つかりません');
+      return pvpPC.setRemoteDescription(new RTCSessionDescription(offer))
+        .then(()=> pvpPC.createAnswer())
+        .then(ans=> pvpPC.setLocalDescription(ans).then(()=>{
+          roomRef.child('answer').set({ type:ans.type, sdp:ans.sdp });
+          roomRef.child('callerCandidates').on('child_added', s2=>{ try{ pvpPC.addIceCandidate(new RTCIceCandidate(s2.val())); }catch(e){} });
+        }));
+    });
+  }
+}
+
+/* ---- ロビーUI（接続まで） ---- */
+function openPvpLobby(){
+  SFX.play('button');
+  pvpResetLobby();
+  $('pvpSetupWarn').classList.toggle('hidden', firebaseConfigured());
+  show('pvpLobby');
+}
+function pvpResetLobby(){
+  ['pvpHostBox','pvpJoinBox','pvpConnBox'].forEach(id=>$(id).classList.add('hidden'));
+  $('pvpChoice').classList.remove('hidden');
+  const lg=$('pvpLog'); if(lg) lg.innerHTML='';
+}
+function pvpLog(line){ const lg=$('pvpLog'); if(!lg) return; const p=document.createElement('div'); p.textContent=line; lg.appendChild(p); lg.scrollTop=lg.scrollHeight; }
+
+function pvpHost(){
+  SFX.play('button');
+  if(!firebaseConfigured()){ $('pvpSetupWarn').classList.remove('hidden'); return; }
+  pvpRole='host';
+  const code=genRoomCode();
+  $('pvpChoice').classList.add('hidden');
+  $('pvpHostBox').classList.remove('hidden');
+  $('pvpCode').textContent=code;
+  $('pvpHostStatus').textContent='相手の参加を待っています…';
+  createWebRTCTransport({ mode:'host', code, onState:s=>$('pvpHostStatus').textContent='接続状態: '+s,
+    onOpen:tp=>{ pvpConn=tp; pvpOnConnected('親'); } })
+    .catch(err=>{ $('pvpHostStatus').textContent='エラー: '+err.message; });
+}
+function pvpShowJoin(){
+  SFX.play('button');
+  if(!firebaseConfigured()){ $('pvpSetupWarn').classList.remove('hidden'); return; }
+  pvpRole='guest';
+  $('pvpChoice').classList.add('hidden');
+  $('pvpJoinBox').classList.remove('hidden');
+  $('pvpJoinStatus').textContent='';
+}
+function pvpJoin(){
+  SFX.play('button');
+  const code=($('pvpCodeInput').value||'').trim().toUpperCase();
+  if(code.length!==4){ $('pvpJoinStatus').textContent='あいことばは4文字です'; return; }
+  $('pvpJoinStatus').textContent='接続中…';
+  createWebRTCTransport({ mode:'guest', code, onState:s=>$('pvpJoinStatus').textContent='接続状態: '+s,
+    onOpen:tp=>{ pvpConn=tp; pvpOnConnected('子'); } })
+    .catch(err=>{ $('pvpJoinStatus').textContent='エラー: '+err.message; });
+}
+// 接続成立：F2-①では「接続確認」モードを出す。F2-②でここから対戦開始に進める。
+function pvpOnConnected(roleLabel){
+  ['pvpHostBox','pvpJoinBox','pvpChoice'].forEach(id=>$(id).classList.add('hidden'));
+  $('pvpConnBox').classList.remove('hidden');
+  $('pvpRoleLabel').textContent=roleLabel;
+  pvpLog('✅ 接続できました（あなた='+roleLabel+'）');
+  pvpConn.onMessage(msg=>{
+    if(msg && msg.type===PVP_MSG.HELLO){ pvpLog('📥 相手から: '+(msg.text||'(メッセージ)')); }
+    else pvpLog('📥 '+JSON.stringify(msg));
+  });
+  SFX.play('special');
+}
+function pvpSendTest(){
+  if(!pvpConn){ return; }
+  const text='こんにちは！ ('+(pvpRole==='host'?'親':'子')+')';
+  pvpConn.send({ type:PVP_MSG.HELLO, text });
+  pvpLog('📤 送信: '+text);
+}
+function pvpLeave(){
+  SFX.play('button');
+  try{ if(pvpConn) pvpConn.close(); }catch(e){}
+  try{ if(pvpPC) pvpPC.close(); }catch(e){}
+  try{ if(pvpRoomRef){ pvpRoomRef.off(); /* 後始末：部屋データ削除 */ pvpRoomRef.remove().catch(()=>{}); } }catch(e){}
+  pvpConn=null; pvpPC=null; pvpRoomRef=null; pvpRole=null;
+  pvpResetLobby();
+  show('battleMenu');
 }
 
 resetState(); renderScore(); show('home');
