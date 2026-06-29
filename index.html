@@ -698,6 +698,20 @@ const SFX = (function(){
     evolve(){ const a=ctx(); if(!a)return; blip(a.currentTime,392,0.4,{type:'triangle',vol:0.4,slide:2.6}); }, // ぐんぐん上昇
     win(){ const a=ctx(); if(!a)return; const t=a.currentTime; [523,659,784,1047].forEach((f,i)=>blip(t+i*0.12,f,0.22,{type:'triangle',vol:0.44})); },
     lose(){ const a=ctx(); if(!a)return; const t=a.currentTime; [523,440,349,262].forEach((f,i)=>blip(t+i*0.14,f,0.26,{type:'sine',vol:0.38})); },
+    // --- キャラ別の攻撃/動作音（イメージに寄せた合成音）。頻発するのでキー別throttle ---
+    atk_cookie(){ if(!throttle('a_cookie',45))return; const a=ctx(); if(!a)return; const t=a.currentTime; noise(t,0.05,{vol:0.20,hp:4200}); blip(t,2000,0.04,{type:'square',vol:0.10,slide:0.6}); },   // サクッ
+    atk_choco(){ if(!throttle('a_choco',50))return; const a=ctx(); if(!a)return; const t=a.currentTime; noise(t,0.04,{vol:0.16,hp:2600}); blip(t,920,0.06,{type:'square',vol:0.20,slide:0.4}); },   // パキッ
+    atk_ghost(){ if(!throttle('a_ghost',60))return; const a=ctx(); if(!a)return; const t=a.currentTime; blip(t,520,0.24,{type:'sine',vol:0.12,slide:1.7,attack:0.07}); },   // ふわ
+    atk_soda(){ if(!throttle('a_soda',70))return; const a=ctx(); if(!a)return; const t=a.currentTime; noise(t,0.28,{vol:0.13,hp:5200}); noise(t+0.05,0.22,{vol:0.10,hp:6500}); },   // シュワシュワ
+    atk_daifuku(){ if(!throttle('a_daifuku',60))return; const a=ctx(); if(!a)return; const t=a.currentTime; blip(t,300,0.14,{type:'sine',vol:0.24,slide:0.7}); blip(t+0.05,250,0.12,{type:'sine',vol:0.18,slide:1.35}); },   // もちっ
+    atk_daifuku_charge(){ if(!throttle('a_dchg',60))return; const a=ctx(); if(!a)return; const t=a.currentTime; blip(t,1900,0.18,{type:'sawtooth',vol:0.22,slide:1.5}); noise(t,0.05,{vol:0.12,hp:6500}); },   // シャキン
+    atk_slime(){ if(!throttle('a_slime',55))return; const a=ctx(); if(!a)return; const t=a.currentTime; blip(t,240,0.16,{type:'sine',vol:0.20,slide:1.45}); blip(t+0.05,210,0.14,{type:'sine',vol:0.16,slide:1.5}); },   // プルプル
+    atk_donut(){ if(!throttle('a_donut',60))return; const a=ctx(); if(!a)return; const t=a.currentTime; noise(t,0.10,{vol:0.16,hp:320}); blip(t,150,0.15,{type:'sine',vol:0.22,slide:0.85}); },   // ボサッ
+    atk_pancake(){ if(!throttle('a_pan',60))return; const a=ctx(); if(!a)return; const t=a.currentTime; noise(t,0.10,{vol:0.15,hp:340}); blip(t,160,0.15,{type:'sine',vol:0.22,slide:0.85}); },   // ボサッ
+    atk_pancake_evo(){ if(!throttle('a_panevo',120))return; const a=ctx(); if(!a)return; const t=a.currentTime; blip(t,300,0.22,{type:'sine',vol:0.26,slide:3.2}); blip(t+0.18,120,0.42,{type:'sine',vol:0.28,slide:0.6}); noise(t+0.18,0.22,{vol:0.16,hp:420}); },   // ピョーン→ボワァン
+    atk_shoe(){ if(!throttle('a_shoe',55))return; const a=ctx(); if(!a)return; const t=a.currentTime; noise(t,0.11,{vol:0.20,hp:900}); blip(t,520,0.08,{type:'sine',vol:0.13,slide:0.4}); },   // ベチャッ
+    atk_bomb(){ if(!throttle('a_bomb',55))return; const a=ctx(); if(!a)return; const t=a.currentTime; noise(t,0.16,{vol:0.30,hp:600}); blip(t,200,0.24,{type:'sine',vol:0.34,slide:0.4}); },   // パーン
+    atk_bakery(){ if(!throttle('a_bakery',120))return; const a=ctx(); if(!a)return; const t=a.currentTime; noise(t,0.5,{vol:0.13,hp:1800}); },   // ジュー（焼き）
     battleStart(){ const a=ctx(); if(!a)return; const t=a.currentTime;   // 出撃ラッパ「ブッ・ブッ・ブブー↑」
       [[392,0.10],[392,0.10],[523,0.12],[784,0.34]].forEach(([f,d],i)=>{ blip(t+i*0.12,f,d,{type:'sawtooth',vol:0.32}); });
       blip(t,131,0.5,{type:'sine',vol:0.28,slide:0.9});   // 低音のドン
@@ -1864,7 +1878,7 @@ function killUnit(world, t){
   t.dying=true; t.dieT=0; t.dieDir=(Math.random()<0.5?-1:1);   // 立ち絵を横に倒してから消す演出
   burst(world, t.x, t.y, t.side==='p'?'#4ea3c9':'#d2603a', 12, 90);
   if(t.blast){
-    SFX.play('explode');                // 自爆のポフッ
+    SFX.play(t.key==='bomb'?'atk_bomb':t.key==='soda'?'atk_soda':'explode');   // ポップコーン=パーン / ソーダ=シュワ / その他=ポフッ
     world.shake=Math.max(world.shake,8);
     world.rings.push({x:t.x,y:t.y,r:4,max:t.blastR,life:0.35,color:'#ffb24d'});
     burst(world,t.x,t.y,'#ffb24d',22,150);
@@ -1966,7 +1980,7 @@ function evolvedStep(world, u, tgt, dt){
     if(d>u.shockR*0.55){ u.x+=dx/d*u.speed*(u.slowMul||1)*dt; u.y+=dy/d*u.speed*(u.slowMul||1)*dt; }
     for(const o of world.units){ if(o===u||o.hp<=0) continue; const ox=u.x-o.x,oy=u.y-o.y,d2=ox*ox+oy*oy,rr=(u.r+o.r); if(d2<rr*rr&&d2>0.01){ const dl=Math.sqrt(d2),f=(rr-dl)/rr; u.x+=ox/dl*f*1.2; u.y+=oy/dl*f*1.2; } }
     u.cool-=dt;
-    if(u.cool<=0 && d<=u.shockR){ u.cool=u.cd; u.jumpT=u.jumpDur; }
+    if(u.cool<=0 && d<=u.shockR){ u.cool=u.cd; u.jumpT=u.jumpDur; SFX.play('atk_pancake_evo'); }   // 進化パンケーキ：ピョーン→ボワァン
   }
   u.x=Math.max(u.r,Math.min(world.W-u.r,u.x)); u.y=Math.max(u.r,Math.min(world.H-u.r,u.y));
 }
@@ -2018,6 +2032,7 @@ function chargerStep(world, u, tgt, dt){
         u.cool=u.cd;
         // 通常攻撃は単体（突撃のみ範囲薙ぎ払い）
         applyHit(world,u,tgt,u.atk);
+        SFX.play('atk_'+u.key);   // キャラ別の攻撃音（cookie/choco/slime/ghost/pancake/donut等。無ければ無音）
         u.knockx-=dx/d*1.2; u.knocky-=dy/d*1.2;
       }
     }
@@ -2040,7 +2055,7 @@ function chargerStep(world, u, tgt, dt){
     let hit=null,bd=u.dashRange*u.dashRange;
     for(const o of world.units){ if(o.side===u.side||o.hp<=0) continue; const dd=(o.x-u.x)**2+(o.y-u.y)**2; if(dd<bd){bd=dd;hit=o;} }
     if(hit){
-      SFX.play('slash');                                              // 抜刀のシュッ
+      SFX.play('atk_daifuku_charge');                                 // 大福の抜刀「シャキン」
       const reach=u.dashRange*DAIFUKU_CLEAVE_DASH;
       if(u.cleave){
         // 突撃ヒットも前方（突進方向）の複数の敵をまとめて薙ぐ（全員フル威力）
@@ -2156,7 +2171,7 @@ function vacuumStep(world, u, tgt, dt){
   }
   // 攻撃（低火力。射程内なら殴る）
   u.cool-=dt;
-  if(tgt){ const d=Math.hypot(tgt.x-u.x,tgt.y-u.y); if(d<=u.range && u.cool<=0){ u.cool=u.cd; applyHit(world,u,tgt,u.atk); } }
+  if(tgt){ const d=Math.hypot(tgt.x-u.x,tgt.y-u.y); if(d<=u.range && u.cool<=0){ u.cool=u.cd; applyHit(world,u,tgt,u.atk); SFX.play('atk_'+u.key); } }   // ドーナッツ=ボサ等
   u.x=Math.max(u.r,Math.min(world.W-u.r,u.x)); u.y=Math.max(u.r,Math.min(world.H-u.r,u.y));
 }
 
@@ -2172,6 +2187,7 @@ function spawnerStep(world, u, dt){
     const living = world.units.filter(o=>o.side===u.side && o.key===u.spawnKey && o.spawnerId===u.spawnerId && o.hp>0).length;
     if(living < u.spawnCap){
       const n = Math.min(u.spawnCount, u.spawnCap - living);
+      SFX.play('atk_bakery');   // 焼き上がる「ジュー」（throttleで1回に集約）
       const front = (u.side==='p') ? -1 : 1;     // 敵側（前方）に出す
       for(let i=0;i<n;i++){
         const g = makeFighters(u.spawnKey, u.side, world.W, world.H)[0];
@@ -2320,8 +2336,8 @@ function stepWorld(world, dt){
       if(dist<=u.range && u.cool<=0){
         u.cool=u.cd;
         u.atkAnim=ATK_ANIM; u.atkDx=(tgt.x-u.x)/(dist||1); u.atkDy=(tgt.y-u.y)/(dist||1);   // 攻撃モーション（前方への突き）
-        if(u.ranged){ const dtot=Math.hypot(tgt.x-u.x,tgt.y-u.y)||1; world.shots.push({x:u.x,y:u.y,sx:u.x,sy:u.y,tx:tgt.x,ty:tgt.y,total:dtot,target:tgt,owner:u,side:u.side,atk:u.atk,splash:u.splash,sp:340,color:u.splash?'#b98cff':'#ffe08a',sprite:'arrow',arcH:SHOE_ARC}); }
-        else { u.knockx-=(tgt.x-u.x)/(dist||1)*0.9; u.knocky-=(tgt.y-u.y)/(dist||1)*0.9; applyHit(world,u,tgt,u.atk); }
+        if(u.ranged){ const dtot=Math.hypot(tgt.x-u.x,tgt.y-u.y)||1; world.shots.push({x:u.x,y:u.y,sx:u.x,sy:u.y,tx:tgt.x,ty:tgt.y,total:dtot,target:tgt,owner:u,side:u.side,atk:u.atk,splash:u.splash,sp:340,color:u.splash?'#b98cff':'#ffe08a',sprite:'arrow',arcH:SHOE_ARC}); SFX.play('atk_'+u.key); }   // シュー=ベチャッ等
+        else { u.knockx-=(tgt.x-u.x)/(dist||1)*0.9; u.knocky-=(tgt.y-u.y)/(dist||1)*0.9; applyHit(world,u,tgt,u.atk); SFX.play('atk_'+u.key); }   // 近接：キャラ別の攻撃音（cookie/choco/slime/ghost/pancake等）
       }
     }
   }
