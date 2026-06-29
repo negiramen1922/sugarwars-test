@@ -132,7 +132,8 @@
 
 - **親**：既存機構を `pvpMode` で再利用。`foeCtl=makeRemoteFoeController()` に差し替え、
   `pvpHostStartRound()` が `offerAndAwait` で子の選択を先に集めてから `beginDraft()`（=既存ドラフト/戦闘がそのまま動く）。
-  `loop()` が約12Hzで `sendSnapshot`、`endBattle` が `sendResult`/`sendGameover`、`nextRound` がPVP分岐。
+  `loop()` が `sendSnapshot`（**戦闘中=約10Hz／ドラフト中=約3Hz**でTURN通信量を削減）、`endBattle` が `sendResult`/`sendGameover`、`nextRound` がPVP分岐。
+  - **通信量削減**：`serializeWorld` は数値を丸め（位置/HP=整数・演出値=小数2桁）、`false`のフラグ項目を省略（子では undefined=falsy で同義）、粒子/リングは戦闘中のみ送る。TURN中継時のデータ量を抑える（無料枠対策）。
 - **子**：`PVP_GUEST_HOOKS`＋`pvpGuestEnterPlay/ShowOffer/RenderSnapshot/OnResult/OnGameover`。
   計算せず、OFFERで選び・SNAPSHOTを `render` で描画するだけの薄いクライアント。
 - `pvpOnConnected` が接続後に親=子デッキ待ち→開始／子=デッキ送信→START待ち、に分岐。`openPvpLobby` は `needPlayerDeck()` で編成を要求。
