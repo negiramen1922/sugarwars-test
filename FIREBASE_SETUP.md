@@ -102,23 +102,23 @@ ONだと端末同士が直接通信できません。設定でOFFにできれば
 **片方のスマホでテザリング（インターネット共有）をON → もう片方をそのWi-Fiに接続。**
 2台が同じシンプルな回線に入るので端末分離に当たらず、直接つながりやすくなります。まずこれを試すのが速いです。
 
-### 確実な解決：TURN中継を設定（無料Metered）
+### 確実な解決：TURN中継（Metered・設定済み）
 
-1. [https://www.metered.ca/](https://www.metered.ca/) で無料登録。
-2. ダッシュボードの **Metered TURN** で、自分の **username** と **credential** を取得。
-3. `index.html` の `TURN_SERVERS` の `//` を外し、`PASTE_TURN_USERNAME` / `PASTE_TURN_CREDENTIAL` を置き換える：
+本リポジトリは [Metered](https://www.metered.ca/) のTURNを**接続時に自動取得**する方式で設定済みです
+（`index.html` の `METERED_SUBDOMAIN` / `METERED_API_KEY`）。接続のたびに最新の中継情報を取りに行きます。
+
+別のMeteredプロジェクトに差し替えるときは、`index.html` のこの2行を置き換えるだけ：
 
 ```js
-const TURN_SERVERS = [
-  { urls:'turn:global.relay.metered.ca:80',                 username:'取得した値', credential:'取得した値' },
-  { urls:'turn:global.relay.metered.ca:80?transport=tcp',   username:'取得した値', credential:'取得した値' },
-  { urls:'turn:global.relay.metered.ca:443',                username:'取得した値', credential:'取得した値' },
-  { urls:'turns:global.relay.metered.ca:443?transport=tcp', username:'取得した値', credential:'取得した値' },
-];
+const METERED_SUBDOMAIN = 'あなたのアプリ.metered.live';
+const METERED_API_KEY   = 'あなたのAPIキー';
 ```
 
-> 画面下の診断ログで **`relay` の候補が出るか** を確認できます。設定後に `経路候補[relay]` が出れば中継が効いています。
-> （既定の openrelay 公開TURNは現在不安定で `relay` が出ないことがあります。確実にするには上記の自分のTURNを設定してください）
+> APIキーはFirebaseのapiKey同様、クライアント側に埋め込まれて公開される前提の値です（WebRTCの仕様上そうなります）。
+> 気になる場合はMeteredのダッシュボードでキーをローテーションできます。
+>
+> 確認方法：接続時に画面下の診断ログへ「TURN取得OK（中継n件）」が出て、対戦時に `経路候補[relay]` が出れば中継が効いています。
+> 無料枠は月500MB。対戦データはWebRTC直送なので、relayを経由しても顔合わせ＋中継分のみで、通常は十分です。
 
 ## 8. コスト・後始末
 

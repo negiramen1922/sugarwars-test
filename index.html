@@ -2731,25 +2731,36 @@ const FIREBASE_CONFIG = {
 };
 // ▲▲▲ ここまで ▲▲▲
 
-// 任意：信頼できるTURN中継サーバー。別回線や「ネットワーク分離(APアイソレーション)」の
-// Wi-Fiでも確実に繋ぐには、無料TURN（Metered等）の username/credential を取得して下の行を有効化する。
-//   手順: https://www.metered.ca/ で登録 → TURNの username/credential を取得 → 下の // を外して貼る
-const TURN_SERVERS = [
-  // { urls:'turn:global.relay.metered.ca:80',                 username:'PASTE_TURN_USERNAME', credential:'PASTE_TURN_CREDENTIAL' },
-  // { urls:'turn:global.relay.metered.ca:80?transport=tcp',   username:'PASTE_TURN_USERNAME', credential:'PASTE_TURN_CREDENTIAL' },
-  // { urls:'turn:global.relay.metered.ca:443',                username:'PASTE_TURN_USERNAME', credential:'PASTE_TURN_CREDENTIAL' },
-  // { urls:'turns:global.relay.metered.ca:443?transport=tcp', username:'PASTE_TURN_USERNAME', credential:'PASTE_TURN_CREDENTIAL' },
-];
-// STUN=自分のグローバルアドレス発見 / TURN=直接繋がらない回線用の中継。
+// === TURN中継（NAT越え・端末分離Wi-Fi対策）===
+// Metered のTURNを接続時に自動取得する（推奨）。サブドメイン/APIキーはクライアント埋め込み前提の値。
+// 別プロジェクトにするときはこの2つを差し替える。未設定（PASTE_…）ならSTUNのみで動作。
+const METERED_SUBDOMAIN = 'sugarwars.metered.live';
+const METERED_API_KEY   = 'lSV20J5aM1MxQt0o3_vWT-11BHgUHHGU5ETVdwYCujKF8ezN';
+// 手動でTURNを足したい場合のみ { urls, username, credential } を追加（任意・通常は空でよい）
+const TURN_SERVERS = [];
+// 既定（フォールバック）：公開STUN（自分のグローバルアドレス発見）
 const STUN_SERVERS = { iceServers:[
   {urls:'stun:stun.l.google.com:19302'},
   {urls:'stun:stun1.l.google.com:19302'},
-  // best-effort 公開TURN（不安定なことがある。確実性が要るなら上の TURN_SERVERS を設定）
-  {urls:'turn:openrelay.metered.ca:80', username:'openrelayproject', credential:'openrelayproject'},
-  {urls:'turn:openrelay.metered.ca:443', username:'openrelayproject', credential:'openrelayproject'},
-  {urls:'turn:openrelay.metered.ca:443?transport=tcp', username:'openrelayproject', credential:'openrelayproject'},
   ...TURN_SERVERS,
 ] };
+// 接続に使うICEサーバー一覧を用意：MeteredのTURNを取得→STUN/手動TURNと合成。失敗時はSTUNのみ。
+let _iceServersCache=null;
+function getIceServers(onDiag){
+  onDiag=onDiag||function(){};
+  if(_iceServersCache) return Promise.resolve(_iceServersCache);
+  const fallback = STUN_SERVERS.iceServers;
+  if(!METERED_API_KEY || METERED_API_KEY.indexOf('PASTE')===0 || typeof fetch==='undefined'){ return Promise.resolve(fallback); }
+  const url='https://'+METERED_SUBDOMAIN+'/api/v1/turn/credentials?apiKey='+encodeURIComponent(METERED_API_KEY);
+  return fetch(url).then(r=>r.json()).then(list=>{
+    if(Array.isArray(list) && list.length){
+      _iceServersCache = list.concat(TURN_SERVERS);   // Metered一覧(stun+turn)＋任意の手動TURN
+      const nTurn = list.filter(s=>String(s.urls||'').indexOf('turn')===0).length;
+      onDiag('TURN取得OK（中継'+nTurn+'件）'); return _iceServersCache;
+    }
+    onDiag('TURN取得：空。STUNのみで続行'); return fallback;
+  }).catch(()=>{ onDiag('TURN取得失敗。STUNのみで続行'); return fallback; });
+}
 // ICE候補の種類(host=同一LAN直結 / srflx=NAT越し / relay=TURN中継)を取り出す
 function candType(c){ try{ const s=(c&&c.candidate)||''; const m=s.match(/ typ (\w+)/); return m?m[1]:'?'; }catch(e){ return '?'; } }
 
@@ -2782,8 +2793,9 @@ function wrapChannel(dc){
 function createWebRTCTransport(opts){
   const db=ensureFirebase(); if(!db) return Promise.reject(new Error('Firebase未設定'));
   const code=opts.code, mode=opts.mode, onOpen=opts.onOpen||function(){}, onState=opts.onState||function(){}, onDiag=opts.onDiag||function(){};
-  pvpPC = new RTCPeerConnection(STUN_SERVERS);
   const roomRef = db.ref('rooms/'+code); pvpRoomRef=roomRef;
+  return getIceServers(onDiag).then(function(iceServers){   // 先にTURN情報を取得してから接続を作る
+  pvpPC = new RTCPeerConnection({ iceServers });
   let opened=false, sent=0, recv=0, relaySent=0, relayRecv=0;
   onDiag('部屋: '+code+'（'+(mode==='host'?'親':'子')+'）として開始');
   const onLocalCand = (e, child)=>{ if(!e.candidate) return; const t=candType(e.candidate); sent++; if(t==='relay') relaySent++; onDiag('→ 経路候補['+t+']を送信 ('+sent+')'); roomRef.child(child).push(e.candidate.toJSON()); };
@@ -2822,6 +2834,7 @@ function createWebRTCTransport(opts){
         }));
     });
   }
+  });
 }
 
 /* ---- ロビーUI（接続まで） ---- */
