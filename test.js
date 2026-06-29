@@ -1824,6 +1824,27 @@ console.log('\n=== 50) PVP対戦オーケストレーション(新): DRAFT要求
   });
 }
 
+console.log('\n=== 51) PVP同時選択ドラフト: STEP要求→子が1枚STEPPICKで返す ===');
+{
+  const [hWire, gWire] = API.createLoopbackPair();
+  let stepMsg = null;
+  // 子: STEP要求が来たら、提示デッキ先頭を1枚返す
+  API.makePvpGuest(gWire, {
+    onStep: (m, sendPick) => { stepMsg = m; sendPick((m.deck && m.deck[0]) || 'cookie'); },
+  });
+  let gotStepPick = null;
+  const host = API.makePvpHost(hWire, { onGuestStep: (m) => { gotStepPick = m.key; } });
+  let awaited = null;
+  const wait = host.awaitGuestStep();   // 先に待ち受け登録
+  wait.then(k => { awaited = k; });
+  host.requestGuestStep(1, 0, ['cookie', 'choco', 'shoe'], 3);
+  check('子: STEP要求を受信（round/step/n）', !!stepMsg && stepMsg.round === 1 && stepMsg.step === 0 && stepMsg.n === 3, stepMsg);
+  check('親: 子のSTEPPICKをonGuestStepで受信', gotStepPick === 'cookie', gotStepPick);
+  Promise.resolve().then(() => {
+    check('親: awaitGuestStepのPromiseがこのステップの選択で解決', awaited === 'cookie', awaited);
+  });
+}
+
 Promise.resolve().then(() => {
   console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
   process.exit(fail ? 1 : 0);

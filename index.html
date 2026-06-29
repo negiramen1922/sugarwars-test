@@ -2636,8 +2636,10 @@ const PVP_MSG = {
   START:    'start',      // 親→子：マッチ開始（初期ライフ・ラウンド等）
   OFFER:    'offer',      // 親→子：このピックの3枚提示（旧・1枚ずつ方式。テスト互換のため保持）
   PICK:     'pick',       // 子→親：提示から選んだ1枚（旧方式）
-  DRAFT:    'draft',      // 親→子：このラウンドのドラフト要求（子は自端末で全部選ぶ）
-  PICKS:    'picks',      // 子→親：このラウンドで選んだ全カードを一括送信
+  DRAFT:    'draft',      // 親→子：このラウンドのドラフト要求（子が自端末で全部選ぶ・テスト互換）
+  PICKS:    'picks',      // 子→親：このラウンドで選んだ全カードを一括送信（テスト互換）
+  STEP:     'step',       // 親→子：このステップの1枚を選ぶよう要求（同時選択方式）
+  STEPPICK: 'steppick',   // 子→親：このステップで選んだ1枚
   SNAPSHOT: 'snapshot',   // 親→子：盤面の描画用スナップショット（親→子はミラー変換して見せる）
   RESULT:   'result',     // 親→子：ラウンド決着（ライフ更新）
   GAMEOVER: 'gameover',   // 親→子：マッチ決着
@@ -2979,7 +2981,8 @@ function makePvpGuest(conn, hooks){
       switch(msg.type){
         case PVP_MSG.START:    if(hooks.onStart)    hooks.onStart(msg); break;
         case PVP_MSG.OFFER:    if(hooks.onOffer)    hooks.onOffer(msg, key=> conn.send({ type:PVP_MSG.PICK, round:msg.round, step:msg.step, key })); break;
-        case PVP_MSG.DRAFT:    if(hooks.onDraft)    hooks.onDraft(msg, keys=> conn.send({ type:PVP_MSG.PICKS, round:msg.round, keys:(keys||[]).slice() })); break;   // 子が全部選んで一括返信
+        case PVP_MSG.DRAFT:    if(hooks.onDraft)    hooks.onDraft(msg, keys=> conn.send({ type:PVP_MSG.PICKS, round:msg.round, keys:(keys||[]).slice() })); break;   // 子が全部選んで一括返信（テスト互換）
+        case PVP_MSG.STEP:     if(hooks.onStep)     hooks.onStep(msg, key=> conn.send({ type:PVP_MSG.STEPPICK, round:msg.round, step:msg.step, key })); break;   // 子がこのステップの1枚を返信
         case PVP_MSG.SNAPSHOT: if(hooks.onSnapshot) hooks.onSnapshot(applySnapshot(msg.snap, true), msg); break;   // 子は常に下(青)に見えるようミラー展開
         case PVP_MSG.RESULT:   if(hooks.onResult)   hooks.onResult(msg); break;
         case PVP_MSG.GAMEOVER: if(hooks.onGameover) hooks.onGameover(msg); break;
@@ -2994,21 +2997,25 @@ function makePvpGuest(conn, hooks){
 // 親（host）側の進行役。子のデッキ／選択を受け取り、提示・盤面・結果を送る。
 function makePvpHost(conn, hooks){
   hooks = hooks||{};
-  let guestDeck=null; const pickResolvers=[]; let picksResolver=null;
+  let guestDeck=null; const pickResolvers=[]; let picksResolver=null, stepResolver=null;
   conn.onMessage(msg=>{
     if(!msg || !msg.type) return;
     if(msg.type===PVP_MSG.HELLO){ guestDeck=(msg.deck||[]).slice(); if(hooks.onGuestHello) hooks.onGuestHello(guestDeck); }
     else if(msg.type===PVP_MSG.PICK){ const r=pickResolvers.shift(); if(r) r(msg.key); if(hooks.onGuestPick) hooks.onGuestPick(msg); }   // 旧・1枚ずつ方式（テスト互換）
-    else if(msg.type===PVP_MSG.PICKS){ const r=picksResolver; picksResolver=null; if(r) r(msg.keys||[]); if(hooks.onGuestPicks) hooks.onGuestPicks(msg); }   // 新・一括方式
+    else if(msg.type===PVP_MSG.PICKS){ const r=picksResolver; picksResolver=null; if(r) r(msg.keys||[]); if(hooks.onGuestPicks) hooks.onGuestPicks(msg); }   // 一括方式（テスト互換）
+    else if(msg.type===PVP_MSG.STEPPICK){ const r=stepResolver; stepResolver=null; if(r) r(msg.key); if(hooks.onGuestStep) hooks.onGuestStep(msg); }   // 同時選択方式：このステップの子の1枚
   });
   return {
     getGuestDeck(){ return guestDeck ? guestDeck.slice() : null; },
     start(info){ conn.send(Object.assign({ type:PVP_MSG.START }, info||{})); },
     // 旧：子に1枚提示し、子の選択(PICK)が返るまで待つ（テスト互換のため保持）。
     offerAndAwait(round, step, offer3){ return new Promise(res=>{ pickResolvers.push(res); conn.send({ type:PVP_MSG.OFFER, round, step, offer3:offer3.slice() }); }); },
-    // 新：このラウンドのドラフトを子に要求し、子が選んだ全カード(PICKS)が返るまで待つ。
+    // 一括：このラウンドのドラフトを子に要求し、子が選んだ全カード(PICKS)が返るまで待つ（テスト互換）。
     requestGuestDraft(round, deck, n){ conn.send({ type:PVP_MSG.DRAFT, round, deck:(deck||[]).slice(), n:n||CONFIG.picksBase }); },
     awaitGuestPicks(){ return new Promise(res=>{ picksResolver=res; }); },
+    // 同時選択：このステップの1枚を子に要求し、子の1枚(STEPPICK)が返るまで待つ。
+    requestGuestStep(round, step, deck, n){ conn.send({ type:PVP_MSG.STEP, round, step, deck:(deck||[]).slice(), n:n||CONFIG.picksBase }); },
+    awaitGuestStep(){ return new Promise(res=>{ stepResolver=res; }); },
     sendSnapshot(world){ conn.send({ type:PVP_MSG.SNAPSHOT, snap:serializeWorld(world) }); },
     sendResult(info){ conn.send(Object.assign({ type:PVP_MSG.RESULT }, info||{})); },
     sendGameover(info){ conn.send(Object.assign({ type:PVP_MSG.GAMEOVER }, info||{})); },
@@ -3040,33 +3047,104 @@ function pvpStartAsHost(){
   pvpHostObj.start({ lives:CONFIG.startLives, round:1 });
   pvpHostStartRound();
 }
-// 親：1ラウンド分。子にドラフトを要求し、子が選んだ全カード(PICKS)を一括で待つ→既存ドラフト→開戦→配信。
+// 親：1ラウンド分（同時選択ドラフト）。盤面を用意して毎ステップ「両者が1枚ずつ→同時公開」を回す。
+let pvpStepHostPick=null, pvpStepGuestPick=null;
 function pvpHostStartRound(){
-  pvpTrace('host round '+state.round+': 子にドラフト要求→選択待ち');
-  show('play');
+  pvpTrace('host round '+state.round+' 開始（同時選択ドラフト）');
+  state.pickTotal=CONFIG.picksBase; state.pickStep=0; state.roundPicks=[]; state.foeRoundPicks=[]; state.foeRevealIdx=0;
+  picking=false; hideFoePick(); hideResultBanner();
+  $('comebackBanner').classList.add('hidden'); $('pickTotal').textContent=CONFIG.picksBase;
   $('draftPanel').classList.remove('hidden'); $('offerOverlay').classList.add('hidden');
   $('battlePanel').classList.add('hidden'); $('battleHead').classList.add('hidden');
-  $('draftHint').textContent='ライバルが選んでいます…';
-  const wait = pvpHostObj.awaitGuestPicks();   // 先に待ち受けを登録してから要求（即時返信でも取りこぼさない）
-  pvpHostObj.requestGuestDraft(state.round, state.foeLoadout, CONFIG.picksBase);
-  wait.then(keys=>{
-    keys = keys||[];
-    pvpTrace('host: 子の選択を受領 ['+keys.join(',')+']→beginDraft');
-    while(keys.length < CONFIG.picksBase && state.foeLoadout.length) keys.push(state.foeLoadout[0]);   // 念のため不足分を補完
-    keys.forEach(k=>pvpRemoteFoe.pushPick(k));
-    beginDraft();
+  $('resultLine').classList.add('hidden'); $('lockBtn').classList.add('hidden');
+  renderScore(); renderLoadoutMini(); show('play');
+  setupCanvas(); world=createWorld(CW,CH);
+  capArmy(state.youArmy).forEach(k=> makeFighters(k,'p',CW,CH,'army').forEach(f=>{ f.appear=1; world.units.push(f); }));
+  arrangeFormation(world,'p',true);
+  capArmy(state.foeArmy).forEach(k=> makeFighters(k,'e',CW,CH,'army').forEach(f=>{ f.appear=1; world.units.push(f); }));
+  arrangeFormation(world,'e',true);
+  startLoop();   // 親のループ開始（muster盤面を子へ配信。子はこれを見て選べる）
+  pvpHostDraftStep();
+}
+function pvpHostDraftStep(){
+  if(state.pickStep >= CONFIG.picksBase){ pvpHostLockRound(); return; }   // 全ステップ完了→開戦
+  pvpStepHostPick=null; pvpStepGuestPick=null;
+  pvpTrace('host step '+state.pickStep+': 両者の1枚を待つ');
+  const wait = pvpHostObj.awaitGuestStep();   // 先に待ち受け登録
+  pvpHostObj.requestGuestStep(state.round, state.pickStep, state.foeLoadout, CONFIG.picksBase);
+  wait.then(key=>{ pvpStepGuestPick=key; pvpTrace('host: 子の1枚受領 '+key); pvpHostTryReveal(); });
+  pvpHostShowOffer();   // 親も自分の1枚を選ぶ
+}
+function pvpHostShowOffer(){
+  state.offer3 = shuffle(state.loadout).slice(0, CONFIG.offerPerPick);
+  $('battlePanel').classList.add('hidden'); $('draftPanel').classList.remove('hidden'); $('offerOverlay').classList.remove('hidden');
+  $('pickStep').textContent=(state.pickStep+1); $('pickTotal').textContent=CONFIG.picksBase;
+  $('draftHint').textContent='3枚から1枚えらぼう（同時選択）';
+  const wrap=$('offer'); wrap.innerHTML=''; picking=false;
+  state.offer3.forEach(key=>{
+    const u=UNIT_BY_KEY[key]; if(!u) return;
+    const el=document.createElement('div'); el.className='card';
+    el.innerHTML=`<div class="icon">${iconHTML(u)}${u.count>1?`<span class="count">×${u.count}</span>`:''}</div>`+
+      `<div class="cname">${u.name}</div><div class="tagline">${u.short||u.text}</div>`+
+      `<div class="stats"><span class="atk">⚔ ${u.atk}</span><span class="hp">✚ ${u.hp}</span></div>`;
+    el.onclick=()=>{ if(pvpStepHostPick!=null) return; pvpStepHostPick=key; SFX.play('pick'); el.classList.add('spin','picked');
+      $('offerOverlay').classList.add('hidden'); $('draftHint').textContent='相手の選択を待っています…'; pvpTrace('host: 自分の1枚 '+key); pvpHostTryReveal(); };
+    wrap.appendChild(el);
   });
+}
+function pvpHostTryReveal(){
+  if(pvpStepHostPick==null || pvpStepGuestPick==null) return;   // 両者そろうまで待つ＝同時公開
+  pvpTrace('host step '+state.pickStep+' 同時公開: 自'+pvpStepHostPick+' 相'+pvpStepGuestPick);
+  // 自分の1枚を盤面へ（下/青）
+  state.roundPicks.push(pvpStepHostPick);
+  makeFighters(pvpStepHostPick,'p',CW,CH,'pick').forEach(f=>{ f.x=CW/2+(Math.random()-0.5)*40; f.y=playB(CH)-f.r; world.units.push(f); burst(world,f.x,f.y,'#4ea3c9',9,75); });
+  arrangeFormation(world,'p',false);
+  // 相手の1枚を盤面へ（上/赤）
+  state.foeRoundPicks.push(pvpStepGuestPick); state.foeRevealIdx=state.foeRoundPicks.length;
+  revealFoePick(pvpStepGuestPick);
+  state.pickStep++;
+  $('pickStep').textContent=Math.min(state.pickStep+1, CONFIG.picksBase);
+  pvpStepHostPick=null; pvpStepGuestPick=null;
+  setTimeout(pvpHostDraftStep, 700);   // 公開を見せてから次ステップ
+}
+function pvpHostLockRound(){
+  pvpTrace('host round '+state.round+' 全選択完了→開戦');
+  $('offerOverlay').classList.add('hidden');
+  $('draftHint').textContent='編成完了！ まもなく開戦…';
+  setTimeout(()=>{ if(pvpMode && world && world.phase!=='battle') lockAndFight(); }, 700);
 }
 
 // 子：受信フック
 const PVP_GUEST_HOOKS = {
   onStart:(m)=>{ pvpTrace('guest START'); pvpGuestEnterPlay(m); },
-  onDraft:(m,sendPicks)=>{ pvpTrace('guest DRAFT要求 受信 r'+m.round); pvpGuestRunDraft(m,sendPicks); },
+  onStep:(m,sendPick)=>{ pvpTrace('guest STEP要求 受信 r'+m.round+' s'+m.step); pvpGuestShowStep(m,sendPick); },   // 同時選択：このステップの1枚
+  onDraft:(m,sendPicks)=>{ pvpTrace('guest DRAFT要求 受信 r'+m.round); pvpGuestRunDraft(m,sendPicks); },   // 一括方式（未使用・互換）
   onOffer:(m,reply)=>{ pvpTrace('guest OFFER 受信 r'+m.round+' s'+m.step); pvpGuestShowOffer(m,reply); },   // 旧方式（未使用・互換）
   onSnapshot:(w)=>pvpGuestRenderSnapshot(w),
   onResult:(m)=>{ pvpTrace('guest RESULT 受信 '+m.result); pvpGuestOnResult(m); },
   onGameover:(m)=>{ pvpTrace('guest GAMEOVER 受信'); pvpGuestOnGameover(m); },
 };
+// 子：このステップの1枚を選ぶ（盤面はSNAPSHOTで見えているので、公開済みの選択を見て選べる）。
+function pvpGuestShowStep(m, sendPick){
+  const deck = (m.deck && m.deck.length) ? m.deck : ((myDeck&&myDeck.length)?myDeck.slice():['cookie']);
+  const n = m.n || CONFIG.picksBase;
+  hideResultBanner();
+  $('battlePanel').classList.add('hidden'); $('draftPanel').classList.remove('hidden'); $('offerOverlay').classList.remove('hidden');
+  $('pickStep').textContent=(m.step+1); $('pickTotal').textContent=n; $('draftHint').textContent='3枚から1枚えらぼう（同時選択）';
+  const offer = shuffle(deck).slice(0, CONFIG.offerPerPick);
+  const wrap=$('offer'); wrap.innerHTML=''; pvpGuestPicking=false;
+  offer.forEach(key=>{
+    const u=UNIT_BY_KEY[key]; if(!u) return;
+    const el=document.createElement('div'); el.className='card';
+    el.innerHTML=`<div class="icon">${iconHTML(u)}${u.count>1?`<span class="count">×${u.count}</span>`:''}</div>`+
+      `<div class="cname">${u.name}</div><div class="tagline">${u.short||u.text}</div>`+
+      `<div class="stats"><span class="atk">⚔ ${u.atk}</span><span class="hp">✚ ${u.hp}</span></div>`;
+    el.onclick=()=>{ if(pvpGuestPicking) return; pvpGuestPicking=true; SFX.play('pick'); el.classList.add('spin','picked');
+      $('offerOverlay').classList.add('hidden'); $('draftHint').textContent='相手の選択を待っています…'; pvpTrace('guest STEPPICK 送信 '+key); sendPick(key); };
+    wrap.appendChild(el);
+  });
+  pvpTrace('guest STEP提示 r'+m.round+' s'+m.step+' ('+offer.length+'枚)');
+}
 // 子：自端末だけで n 枚を選び切り、最後にまとめて PICKS で送る（1枚ごとの往復をなくし堅牢化）。
 function pvpGuestRunDraft(m, sendPicks){
   const deck = (m.deck && m.deck.length) ? m.deck : ((myDeck&&myDeck.length)?myDeck.slice():['cookie']);
