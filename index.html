@@ -880,7 +880,8 @@ function startTutorial(){
 }
 function endTutorial(){ tutorial=false; hideTut(); markTutSeen(); cpuDeckMode='auto'; cpuDeck=[]; goHome(); }
 // ドラフトが表示された直後（tutorial）：1枚選ぶよう促す
-function tutOnDraft(){ const o=$('offer'); if(o) o.classList.add('tut-pick'); showTut('上の3枚から、1枚を選びなされ。\n選んだ仲間は毎ラウンドよみがえって「軍」に加わるんじゃよ。', {tag:'① ドラフト', interactive:true}); }
+// 「次へ」を押すと吹き出しだけ消えて、光る3枚が残る＝「あ、押さなきゃ」と気づける流れ
+function tutOnDraft(){ const o=$('offer'); if(o) o.classList.add('tut-pick'); showTut('上の3枚から、1枚を選びなされ。\n選んだ仲間は毎ラウンドよみがえって「軍」に加わるんじゃよ。', {tag:'① ドラフト', cta:'カードを選ぶ ›', onNext:()=>{ const l=$('tutLayer'); if(l) l.classList.add('hidden'); }}); }   // 吹き出しだけ隠し、tut-pickのハイライトは残す（カードを直接クリックさせる）
 // 1枚選び終えた直後（tutorial）：軍の説明→自動バトルへ
 function tutAfterPick(){
   showTut('ほっほっ、仲間が増えたのう。\nバトルは毎ラウンド「3枚→1枚」のくり返しでな、軍はどんどん大きくなるんじゃ。', {tag:'② 軍を育てる', onNext:()=>{
