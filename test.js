@@ -990,7 +990,7 @@ API.makeFighters('soda', 'e', W, H, 'army').forEach(f => { f.appear = 1; wf2.uni
 API.applySodaFizz(wf2, 'p');
 const ps = wf2.units.find(u => u.side === 'p' && u.key === 'soda');
 check('沼の半径が基準より拡大', ps.puddleR > sBase.puddleR, { base: sBase.puddleR, now: ps.puddleR });
-check('沼のダメージが基準より増加', ps.puddleDps > sBase.puddleDps, { base: sBase.puddleDps, now: ps.puddleDps });
+check('沼のダメージは基準のまま（強化で上がらない）', ps.puddleDps === sBase.puddleDps, { base: sBase.puddleDps, now: ps.puddleDps });
 check('fizz フラグが立つ', ps.fizz === true);
 check('敵ソーダには適用されない', wf2.units.filter(u => u.side === 'e' && u.key === 'soda').every(u => !u.fizz && u.puddleR === sBase.puddleR));
 // 冪等性：2回適用しても基準ベース計算で同じ値
@@ -1003,14 +1003,14 @@ function sodaPuddle(fizz) {
   let wd = API.createWorld(W, H); API.world = wd;
   const s = API.makeFighters('soda', 'p', W, H, 'army')[0];
   s.x = W / 2; s.y = H / 2; s.appear = 1;
-  if (fizz) { s.puddleR = Math.round(sBase.puddleR * 1.6); s.puddleDps = Math.round(sBase.puddleDps * 1.8); }
   wd.units.push(s);
+  if (fizz) API.applySodaFizz(wd, 'p');   // 実際の強化処理を通す（範囲のみ拡大・ダメージ据え置き）
   API.killUnit(wd, s);
   return wd.puddles[0];
 }
 const basePud = sodaPuddle(false), fizzPud = sodaPuddle(true);
 check('強化で沼の半径が大きい', fizzPud.r > basePud.r, { base: basePud.r, fizz: fizzPud.r });
-check('強化で沼のDPSが高い', fizzPud.dps > basePud.dps, { base: basePud.dps, fizz: fizzPud.dps });
+check('強化でも沼のDPSは同じ（上がらない）', fizzPud.dps === basePud.dps, { base: basePud.dps, fizz: fizzPud.dps });
 
 // pickCard で state.youSodaFizz が立ち、盤面ソーダに付与
 API.resetState();
@@ -1843,6 +1843,20 @@ console.log('\n=== 51) PVP同時選択ドラフト: STEP要求→子が1枚STEPP
   Promise.resolve().then(() => {
     check('親: awaitGuestStepのPromiseがこのステップの選択で解決', awaited === 'cookie', awaited);
   });
+}
+
+console.log('\n=== 52) 炭酸沼の重ねがけ上限（PUDDLE_DPS_CAP） ===');
+{
+  const wd = API.createWorld(440, 660); API.world = wd; wd.phase = 'battle'; wd.intro = 0;   // 沼処理はbattle中のみ
+  const e = API.makeFighters('choco', 'e', 440, 660, 'army')[0];   // 硬い敵を中央に固定（味方0なので動かない）
+  e.x = 220; e.y = 330; e.appear = 1; e.hp = 100000; e.maxHp = 100000;
+  wd.units.push(e);
+  for (let i = 0; i < 4; i++) wd.puddles.push({ x: 220, y: 330, r: 90, life: 9, maxLife: 9, side: 'p', dps: 5, slow: 0.5, bub: 0 });  // dps5×4=合計20/秒
+  const before = e.hp;
+  API.stepWorld(wd, 1.0);   // 1秒進める
+  const lost = before - e.hp;
+  check('重ねがけは上限/秒で頭打ち（合計20でも6前後）', lost > 5 && lost < 7, { lost });
+  check('上限なしの合計(20)より小さい', lost < 19, { lost });
 }
 
 Promise.resolve().then(() => {
