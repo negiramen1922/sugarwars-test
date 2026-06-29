@@ -718,8 +718,8 @@ function randomFoeDeck(){ return shuffle(UNITS.filter(u=>!u.summonOnly).map(u=>u
 function startGame(){
   resetState();
   state.loadout = myDeck.slice();                                   // 編成画面で作ったデッキを使用
-  // ライバルのデッキ：manual（自分で選んだcpuDeck・1枚でもOK）/ auto（ランダム）
-  state.foeLoadout = (cpuDeckMode==='manual' && cpuDeck.length>=1) ? cpuDeck.slice() : randomFoeDeck();
+  // ライバルのデッキは「敵コントローラ」が決める（CPU＝従来どおり／将来はPVPの相手プレイヤー）
+  state.foeLoadout = foeCtl.deck();
   renderScore();
   beginDraft();
 }
@@ -1442,7 +1442,7 @@ function beginDraft(){
   arrangeFormation(world,'e',true);
   // 敵の今回ピックを準備（プレイヤーが1枚選ぶたびに1枚ずつ上に召喚して公開）
   state.foePickTotal = picksFor(state.foeLostLast, state.lostLast);
-  state.foeRoundPicks = aiPicks(state.foeLoadout, state.foePickTotal);
+  state.foeRoundPicks = foeCtl.picks(state.foeLoadout, state.foePickTotal);   // 敵の選択は「敵コントローラ」が供給（CPU＝貪欲AI／将来はPVPの相手）
   state.foeRevealIdx = 0;
   if(tutorial){ state.pickTotal=1; state.foePickTotal=1; state.foeRoundPicks=['ginger']; }   // チュートリアル：1ピック・弱い相手（必ず勝てる）
   // 逆転ボーナスの「先に選ぶ」分を計算
@@ -2555,6 +2555,97 @@ function endGame(){
   $('overTitle').style.color=won?'var(--green)':'var(--rust)';
   $('overText').textContent=won?`${state.round} ラウンドで決着。${state.youArmy.length} 体の軍を率いて勝利しました。`:`${state.round} ラウンドで力尽きました。デッキの相性を見直してみましょう。`;
   show('over');
+}
+
+/* ============================================================
+   9) PVP 土台（F1：親=計算 / 子=表示 の分離。通信はまだローカル・ダミー）
+   ----------------------------------------------------------------
+   設計の要点（F2でこの土台の上に Firebase + WebRTC を載せる）：
+   - 「親(host)」だけが戦闘とドラフトの抽選を計算する（=既存エンジンを乱数のまま再利用できる）。
+   - 「子(guest)」は自分の選択を親へ送り、親から届く盤面スナップショットを描画するだけ。
+   - 親と子のやり取りはすべて PVP_MSG のメッセージで表現する。F1では通信路を
+     createLoopbackPair()（メモリ内ループバック）で代用し、F2でWebRTC/Firebaseに差し替える。
+   - 「敵が誰か」は foeCtl（敵コントローラ）で差し替える：CPU＝従来のAI／PVP＝相手プレイヤー。
+   ============================================================ */
+
+// 親⇔子でやり取りするメッセージ種別（F2でこのままネット越しに流す）
+const PVP_MSG = {
+  HELLO:    'hello',      // 子→親：自分のデッキ等を伝えて参加
+  START:    'start',      // 親→子：マッチ開始（初期ライフ・ラウンド等）
+  OFFER:    'offer',      // 親→子：このピックの3枚提示（抽選は親が行う）
+  PICK:     'pick',       // 子→親：提示から選んだ1枚
+  SNAPSHOT: 'snapshot',   // 親→子：盤面の描画用スナップショット（親→子はミラー変換して見せる）
+  RESULT:   'result',     // 親→子：ラウンド決着（ライフ更新）
+  GAMEOVER: 'gameover',   // 親→子：マッチ決着
+};
+
+// 通信路の抽象。F1ではメモリ内ループバックのみ（送ったメッセージはJSON複製して相手へ＝実通信を模す）。
+// 返り値 [a,b] は互いに繋がった2つのエンドポイント。a.send(m) は b.onMessage で受かる。
+function createLoopbackPair(){
+  let aCb=null, bCb=null;
+  const wire = (m)=>JSON.parse(JSON.stringify(m));   // シリアライズ可能性を保証（関数や循環参照が混じれば失敗する＝早期発見）
+  const a = { role:'a', send(m){ if(bCb) bCb(wire(m)); }, onMessage(cb){ aCb=cb; }, close(){ aCb=null; } };
+  const b = { role:'b', send(m){ if(aCb) aCb(wire(m)); }, onMessage(cb){ bCb=cb; }, close(){ bCb=null; } };
+  return [a,b];
+}
+
+// 敵コントローラ：CPU版（従来挙動そのまま）。deck()=相手デッキ、picks()=各ラウンドの選択。
+function makeCpuFoeController(){
+  return {
+    type:'cpu',
+    deck(){ return (cpuDeckMode==='manual' && cpuDeck.length>=1) ? cpuDeck.slice() : randomFoeDeck(); },
+    picks(loadout, n){ return aiPicks(loadout, n); },
+  };
+}
+// 敵コントローラ：リモート版（PVP用）。相手プレイヤーから届いたデッキ／選択を供給する。
+// F1では「供給済みの値を返すだけ」の器。F2で transport から非同期に埋める。
+function makeRemoteFoeController(){
+  let deck=[]; const pickQueue=[];
+  return {
+    type:'remote',
+    setDeck(d){ deck = (d||[]).slice(); },
+    pushPick(key){ pickQueue.push(key); },        // 相手のPICKメッセージ受信時に積む
+    deck(){ return deck.slice(); },
+    picks(loadout, n){ const out=[]; for(let i=0;i<n;i++) out.push(pickQueue.length?pickQueue.shift():(loadout[0]||'cookie')); return out; },
+    pending(){ return pickQueue.length; },
+  };
+}
+let foeCtl = makeCpuFoeController();   // 既定はCPU。PVP開始時に makeRemoteFoeController() へ差し替える。
+
+// 盤面スナップショット：親が計算したworldを、子が描画できる素のデータに変換する。
+// ユニットは全フィールドがプリミティブ（オブジェクト参照なし）なので丸ごと複製してよい。
+function serializeWorld(world){
+  if(!world) return null;
+  const clone = (o)=>{ const r={}; for(const k in o){ const v=o[k]; if(typeof v!=='function' && (k[0]!=='_')) r[k]=v; } return r; };
+  return {
+    W:world.W, H:world.H, phase:world.phase, t:world.t, result:world.result,
+    shake:world.shake||0, intro:world.intro||0, outro:world.outro||0, done:!!world.done,
+    units:  world.units.map(clone),
+    shots:  world.shots.map(clone),
+    parts:  world.parts.map(clone),
+    rings:  world.rings.map(clone),
+    dmgs:  (world.dmgs||[]).map(clone),
+    puddles:(world.puddles||[]).map(clone),
+  };
+}
+// スナップショットを描画用worldへ展開する。
+// mirror=true（子が親の盤面を見るとき）：陣営(p↔e)とY座標(上下)を反転し、自分が常に下(青)に見えるようにする。
+function applySnapshot(snap, mirror){
+  if(!snap) return null;
+  const H = snap.H;
+  const flipSide = s => s==='p' ? 'e' : (s==='e' ? 'p' : s);
+  const fixY = (o)=>{ if(o.y!=null) o.y = H - o.y; if(o.vy!=null) o.vy = -o.vy; if(o.sy!=null) o.sy = H - o.sy; if(o.ty!=null) o.ty = H - o.ty; if(o.atkDy!=null) o.atkDy = -o.atkDy; if(o.dieDir!=null) o.dieDir = -o.dieDir; if(o.knocky!=null) o.knocky = -o.knocky; };
+  const mapArr = (arr, isUnit)=> (arr||[]).map(o=>{ const c={...o}; if(mirror){ if(isUnit && c.side) c.side = flipSide(c.side); fixY(c); } return c; });
+  const w = createWorld(snap.W, snap.H);
+  w.phase=snap.phase; w.t=snap.t; w.result=snap.result;
+  w.shake=snap.shake||0; w.intro=snap.intro||0; w.outro=snap.outro||0; w.done=!!snap.done;
+  w.units  = mapArr(snap.units, true);
+  w.shots  = mapArr(snap.shots, false);
+  w.parts  = mapArr(snap.parts, false);
+  w.rings  = mapArr(snap.rings, false);
+  w.dmgs   = mapArr(snap.dmgs, false);
+  w.puddles= mapArr(snap.puddles, false);
+  return w;
 }
 
 resetState(); renderScore(); show('home');
