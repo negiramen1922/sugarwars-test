@@ -556,6 +556,7 @@ const FOE_GHOST_CHANCE = 0.4;   // 敵（ライバル）が分身を使う確率
 /* ★クラスター花火弾（キャンディキャノン固有強化）の調整値。1回限りの単発強化。 */
 const CANNON_MIN = 1;              // 盤面にこの数以上キャノンがいると「クラスター花火弾」カードが出る
 const CANNON_CLUSTER_N = 4;       // 着弾時に飛び散る小爆発の数
+const HOMING_TELEPORT = 60;           // 追尾弾：標的がこの距離以上を1フレームで移動したら「ワープした」とみなし追尾解除（急旋回防止）
 const CANNON_CLUSTER_SPREAD = 1.7;    // 小爆発の散布半径（本体splashの倍率）
 const CANNON_CLUSTER_SPLASH_MUL = 0.55; // 各小爆発の爆発半径（本体splashの倍率）
 const CANNON_CLUSTER_DMG_MUL = 0.5;   // 各小爆発の威力（本体mortarの倍率）
@@ -2363,7 +2364,11 @@ function stepWorld(world, dt){
     }
   }
   for(const s of world.shots){
-    if(s.homing && s.target && s.target.hp>0){ s.tx=s.target.x; s.ty=s.target.y; }   // 追尾：着弾点を敵に追従
+    if(s.homing && s.target && s.target.hp>0){
+      const jump=Math.hypot(s.target.x-s.tx, s.target.y-s.ty);
+      if(jump>HOMING_TELEPORT){ s.target=null; }   // 標的がワープ（瞬間移動）したら追尾解除＝今の着弾点へそのまま飛ぶ（急旋回を防ぐ）
+      else { s.tx=s.target.x; s.ty=s.target.y; }    // 通常の移動には追従
+    }
     const dx=s.tx-s.x,dy=s.ty-s.y,d=Math.hypot(dx,dy),step=s.sp*dt;
     if(d<=step){
       if(s.splash){ const sc=s.color||'#b98cff'; world.rings.push({x:s.tx,y:s.ty,r:3,max:s.splash,life:0.32,color:sc}); burst(world,s.tx,s.ty,sc,14,140); if(s.sprite==='ball'){ world.shake=Math.max(world.shake,5); } for(const o of world.units){ if(o.side===s.side||o.hp<=0)continue; const dd=(o.x-s.tx)**2+(o.y-s.ty)**2; if(dd<s.splash*s.splash){ const dl=Math.sqrt(dd), dmg=Math.max(1,Math.round(s.atk*(1-BLAST_FALLOFF*(dl/s.splash)))); applyHit(world,s.owner,o,dmg); } } if(s.cluster) clusterBurst(world,s); }   // 範囲攻撃も中心ほど高ダメージ
