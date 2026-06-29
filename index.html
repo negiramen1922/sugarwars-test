@@ -2673,6 +2673,7 @@ let foeCtl = makeCpuFoeController();   // 既定はCPU。PVP開始時に makeRem
 // ユニットは全フィールドがプリミティブ（オブジェクト参照なし）なので丸ごと複製してよい。
 function serializeWorld(world){
   if(!world) return null;
+  for(const u of world.units){ if(u.nid==null) u.nid = (world._nidSeq=(world._nidSeq||0)+1); }   // 子の補間用に各ユニットへ安定ID
   const clone = (o)=>{ const r={}; for(const k in o){ const v=o[k]; if(typeof v!=='function' && (k[0]!=='_')) r[k]=v; } return r; };
   return {
     W:world.W, H:world.H, phase:world.phase, t:world.t, result:world.result,
@@ -2948,6 +2949,7 @@ function makePvpHost(conn, hooks){
    ============================================================ */
 let pvpMode=false, pvpHostObj=null, pvpGuestObj=null, pvpRemoteFoe=null;
 let pvpGuestDeck=null, pvpGuestActive=false, pvpGuestRaf=0, pvpGuestPicking=false, pvpLastSnap=0;
+let pvpGuestTarget=null, pvpDisplayPos={};   // 子：最新スナップショット(目標) と 補間中の表示位置
 
 // 親：相手デッキ受信後にマッチ開始（敵をリモートに差し替え→既存フローへ）
 function pvpStartAsHost(){
@@ -2987,7 +2989,8 @@ const PVP_GUEST_HOOKS = {
 function pvpGuestEnterPlay(m){
   pvpMode=false; pvpGuestActive=true; pvpGuestPicking=false;
   state.youLives=(m&&m.lives)||CONFIG.startLives; state.foeLives=(m&&m.lives)||CONFIG.startLives; state.round=(m&&m.round)||1;
-  show('play'); setupCanvas(); world=null;
+  show('play'); setupCanvas(); world=null; pvpGuestTarget=null; pvpDisplayPos={};
+  hideResultBanner();
   $('draftPanel').classList.add('hidden'); $('offerOverlay').classList.add('hidden');
   $('battlePanel').classList.add('hidden'); $('battleHead').classList.remove('hidden');
   $('lockBtn').classList.add('hidden'); $('skipBtn').classList.add('hidden');
@@ -2995,17 +2998,35 @@ function pvpGuestEnterPlay(m){
 }
 function pvpGuestLoop(){
   cancelAnimationFrame(pvpGuestRaf);
-  const tick=()=>{ if(!pvpGuestActive) return; if(world){ try{ render(); if(world.phase==='battle') updateRemain(); }catch(e){} } pvpGuestRaf=requestAnimationFrame(tick); };
+  const tick=()=>{ if(!pvpGuestActive) return; if(pvpGuestTarget){ world=pvpGuestBuildDisplay(); try{ render(); if(world.phase==='battle') updateRemain(); }catch(e){} } pvpGuestRaf=requestAnimationFrame(tick); };
   pvpGuestRaf=requestAnimationFrame(tick);
+}
+// 子：受信スナップショット(目標)へ向けて表示位置をフレーム毎に補間し、なめらかに見せる
+function pvpGuestBuildDisplay(){
+  const t=pvpGuestTarget; if(!t) return world;
+  const k=0.35, SNAP=70, newPos={};
+  const units=t.units.map(tu=>{
+    let px=tu.x, py=tu.y;
+    const dp=(tu.nid!=null)?pvpDisplayPos[tu.nid]:null;
+    if(dp){ const dx=tu.x-dp.x, dy=tu.y-dp.y;
+      if(Math.hypot(dx,dy)>SNAP){ px=tu.x; py=tu.y; }   // ワープ/ラウンド切替の大ジャンプは補間しない
+      else { px=dp.x+dx*k; py=dp.y+dy*k; } }
+    if(tu.nid!=null) newPos[tu.nid]={x:px,y:py};
+    return Object.assign({}, tu, {x:px, y:py});
+  });
+  pvpDisplayPos=newPos;
+  return Object.assign({}, t, {units});
 }
 function pvpGuestRenderSnapshot(w){
   if(w && (CW!==w.W || CH!==w.H) && canvas){   // 子のキャンバスを親の盤面サイズに合わせて座標系を一致させる
     CW=w.W; CH=w.H; canvas.style.height=CH+'px'; canvas.width=Math.round(CW*dpr); canvas.height=Math.round(CH*dpr); ctx.setTransform(dpr,0,0,dpr,0,0);
   }
-  world=w; $('battleHead').classList.remove('hidden');
-  if(world.phase==='battle'||world.phase==='outro'){ $('offerOverlay').classList.add('hidden'); $('draftPanel').classList.add('hidden'); }
+  pvpGuestTarget=w; $('battleHead').classList.remove('hidden');
+  if(w.phase==='battle'||w.phase==='muster'){ hideResultBanner(); }   // 次ラウンドの盤面が来たら勝敗バナーを消す
+  if(w.phase==='battle'||w.phase==='outro'){ $('offerOverlay').classList.add('hidden'); $('draftPanel').classList.add('hidden'); }
 }
 function pvpGuestShowOffer(m, reply){
+  hideResultBanner(); pvpDisplayPos={};   // 新ラウンドのドラフト：前ラウンドの勝敗バナー/補間位置をクリア
   $('battlePanel').classList.add('hidden'); $('draftPanel').classList.remove('hidden'); $('offerOverlay').classList.remove('hidden');
   $('pickStep').textContent=(m.step+1); $('pickTotal').textContent=CONFIG.picksBase;
   $('draftHint').textContent='3枚から1枚えらぼう';
