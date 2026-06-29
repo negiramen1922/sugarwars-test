@@ -2680,19 +2680,26 @@ let foeCtl = makeCpuFoeController();   // 既定はCPU。PVP開始時に makeRem
 
 // 盤面スナップショット：親が計算したworldを、子が描画できる素のデータに変換する。
 // ユニットは全フィールドがプリミティブ（オブジェクト参照なし）なので丸ごと複製してよい。
+// 子の描画に必要なユニット項目だけを送る（速度・戦闘パラメータ等の静的項目は省きデータ量を半減）。
+const SNAP_UNIT_FIELDS = ['nid','key','side','x','y','r','hp','maxHp','icon',
+  'dying','dieT','dieDir','melting','melt','appear','appearFx','bob','jumpH','spriteScale','flash',
+  'atkAnim','atkDx','atkDy','warper','vanishing','vanP','invuln','isDecoy','raged','armed',
+  'slime','merged','evolved','fizz','shoeBuff','cstate','chargeT','partyStage','wall','wallR',
+  'charger','cluster','fastEvo','chocoBuff','bakeryBuff','daifukuBuff','donutWall'];
 function serializeWorld(world){
   if(!world) return null;
   for(const u of world.units){ if(u.nid==null) u.nid = (world._nidSeq=(world._nidSeq||0)+1); }   // 子の補間用に各ユニットへ安定ID
-  const clone = (o)=>{ const r={}; for(const k in o){ const v=o[k]; if(typeof v!=='function' && (k[0]!=='_')) r[k]=v; } return r; };
+  const cloneU = (u)=>{ const r={}; for(let i=0;i<SNAP_UNIT_FIELDS.length;i++){ const k=SNAP_UNIT_FIELDS[i], v=u[k]; if(v!==undefined) r[k]=v; } return r; };
+  const cloneP = (o)=>{ const r={}; for(const k in o){ const v=o[k]; if(typeof v!=='function' && (k[0]!=='_')) r[k]=v; } return r; };
   return {
     W:world.W, H:world.H, phase:world.phase, t:world.t, result:world.result,
     shake:world.shake||0, intro:world.intro||0, outro:world.outro||0, done:!!world.done,
-    units:  world.units.map(clone),
-    shots:  world.shots.map(clone),
-    parts:  world.parts.map(clone),
-    rings:  world.rings.map(clone),
-    dmgs:  (world.dmgs||[]).map(clone),
-    puddles:(world.puddles||[]).map(clone),
+    units:  world.units.map(cloneU),
+    shots:  world.shots.map(cloneP),
+    parts:  world.parts.slice(0, 50).map(cloneP),     // 粒子は上限を設けて転送量スパイクを抑制（見た目用なので間引き可）
+    rings:  world.rings.map(cloneP),
+    dmgs:  (world.dmgs||[]).slice(0, 24).map(cloneP),
+    puddles:(world.puddles||[]).map(cloneP),
   };
 }
 // スナップショットを描画用worldへ展開する。
@@ -3186,7 +3193,13 @@ function pvpGuestEnterPlay(m){
 }
 function pvpGuestLoop(){
   cancelAnimationFrame(pvpGuestRaf);
-  const tick=(now)=>{ if(!pvpGuestActive) return; const w=pvpGuestInterpolate(now||0); if(w){ world=w; try{ render(); if(world.phase==='battle') updateRemain(); }catch(e){} } pvpGuestRaf=requestAnimationFrame(tick); };
+  let lastR=0;
+  const tick=(now)=>{ if(!pvpGuestActive) return; now=now||0;
+    if(now-lastR>=28){ lastR=now;   // 約30fpsに制限（観戦側なので補間で十分なめらか・非力端末の負荷半減）
+      const w=pvpGuestInterpolate(now); if(w){ world=w; try{ render(); if(world.phase==='battle') updateRemain(); }catch(e){} }
+    }
+    pvpGuestRaf=requestAnimationFrame(tick);
+  };
   pvpGuestRaf=requestAnimationFrame(tick);
 }
 // 子：描画は受信より少し過去(DELAY)を見て、その時刻を挟む2スナップショット間を線形補間（なめらか）。
@@ -3216,7 +3229,7 @@ function pvpGuestRenderSnapshot(w){
     CW=w.W; CH=w.H; canvas.style.height=CH+'px'; canvas.width=Math.round(CW*dpr); canvas.height=Math.round(CH*dpr); ctx.setTransform(dpr,0,0,dpr,0,0);
   }
   const now=(typeof performance!=='undefined'&&performance.now)?performance.now():Date.now();
-  pvpSnapBuf.push({ t:now, w }); if(pvpSnapBuf.length>10) pvpSnapBuf.shift();   // 時刻つきで貯める
+  pvpSnapBuf.push({ t:now, w }); if(pvpSnapBuf.length>5) pvpSnapBuf.shift();   // 時刻つきで貯める（メモリ節約のため浅め）
   $('battleHead').classList.remove('hidden');
   if(w.phase==='battle'||w.phase==='muster'){ hideResultBanner(); }   // 次ラウンドの盤面が来たら勝敗バナーを消す
   if(w.phase==='battle'||w.phase==='outro'){ $('offerOverlay').classList.add('hidden'); $('draftPanel').classList.add('hidden'); }
