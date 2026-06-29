@@ -2595,6 +2595,7 @@ function endBattle(result){
   renderScore();
   $('skipBtn').classList.add('hidden');
   if(pvpMode && pvpHostObj){   // 親→子：最終盤面・結果・（決着なら）ゲームオーバーを通知
+    pvpTrace('host endBattle result='+result+' youLives='+state.youLives+' foeLives='+state.foeLives);
     try{ pvpHostObj.sendSnapshot(world); }catch(e){}
     const gr = result==='win'?'lose':result==='lose'?'win':'draw';   // 子から見た結果は反転
     pvpHostObj.sendResult({ result:gr, youLives:state.foeLives, foeLives:state.youLives, round:state.round });
@@ -2605,7 +2606,7 @@ function endBattle(result){
   if(state.youLives<=0||state.foeLives<=0) setTimeout(endGame,1400);
   else setTimeout(nextRound,1800);
 }
-function nextRound(){ state.round++; if(pvpMode){ pvpHostStartRound(); } else { beginDraft(); } }
+function nextRound(){ state.round++; if(pvpMode){ pvpTrace('host nextRound -> round '+state.round); pvpHostStartRound(); } else { beginDraft(); } }
 function endGame(){
   cancelAnimationFrame(raf);
   if(pvpMode){ pvpMode=false; foeCtl=makeCpuFoeController(); }   // PVP決着：後始末（「もう一度」はCPU対戦に戻す）
@@ -3014,6 +3015,7 @@ function makePvpHost(conn, hooks){
 let pvpMode=false, pvpHostObj=null, pvpGuestObj=null, pvpRemoteFoe=null;
 let pvpGuestDeck=null, pvpGuestActive=false, pvpGuestRaf=0, pvpGuestPicking=false, pvpLastSnap=0;
 let pvpGuestTarget=null, pvpDisplayPos={};   // 子：最新スナップショット(目標) と 補間中の表示位置
+function pvpTrace(s){ try{ console.log('[PVP]', s); }catch(e){} }   // 進行の記録（F12コンソールで確認用・読むだけ）
 
 // 親：相手デッキ受信後にマッチ開始（敵をリモートに差し替え→既存フローへ）
 function pvpStartAsHost(){
@@ -3029,26 +3031,28 @@ function pvpStartAsHost(){
 }
 // 親：1ラウンド分。まず子の選択を集め（非同期）、揃ったら既存ドラフト→自動開戦→戦闘配信。
 function pvpHostStartRound(){
+  pvpTrace('host round '+state.round+': 子の選択を集め始める');
   show('play');
   $('draftPanel').classList.remove('hidden'); $('offerOverlay').classList.add('hidden');
   $('battlePanel').classList.add('hidden'); $('battleHead').classList.add('hidden');
   $('draftHint').textContent='ライバルが選んでいます…';
   const n = CONFIG.picksBase; let i=0;
   const gatherNext=()=>{
-    if(i>=n){ beginDraft(); return; }   // 子の選択が揃ったら既存ドラフト（foeCtlがその選択を返す）
+    if(i>=n){ pvpTrace('host round '+state.round+': 子の選択そろった→beginDraft'); beginDraft(); return; }   // 子の選択が揃ったら既存ドラフト（foeCtlがその選択を返す）
     const offer = shuffle(state.foeLoadout).slice(0, CONFIG.offerPerPick);
-    pvpHostObj.offerAndAwait(state.round, i, offer).then(key=>{ pvpRemoteFoe.pushPick(key); i++; gatherNext(); });
+    pvpTrace('host OFFER 送信 r'+state.round+' s'+i);
+    pvpHostObj.offerAndAwait(state.round, i, offer).then(key=>{ pvpTrace('host PICK 受信 r'+state.round+' s'+i+' = '+key); pvpRemoteFoe.pushPick(key); i++; gatherNext(); });
   };
   gatherNext();
 }
 
 // 子：受信フック
 const PVP_GUEST_HOOKS = {
-  onStart:(m)=>pvpGuestEnterPlay(m),
-  onOffer:(m,reply)=>pvpGuestShowOffer(m,reply),
+  onStart:(m)=>{ pvpTrace('guest START'); pvpGuestEnterPlay(m); },
+  onOffer:(m,reply)=>{ pvpTrace('guest OFFER 受信 r'+m.round+' s'+m.step); pvpGuestShowOffer(m,reply); },
   onSnapshot:(w)=>pvpGuestRenderSnapshot(w),
-  onResult:(m)=>pvpGuestOnResult(m),
-  onGameover:(m)=>pvpGuestOnGameover(m),
+  onResult:(m)=>{ pvpTrace('guest RESULT 受信 '+m.result); pvpGuestOnResult(m); },
+  onGameover:(m)=>{ pvpTrace('guest GAMEOVER 受信'); pvpGuestOnGameover(m); },
 };
 function pvpGuestEnterPlay(m){
   pvpMode=false; pvpGuestActive=true; pvpGuestPicking=false;
@@ -3101,7 +3105,7 @@ function pvpGuestShowOffer(m, reply){
     el.innerHTML=`<div class="icon">${iconHTML(u)}${u.count>1?`<span class="count">×${u.count}</span>`:''}</div>`+
       `<div class="cname">${u.name}</div><div class="tagline">${u.short||u.text}</div>`+
       `<div class="stats"><span class="atk">⚔ ${u.atk}</span><span class="hp">✚ ${u.hp}</span></div>`;
-    el.onclick=()=>{ if(pvpGuestPicking) return; pvpGuestPicking=true; SFX.play('pick'); el.classList.add('spin','picked'); $('offerOverlay').classList.add('hidden'); $('draftHint').textContent='相手の選択を待っています…'; reply(key); };
+    el.onclick=()=>{ if(pvpGuestPicking) return; pvpGuestPicking=true; SFX.play('pick'); el.classList.add('spin','picked'); $('offerOverlay').classList.add('hidden'); $('draftHint').textContent='相手の選択を待っています…'; pvpTrace('guest PICK 送信 '+key); reply(key); };
     wrap.appendChild(el);
   });
 }
