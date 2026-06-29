@@ -3025,7 +3025,7 @@ function makePvpHost(conn, hooks){
    ============================================================ */
 let pvpMode=false, pvpHostObj=null, pvpGuestObj=null, pvpRemoteFoe=null;
 let pvpGuestDeck=null, pvpGuestActive=false, pvpGuestRaf=0, pvpGuestPicking=false, pvpLastSnap=0;
-let pvpGuestTarget=null, pvpDisplayPos={};   // 子：最新スナップショット(目標) と 補間中の表示位置
+let pvpSnapBuf=[];   // 子：受信スナップショットのバッファ（時刻つき）。少し過去の2フレーム間を補間してなめらかに描く
 function pvpTrace(s){ try{ console.log('[PVP]', s); }catch(e){} }   // 進行の記録（F12コンソールで確認用・読むだけ）
 
 // 親：相手デッキ受信後にマッチ開始（敵をリモートに差し替え→既存フローへ）
@@ -3072,7 +3072,7 @@ function pvpGuestRunDraft(m, sendPicks){
   const deck = (m.deck && m.deck.length) ? m.deck : ((myDeck&&myDeck.length)?myDeck.slice():['cookie']);
   const n = m.n || CONFIG.picksBase;
   const keys=[]; let step=0;
-  hideResultBanner(); pvpDisplayPos={};
+  hideResultBanner();
   const showStep=()=>{
     if(step>=n){   // 全部選び終えた → まとめて送信して待機表示
       pvpTrace('guest 全'+n+'枚選択→PICKS送信 ['+keys.join(',')+']');
@@ -3099,7 +3099,7 @@ function pvpGuestRunDraft(m, sendPicks){
 function pvpGuestEnterPlay(m){
   pvpMode=false; pvpGuestActive=true; pvpGuestPicking=false;
   state.youLives=(m&&m.lives)||CONFIG.startLives; state.foeLives=(m&&m.lives)||CONFIG.startLives; state.round=(m&&m.round)||1;
-  show('play'); setupCanvas(); world=null; pvpGuestTarget=null; pvpDisplayPos={};
+  show('play'); setupCanvas(); world=null; pvpSnapBuf=[];
   hideResultBanner();
   $('draftPanel').classList.add('hidden'); $('offerOverlay').classList.add('hidden');
   $('battlePanel').classList.add('hidden'); $('battleHead').classList.remove('hidden');
@@ -3108,35 +3108,43 @@ function pvpGuestEnterPlay(m){
 }
 function pvpGuestLoop(){
   cancelAnimationFrame(pvpGuestRaf);
-  const tick=()=>{ if(!pvpGuestActive) return; if(pvpGuestTarget){ world=pvpGuestBuildDisplay(); try{ render(); if(world.phase==='battle') updateRemain(); }catch(e){} } pvpGuestRaf=requestAnimationFrame(tick); };
+  const tick=(now)=>{ if(!pvpGuestActive) return; const w=pvpGuestInterpolate(now||0); if(w){ world=w; try{ render(); if(world.phase==='battle') updateRemain(); }catch(e){} } pvpGuestRaf=requestAnimationFrame(tick); };
   pvpGuestRaf=requestAnimationFrame(tick);
 }
-// 子：受信スナップショット(目標)へ向けて表示位置をフレーム毎に補間し、なめらかに見せる
-function pvpGuestBuildDisplay(){
-  const t=pvpGuestTarget; if(!t) return world;
-  const k=0.35, SNAP=70, newPos={};
-  const units=t.units.map(tu=>{
-    let px=tu.x, py=tu.y;
-    const dp=(tu.nid!=null)?pvpDisplayPos[tu.nid]:null;
-    if(dp){ const dx=tu.x-dp.x, dy=tu.y-dp.y;
-      if(Math.hypot(dx,dy)>SNAP){ px=tu.x; py=tu.y; }   // ワープ/ラウンド切替の大ジャンプは補間しない
-      else { px=dp.x+dx*k; py=dp.y+dy*k; } }
-    if(tu.nid!=null) newPos[tu.nid]={x:px,y:py};
-    return Object.assign({}, tu, {x:px, y:py});
+// 子：描画は受信より少し過去(DELAY)を見て、その時刻を挟む2スナップショット間を線形補間（なめらか）。
+function pvpGuestInterpolate(now){
+  const buf=pvpSnapBuf; if(!buf.length) return null;
+  if(buf.length===1) return buf[0].w;
+  const DELAY=130;                       // 130ms過去を描く（送信約12Hzでも常に2点を挟めてカクつかない）
+  const rt = now - DELAY;
+  let s0=null, s1=null;
+  for(let i=0;i<buf.length;i++){ if(buf[i].t<=rt) s0=buf[i]; else { s1=buf[i]; break; } }
+  if(!s0) return buf[0].w;                // 過去すぎ→最古
+  if(!s1) return buf[buf.length-1].w;     // 未来側は外挿しない→最新
+  let a=(rt-s0.t)/((s1.t-s0.t)||1); a=Math.max(0,Math.min(1,a));
+  const by0={}; for(const u of s0.w.units){ if(u.nid!=null) by0[u.nid]=u; }
+  const units=s1.w.units.map(u1=>{
+    const u0=(u1.nid!=null)?by0[u1.nid]:null;
+    if(!u0) return u1;
+    const dx=u1.x-u0.x, dy=u1.y-u0.y;
+    if(Math.hypot(dx,dy)>90) return u1;    // ワープ/ラウンド切替の大ジャンプは補間しない
+    const bob=(u0.bob!=null&&u1.bob!=null)?u0.bob+(u1.bob-u0.bob)*a:u1.bob;
+    return Object.assign({}, u1, { x:u0.x+dx*a, y:u0.y+dy*a, bob });
   });
-  pvpDisplayPos=newPos;
-  return Object.assign({}, t, {units});
+  return Object.assign({}, s1.w, { units });
 }
 function pvpGuestRenderSnapshot(w){
   if(w && (CW!==w.W || CH!==w.H) && canvas){   // 子のキャンバスを親の盤面サイズに合わせて座標系を一致させる
     CW=w.W; CH=w.H; canvas.style.height=CH+'px'; canvas.width=Math.round(CW*dpr); canvas.height=Math.round(CH*dpr); ctx.setTransform(dpr,0,0,dpr,0,0);
   }
-  pvpGuestTarget=w; $('battleHead').classList.remove('hidden');
+  const now=(typeof performance!=='undefined'&&performance.now)?performance.now():Date.now();
+  pvpSnapBuf.push({ t:now, w }); if(pvpSnapBuf.length>10) pvpSnapBuf.shift();   // 時刻つきで貯める
+  $('battleHead').classList.remove('hidden');
   if(w.phase==='battle'||w.phase==='muster'){ hideResultBanner(); }   // 次ラウンドの盤面が来たら勝敗バナーを消す
   if(w.phase==='battle'||w.phase==='outro'){ $('offerOverlay').classList.add('hidden'); $('draftPanel').classList.add('hidden'); }
 }
 function pvpGuestShowOffer(m, reply){
-  hideResultBanner(); pvpDisplayPos={};   // 新ラウンドのドラフト：前ラウンドの勝敗バナー/補間位置をクリア
+  hideResultBanner();   // 旧・1枚ずつ方式（未使用・互換）
   $('battlePanel').classList.add('hidden'); $('draftPanel').classList.remove('hidden'); $('offerOverlay').classList.remove('hidden');
   $('pickStep').textContent=(m.step+1); $('pickTotal').textContent=CONFIG.picksBase;
   $('draftHint').textContent='3枚から1枚えらぼう';
