@@ -301,6 +301,8 @@
         <button class="btn btn-primary" onclick="pvpSendTest()">テスト送信 📤</button>
         <div id="pvpLog" style="text-align:left;max-width:340px;margin:12px auto;font-size:13px;background:#1c1530;border-radius:12px;padding:10px;min-height:60px;max-height:160px;overflow:auto"></div>
       </div>
+      <!-- 接続の診断ログ（つながらないときの切り分け用） -->
+      <div id="pvpDiag" style="text-align:left;max-width:340px;margin:12px auto 0;font-size:12px;color:var(--muted);background:#160f28;border-radius:10px;padding:8px;max-height:140px;overflow:auto"></div>
       <button class="btn btn-ghost" onclick="pvpLeave()" style="margin-top:8px">← もどる</button>
     </section>
 
@@ -2717,7 +2719,15 @@ const FIREBASE_CONFIG = {
 };
 // ▲▲▲ ここまで ▲▲▲
 
-const STUN_SERVERS = { iceServers:[ {urls:'stun:stun.l.google.com:19302'}, {urls:'stun:stun1.l.google.com:19302'} ] };
+// STUN=自分のグローバルアドレス発見 / TURN=直接繋がらない回線用の中継（best-effort・無料公開）。
+// 別回線同士（例：自宅Wi-Fi×モバイル）はSTUNだけだと繋がらないことがあるためTURNも併用する。
+const STUN_SERVERS = { iceServers:[
+  {urls:'stun:stun.l.google.com:19302'},
+  {urls:'stun:stun1.l.google.com:19302'},
+  {urls:'turn:openrelay.metered.ca:80', username:'openrelayproject', credential:'openrelayproject'},
+  {urls:'turn:openrelay.metered.ca:443', username:'openrelayproject', credential:'openrelayproject'},
+  {urls:'turn:openrelay.metered.ca:443?transport=tcp', username:'openrelayproject', credential:'openrelayproject'},
+] };
 
 let pvpDb=null, pvpConn=null, pvpRole=null, pvpRoomRef=null, pvpPC=null;
 
@@ -2744,32 +2754,43 @@ function wrapChannel(dc){
 }
 
 // WebRTC接続を確立して transport を返す（mode:'host'=親 / 'guest'=子）。onOpenで接続成立を通知。
+// onDiag(msg) があれば接続の進行状況（ICE状態・候補の送受信数・タイムアウト）を逐次通知する。
 function createWebRTCTransport(opts){
   const db=ensureFirebase(); if(!db) return Promise.reject(new Error('Firebase未設定'));
-  const code=opts.code, mode=opts.mode, onOpen=opts.onOpen||function(){}, onState=opts.onState||function(){};
+  const code=opts.code, mode=opts.mode, onOpen=opts.onOpen||function(){}, onState=opts.onState||function(){}, onDiag=opts.onDiag||function(){};
   pvpPC = new RTCPeerConnection(STUN_SERVERS);
   const roomRef = db.ref('rooms/'+code); pvpRoomRef=roomRef;
-  pvpPC.onconnectionstatechange = ()=>{ onState(pvpPC.connectionState); };
+  let opened=false, sent=0, recv=0;
+  onDiag('部屋: '+code+'（'+(mode==='host'?'親':'子')+'）として開始');
+
+  pvpPC.onconnectionstatechange = ()=>{ onState(pvpPC.connectionState); onDiag('接続: '+pvpPC.connectionState); };
+  pvpPC.oniceconnectionstatechange = ()=>{ onDiag('ICE: '+pvpPC.iceConnectionState); };
+  pvpPC.onicegatheringstatechange = ()=>{ onDiag('候補収集: '+pvpPC.iceGatheringState); };
+  // 一定時間でつながらなければヒントを出す（回線・ルール・あいことばの切り分け用）
+  const watchdog = setTimeout(()=>{ if(!opened){ onDiag('⏱ 20秒未接続。送='+sent+' 受='+recv+' / 候補が0なら回線かルール、>0でも繋がらない場合はTURNが必要な回線かも'); } }, 20000);
+  const markOpen = (dc)=>{ opened=true; clearTimeout(watchdog); onDiag('🎉 データ通信路オープン'); onOpen(wrapChannel(dc)); };
 
   if(mode==='host'){
     const dc = pvpPC.createDataChannel('game');
-    dc.onopen = ()=> onOpen(wrapChannel(dc));
-    pvpPC.onicecandidate = e=>{ if(e.candidate) roomRef.child('callerCandidates').push(e.candidate.toJSON()); };
+    dc.onopen = ()=> markOpen(dc);
+    pvpPC.onicecandidate = e=>{ if(e.candidate){ sent++; onDiag('→ 自分の経路候補を送信 ('+sent+')'); roomRef.child('callerCandidates').push(e.candidate.toJSON()); } };
     return pvpPC.createOffer().then(offer=> pvpPC.setLocalDescription(offer).then(()=>{
+      onDiag('オファー送信。相手の参加を待っています…');
       roomRef.child('offer').set({ type:offer.type, sdp:offer.sdp });
-      roomRef.child('answer').on('value', snap=>{ const a=snap.val(); if(a && pvpPC.signalingState!=='stable'){ pvpPC.setRemoteDescription(new RTCSessionDescription(a)).catch(()=>{}); } });
-      roomRef.child('calleeCandidates').on('child_added', snap=>{ try{ pvpPC.addIceCandidate(new RTCIceCandidate(snap.val())); }catch(e){} });
+      roomRef.child('answer').on('value', snap=>{ const a=snap.val(); if(a && pvpPC.signalingState!=='stable'){ onDiag('相手のアンサー受信'); pvpPC.setRemoteDescription(new RTCSessionDescription(a)).catch(()=>{}); } });
+      roomRef.child('calleeCandidates').on('child_added', snap=>{ recv++; onDiag('← 相手の経路候補を受信 ('+recv+')'); try{ pvpPC.addIceCandidate(new RTCIceCandidate(snap.val())); }catch(e){} });
     }));
   } else {
-    pvpPC.ondatachannel = e=>{ const dc=e.channel; dc.onopen=()=>onOpen(wrapChannel(dc)); };
-    pvpPC.onicecandidate = e=>{ if(e.candidate) roomRef.child('calleeCandidates').push(e.candidate.toJSON()); };
+    pvpPC.ondatachannel = e=>{ const dc=e.channel; onDiag('データ通信路を受信'); dc.onopen=()=>markOpen(dc); };
+    pvpPC.onicecandidate = e=>{ if(e.candidate){ sent++; onDiag('→ 自分の経路候補を送信 ('+sent+')'); roomRef.child('calleeCandidates').push(e.candidate.toJSON()); } };
     return roomRef.child('offer').once('value').then(snap=>{
-      const offer=snap.val(); if(!offer) throw new Error('部屋が見つかりません');
+      const offer=snap.val(); if(!offer){ clearTimeout(watchdog); throw new Error('部屋が見つかりません'); }
+      onDiag('オファー受信。アンサーを返します…');
       return pvpPC.setRemoteDescription(new RTCSessionDescription(offer))
         .then(()=> pvpPC.createAnswer())
         .then(ans=> pvpPC.setLocalDescription(ans).then(()=>{
           roomRef.child('answer').set({ type:ans.type, sdp:ans.sdp });
-          roomRef.child('callerCandidates').on('child_added', s2=>{ try{ pvpPC.addIceCandidate(new RTCIceCandidate(s2.val())); }catch(e){} });
+          roomRef.child('callerCandidates').on('child_added', s2=>{ recv++; onDiag('← 相手の経路候補を受信 ('+recv+')'); try{ pvpPC.addIceCandidate(new RTCIceCandidate(s2.val())); }catch(e){} });
         }));
     });
   }
@@ -2786,8 +2807,10 @@ function pvpResetLobby(){
   ['pvpHostBox','pvpJoinBox','pvpConnBox'].forEach(id=>$(id).classList.add('hidden'));
   $('pvpChoice').classList.remove('hidden');
   const lg=$('pvpLog'); if(lg) lg.innerHTML='';
+  const dg=$('pvpDiag'); if(dg) dg.innerHTML='';
 }
 function pvpLog(line){ const lg=$('pvpLog'); if(!lg) return; const p=document.createElement('div'); p.textContent=line; lg.appendChild(p); lg.scrollTop=lg.scrollHeight; }
+function pvpDiag(line){ const dg=$('pvpDiag'); if(!dg) return; const p=document.createElement('div'); p.textContent='• '+line; dg.appendChild(p); dg.scrollTop=dg.scrollHeight; }
 
 function pvpHost(){
   SFX.play('button');
@@ -2798,9 +2821,9 @@ function pvpHost(){
   $('pvpHostBox').classList.remove('hidden');
   $('pvpCode').textContent=code;
   $('pvpHostStatus').textContent='相手の参加を待っています…';
-  createWebRTCTransport({ mode:'host', code, onState:s=>$('pvpHostStatus').textContent='接続状態: '+s,
+  createWebRTCTransport({ mode:'host', code, onState:s=>$('pvpHostStatus').textContent='接続状態: '+s, onDiag:pvpDiag,
     onOpen:tp=>{ pvpConn=tp; pvpOnConnected('親'); } })
-    .catch(err=>{ $('pvpHostStatus').textContent='エラー: '+err.message; });
+    .catch(err=>{ $('pvpHostStatus').textContent='エラー: '+err.message; pvpDiag('エラー: '+err.message); });
 }
 function pvpShowJoin(){
   SFX.play('button');
@@ -2815,9 +2838,9 @@ function pvpJoin(){
   const code=($('pvpCodeInput').value||'').trim().toUpperCase();
   if(code.length!==4){ $('pvpJoinStatus').textContent='あいことばは4文字です'; return; }
   $('pvpJoinStatus').textContent='接続中…';
-  createWebRTCTransport({ mode:'guest', code, onState:s=>$('pvpJoinStatus').textContent='接続状態: '+s,
+  createWebRTCTransport({ mode:'guest', code, onState:s=>$('pvpJoinStatus').textContent='接続状態: '+s, onDiag:pvpDiag,
     onOpen:tp=>{ pvpConn=tp; pvpOnConnected('子'); } })
-    .catch(err=>{ $('pvpJoinStatus').textContent='エラー: '+err.message; });
+    .catch(err=>{ $('pvpJoinStatus').textContent='エラー: '+err.message; pvpDiag('エラー: '+err.message); });
 }
 // 接続成立：F2-①では「接続確認」モードを出す。F2-②でここから対戦開始に進める。
 function pvpOnConnected(roleLabel){
