@@ -121,12 +121,19 @@
 - 設定手順は `FIREBASE_SETUP.md`。Realtime Database のルールは `rooms/$code` のみ read/write 可の割り切り。
 - **2台＋Firebaseの実機テストはこのリポジトリ環境ではできない**ため、接続確認はユーザーの手元で行う。
 
-### F2-②（対戦本体）— 次の作業
+### F2-②（対戦本体）— オーケストレーション層は実装済み（`<script>`「11) PVP 対戦オーケストレーション」）
 
-- ドラフトを「親が抽選→子へ `OFFER`→子の `PICK` を待つ」非同期フローに拡張（現状の同期ドラフト `nextPick`/`pickCard` を分岐）。
-  対戦本体は通信路に依存させるので、**`createLoopbackPair()` を使い `test.js` でヘッドレス検証できる**設計にする。
-- 戦闘ループで親が `serializeWorld` を一定間隔で送信し、子は `applySnapshot(…, true)` を描画（子は計算しない）。
-- 切断・再接続・タイムアウト処理。
+- `makePvpHost(conn, hooks)` / `makePvpGuest(conn, hooks)`：通信路(transport)にだけ依存する進行役。
+  実戦は `createWebRTCTransport` の transport、テストは `createLoopbackPair()` を渡す（test.js 48）。
+  - 親：`start()` / `offerAndAwait(round,step,offer3)`（子のPICKをPromiseで待つ＝ドラフト非同期化の核）/ `sendSnapshot(world)` / `sendResult()` / `sendGameover()` / `getGuestDeck()`。
+  - 子：`hello(deck)`。受信は hooks（`onStart/onOffer(m,reply)/onSnapshot(world,m)/onResult/onGameover`）。SNAPSHOTは自動でミラー展開。
+
+#### 残作業（画面への配線）
+
+- **親の配線**：PVP時、既存ドラフトを `offerAndAwait` で子の選択も集める非同期フローに分岐
+  （`foeCtl=makeRemoteFoeController()` に子のデッキ/選択を流す）。戦闘 `loop()` で一定間隔 `sendSnapshot`。
+- **子の画面**：OFFERで提示UIを出し選択を返す／SNAPSHOTを `render` で描画する薄いクライアント（子は計算しない）。
+- 切断・再接続・タイムアウト処理。**実通信の2台確認は手元環境**で（同端末2タブは接続OK確認済み）。
 
 ### F3 — 自動マッチング（Firebaseの待機リストでペアリング）
 
