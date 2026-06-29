@@ -1845,6 +1845,20 @@ console.log('\n=== 51) PVP同時選択ドラフト: STEP要求→子が1枚STEPP
   });
 }
 
+console.log('\n=== 52) 炭酸沼の重ねがけ上限（PUDDLE_DPS_CAP） ===');
+{
+  const wd = API.createWorld(440, 660); API.world = wd; wd.phase = 'battle'; wd.intro = 0;   // 沼処理はbattle中のみ
+  const e = API.makeFighters('choco', 'e', 440, 660, 'army')[0];   // 硬い敵を中央に固定（味方0なので動かない）
+  e.x = 220; e.y = 330; e.appear = 1; e.hp = 100000; e.maxHp = 100000;
+  wd.units.push(e);
+  for (let i = 0; i < 4; i++) wd.puddles.push({ x: 220, y: 330, r: 90, life: 9, maxLife: 9, side: 'p', dps: 5, slow: 0.5, bub: 0 });  // dps5×4=合計20/秒
+  const before = e.hp;
+  API.stepWorld(wd, 1.0);   // 1秒進める
+  const lost = before - e.hp;
+  check('重ねがけは上限/秒で頭打ち（合計20でも12前後）', lost > 11 && lost < 13, { lost });
+  check('上限なしの合計(20)より小さい', lost < 19, { lost });
+}
+
 Promise.resolve().then(() => {
   console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
   process.exit(fail ? 1 : 0);
