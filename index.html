@@ -2752,14 +2752,20 @@ function getIceServers(onDiag){
   const fallback = STUN_SERVERS.iceServers;
   if(!METERED_API_KEY || METERED_API_KEY.indexOf('PASTE')===0 || typeof fetch==='undefined'){ return Promise.resolve(fallback); }
   const url='https://'+METERED_SUBDOMAIN+'/api/v1/turn/credentials?apiKey='+encodeURIComponent(METERED_API_KEY);
-  return fetch(url).then(r=>r.json()).then(list=>{
-    if(Array.isArray(list) && list.length){
+  return fetch(url).then(r=>r.json()).then(data=>{
+    // Meteredの応答形式ゆれに対応：配列そのまま / {iceServers:[…]} / {v_iceServers:[…]} など
+    let list = Array.isArray(data) ? data
+             : (data && Array.isArray(data.iceServers)) ? data.iceServers
+             : (data && Array.isArray(data.v_iceServers)) ? data.v_iceServers
+             : (data && Array.isArray(data.result)) ? data.result : null;
+    if(list && list.length){
       _iceServersCache = list.concat(TURN_SERVERS);   // Metered一覧(stun+turn)＋任意の手動TURN
       const nTurn = list.filter(s=>String(s.urls||'').indexOf('turn')===0).length;
       onDiag('TURN取得OK（中継'+nTurn+'件）'); return _iceServersCache;
     }
-    onDiag('TURN取得：空。STUNのみで続行'); return fallback;
-  }).catch(()=>{ onDiag('TURN取得失敗。STUNのみで続行'); return fallback; });
+    onDiag('TURN応答（想定外）: '+JSON.stringify(data).slice(0,140));   // 中身を表示して原因特定
+    return fallback;
+  }).catch(e=>{ onDiag('TURN取得失敗: '+(e&&e.message||e)+' / STUNのみで続行'); return fallback; });
 }
 // ICE候補の種類(host=同一LAN直結 / srflx=NAT越し / relay=TURN中継)を取り出す
 function candType(c){ try{ const s=(c&&c.candidate)||''; const m=s.match(/ typ (\w+)/); return m?m[1]:'?'; }catch(e){ return '?'; } }
