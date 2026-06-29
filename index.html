@@ -2828,6 +2828,8 @@ function createWebRTCTransport(opts){
     if(s==='failed'||s==='disconnected'){ onDiag('⚠ 経路確立に失敗。中継候補 自'+relaySent+'/相手'+relayRecv+'。relayが0ならTURNが必要（別回線/分離Wi-Fi）。「やり直す」か回線変更を。'); }
   };
   pvpPC.onicegatheringstatechange = ()=>{ onDiag('候補収集: '+pvpPC.iceGatheringState); };
+  // TURN/STUNの確保失敗理由を表示（relay候補が出ない原因の特定。401=認証NG / 701=サーバ到達不可 等）
+  pvpPC.onicecandidateerror = (e)=>{ const u=String(e.url||''); if(u.indexOf('turn')===0||e.errorCode===401||e.errorCode===403){ onDiag('TURNエラー code='+e.errorCode+' '+(e.errorText||'')+' @'+u.slice(0,46)); } };
   // 一定時間でつながらなければヒントを出す（回線・ルール・あいことばの切り分け用）
   const watchdog = setTimeout(()=>{ if(!opened){ onDiag('⏱ 20秒未接続。送='+sent+'(relay'+relaySent+') 受='+recv+'(relay'+relayRecv+')。host/srflxだけで繋がらない＝端末間が遮断（分離Wi-Fi/別回線）。TURN設定か回線変更が必要。'); } }, 20000);
   const markOpen = (dc)=>{ opened=true; clearTimeout(watchdog); onDiag('🎉 データ通信路オープン'); onOpen(wrapChannel(dc)); };
