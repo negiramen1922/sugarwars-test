@@ -2535,7 +2535,7 @@ function render(){
       if(u.flash>0){ ctx.beginPath(); ctx.arc(u.x+lungeX,u.y+bob+lungeY,u.r+2,0,6.28); ctx.fillStyle='rgba(255,255,255,.6)'; ctx.fill(); }
       ctx.font=(u.r*1.7*sc*vis)+'px serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(u.icon,u.x+lungeX,u.y+bob+lungeY);
     }
-    if(world.phase==='battle' && u.appear>=1){
+    if(world.phase==='battle' && u.appear>=1 && !pvpGuestActive){   // 子(観戦)はHPバー/強化✦を省いて軽量化
       const bw=u.r*1.8,bh=4,bx=u.x-bw/2,by=u.y-u.r-9+bob,ratio=Math.max(0,u.hp/u.maxHp);
       ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(bx,by,bw,bh);
       ctx.fillStyle=ratio<.35?'#d2603a':ratio<.66?'#d4a544':'#6fbf73'; ctx.fillRect(bx,by,bw*ratio,bh);
@@ -2554,8 +2554,10 @@ function render(){
   }
   for(const p of world.parts){ ctx.globalAlpha=Math.max(0,p.life*2); ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,6.28); ctx.fill(); }
   ctx.globalAlpha=1;
-  ctx.font='bold 14px "Space Mono", monospace'; ctx.textAlign='center';
-  for(const d of world.dmgs){ ctx.globalAlpha=Math.max(0,d.life*1.6); ctx.fillStyle=d.color; ctx.fillText(d.txt,d.x,d.y); }
+  if(!pvpGuestActive){   // 子(観戦)はダメージ数値の文字描画を省いて軽量化（fillTextが重いので効果大）
+    ctx.font='bold 14px "Space Mono", monospace'; ctx.textAlign='center';
+    for(const d of world.dmgs){ ctx.globalAlpha=Math.max(0,d.life*1.6); ctx.fillStyle=d.color; ctx.fillText(d.txt,d.x,d.y); }
+  }
   ctx.globalAlpha=1; ctx.restore();
   if(world.phase==='battle' && world.intro>0){ ctx.fillStyle='rgba(0,0,0,.35)'; ctx.fillRect(0,0,CW,CH); ctx.fillStyle='#d4a544'; ctx.font='700 40px Oswald, sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('FIGHT!',CW/2,CH/2); }
 }
@@ -2698,7 +2700,7 @@ function serializeWorld(world){
     shots:  world.shots.map(cloneP),
     parts:  world.parts.slice(0, 50).map(cloneP),     // 粒子は上限を設けて転送量スパイクを抑制（見た目用なので間引き可）
     rings:  world.rings.map(cloneP),
-    dmgs:  (world.dmgs||[]).slice(0, 24).map(cloneP),
+    dmgs:  [],   // 子はダメージ数値を描かないので送らない（転送量・解析を節約）
     puddles:(world.puddles||[]).map(cloneP),
   };
 }
