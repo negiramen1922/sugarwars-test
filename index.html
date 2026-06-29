@@ -763,8 +763,7 @@ function show(sec){ ['home','battleMenu','cpuMode','pvpLobby','roster','play','o
 function heartStr(n){ return n>0 ? '❤️'.repeat(n) : '🖤'; }
 function renderScore(){ $('youHearts').textContent=heartStr(state.youLives); $('foeHearts').textContent=heartStr(state.foeLives); $('roundPill').textContent='Round '+state.round; }
 function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
-const PVP_ARMY_CAP = 18;   // PVPは軍の上限を下げて非力な端末でも軽く（CPU対戦は CONFIG.armyCap=30 のまま）。重ければここを更に下げる。
-function capArmy(keys){ const cap = pvpMode ? PVP_ARMY_CAP : CONFIG.armyCap; return keys.length>cap ? keys.slice(keys.length-cap) : keys; }
+function capArmy(keys){ return keys.length>CONFIG.armyCap ? keys.slice(keys.length-CONFIG.armyCap) : keys; }
 
 function randomFoeDeck(){ return shuffle(UNITS.filter(u=>!u.summonOnly).map(u=>u.key)).slice(0,CONFIG.deckSize); }
 function startGame(){
