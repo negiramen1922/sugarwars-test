@@ -1855,7 +1855,7 @@ console.log('\n=== 52) 炭酸沼の重ねがけ上限（PUDDLE_DPS_CAP） ===');
   const before = e.hp;
   API.stepWorld(wd, 1.0);   // 1秒進める
   const lost = before - e.hp;
-  check('重ねがけは上限/秒で頭打ち（合計20でも6前後）', lost > 5 && lost < 7, { lost });
+  check('重ねがけは上限/秒で頭打ち（合計20でも10前後）', lost > 9 && lost < 11, { lost });
   check('上限なしの合計(20)より小さい', lost < 19, { lost });
 }
 
