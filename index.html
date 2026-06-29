@@ -2732,10 +2732,12 @@ const FIREBASE_CONFIG = {
 // ▲▲▲ ここまで ▲▲▲
 
 // === TURN中継（NAT越え・端末分離Wi-Fi対策）===
-// Metered のTURNを接続時に自動取得する（推奨）。サブドメイン/APIキーはクライアント埋め込み前提の値。
-// 別プロジェクトにするときはこの2つを差し替える。未設定（PASTE_…）ならSTUNのみで動作。
-const METERED_SUBDOMAIN = 'sugarwars.metered.live';
-const METERED_API_KEY   = 'lSV20J5aM1MxQt0o3_vWT-11BHgUHHGU5ETVdwYCujKF8ezN';
+// Meteredの流れ：秘密鍵で「TURN認証情報」を1回“作成”すると apiKey が得られ、その apiKey で
+// フロントから iceServers を取得できる。ここでは初回接続時に自動で作成→取得し、apiKeyをキャッシュする。
+// ⚠ 秘密鍵をクライアントに置く割り切り（無料枠500MBで被害は限定的・気になれば後でサーバー側作成に）。
+const METERED_SUBDOMAIN  = 'sugarwars.metered.live';
+const METERED_API_KEY    = '';   // 既に作成済みのAPI Keyがあれば直接ここに設定（あれば作成POSTは省略）
+const METERED_SECRET_KEY = 'KUbDEG6UWD4nIPLKqgDAdbHw6Nx3SPkZFgGNjTuiEazNESZI';   // 秘密鍵（初回にapiKeyを自動作成）
 // 手動でTURNを足したい場合のみ { urls, username, credential } を追加（任意・通常は空でよい）
 const TURN_SERVERS = [];
 // 既定（フォールバック）：公開STUN（自分のグローバルアドレス発見）
@@ -2744,27 +2746,41 @@ const STUN_SERVERS = { iceServers:[
   {urls:'stun:stun1.l.google.com:19302'},
   ...TURN_SERVERS,
 ] };
-// 接続に使うICEサーバー一覧を用意：MeteredのTURNを取得→STUN/手動TURNと合成。失敗時はSTUNのみ。
 let _iceServersCache=null;
+// フロント用 apiKey を用意：直接設定があればそれ／localStorageキャッシュ／無ければ秘密鍵で作成(POST)。
+function ensureMeteredApiKey(onDiag){
+  if(METERED_API_KEY && METERED_API_KEY.indexOf('PASTE')!==0) return Promise.resolve(METERED_API_KEY);
+  try{ const k=localStorage.getItem('sw_turn_apikey'); if(k) return Promise.resolve(k); }catch(e){}
+  if(!METERED_SECRET_KEY || METERED_SECRET_KEY.indexOf('PASTE')===0 || typeof fetch==='undefined') return Promise.resolve(null);
+  const url='https://'+METERED_SUBDOMAIN+'/api/v1/turn/credential?secretKey='+encodeURIComponent(METERED_SECRET_KEY);
+  return fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({label:'sugarwars-pvp'})})
+    .then(r=>r.json()).then(d=>{
+      if(d && d.apiKey){ try{ localStorage.setItem('sw_turn_apikey', d.apiKey); }catch(e){} onDiag('TURN認証情報を作成（apiKey取得）'); return d.apiKey; }
+      onDiag('TURN作成応答: '+JSON.stringify(d).slice(0,120)); return null;
+    }).catch(e=>{ onDiag('TURN作成失敗: '+(e&&e.message||e)); return null; });
+}
+// 接続に使うICEサーバー一覧：apiKeyで取得→STUN/手動TURNと合成。失敗時はSTUNのみ。
 function getIceServers(onDiag){
   onDiag=onDiag||function(){};
   if(_iceServersCache) return Promise.resolve(_iceServersCache);
   const fallback = STUN_SERVERS.iceServers;
-  if(!METERED_API_KEY || METERED_API_KEY.indexOf('PASTE')===0 || typeof fetch==='undefined'){ return Promise.resolve(fallback); }
-  const url='https://'+METERED_SUBDOMAIN+'/api/v1/turn/credentials?apiKey='+encodeURIComponent(METERED_API_KEY);
-  return fetch(url).then(r=>r.json()).then(data=>{
-    // Meteredの応答形式ゆれに対応：配列そのまま / {iceServers:[…]} / {v_iceServers:[…]} など
-    let list = Array.isArray(data) ? data
-             : (data && Array.isArray(data.iceServers)) ? data.iceServers
-             : (data && Array.isArray(data.v_iceServers)) ? data.v_iceServers
-             : (data && Array.isArray(data.result)) ? data.result : null;
-    if(list && list.length){
-      _iceServersCache = list.concat(TURN_SERVERS);   // Metered一覧(stun+turn)＋任意の手動TURN
-      const nTurn = list.filter(s=>String(s.urls||'').indexOf('turn')===0).length;
-      onDiag('TURN取得OK（中継'+nTurn+'件）'); return _iceServersCache;
-    }
-    onDiag('TURN応答（想定外）: '+JSON.stringify(data).slice(0,140));   // 中身を表示して原因特定
-    return fallback;
+  if(typeof fetch==='undefined') return Promise.resolve(fallback);
+  return ensureMeteredApiKey(onDiag).then(apiKey=>{
+    if(!apiKey) return fallback;
+    const url='https://'+METERED_SUBDOMAIN+'/api/v1/turn/credentials?apiKey='+encodeURIComponent(apiKey);
+    return fetch(url).then(r=>r.json()).then(data=>{
+      let list = Array.isArray(data) ? data
+               : (data && Array.isArray(data.iceServers)) ? data.iceServers
+               : (data && Array.isArray(data.v_iceServers)) ? data.v_iceServers
+               : (data && Array.isArray(data.result)) ? data.result : null;
+      if(list && list.length){
+        _iceServersCache = list.concat(TURN_SERVERS);   // Metered一覧(stun+turn)＋任意の手動TURN
+        const nTurn = list.filter(s=>String(s.urls||'').indexOf('turn')===0).length;
+        onDiag('TURN取得OK（中継'+nTurn+'件）'); return _iceServersCache;
+      }
+      try{ localStorage.removeItem('sw_turn_apikey'); }catch(e){}   // 古いapiKeyキャッシュを破棄（次回再作成）
+      onDiag('TURN応答（想定外）: '+JSON.stringify(data).slice(0,140)); return fallback;
+    });
   }).catch(e=>{ onDiag('TURN取得失敗: '+(e&&e.message||e)+' / STUNのみで続行'); return fallback; });
 }
 // ICE候補の種類(host=同一LAN直結 / srflx=NAT越し / relay=TURN中継)を取り出す
