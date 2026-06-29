@@ -1785,7 +1785,25 @@ console.log('\n=== 48) PVP対戦オーケストレーション（親=host / 子=
   // Promise解決（マイクロタスク後）を最後に確認
   Promise.resolve().then(() => {
     check('offerAndAwaitのPromiseが子の選択で解決', resolved === 'cookie', resolved);
-    console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
-    process.exit(fail ? 1 : 0);
   });
 }
+
+console.log('\n=== 49) PVP親配線: リモート敵コントローラが実フロー(startGame/beginDraft)を駆動 ===');
+{
+  // 相手プレイヤーのデッキ・選択がそのまま foeLoadout / foeRoundPicks に反映されることを実フローで確認
+  const rem = API.makeRemoteFoeController();
+  rem.setDeck(['cookie', 'choco', 'bomb', 'shoe']);
+  rem.pushPick('cookie'); rem.pushPick('choco'); rem.pushPick('bomb');
+  API.foeCtl = rem;
+  API.setCpuDeckMode('auto');
+  API.setMyDeck(['daifuku', 'cookie', 'choco', 'bomb']);
+  API.startGame();
+  check('敵デッキ＝相手プレイヤーのデッキ', JSON.stringify(API.state.foeLoadout) === JSON.stringify(['cookie', 'choco', 'bomb', 'shoe']), API.state.foeLoadout);
+  check('敵の選択＝相手プレイヤーの選択（受信順）', JSON.stringify(API.state.foeRoundPicks) === JSON.stringify(['cookie', 'choco', 'bomb']), API.state.foeRoundPicks);
+  API.foeCtl = API.makeCpuFoeController();   // 後始末：CPUに戻す
+}
+
+Promise.resolve().then(() => {
+  console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
+  process.exit(fail ? 1 : 0);
+});

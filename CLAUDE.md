@@ -128,12 +128,23 @@
   - 親：`start()` / `offerAndAwait(round,step,offer3)`（子のPICKをPromiseで待つ＝ドラフト非同期化の核）/ `sendSnapshot(world)` / `sendResult()` / `sendGameover()` / `getGuestDeck()`。
   - 子：`hello(deck)`。受信は hooks（`onStart/onOffer(m,reply)/onSnapshot(world,m)/onResult/onGameover`）。SNAPSHOTは自動でミラー展開。
 
-#### 残作業（画面への配線）
+### F2-②（画面配線）— 実装済み（`<script>`「12) PVP 画面配線」）
 
-- **親の配線**：PVP時、既存ドラフトを `offerAndAwait` で子の選択も集める非同期フローに分岐
-  （`foeCtl=makeRemoteFoeController()` に子のデッキ/選択を流す）。戦闘 `loop()` で一定間隔 `sendSnapshot`。
-- **子の画面**：OFFERで提示UIを出し選択を返す／SNAPSHOTを `render` で描画する薄いクライアント（子は計算しない）。
-- 切断・再接続・タイムアウト処理。**実通信の2台確認は手元環境**で（同端末2タブは接続OK確認済み）。
+- **親**：既存機構を `pvpMode` で再利用。`foeCtl=makeRemoteFoeController()` に差し替え、
+  `pvpHostStartRound()` が `offerAndAwait` で子の選択を先に集めてから `beginDraft()`（=既存ドラフト/戦闘がそのまま動く）。
+  `loop()` が約12Hzで `sendSnapshot`、`endBattle` が `sendResult`/`sendGameover`、`nextRound` がPVP分岐。
+- **子**：`PVP_GUEST_HOOKS`＋`pvpGuestEnterPlay/ShowOffer/RenderSnapshot/OnResult/OnGameover`。
+  計算せず、OFFERで選び・SNAPSHOTを `render` で描画するだけの薄いクライアント。
+- `pvpOnConnected` が接続後に親=子デッキ待ち→開始／子=デッキ送信→START待ち、に分岐。`openPvpLobby` は `needPlayerDeck()` で編成を要求。
+- テスト：test.js 48（オーケストレーション往復）＋49（リモート敵が実フローを駆動）。CPU対戦は不変。
+- **v1の割り切り**：強化カード/逆転ボーナス無し・両者ピック数同じ・切断/再接続/タイムアウト未対応。
+- **要・実機確認**：2台（または同端末2タブ）での対戦通しはこのリポジトリ環境ではテスト不可。手元で確認する。
+
+#### F2-②の次の改善候補
+
+- 強化カード/逆転ボーナスのPVP対応（子の強化適用・敗者先行の同期）。
+- 切断/タイムアウト処理、再戦動線（over画面の「もう一度」をPVP再戦に）。
+- 親子のキャンバスサイズ差の厳密なスケーリング。
 
 ### F3 — 自動マッチング（Firebaseの待機リストでペアリング）
 

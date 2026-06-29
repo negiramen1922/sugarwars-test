@@ -1428,6 +1428,7 @@ function arrangeFormation(world, side, snap){
    5) ドラフト（4枚デッキから「3枚→1枚」を繰り返す）
    ============================================================ */
 function picksFor(iLost, theyLost){
+  if(pvpMode) return CONFIG.picksBase;   // PVP(v1)は逆転ボーナス無し・両者同数で簡潔に
   // 前回負けた側は逆転ボーナスで多く、勝った側は控えめにして逆転を効かせる
   if(iLost) return CONFIG.picksComeback;
   if(theyLost) return CONFIG.picksAfterWin;
@@ -1543,7 +1544,7 @@ function nextPick(){
   state.offer3 = shuffle(state.loadout).slice(0, CONFIG.offerPerPick); // 4枚から3枚
   // 盤面の状況に応じて、3枠のうち1枠を強化カード（融合 or 各キャラX2）に差し替え
   const specials = eligibleSpecials();
-  if(!tutorial && specials.length && Math.random() < SPECIAL_OFFER_CHANCE){
+  if(!tutorial && !pvpMode && specials.length && Math.random() < SPECIAL_OFFER_CHANCE){   // PVP(v1)は強化カード無し
     const sp = specials[Math.floor(Math.random()*specials.length)];
     const i = Math.floor(Math.random()*state.offer3.length);
     state.offer3[i] = sp;
@@ -2345,6 +2346,7 @@ function loop(now){
   const steps=speedMul;
   for(let i=0;i<steps && !world.done;i++) stepWorld(world, frame);
   render();
+  if(pvpMode && pvpHostObj && (now-pvpLastSnap)>80){ pvpLastSnap=now; try{ pvpHostObj.sendSnapshot(world); }catch(e){} }   // 親→子：盤面を約12Hzで配信
   if(world.phase==='battle') updateRemain();
   if(world.phase==='outro' && !world._bannerShown){ showResultBanner(world.result); world._bannerShown=true; }   // 決着の瞬間に画面上へWIN/LOSE表示
   if(world.done){ endBattle(world.result); return; }
@@ -2590,14 +2592,21 @@ function endBattle(result){
   else { state.lostLast=false; state.foeLostLast=false; }
   renderScore();
   $('skipBtn').classList.add('hidden');
+  if(pvpMode && pvpHostObj){   // 親→子：最終盤面・結果・（決着なら）ゲームオーバーを通知
+    try{ pvpHostObj.sendSnapshot(world); }catch(e){}
+    const gr = result==='win'?'lose':result==='lose'?'win':'draw';   // 子から見た結果は反転
+    pvpHostObj.sendResult({ result:gr, youLives:state.foeLives, foeLives:state.youLives, round:state.round });
+    if(state.youLives<=0||state.foeLives<=0){ pvpHostObj.sendGameover({ youWon: state.youLives<=0 }); }
+  }
   if(tutorial){ setTimeout(()=>tutAfterBattle(result), 1200); return; }   // チュートリアル：自動で次へ進めず、ふきだしで案内
   // 最後のライフを削り切ったときだけ決着画面へ。それ以外は勝敗表示のあと自動で次ラウンドへ。
   if(state.youLives<=0||state.foeLives<=0) setTimeout(endGame,1400);
   else setTimeout(nextRound,1800);
 }
-function nextRound(){ state.round++; beginDraft(); }
+function nextRound(){ state.round++; if(pvpMode){ pvpHostStartRound(); } else { beginDraft(); } }
 function endGame(){
   cancelAnimationFrame(raf);
+  if(pvpMode){ pvpMode=false; foeCtl=makeCpuFoeController(); }   // PVP決着：後始末（「もう一度」はCPU対戦に戻す）
   const won=state.foeLives<=0;
   $('overTitle').textContent=won?'勝利！':'敗北…';
   $('overTitle').style.color=won?'var(--green)':'var(--rust)';
@@ -2682,7 +2691,7 @@ function applySnapshot(snap, mirror){
   if(!snap) return null;
   const H = snap.H;
   const flipSide = s => s==='p' ? 'e' : (s==='e' ? 'p' : s);
-  const fixY = (o)=>{ if(o.y!=null) o.y = H - o.y; if(o.vy!=null) o.vy = -o.vy; if(o.sy!=null) o.sy = H - o.sy; if(o.ty!=null) o.ty = H - o.ty; if(o.atkDy!=null) o.atkDy = -o.atkDy; if(o.dieDir!=null) o.dieDir = -o.dieDir; if(o.knocky!=null) o.knocky = -o.knocky; };
+  const fixY = (o)=>{ if(o.y!=null) o.y = H - o.y; if(o.vy!=null) o.vy = -o.vy; if(o.sy!=null) o.sy = H - o.sy; if(o.ty!=null) o.ty = H - o.ty; if(o.atkDy!=null) o.atkDy = -o.atkDy; if(o.knocky!=null) o.knocky = -o.knocky; };   // dieDir(横倒れ方向)は上下反転で変えない
   const mapArr = (arr, isUnit)=> (arr||[]).map(o=>{ const c={...o}; if(mirror){ if(isUnit && c.side) c.side = flipSide(c.side); fixY(c); } return c; });
   const w = createWorld(snap.W, snap.H);
   w.phase=snap.phase; w.t=snap.t; w.result=snap.result;
@@ -2799,6 +2808,7 @@ function createWebRTCTransport(opts){
 /* ---- ロビーUI（接続まで） ---- */
 function openPvpLobby(){
   SFX.play('button');
+  if(needPlayerDeck()) return;   // PVPも自分の編成デッキ(myDeck)を使う。未編成なら編成へ誘導。
   pvpResetLobby();
   $('pvpSetupWarn').classList.toggle('hidden', firebaseConfigured());
   show('pvpLobby');
@@ -2842,17 +2852,24 @@ function pvpJoin(){
     onOpen:tp=>{ pvpConn=tp; pvpOnConnected('子'); } })
     .catch(err=>{ $('pvpJoinStatus').textContent='エラー: '+err.message; pvpDiag('エラー: '+err.message); });
 }
-// 接続成立：F2-①では「接続確認」モードを出す。F2-②でここから対戦開始に進める。
+// 接続成立 → 対戦開始（親：子のデッキ待ち→開始 / 子：自デッキ送信→START待ち）
 function pvpOnConnected(roleLabel){
-  ['pvpHostBox','pvpJoinBox','pvpChoice'].forEach(id=>$(id).classList.add('hidden'));
-  $('pvpConnBox').classList.remove('hidden');
-  $('pvpRoleLabel').textContent=roleLabel;
-  pvpLog('✅ 接続できました（あなた='+roleLabel+'）');
-  pvpConn.onMessage(msg=>{
-    if(msg && msg.type===PVP_MSG.HELLO){ pvpLog('📥 相手から: '+(msg.text||'(メッセージ)')); }
-    else pvpLog('📥 '+JSON.stringify(msg));
-  });
+  ['pvpHostBox','pvpJoinBox','pvpChoice','pvpConnBox'].forEach(id=>$(id).classList.add('hidden'));
   SFX.play('special');
+  pvpDiag('✅ 接続成立。対戦準備中…（あなた='+roleLabel+'）');
+  if(roleLabel==='親'){
+    pvpRole='host';
+    pvpHostObj = makePvpHost(pvpConn, {
+      onGuestHello:(deck)=>{ pvpGuestDeck=deck; pvpDiag('相手のデッキを受信。対戦開始！'); pvpStartAsHost(); },
+      onGuestPick:()=>{},
+    });
+    // 親のデッキは openPvpLobby で確認済み。子のHELLO（参加）待ち。
+  } else {
+    pvpRole='guest';
+    pvpGuestObj = makePvpGuest(pvpConn, PVP_GUEST_HOOKS);
+    pvpGuestObj.hello(myDeck);
+    pvpDiag('デッキを送信。対戦開始を待っています…');
+  }
 }
 function pvpSendTest(){
   if(!pvpConn){ return; }
@@ -2862,6 +2879,9 @@ function pvpSendTest(){
 }
 function pvpLeave(){
   SFX.play('button');
+  pvpGuestActive=false; try{ cancelAnimationFrame(pvpGuestRaf); }catch(e){}
+  pvpMode=false; pvpHostObj=null; pvpGuestObj=null; pvpRemoteFoe=null; pvpGuestDeck=null;
+  foeCtl = makeCpuFoeController();   // 敵をCPUに戻す
   try{ if(pvpConn) pvpConn.close(); }catch(e){}
   try{ if(pvpPC) pvpPC.close(); }catch(e){}
   try{ if(pvpRoomRef){ pvpRoomRef.off(); /* 後始末：部屋データ削除 */ pvpRoomRef.remove().catch(()=>{}); } }catch(e){}
@@ -2916,6 +2936,97 @@ function makePvpHost(conn, hooks){
     sendResult(info){ conn.send(Object.assign({ type:PVP_MSG.RESULT }, info||{})); },
     sendGameover(info){ conn.send(Object.assign({ type:PVP_MSG.GAMEOVER }, info||{})); },
   };
+}
+
+/* ============================================================
+   12) PVP 画面配線（F2-②：親=ホスト権威で計算、子=薄いクライアント）
+   ----------------------------------------------------------------
+   - 親は既存のゲーム機構（beginDraft/loop/endBattle）を pvpMode で再利用し、
+     敵を makeRemoteFoeController() に差し替え＋盤面を一定間隔で子へ配信する。
+   - 子は計算せず、OFFERで選び・SNAPSHOTを描画するだけ。
+   - v1の割り切り：強化カード/逆転ボーナス無し・両者ピック数同じ・切断/タイムアウト未対応。
+   ============================================================ */
+let pvpMode=false, pvpHostObj=null, pvpGuestObj=null, pvpRemoteFoe=null;
+let pvpGuestDeck=null, pvpGuestActive=false, pvpGuestRaf=0, pvpGuestPicking=false, pvpLastSnap=0;
+
+// 親：相手デッキ受信後にマッチ開始（敵をリモートに差し替え→既存フローへ）
+function pvpStartAsHost(){
+  pvpMode=true; pvpGuestActive=false;
+  pvpRemoteFoe = makeRemoteFoeController(); pvpRemoteFoe.setDeck(pvpGuestDeck||[]);
+  foeCtl = pvpRemoteFoe;
+  resetState();
+  state.loadout = myDeck.slice();
+  state.foeLoadout = (pvpGuestDeck||[]).slice();
+  renderScore();
+  pvpHostObj.start({ lives:CONFIG.startLives, round:1 });
+  pvpHostStartRound();
+}
+// 親：1ラウンド分。まず子の選択を集め（非同期）、揃ったら既存ドラフト→自動開戦→戦闘配信。
+function pvpHostStartRound(){
+  show('play');
+  $('draftPanel').classList.remove('hidden'); $('offerOverlay').classList.add('hidden');
+  $('battlePanel').classList.add('hidden'); $('battleHead').classList.add('hidden');
+  $('draftHint').textContent='ライバルが選んでいます…';
+  const n = CONFIG.picksBase; let i=0;
+  const gatherNext=()=>{
+    if(i>=n){ beginDraft(); return; }   // 子の選択が揃ったら既存ドラフト（foeCtlがその選択を返す）
+    const offer = shuffle(state.foeLoadout).slice(0, CONFIG.offerPerPick);
+    pvpHostObj.offerAndAwait(state.round, i, offer).then(key=>{ pvpRemoteFoe.pushPick(key); i++; gatherNext(); });
+  };
+  gatherNext();
+}
+
+// 子：受信フック
+const PVP_GUEST_HOOKS = {
+  onStart:(m)=>pvpGuestEnterPlay(m),
+  onOffer:(m,reply)=>pvpGuestShowOffer(m,reply),
+  onSnapshot:(w)=>pvpGuestRenderSnapshot(w),
+  onResult:(m)=>pvpGuestOnResult(m),
+  onGameover:(m)=>pvpGuestOnGameover(m),
+};
+function pvpGuestEnterPlay(m){
+  pvpMode=false; pvpGuestActive=true; pvpGuestPicking=false;
+  state.youLives=(m&&m.lives)||CONFIG.startLives; state.foeLives=(m&&m.lives)||CONFIG.startLives; state.round=(m&&m.round)||1;
+  show('play'); setupCanvas(); world=null;
+  $('draftPanel').classList.add('hidden'); $('offerOverlay').classList.add('hidden');
+  $('battlePanel').classList.add('hidden'); $('battleHead').classList.remove('hidden');
+  $('lockBtn').classList.add('hidden'); $('skipBtn').classList.add('hidden');
+  renderScore(); pvpGuestLoop();
+}
+function pvpGuestLoop(){
+  cancelAnimationFrame(pvpGuestRaf);
+  const tick=()=>{ if(!pvpGuestActive) return; if(world){ try{ render(); if(world.phase==='battle') updateRemain(); }catch(e){} } pvpGuestRaf=requestAnimationFrame(tick); };
+  pvpGuestRaf=requestAnimationFrame(tick);
+}
+function pvpGuestRenderSnapshot(w){
+  if(w && (CW!==w.W || CH!==w.H) && canvas){   // 子のキャンバスを親の盤面サイズに合わせて座標系を一致させる
+    CW=w.W; CH=w.H; canvas.style.height=CH+'px'; canvas.width=Math.round(CW*dpr); canvas.height=Math.round(CH*dpr); ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  world=w; $('battleHead').classList.remove('hidden');
+  if(world.phase==='battle'||world.phase==='outro'){ $('offerOverlay').classList.add('hidden'); $('draftPanel').classList.add('hidden'); }
+}
+function pvpGuestShowOffer(m, reply){
+  $('battlePanel').classList.add('hidden'); $('draftPanel').classList.remove('hidden'); $('offerOverlay').classList.remove('hidden');
+  $('pickStep').textContent=(m.step+1); $('pickTotal').textContent=CONFIG.picksBase;
+  $('draftHint').textContent='3枚から1枚えらぼう';
+  const wrap=$('offer'); wrap.innerHTML=''; pvpGuestPicking=false;
+  (m.offer3||[]).forEach(key=>{
+    const u=UNIT_BY_KEY[key]; if(!u) return;
+    const el=document.createElement('div'); el.className='card';
+    el.innerHTML=`<div class="icon">${iconHTML(u)}${u.count>1?`<span class="count">×${u.count}</span>`:''}</div>`+
+      `<div class="cname">${u.name}</div><div class="tagline">${u.short||u.text}</div>`+
+      `<div class="stats"><span class="atk">⚔ ${u.atk}</span><span class="hp">✚ ${u.hp}</span></div>`;
+    el.onclick=()=>{ if(pvpGuestPicking) return; pvpGuestPicking=true; SFX.play('pick'); el.classList.add('spin','picked'); $('offerOverlay').classList.add('hidden'); $('draftHint').textContent='相手の選択を待っています…'; reply(key); };
+    wrap.appendChild(el);
+  });
+}
+function pvpGuestOnResult(m){ state.youLives=m.youLives; state.foeLives=m.foeLives; if(m.round) state.round=m.round; renderScore(); showResultBanner(m.result); }
+function pvpGuestOnGameover(m){
+  pvpGuestActive=false; cancelAnimationFrame(pvpGuestRaf);
+  const won=!!m.youWon;
+  $('overTitle').textContent=won?'勝利！':'敗北…'; $('overTitle').style.color=won?'var(--green)':'var(--rust)';
+  $('overText').textContent=won?'対戦に勝利しました！🎉':'対戦に敗北しました。';
+  show('over');
 }
 
 resetState(); renderScore(); show('home');
