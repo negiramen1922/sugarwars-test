@@ -690,12 +690,41 @@ const SFX = (function(){
     evolve(){ const a=ctx(); if(!a)return; blip(a.currentTime,392,0.4,{type:'triangle',vol:0.4,slide:2.6}); }, // ぐんぐん上昇
     win(){ const a=ctx(); if(!a)return; const t=a.currentTime; [523,659,784,1047].forEach((f,i)=>blip(t+i*0.12,f,0.22,{type:'triangle',vol:0.44})); },
     lose(){ const a=ctx(); if(!a)return; const t=a.currentTime; [523,440,349,262].forEach((f,i)=>blip(t+i*0.14,f,0.26,{type:'sine',vol:0.38})); },
+    battleStart(){ const a=ctx(); if(!a)return; const t=a.currentTime;   // 出撃ラッパ「ブッ・ブッ・ブブー↑」
+      [[392,0.10],[392,0.10],[523,0.12],[784,0.34]].forEach(([f,d],i)=>{ blip(t+i*0.12,f,d,{type:'sawtooth',vol:0.32}); });
+      blip(t,131,0.5,{type:'sine',vol:0.28,slide:0.9});   // 低音のドン
+      noise(t+0.36,0.18,{vol:0.12,hp:1200}); },           // 締めのシャッ
   };
   function play(name){ if(muted) return; const fn=S[name]; if(!fn) return;
     try{ const a=ctx(); if(a&&a.state==='suspended') a.resume(); fn(); }catch(e){} }
+
+  /* --- BGM：合成のサーカス風ワルツ（3拍子・ズンチャチャ＋オルゴール風メロディ）。ループ再生 --- */
+  const NW={A2:110,E2:82.41,D3:146.83,A3:220,C4:261.63,D4:293.66,E4:329.63,F4:349.23,G4:392,
+    A4:440,B4:493.88,C5:523.25,D5:587.33,E5:659.25,F5:698.46,G5:783.99,A5:880};
+  const WALTZ_BASS =['A2','A2','E2','E2','A2','D3','E2','A2'];                                  // 8小節の根音
+  const WALTZ_CHORD=[['A3','C4'],['A3','C4'],['E4','G4'],['E4','G4'],['A3','C4'],['D4','F4'],['E4','G4'],['E4','G4']];
+  const WALTZ_MEL  =['E5',0,'A4','C5',0,'B4','E5',0,'G5','E5',0,0,'C5',0,'E5','D5',0,'F5','E5',0,'B4','A4',0,0];  // 24拍
+  let bgmTimer=null, bgmStep=0, bgmNextT=0, bgmName=null;
+  const BEAT=0.40;   // 1拍の秒数（≒150bpmワルツ）
+  function bgmScheduleBeat(step,t){
+    if(!master) return;
+    const beat=step%3, bar=Math.floor(step/3)%8;
+    if(beat===0) blip(t, NW[WALTZ_BASS[bar]]||110, 0.30, {type:'triangle',vol:0.18});            // ズン（低音）
+    else WALTZ_CHORD[bar].forEach(n=> blip(t, NW[n]||220, 0.16, {type:'triangle',vol:0.07}));      // チャ（和音刻み）
+    const mn=WALTZ_MEL[bar*3+beat];                                                                 // メロディ（オルゴール風）
+    if(mn) blip(t, NW[mn]||440, 0.36, {type:'sine',vol:0.14,attack:0.01});
+  }
+  function bgmTick(){ const a=ctx(); if(!a) return;
+    while(bgmNextT < a.currentTime+0.12){ if(!muted) bgmScheduleBeat(bgmStep,bgmNextT); bgmNextT+=BEAT; bgmStep++; } }
+  function bgmStart(name){ const a=ctx(); if(!a) return; if(a.state==='suspended') a.resume();
+    if(bgmName===name && bgmTimer) return;                       // 既に同じBGM再生中なら何もしない
+    bgmStop(); bgmName=name||'home'; bgmStep=0; bgmNextT=a.currentTime+0.1;
+    try{ bgmTimer=setInterval(bgmTick,30); }catch(e){} }
+  function bgmStop(){ if(bgmTimer){ try{ clearInterval(bgmTimer); }catch(e){} bgmTimer=null; } bgmName=null; }
+
   function toggle(){ muted=!muted; if(!muted){ const a=ctx(); if(a&&a.state==='suspended') a.resume(); } return muted; }
-  try{ document.addEventListener('pointerdown', function once(){ const a=ctx(); if(a&&a.state==='suspended') a.resume(); document.removeEventListener('pointerdown', once); }); }catch(e){}
-  return { play:play, toggle:toggle, get muted(){ return muted; } };
+  try{ document.addEventListener('pointerdown', function once(){ const a=ctx(); if(a&&a.state==='suspended') a.resume(); if(typeof onFirstAudioGesture==='function') onFirstAudioGesture(); document.removeEventListener('pointerdown', once); }); }catch(e){}
+  return { play:play, toggle:toggle, bgm:bgmStart, bgmStop:bgmStop, get bgmName(){ return bgmName; }, get muted(){ return muted; } };
 })();
 
 /* スプライト画像（アップロードされたドット絵を埋め込み）。preloadしてcanvasに描画 */
@@ -760,7 +789,9 @@ function activeDeck(){ return rosterMode==='cpu' ? cpuDeck : myDeck; }
 let tutorial = false;        // ガイド付き体験バトル中か
 const TUT_DECK = ['choco','cookie','bomb','shoe'];   // チュートリアル用の固定デッキ
 const TUT_FOE  = ['ginger'];                          // チュートリアルの弱い相手（どのカードを選んでも勝てる）
-function show(sec){ ['home','battleMenu','cpuMode','pvpLobby','roster','play','over'].forEach(s=>$(s).classList.toggle('hidden', s!==sec)); const sb=$('scoreBar'); if(sb) sb.classList.toggle('hidden', !(sec==='play'||sec==='over')); }
+function show(sec){ ['home','battleMenu','cpuMode','pvpLobby','roster','play','over'].forEach(s=>$(s).classList.toggle('hidden', s!==sec)); const sb=$('scoreBar'); if(sb) sb.classList.toggle('hidden', !(sec==='play'||sec==='over')); if(sec==='play') SFX.bgmStop(); }   // 戦闘に入ったらホームBGMを止める
+// 最初のタップ（オーディオ解禁）でホーム表示中ならBGM開始
+function onFirstAudioGesture(){ try{ if(!$('home').classList.contains('hidden')) SFX.bgm('home'); }catch(e){} }
 function heartStr(n){ return n>0 ? '❤️'.repeat(n) : '🖤'; }
 function renderScore(){ $('youHearts').textContent=heartStr(state.youLives); $('foeHearts').textContent=heartStr(state.foeLives); $('roundPill').textContent='Round '+state.round; }
 function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
@@ -777,7 +808,7 @@ function startGame(){
 }
 
 /* ホーム/メニュー遷移 */
-function goHome(){ SFX.play('button'); hideDeckNote(); hideResultBanner(); rosterMode='you'; show('home'); }
+function goHome(){ SFX.play('button'); hideDeckNote(); hideResultBanner(); rosterMode='you'; show('home'); SFX.bgm('home'); }   // ホームでBGM再生
 function goBattleMenu(){ SFX.play('button'); show('battleMenu'); }
 // CPU対戦：まず「おまかせ / デッキ選択」の二択
 function goCpuMode(){ SFX.play('button'); show('cpuMode'); }
@@ -1750,7 +1781,7 @@ function aiPicks(loadout, n){
 function lockAndFight(){
   if(!world || world.phase==='battle') return;   // 自動開戦と多重呼び出しの保護（既に戦闘中なら無視）
   if(pvpMode) pvpTrace('host 開戦 r'+state.round);
-  SFX.play('button');
+  SFX.play('battleStart');   // 出撃ラッパ（試合開始の合図）
   // 残っている敵ピックを公開（敵の枚数が多い場合など）
   while(state.foeRevealIdx < state.foeRoundPicks.length){
     revealFoePick(state.foeRoundPicks[state.foeRevealIdx]); state.foeRevealIdx++;
@@ -3056,6 +3087,7 @@ function makePvpHost(conn, hooks){
 let pvpMode=false, pvpHostObj=null, pvpGuestObj=null, pvpRemoteFoe=null;
 let pvpGuestDeck=null, pvpGuestActive=false, pvpGuestRaf=0, pvpGuestPicking=false, pvpLastSnap=0;
 let pvpSnapBuf=[];   // 子：受信スナップショットのバッファ（時刻つき）。少し過去の2フレーム間を補間してなめらかに描く
+let pvpGuestLastPhase=null;   // 子：直前のphase（開戦の合図を1回だけ鳴らす用）
 function pvpTrace(s){ try{ console.log('[PVP]', s); }catch(e){} }   // 進行の記録（F12コンソールで確認用・読むだけ）
 
 // 親：相手デッキ受信後にマッチ開始（敵をリモートに差し替え→既存フローへ）
@@ -3200,7 +3232,7 @@ function pvpGuestRunDraft(m, sendPicks){
 function pvpGuestEnterPlay(m){
   pvpMode=false; pvpGuestActive=true; pvpGuestPicking=false;
   state.youLives=(m&&m.lives)||CONFIG.startLives; state.foeLives=(m&&m.lives)||CONFIG.startLives; state.round=(m&&m.round)||1;
-  show('play'); setupCanvas(); world=null; pvpSnapBuf=[];
+  show('play'); setupCanvas(); world=null; pvpSnapBuf=[]; pvpGuestLastPhase=null;
   hideResultBanner();
   $('draftPanel').classList.add('hidden'); $('offerOverlay').classList.add('hidden');
   $('battlePanel').classList.add('hidden'); $('battleHead').classList.remove('hidden');
@@ -3247,6 +3279,8 @@ function pvpGuestRenderSnapshot(w){
   const now=(typeof performance!=='undefined'&&performance.now)?performance.now():Date.now();
   pvpSnapBuf.push({ t:now, w }); if(pvpSnapBuf.length>5) pvpSnapBuf.shift();   // 時刻つきで貯める（メモリ節約のため浅め）
   $('battleHead').classList.remove('hidden');
+  if(w.phase==='battle' && pvpGuestLastPhase!=='battle') SFX.play('battleStart');   // 子も開戦時に出撃ラッパ
+  pvpGuestLastPhase=w.phase;
   if(w.phase==='battle'||w.phase==='muster'){ hideResultBanner(); }   // 次ラウンドの盤面が来たら勝敗バナーを消す
   if(w.phase==='battle'||w.phase==='outro'){ $('offerOverlay').classList.add('hidden'); $('draftPanel').classList.add('hidden'); }
 }
