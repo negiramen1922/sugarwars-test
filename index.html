@@ -2299,7 +2299,7 @@ function stepWorld(world, dt){
         // 敵陣の最後尾あたりの“ほぼ固定座標”へワープ（特定の敵は狙わない。横にだけ少しばらける）
         const W=world.W, H=world.H, L=playL(W), Rr=playR(W);
         const dx=L+u.r+Math.random()*Math.max(1,(Rr-L-2*u.r));        // 横は盤面内でばらける
-        const dy=(u.side==='p')? (playT(H)+u.r+8) : (playB(H)-u.r-8);  // 敵陣/自陣の最後尾（盤面内）
+        const dy=(u.side==='p')? (playT(H)+u.r) : (playB(H)-u.r);  // 縦は固定：敵陣の一番奥（キャンディキャノンが居る段）。敵が居なくてもこの座標
         u.x=dx; u.y=dy; clampToStage(u,W,H);
         u.warped=true; u.vanishing=false; u.vanP=0; u.appearFx=0.3; u.kbImmune=0.3; u.invuln=0.6;
         burst(world,u.x,u.y,'#ffd9f2',16,160); world.rings.push({x:u.x,y:u.y,r:3,max:32,life:0.32,color:'#ffd9f2'});
