@@ -147,14 +147,16 @@
 - **強化パリティ**：`pvpMakeStepOffers()` が**1回の抽選**（`SPECIAL_OFFER_CHANCE`）で両者の提示を作り、当たれば**両陣営に同時に**強化カードを差し込む＝「片方に強化/X2が出たら、もう片方にも（出せるなら）出る」。`X2_OFFER_CAP` 体以上の種類はX2を出さない。
 - **効果適用**：`applyPvpSpecial(world,side,key)` が融合/X2/固有強化を指定陣営へ適用し `state.youX2`/`foeX2`/`youMerges` 等を更新（PVEと同じ状態）。親の自分ピックは'p'、子のピックは'e'へ。
 - **毎ラウンド再適用**：`pvpHostStartRound()` 冒頭で `reapplyEnhancements(world,'p'|'e')`（融合＋`applyX2Replay`＋`applyFlagBuffs`）。PVEの `beginDraft` と同等。
-- **未対応（フェーズ2予定）**：逆転ボーナス（ピック数の非対称・敗者先行）。現状は両者同数ピック。
-- テスト：test.js 53〜56（提示の出し分け／X2適用／融合＋再適用／STEPでのoffer3伝播）。
+- テスト：test.js 53〜58（提示の出し分け／X2適用／融合＋再適用／STEPでのoffer3伝播／X2上限／強化パリティ）。
 
-#### 次の改善候補
+### F2-④（PVP逆転ボーナス フェーズ2）— 実装済み（敗者先行の非対称ピック）
 
-- **逆転ボーナスのPVP対応**（敗者が多くピック・敗者先行の同期）＝フェーズ2。
-- 切断/タイムアウト処理、再戦動線（over画面の「もう一度」をPVP再戦に）。
-- 親子のキャンバスサイズ差の厳密なスケーリング。
+- **`pvpEnh` 時のみ有効**（新版同士。旧版混在なら `picksFor` が `picksBase` を返して従来どおり両者同数）。
+- ピック数：`pvpHostStartRound()` が `picksFor()` で親子それぞれ算出（敗者=`picksComeback`=4／勝者=`picksAfterWin`=3）。`endBattle` がホスト側で `state.lostLast`/`foeLostLast` を確定済み。子の `lostLast` は RESULT から `pvpGuestOnResult` が設定（逆転バナー用）。
+- **敗者先行**：差分（`pvpHostExtra`/`pvpGuestExtra`）ぶんを先頭ステップで**単独ピック**。`pvpHostDraftStep()` が各ステップで `pvpStepHostActive`/`pvpStepGuestActive` を判定し、片側のみアクティブなら単独・両方なら同時選択（強化パリティはこのときだけ）。
+- **待機同期**：親が単独で選ぶステップは `notifyGuestWait()` が STEP に `wait:true` を載せ、子は `pvpGuestShowWait()` で待機表示＋**返信しない**。子が単独のステップは親が `pvpHostShowOffer` を出さず待機表示。
+- テスト：test.js 59（`picksFor`の逆転）・60（待機通知で子が返信しない）。
+- **未対応**：切断/タイムアウト処理、再戦動線（over画面の「もう一度」をPVP再戦に）、親子のキャンバスサイズ差の厳密なスケーリング。
 
 ### F3 — 自動マッチング（Firebaseの待機リストでペアリング）
 
