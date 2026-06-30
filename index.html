@@ -228,6 +228,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics-compat.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -917,6 +918,7 @@ function startGame(){
   state.loadout = myDeck.slice();                                   // 編成画面で作ったデッキを使用
   // ライバルのデッキは「敵コントローラ」が決める（CPU＝従来どおり／将来はPVPの相手プレイヤー）
   state.foeLoadout = foeCtl.deck();
+  trackBattleStart(tutorial?'tutorial':'cpu');   // 計測：対戦開始（CPU/チュートリアル）
   renderScore();
   beginDraft();
 }
@@ -968,7 +970,7 @@ function startTutorial(){
   cpuDeckMode = 'manual'; cpuDeck = TUT_FOE.slice();
   showTut('おお、よう来たのう…。ワシはクッキーじぃ。\nまずは1戦だけ、戦のイロハを教えるでのう。', {tag:'チュートリアル', cta:'はじめる', onNext:()=>{ hideTut(); startGame(); }});
 }
-function endTutorial(){ tutorial=false; hideTut(); markTutSeen(); cpuDeckMode='auto'; cpuDeck=[]; goHome(); }
+function endTutorial(){ tutorial=false; hideTut(); markTutSeen(); track('tutorial_complete'); cpuDeckMode='auto'; cpuDeck=[]; goHome(); }
 // ドラフトが表示された直後（tutorial）：1枚選ぶよう促す
 // 「次へ」を押すと吹き出しだけ消えて、光る3枚が残る＝「あ、押さなきゃ」と気づける流れ
 function tutOnDraft(){ const o=$('offer'); if(o) o.classList.add('tut-pick'); showTut('上の3枚から、1枚を選びなされ。\n選んだ仲間は毎ラウンドよみがえって「軍」に加わるんじゃよ。', {tag:'① ドラフト', cta:'カードを選ぶ ›', onNext:()=>{ const l=$('tutLayer'); if(l) l.classList.add('hidden'); }}); }   // 吹き出しだけ隠し、tut-pickのハイライトは残す（カードを直接クリックさせる）
@@ -1765,6 +1767,7 @@ function pickCardAnimated(el, key){
 }
 function pickCard(key){
   SFX.play(isSpecial(key)?'special':'pick');   // カード選択音（強化はキラキラ）
+  if(!isSpecial(key)) track('unit_pick', { unit:key });   // 計測：ドラフトで選んだキャラ（使用率）
   // 強化カードの場合：軍には加えず、盤面のキャラに効果を適用する
   if(isSpecial(key)){
     if(key==='up_slime'){
@@ -2844,6 +2847,7 @@ function closeNews(e){ if(e && e.target!==e.currentTarget) return; SFX.play('but
 function endBattle(result){
   cancelAnimationFrame(raf);
   $('skipBtn').classList.add('hidden');
+  track('battle_end', { mode: pvpMode?'pvp':(tutorial?'tutorial':'cpu'), result: result });   // 計測：決着（勝敗）
   showResultBanner(result);   // 画面上に WIN / LOSE / DRAW（敵が倒れきって味方だけになったタイミング）
   if(result==='win'){ state.foeLives--; state.lostLast=false; state.foeLostLast=true; }
   else if(result==='lose'){ state.youLives--; state.lostLast=true; state.foeLostLast=false; }
@@ -3063,6 +3067,22 @@ let pvpDb=null, pvpConn=null, pvpRole=null, pvpRoomRef=null, pvpPC=null;
 
 function firebaseConfigured(){
   return typeof firebase!=='undefined' && FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.indexOf('PASTE_')!==0;
+}
+
+/* ===== 利用状況の計測（Firebase Analytics＝GA4） =====
+   未設定/ヘッドレスでは何もしない。PIIは送らず、ゲーム内イベントのみ。 */
+let _analytics=null, _analyticsTried=false;
+function getAnalytics(){
+  if(_analyticsTried) return _analytics;
+  _analyticsTried=true;
+  try{ if(firebaseConfigured() && firebase.analytics){ if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG); _analytics=firebase.analytics(); } }catch(e){ _analytics=null; }
+  return _analytics;
+}
+function track(name, params){ try{ const a=getAnalytics(); if(a) a.logEvent(name, params||{}); }catch(e){} }
+// 対戦開始の計測：モード＋デッキ構成（キャラ使用率の集計用）
+function trackBattleStart(mode){
+  track('battle_start', { mode:mode });
+  try{ (myDeck||[]).forEach(function(k){ track('unit_in_deck', { unit:k, mode:mode }); }); }catch(e){}
 }
 function ensureFirebase(){
   if(!firebaseConfigured()) return null;
@@ -3416,10 +3436,12 @@ function mmConnState(s){
   if(s==='failed'){
     el.textContent='⚠ 相手は見つかりましたが、通信経路を確保できず対戦を開始できませんでした。お互いが別々のネット回線だと起きやすいです。同じWi-Fi（またはどちらかのテザリング）に揃えて、「キャンセル」→もう一度お試しください。';
     const sp=$('pvpMmSpinner'); if(sp) sp.textContent='😢';
+    track('random_match_failed', { reason:'connect' });   // 計測：マッチ成立後の接続失敗（TURN健全性）
   } else if(s==='disconnected'){
     el.textContent='通信が不安定です…経路を確認中（つながらなければ回線を揃えて再挑戦を）';
   } else if(s==='connected'){
     el.textContent='接続成功！ 対戦を準備中…';
+    track('random_match_connected');   // 計測：接続成功（TURN健全性）
   } else {
     el.textContent='接続中…（'+s+'）';
   }
@@ -3429,6 +3451,7 @@ function randomMatchStart(){
   if(!firebaseConfigured()){ $('pvpSetupWarn').classList.remove('hidden'); return; }
   if(needPlayerDeck()) return;   // 自分の編成デッキが必要
   const sp=$('pvpMmSpinner'); if(sp) sp.textContent='🎲';   // 再挑戦時に表情を戻す
+  track('random_match_start');   // 計測：ランダムマッチ開始（成立/失敗率の母数）
   mmActive=true; mmStartedConn=false; mmShowOpponent(null); mmShow('接続を準備中…');
   ensureGuestSignIn().then(function(uid){
     if(!mmActive) return;
@@ -3588,6 +3611,7 @@ function pvpStartAsHost(){
   resetState(); resetPvpEnhPending();   // 強化の持ち越しはマッチ単位（ラウンドを跨いで繰り越す）
   state.loadout = myDeck.slice();
   state.foeLoadout = (pvpGuestDeck||[]).slice();
+  trackBattleStart('pvp');   // 計測：PVP対戦開始（親）
   renderScore();
   pvpHostObj.start({ lives:CONFIG.startLives, round:1, proto:PVP_PROTO, enh:pvpEnh });
   pvpHostStartRound();
@@ -3849,6 +3873,7 @@ function pvpGuestRunDraft(m, sendPicks){
 }
 function pvpGuestEnterPlay(m){
   pvpMode=false; pvpGuestActive=true; pvpGuestPicking=false;
+  trackBattleStart('pvp');   // 計測：PVP対戦開始（子）
   state.youLives=(m&&m.lives)||CONFIG.startLives; state.foeLives=(m&&m.lives)||CONFIG.startLives; state.round=(m&&m.round)||1;
   state.lostLast=false; state.foeLostLast=false;   // 逆転バナー用（初戦は両者なし）
   show('play'); setupCanvas(); world=null; pvpSnapBuf=[]; pvpGuestLastPhase=null;
