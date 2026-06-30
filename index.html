@@ -3221,31 +3221,53 @@ function applyProfile(p){
 function getAuth(){ if(!firebaseConfigured()) return null; try{ if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG); return firebase.auth(); }catch(e){ return null; } }
 function authInit(){
   const a=getAuth(); if(!a) return;
-  try{ a.getRedirectResult().catch(function(){}); }catch(e){}   // モバイルのリダイレクトログイン結果を回収
-  a.onAuthStateChanged(function(user){ authUser=user||null; updateAuthUI(); if(authUser) onSignedIn(authUser); });
+  // リダイレクト方式のログイン結果を回収（GitHub Pages等でポップアップが使えない時の本命経路）
+  try{ a.getRedirectResult().then(function(res){
+    if(res && res.user) authGoogleDone();
+  }).catch(function(err){
+    const c=err&&err.code;
+    if(c==='auth/credential-already-in-use'){ const cred=googleCredFromErr(err); if(cred) a.signInWithCredential(cred).then(authGoogleDone).catch(function(e2){ authMsg(authErrMsg(e2)); }); }
+    else if(c) authMsg(authErrMsg(err));
+  }); }catch(e){}
+  a.onAuthStateChanged(function(user){
+    authUser=user||null; updateAuthUI();
+    if(authUser){ onSignedIn(authUser); pvpPresenceStart(authUser.uid); }   // ログイン/匿名のuidが確定→presence参加
+    else if(!_anonTried){ _anonTried=true; try{ a.signInAnonymously().catch(function(){}); }catch(e){} }   // 未ログイン→presence用に匿名化（戻りのonAuthStateChangedで参加）
+  });
 }
+let _anonTried=false;
+function googleCredFromErr(err){
+  try{ if(err && err.credential) return err.credential;
+       if(firebase.auth.GoogleAuthProvider.credentialFromError) return firebase.auth.GoogleAuthProvider.credentialFromError(err); }catch(e){}
+  return null;
+}
+function authGoogleDone(){ try{ authMsg('ログインしました ☁'); updateAuthUI(); renderProfileChip(); renderHomeTrophies(); }catch(e){} }
 // 匿名(ゲスト)中なら link で“引き継ぎ”、そうでなければ通常サインイン。
 function authGoogle(){
   const a=getAuth(); if(!a){ authMsg('Firebaseが未設定です'); return; }
   const prov=new firebase.auth.GoogleAuthProvider();
   const cur=a.currentUser, linking=!!(cur&&cur.isAnonymous);
+  authMsg('Googleでログイン中…');
   const p = linking ? cur.linkWithPopup(prov) : a.signInWithPopup(prov);
-  p.then(function(){ authMsg(linking?'ゲストの記録を引き継いでログインしました ☁':'ログインしました'); })
+  p.then(function(){ authMsg(linking?'ゲストの記録を引き継いでログインしました ☁':'ログインしました ☁'); updateAuthUI(); renderProfileChip(); renderHomeTrophies(); })
    .catch(function(err){
      const c=err&&err.code;
-     if(linking && (c==='auth/credential-already-in-use'||c==='auth/email-already-in-use')){
-       authMsg('既存アカウントでログインします（このゲスト分の記録は引き継がれません）');
-       a.signInWithPopup(prov).catch(function(e2){ authGoogleFallback(a, prov, false, e2); });
-     } else if(c==='auth/popup-blocked'||c==='auth/operation-not-supported-in-this-environment'||c==='auth/cancelled-popup-request'){
-       authGoogleFallback(a, prov, linking, err);
-     } else if(c==='auth/popup-closed-by-user'){ /* 無視 */ }
-     else authMsg(authErrMsg(err));
+     // 既にそのGoogleで登録済み → ポップアップで取得した認証情報でそのままログイン（2回目のポップアップを開かない）
+     if(linking && c==='auth/credential-already-in-use'){
+       const cred=googleCredFromErr(err);
+       if(cred){ authMsg('既存アカウントでログインします（このゲスト分は引き継がれません）'); a.signInWithCredential(cred).then(authGoogleDone).catch(function(e2){ authMsg(authErrMsg(e2)); }); return; }
+     }
+     // ポップアップが使えない/結果が戻ってこない（GitHub Pages等）→ リダイレクト方式で再試行
+     if(c==='auth/popup-blocked'||c==='auth/popup-closed-by-user'||c==='auth/cancelled-popup-request'||c==='auth/operation-not-supported-in-this-environment'||c==='auth/web-storage-unsupported'){
+       authMsg('別画面でログインします…');
+       authGoogleRedirect(a, prov, linking);
+     } else authMsg(authErrMsg(err));
    });
 }
-// ポップアップ不可時のリダイレクト・フォールバック（匿名はlink、それ以外はsignIn）
-function authGoogleFallback(a, prov, linking, err){
+// リダイレクト・フォールバック（匿名はlink、それ以外はsignIn）
+function authGoogleRedirect(a, prov, linking){
   try{ if(linking && a.currentUser && a.currentUser.isAnonymous) a.currentUser.linkWithRedirect(prov); else a.signInWithRedirect(prov); }
-  catch(e){ authMsg(authErrMsg(err||e)); }
+  catch(e){ authMsg(authErrMsg(e)); }
 }
 function authEmailSignup(){
   const a=getAuth(); if(!a){ authMsg('Firebaseが未設定です'); return; }
@@ -3372,26 +3394,24 @@ function leaderboardLoad(n, cb){
 }
 
 /* ===== オンライン人数（presence） ===== */
-let pvpPresenceRef=null, pvpPresenceUid='', pvpPresenceCounts={online:0, battling:0};
+let pvpPresenceRef=null, pvpPresenceUid='', pvpPresenceCounts={online:0, battling:0}, pvpPresenceListening=false, pvpCurStatus='home';
 // presenceオブジェクト→{online, battling}（純粋関数・テスト対象）
 function presenceCounts(obj){
   let online=0, battling=0;
   for(const k in (obj||{})){ const e=obj[k]; if(!e||typeof e!=='object') continue; online++; if(e.status==='battling') battling++; }
   return { online:online, battling:battling };
 }
-// 起動時に匿名でサインインして presence に参加（全員を数える）。onDisconnectで自動退出。
-function pvpPresenceJoin(){
-  if(pvpPresenceRef) return;
-  ensureGuestSignIn().then(function(uid){
-    const db=ensureFirebase(); if(!db) return;
-    pvpPresenceUid=uid;
-    pvpPresenceRef = db.ref('presence/'+uid);
-    try{ pvpPresenceRef.onDisconnect().remove(); }catch(e){}
-    pvpPresenceSet('home');
-    db.ref('presence').on('value', function(snap){ pvpPresenceCounts = presenceCounts(snap.val()); renderPresence(); });
-  }).catch(function(){});   // 匿名認証が無効/オフライン等は静かに無視
+// 認証状態が確定したuidで presence に参加（onAuthStateChangedから呼ぶ＝リダイレクト結果と競合しない）。
+function pvpPresenceStart(uid){
+  const db=ensureFirebase(); if(!db || !uid) return;
+  if(pvpPresenceUid===uid && pvpPresenceRef){ pvpPresenceSet(pvpCurStatus); return; }
+  try{ if(pvpPresenceRef){ pvpPresenceRef.onDisconnect().cancel(); pvpPresenceRef.remove().catch(function(){}); } }catch(e){}   // uid変更時は旧presenceを掃除
+  pvpPresenceUid=uid; pvpPresenceRef=db.ref('presence/'+uid);
+  try{ pvpPresenceRef.onDisconnect().remove(); }catch(e){}
+  pvpPresenceSet(pvpCurStatus);
+  if(!pvpPresenceListening){ pvpPresenceListening=true; db.ref('presence').on('value', function(snap){ pvpPresenceCounts = presenceCounts(snap.val()); renderPresence(); }); }
 }
-function pvpPresenceSet(status){ if(!pvpPresenceRef) return; try{ pvpPresenceRef.set({ status:status||'home', ts:Date.now() }); }catch(e){} }
+function pvpPresenceSet(status){ pvpCurStatus=status||'home'; if(!pvpPresenceRef) return; try{ pvpPresenceRef.set({ status:pvpCurStatus, ts:Date.now() }); }catch(e){} }
 function renderPresence(){
   const txt='🟢 オンライン '+pvpPresenceCounts.online+'人・対戦中 '+pvpPresenceCounts.battling+'人';
   ['pvpOnlineCount','homeOnline'].forEach(function(id){ const el=$(id); if(el) el.textContent=txt; });
@@ -4245,7 +4265,7 @@ resetState(); loadDeckLocal(); loadProfileLocal(); renderScore(); renderHomeTrop
 try{ authInit(); }catch(e){}   // ログイン状態の監視を開始（未設定なら何もしない）
 try{ getAnalytics(); }catch(e){}   // GA4を起動時に初期化（タグ検出＋page_view/セッションの自動計測。未設定なら何もしない）
 try{ pvpTryResumeOnLoad(); }catch(e){}   // リログ（再読み込み）で対戦が切れていたら通知
-try{ pvpPresenceJoin(); }catch(e){}   // オンライン人数のカウントに参加（匿名サインイン）
+// オンライン人数のpresence参加は authInit の onAuthStateChanged 内で行う（リダイレクトログインと競合しないように）
 if(!tutSeen()){ try{ startTutorial(); }catch(e){} }   // 初回プレイ時は自動でチュートリアル（メニューからいつでも再生可）
 
 // PWA：Service Worker を登録（オフライン起動・ホーム追加）。https/localhost でのみ有効。
