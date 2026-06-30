@@ -227,6 +227,7 @@
      未設定でもCPU対戦には影響しない（PVPを押したときだけ使う）。-->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -424,6 +425,7 @@
   <div id="menuModal" class="modal-overlay hidden" onclick="closeMenu(event)">
     <div class="modal-card menu-card" onclick="event.stopPropagation()">
       <h3>メニュー</h3>
+      <button class="menu-row" id="accountRow" onclick="openAuth()">👤 ログイン（デッキをクラウド保存）</button>
       <button class="menu-row menu-row--accent" id="installRow" onclick="installApp()">📲 ホームに追加（インストール）</button>
       <button class="menu-row" id="discordRow" onclick="openDiscord()">💬 コミュニティ Discord に参加</button>
       <button class="menu-row" onclick="startTutorial()">🎓 あそびかた（チュートリアル）</button>
@@ -432,6 +434,32 @@
       <div class="menu-row" style="cursor:default">🎵 BGM音量<input type="range" id="bgmVol" min="0" max="100" oninput="onBgmVol(this.value)" style="flex:1;margin-left:8px"></div>
       <div class="menu-row" style="cursor:default">🔔 効果音音量<input type="range" id="sfxVol" min="0" max="100" oninput="onSfxVol(this.value)" style="flex:1;margin-left:8px"></div>
       <div style="text-align:center;margin-top:8px"><button class="btn btn-ghost" onclick="closeMenu()">閉じる</button></div>
+    </div>
+  </div>
+  <!-- ログイン / アカウント モーダル -->
+  <div id="authModal" class="modal-overlay hidden" onclick="closeAuth(event)">
+    <div class="modal-card menu-card" onclick="event.stopPropagation()">
+      <h3>アカウント</h3>
+      <div id="authSignedOut">
+        <p style="font-size:13px;color:var(--muted);margin:0 0 10px">ログインすると、デッキと進捗が<b>クラウドに自動保存</b>され、別の端末でも続きから遊べます。</p>
+        <button class="menu-row menu-row--accent" onclick="authGoogle()">🔵 Googleでログイン</button>
+        <div style="margin:10px 0 0">
+          <input id="authEmail" type="email" autocomplete="email" placeholder="メールアドレス" style="width:100%;box-sizing:border-box;margin:4px 0;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);font-family:inherit">
+          <input id="authPass" type="password" autocomplete="current-password" placeholder="パスワード（6文字以上）" style="width:100%;box-sizing:border-box;margin:4px 0;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);font-family:inherit">
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <button class="btn btn-primary" style="flex:1" onclick="authEmailLogin()">ログイン</button>
+            <button class="btn btn-ghost" style="flex:1" onclick="authEmailSignup()">新規登録</button>
+          </div>
+          <div style="text-align:center;margin-top:6px"><button class="btn btn-ghost" style="font-size:12px" onclick="authReset()">パスワードを忘れた</button></div>
+        </div>
+      </div>
+      <div id="authSignedIn" class="hidden">
+        <p id="authWho" style="font-size:14px;margin:0 0 6px"></p>
+        <p style="font-size:13px;color:var(--muted);margin:0 0 12px">デッキと進捗はこのアカウントに自動保存されています。☁</p>
+        <button class="btn btn-ghost" onclick="authLogout()">ログアウト</button>
+      </div>
+      <p id="authMsg" style="font-size:13px;color:var(--brass);min-height:18px;margin:10px 0 0;text-align:center"></p>
+      <div style="text-align:center;margin-top:8px"><button class="btn btn-ghost" onclick="closeAuth()">閉じる</button></div>
     </div>
   </div>
   <!-- ホームに追加（インストール）の手順モーダル -->
@@ -969,9 +997,10 @@ function toggleDeck(key){
   const i=deck.indexOf(key);
   if(i>=0) deck.splice(i,1);
   else if(deck.length < CONFIG.deckSize){ deck.push(key); if(deck.length>0) hideDeckNote(); }
+  if(rosterMode==='you') persistDeck();   // 自分のデッキはローカル＋クラウドへ保存
   renderRoster();
 }
-function removeDeckSlot(idx){ activeDeck().splice(idx,1); renderRoster(); }
+function removeDeckSlot(idx){ activeDeck().splice(idx,1); if(rosterMode==='you') persistDeck(); renderRoster(); }
 function renderRoster(){
   const deck=activeDeck(), cpu=(rosterMode==='cpu');
   // 見出し・説明・ボタンをモードで切り替え
@@ -3020,6 +3049,123 @@ function ensureFirebase(){
 }
 function genRoomCode(){ const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<4;i++) s+=c[Math.floor(Math.random()*c.length)]; return s; }
 
+/* ============================================================
+   13) アカウント（Firebase Auth：Google＋メール）＆ クラウド保存
+   ----------------------------------------------------------------
+   - 認証フローは authDomain(<project>.firebaseapp.com)経由。ホスティング先に依存しない。
+   - 保存対象は「デッキ(myDeck)」と「チュートリアル進捗」。音量はデバイス個別なので同期しない。
+   - 未ログイン/未設定でも従来どおり動作（localStorageにデッキを保存）。
+   - RTDBルールに users/$uid（auth.uid==$uid のみ read/write）を追加すること（FIREBASE_SETUP.md）。
+   ============================================================ */
+let authUser=null;            // ログイン中のユーザー（未ログインはnull）
+let _cloudSaveT=0;            // クラウド保存のデバウンス用タイマ
+
+// --- デッキのローカル保存（ログイン有無に関わらず端末に残す） ---
+function saveDeckLocal(){ try{ localStorage.setItem('sw_deck', JSON.stringify(myDeck)); }catch(e){} }
+function loadDeckLocal(){ try{ const s=localStorage.getItem('sw_deck'); if(s){ const a=JSON.parse(s); if(Array.isArray(a)) applyProfile({deck:a}); } }catch(e){} }
+// 編成変更時に呼ぶ：ローカル保存＋（ログイン中なら）クラウドへデバウンス保存
+function persistDeck(){ saveDeckLocal(); scheduleCloudSave(); }
+
+// --- 保存プロフィールの整形（純粋関数・テスト対象） ---
+function buildProfile(){ return { deck: myDeck.slice(0, CONFIG.deckSize), tutorialDone: tutSeen(), updatedAt: Date.now() }; }
+// クラウド/ローカルから読んだプロフィールをゲーム状態へ反映（不正キーは除外）
+function applyProfile(p){
+  if(!p) return;
+  if(Array.isArray(p.deck)){
+    myDeck = p.deck.filter(k=>UNIT_BY_KEY[k] && !UNIT_BY_KEY[k].summonOnly).slice(0, CONFIG.deckSize);
+  }
+  if(p.tutorialDone) markTutSeen();
+}
+
+// --- Firebase Auth ---
+function getAuth(){ if(!firebaseConfigured()) return null; try{ if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG); return firebase.auth(); }catch(e){ return null; } }
+function authInit(){
+  const a=getAuth(); if(!a) return;
+  try{ a.getRedirectResult().catch(function(){}); }catch(e){}   // モバイルのリダイレクトログイン結果を回収
+  a.onAuthStateChanged(function(user){ authUser=user||null; updateAuthUI(); if(authUser) onSignedIn(authUser); });
+}
+function authGoogle(){
+  const a=getAuth(); if(!a){ authMsg('Firebaseが未設定です'); return; }
+  const prov=new firebase.auth.GoogleAuthProvider();
+  a.signInWithPopup(prov).catch(function(err){
+    const c=err&&err.code;
+    if(c==='auth/popup-blocked'||c==='auth/operation-not-supported-in-this-environment'||c==='auth/cancelled-popup-request'){ try{ a.signInWithRedirect(prov); }catch(e){ authMsg(authErrMsg(err)); } }
+    else if(c==='auth/popup-closed-by-user'){ /* ユーザーが閉じただけ：無視 */ }
+    else authMsg(authErrMsg(err));
+  });
+}
+function authEmailSignup(){
+  const a=getAuth(); if(!a){ authMsg('Firebaseが未設定です'); return; }
+  const em=($('authEmail').value||'').trim(), pw=$('authPass').value||'';
+  a.createUserWithEmailAndPassword(em, pw)
+    .then(function(cred){ try{ cred.user.sendEmailVerification(); }catch(e){} authMsg('登録しました（確認メールを送信）'); })
+    .catch(function(err){ authMsg(authErrMsg(err)); });
+}
+function authEmailLogin(){
+  const a=getAuth(); if(!a){ authMsg('Firebaseが未設定です'); return; }
+  const em=($('authEmail').value||'').trim(), pw=$('authPass').value||'';
+  a.signInWithEmailAndPassword(em, pw).then(function(){ authMsg('ログインしました'); }).catch(function(err){ authMsg(authErrMsg(err)); });
+}
+function authReset(){
+  const a=getAuth(); if(!a){ authMsg('Firebaseが未設定です'); return; }
+  const em=($('authEmail').value||'').trim();
+  if(!em){ authMsg('メールアドレスを入力してください'); return; }
+  a.sendPasswordResetEmail(em).then(function(){ authMsg('再設定メールを送信しました'); }).catch(function(err){ authMsg(authErrMsg(err)); });
+}
+function authLogout(){ const a=getAuth(); if(a){ a.signOut(); } authMsg('ログアウトしました'); }
+// Firebaseのエラーコードを日本語に
+function authErrMsg(err){
+  const c=err&&err.code||'';
+  if(c==='auth/invalid-email') return 'メールアドレスの形式が正しくありません';
+  if(c==='auth/weak-password') return 'パスワードは6文字以上にしてください';
+  if(c==='auth/email-already-in-use') return 'このメールは登録済みです（ログインしてください）';
+  if(c==='auth/wrong-password'||c==='auth/invalid-credential') return 'メールまたはパスワードが違います';
+  if(c==='auth/user-not-found') return 'アカウントが見つかりません（新規登録してください）';
+  if(c==='auth/too-many-requests') return '試行回数が多すぎます。しばらく待ってください';
+  if(c==='auth/unauthorized-domain') return 'このドメインは承認されていません（Firebase設定を確認）';
+  return 'エラー: '+(err&&err.message||c||'不明');
+}
+
+// --- クラウド保存／読込（RTDB users/<uid>/profile） ---
+function onSignedIn(user){
+  const db=ensureFirebase(); if(!db) return;
+  db.ref('users/'+user.uid+'/profile').get().then(function(snap){
+    const cloud=snap.val();
+    if(cloud && Array.isArray(cloud.deck) && cloud.deck.length){
+      applyProfile(cloud); saveDeckLocal();
+      if($('roster') && !$('roster').classList.contains('hidden')) try{ renderRoster(); }catch(e){}
+      authMsg('クラウドから復元しました ☁');
+    } else {
+      cloudSaveNow();   // 新規アカウント：この端末の内容をアップロード
+      authMsg('この端末の内容をクラウドに保存しました ☁');
+    }
+  }).catch(function(e){ console.warn('cloud load失敗',e); authMsg('クラウド読込に失敗しました'); });
+}
+function scheduleCloudSave(){ if(!authUser) return; try{ clearTimeout(_cloudSaveT); }catch(e){} _cloudSaveT=setTimeout(cloudSaveNow, 800); }
+function cloudSaveNow(){
+  if(!authUser) return; const db=ensureFirebase(); if(!db) return;
+  try{ db.ref('users/'+authUser.uid+'/profile').set(buildProfile()); }catch(e){ console.warn('cloud save失敗',e); }
+}
+
+// --- UI ---
+function openAuth(){ try{ SFX.play('button'); }catch(e){} closeMenu(); updateAuthUI(); authMsg(''); const m=$('authModal'); if(m) m.classList.remove('hidden'); }
+function closeAuth(e){ if(e && e.target!==e.currentTarget) return; const m=$('authModal'); if(m) m.classList.add('hidden'); }
+function authMsg(s){ const el=$('authMsg'); if(el) el.textContent=s||''; }
+function updateAuthUI(){
+  const inEl=$('authSignedIn'), outEl=$('authSignedOut'), row=$('accountRow');
+  if(authUser){
+    if(inEl) inEl.classList.remove('hidden');
+    if(outEl) outEl.classList.add('hidden');
+    const who = authUser.displayName || authUser.email || 'ログイン中';
+    if($('authWho')) $('authWho').textContent = who + ' でログイン中';
+    if(row) row.textContent = '👤 '+who+'（同期中）';
+  } else {
+    if(inEl) inEl.classList.add('hidden');
+    if(outEl) outEl.classList.remove('hidden');
+    if(row) row.textContent = '👤 ログイン（デッキをクラウド保存）';
+  }
+}
+
 // DataChannel を F1互換の transport にラップする
 function wrapChannel(dc){
   let cb=null;
@@ -3604,7 +3750,8 @@ function pvpGuestOnGameover(m){
   show('over');
 }
 
-resetState(); renderScore(); show('home');
+resetState(); loadDeckLocal(); renderScore(); show('home');   // 端末に保存したデッキを復元
+try{ authInit(); }catch(e){}   // ログイン状態の監視を開始（未設定なら何もしない）
 if(!tutSeen()){ try{ startTutorial(); }catch(e){} }   // 初回プレイ時は自動でチュートリアル（メニューからいつでも再生可）
 
 // PWA：Service Worker を登録（オフライン起動・ホーム追加）。https/localhost でのみ有効。

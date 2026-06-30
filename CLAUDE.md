@@ -162,6 +162,17 @@
 
 ### F3 — 自動マッチング（Firebaseの待機リストでペアリング）
 
+## アカウント＆クラウド保存（実装済み・`<script>`「13) アカウント…」）
+
+- **Firebase Auth（Google＋メール/パスワード）でログイン**。`firebase-auth-compat.js` を追加読み込み。
+- 保存対象は **デッキ(`myDeck`)＋チュートリアル進捗** を `users/<uid>/profile`（RTDB）に保存。音量はデバイス個別なので**同期しない**。
+- `buildProfile()`/`applyProfile()`＝保存データの整形（純粋関数・不正/召喚専用キーは除外・最大`deckSize`枚）。test.js 68。
+- `saveDeckLocal()`/`loadDeckLocal()`＝未ログインでも端末(localStorage `sw_deck`)にデッキ保存。`persistDeck()` を `toggleDeck`/`removeDeckSlot`（自分デッキ時）でフック。
+- `authInit()`＝起動時に `onAuthStateChanged` 監視開始。ログイン時 `onSignedIn` がクラウド読込→適用（無ければ端末内容をアップ）。`scheduleCloudSave()` でデバウンス保存。
+- Googleは `signInWithPopup`、失敗時（モバイルWebView等）は `signInWithRedirect` に自動フォールバック。
+- UIは `#authModal`（メニューの「👤 ログイン」から `openAuth`）。未設定/未ログインでも従来どおり動作。
+- **要ユーザー作業**：コンソールでGoogle/メール認証を有効化・承認済みドメイン登録・RTDBルールに `users/$uid`（`auth.uid===$uid`）追加。手順は `FIREBASE_SETUP.md`「ログインとクラウド保存」。
+
 ## 次の候補タスク（未着手・要相談）
 
 - PVP **F2**（Firebase+WebRTCで実接続）→ **F3**（自動マッチング）。
