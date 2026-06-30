@@ -60,6 +60,7 @@ code += `
   applyPartyFlag, applyCookieParty, playerCanParty, countSideKey,
   applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff, buffCountFor,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck,
+  buildProfile, applyProfile,
   setCpuDeck:(d)=>{ cpuDeck = d; }, setCpuDeckMode:(m)=>{ cpuDeckMode = m; },
   startTutorial, tutNext, endTutorial, get tutorial(){ return tutorial; },
   endBattle, endGame, nextRound, resolveOverlaps,
@@ -2078,6 +2079,25 @@ console.log('\n=== 67) PVP強化 持ち越し: 出せなかった側は次に資
   API.pvpInjectOrDefer(off3, 'e', false);
   check('持ち越しは1回で解消（roll無しでは出ない）', !off3.some(k => API.isSpecial(k)), off3);
   API.pvpEnh = false;
+}
+
+console.log('\n=== 68) クラウド保存プロフィール: buildProfile / applyProfile の往復と検証 ===');
+{
+  API.setMyDeck(['cookie', 'choco', 'shoe', 'bomb']);
+  const p = API.buildProfile();
+  check('buildProfile: 現在のデッキを書き出す', JSON.stringify(p.deck) === JSON.stringify(['cookie', 'choco', 'shoe', 'bomb']), p.deck);
+  check('buildProfile: deckは4枚以内', p.deck.length <= 4);
+  // applyProfile: 不正キー・召喚専用キー・5枚目を除外して反映
+  API.setMyDeck([]);
+  API.applyProfile({ deck: ['cookie', 'ginger', 'NOPE', 'choco', 'shoe', 'bomb'] });   // ginger=召喚専用, NOPE=不正, 6枚
+  const d = API.getMyDeck();
+  check('applyProfile: 召喚専用(ginger)と不正キー(NOPE)を除外', !d.includes('ginger') && !d.includes('NOPE'), d);
+  check('applyProfile: 4枚に丸める', d.length === 4, d);
+  check('applyProfile: 有効キーは順序を保って反映', JSON.stringify(d) === JSON.stringify(['cookie', 'choco', 'shoe', 'bomb']), d);
+  // 空/未定義は安全に無視
+  API.applyProfile(null);
+  check('applyProfile: nullでも壊れない', API.getMyDeck().length === 4);
+  API.setMyDeck([]);
 }
 
 Promise.resolve().then(() => {
