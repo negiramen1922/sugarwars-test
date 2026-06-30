@@ -102,7 +102,59 @@ ONだと端末同士が直接通信できません。設定でOFFにできれば
 **片方のスマホでテザリング（インターネット共有）をON → もう片方をそのWi-Fiに接続。**
 2台が同じシンプルな回線に入るので端末分離に当たらず、直接つながりやすくなります。まずこれを試すのが速いです。
 
-### 確実な解決：TURN中継（Metered・設定済み）
+### おすすめ：Cloudflare Realtime TURN（無料枠が大きく安定）
+
+Meteredの無料枠（月500MB）が尽きると `code=400 allocate error`／`relay 0` で繋がらなくなります。
+**Cloudflare Realtime のTURN**は無料枠が大きく安定しているので、こちらを推奨します。設定すると自動でCloudflareを優先します。
+
+**手順（5分・Cloudflareアカウントは無料）**
+
+1. [Cloudflareダッシュボード](https://dash.cloudflare.com/) にログイン。
+2. 左メニュー **Realtime**（旧 Calls）→ **TURN** → **Create TURN Key**。
+3. 表示される **Turn Token ID（キーID）** と **API Token（トークン）** を控える。
+4. `index.html` のこの2行に貼る：
+
+   ```js
+   const CLOUDFLARE_TURN_KEY_ID = 'ここにキーID';
+   const CLOUDFLARE_TURN_TOKEN  = 'ここにAPIトークン';
+   ```
+
+5. これだけ。接続時に診断ログへ「**Cloudflare TURN取得OK**」が出て、対戦時に `経路候補[relay]` が出れば中継成功です。
+
+> ⚠ トークンはクライアントに埋め込まれて公開される前提です（WebRTCの仕様上、Meteredのキーと同じ扱い）。
+> スコープはTURN専用なので影響は限定的。**気になる/課金を確実に防ぎたいなら次の「Worker化」を推奨**。
+> Cloudflare/Metered の両方が空ならSTUNのみ（＝同一回線でしか繋がりません）。Cloudflareを設定すればMeteredは使いません。
+
+### 強く推奨：Worker化（トークンを隠す＋キルスイッチ）
+
+トークンをクライアントに出さず、**Cloudflare Worker の秘密**として持たせます。これで第三者にトークンを拾われて
+勝手にTURN枠を使われる＝予期せぬ課金、を防げます。同梱の **`turn-worker.js`** をそのまま使います。
+
+**手順（10分・追加費用なし）**
+
+1. Cloudflareダッシュボード → **Workers & Pages** → **Create** → **Create Worker**。
+2. 名前を付け（例 `sugarwars-turn`）デプロイ → **Edit code** で、`turn-worker.js` の中身を貼り付けて **Deploy**。
+3. そのWorkerの **Settings → Variables and Secrets** で**シークレット**を2つ追加：
+   - `TURN_KEY_ID` … TURNキーID
+   - `TURN_TOKEN` … APIトークン
+   （任意）`ALLOWED_ORIGINS` に公開オリジンを設定（例 `https://negiramen1922.github.io`）。`TURN_DISABLED=1` で即停止（キルスイッチ）。
+4. WorkerのURL（例 `https://sugarwars-turn.xxxx.workers.dev`）を控える。
+5. `index.html` に貼る（**トークンはもう書かない**）：
+
+   ```js
+   const CLOUDFLARE_TURN_WORKER = 'https://sugarwars-turn.xxxx.workers.dev';
+   const CLOUDFLARE_TURN_KEY_ID = '';   // 空でOK
+   const CLOUDFLARE_TURN_TOKEN  = '';   // 空でOK
+   ```
+
+6. 接続時に診断ログへ「**Cloudflare TURN取得OK（Worker）**」が出れば成功。
+7. **仕上げ**：以前クライアントに載せていたトークンは公開済みなので、Cloudflareで**TURNキーを作り直し（ローテーション）**、
+   Workerのシークレット `TURN_KEY_ID`/`TURN_TOKEN` を新しい値に更新→古いキーは削除。これで露出したトークンは無効化されます。
+
+> 「使った量が上限に近づいたら自動で止めたい」場合：Workerの `TURN_DISABLED=1` を立てれば即停止できます（手動キルスイッチ）。
+> Cloudflare側でも **使用量の通知**を設定可能。1,000GB/月はこのゲームでは実質到達しないので、通常はキルスイッチ＋通知で十分です。
+
+### 予備：TURN中継（Metered・設定済み）
 
 本リポジトリは [Metered](https://www.metered.ca/) のTURNを**接続時に自動取得**する方式で設定済みです
 （`index.html` の `METERED_SUBDOMAIN` / `METERED_API_KEY`）。接続のたびに最新の中継情報を取りに行きます。

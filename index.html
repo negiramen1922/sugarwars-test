@@ -3012,6 +3012,14 @@ const FIREBASE_CONFIG = {
 // Meteredの流れ：秘密鍵で「TURN認証情報」を1回“作成”すると apiKey が得られ、その apiKey で
 // フロントから iceServers を取得できる。ここでは初回接続時に自動で作成→取得し、apiKeyをキャッシュする。
 // ⚠ 秘密鍵をクライアントに置く割り切り（無料枠500MBで被害は限定的・気になれば後でサーバー側作成に）。
+// ▼ Cloudflare Realtime TURN（無料枠が大きく安定）。ダッシュボードでTURNキーを作成し、IDとトークンを貼る。
+//   設定すると Cloudflare を優先利用。空ならMetered→STUNにフォールバック（手順は FIREBASE_SETUP.md）。
+//   ⚠ トークンはクライアントに露出する割り切り（TURN専用スコープ・気になれば後でサーバー側発行に）。
+// 推奨：Worker経由（turn-worker.js）。トークンはWorkerの秘密に置き、クライアントには出さない。
+const CLOUDFLARE_TURN_WORKER = 'https://sugarwars-turn.bedrock1922.workers.dev';
+// 直叩き用（Worker未使用時のみ）。Worker化したのでクライアントには置かない（空＝露出なし）。
+const CLOUDFLARE_TURN_KEY_ID = '';
+const CLOUDFLARE_TURN_TOKEN  = '';
 const METERED_SUBDOMAIN  = 'sugarwars.metered.live';
 const METERED_API_KEY    = '';   // 既に作成済みのAPI Keyがあれば直接ここに設定（あれば作成POSTは省略）
 const METERED_SECRET_KEY = 'KUbDEG6UWD4nIPLKqgDAdbHw6Nx3SPkZFgGNjTuiEazNESZI';   // 秘密鍵（初回にapiKeyを自動作成）
@@ -3036,13 +3044,36 @@ function ensureMeteredApiKey(onDiag){
       onDiag('TURN作成応答: '+JSON.stringify(d).slice(0,120)); return null;
     }).catch(e=>{ onDiag('TURN作成失敗: '+(e&&e.message||e)); return null; });
 }
-// 接続に使うICEサーバー一覧：apiKeyで取得→STUN/手動TURNと合成。失敗時はSTUNのみ。
+// Cloudflare Realtime TURN：短命の認証情報を発行してもらい iceServers を得る。未設定/失敗時は null。
+// 優先順位：① Worker経由（トークン秘匿・推奨）→ ② 直叩き（トークン露出・動作確認用）。
+function getCloudflareIce(onDiag){
+  if(typeof fetch==='undefined') return Promise.resolve(null);
+  if(CLOUDFLARE_TURN_WORKER){
+    return fetch(CLOUDFLARE_TURN_WORKER).then(r=>r.json()).then(data=>{
+      if(data && data.disabled){ onDiag('Cloudflare TURN：停止中（Worker）'); return null; }
+      const ice = data && data.iceServers;
+      if(ice){ onDiag('Cloudflare TURN取得OK（Worker）'); return Array.isArray(ice) ? ice : [ice]; }
+      onDiag('Cloudflare(Worker)応答（想定外）: '+JSON.stringify(data).slice(0,140)); return null;
+    }).catch(e=>{ onDiag('Cloudflare(Worker)取得失敗: '+(e&&e.message||e)); return null; });
+  }
+  if(!CLOUDFLARE_TURN_KEY_ID || !CLOUDFLARE_TURN_TOKEN) return Promise.resolve(null);
+  const url='https://rtc.live.cloudflare.com/v1/turn/keys/'+CLOUDFLARE_TURN_KEY_ID+'/credentials/generate';
+  return fetch(url,{ method:'POST', headers:{ 'Authorization':'Bearer '+CLOUDFLARE_TURN_TOKEN, 'Content-Type':'application/json' }, body:JSON.stringify({ ttl:86400 }) })
+    .then(r=>r.json()).then(data=>{
+      const ice = data && data.iceServers;
+      if(ice){ const list = Array.isArray(ice) ? ice : [ice]; onDiag('Cloudflare TURN取得OK（直叩き）'); return list; }
+      onDiag('Cloudflare TURN応答（想定外）: '+JSON.stringify(data).slice(0,140)); return null;
+    }).catch(e=>{ onDiag('Cloudflare TURN取得失敗: '+(e&&e.message||e)); return null; });
+}
+// 接続に使うICEサーバー一覧：Cloudflare優先→Metered→STUN。失敗時はSTUNのみ。
 function getIceServers(onDiag){
   onDiag=onDiag||function(){};
   if(_iceServersCache) return Promise.resolve(_iceServersCache);
   const fallback = STUN_SERVERS.iceServers;
   if(typeof fetch==='undefined') return Promise.resolve(fallback);
-  return ensureMeteredApiKey(onDiag).then(apiKey=>{
+  return getCloudflareIce(onDiag).then(cf=>{
+    if(cf && cf.length){ _iceServersCache = cf.concat(TURN_SERVERS); return _iceServersCache; }   // Cloudflareが使えればそれを採用
+    return ensureMeteredApiKey(onDiag).then(apiKey=>{
     if(!apiKey) return fallback;
     const url='https://'+METERED_SUBDOMAIN+'/api/v1/turn/credentials?apiKey='+encodeURIComponent(apiKey);
     return fetch(url).then(r=>r.json()).then(data=>{
@@ -3058,7 +3089,8 @@ function getIceServers(onDiag){
       try{ localStorage.removeItem('sw_turn_apikey'); }catch(e){}   // 古いapiKeyキャッシュを破棄（次回再作成）
       onDiag('TURN応答（想定外）: '+JSON.stringify(data).slice(0,140)); return fallback;
     });
-  }).catch(e=>{ onDiag('TURN取得失敗: '+(e&&e.message||e)+' / STUNのみで続行'); return fallback; });
+    }).catch(e=>{ onDiag('TURN取得失敗: '+(e&&e.message||e)+' / STUNのみで続行'); return fallback; });
+  });
 }
 // ICE候補の種類(host=同一LAN直結 / srflx=NAT越し / relay=TURN中継)を取り出す
 function candType(c){ try{ const s=(c&&c.candidate)||''; const m=s.match(/ typ (\w+)/); return m?m[1]:'?'; }catch(e){ return '?'; } }
