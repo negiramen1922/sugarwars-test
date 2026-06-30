@@ -2,8 +2,18 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>SUGAR WARS — お菓子の王国の戦争</title>
+<meta name="description" content="お菓子の兵士を集めて軍を編成し、リアルタイム自動戦闘で覇権を争うカードドラフト＆オートバトラー。">
+<!-- PWA（ホーム追加・オフライン起動） -->
+<meta name="theme-color" content="#14161f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SUGAR WARS">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
@@ -3512,6 +3522,11 @@ function pvpGuestOnGameover(m){
 
 resetState(); renderScore(); show('home');
 if(!tutSeen()){ try{ startTutorial(); }catch(e){} }   // 初回プレイ時は自動でチュートリアル（メニューからいつでも再生可）
+
+// PWA：Service Worker を登録（オフライン起動・ホーム追加）。https/localhost でのみ有効。
+if(typeof navigator!=='undefined' && navigator.serviceWorker && typeof window!=='undefined'){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(e=>{ try{ console.log('SW登録スキップ:', e&&e.message||e); }catch(_){} }); });
+}
 </script>
 </body>
 </html>
