@@ -3433,12 +3433,12 @@ function leaderboardLoad(n, cb){
 }
 
 /* ===== オンライン人数（presence） ===== */
-let pvpPresenceRef=null, pvpPresenceUid='', pvpPresenceCounts={online:0, battling:0}, pvpPresenceListening=false, pvpCurStatus='home';
+let pvpPresenceRef=null, pvpPresenceUid='', pvpPresenceCounts={online:0, battling:0, matching:0}, pvpPresenceListening=false, pvpCurStatus='home';
 // presenceオブジェクト→{online, battling}（純粋関数・テスト対象）
 function presenceCounts(obj){
-  let online=0, battling=0;
-  for(const k in (obj||{})){ const e=obj[k]; if(!e||typeof e!=='object') continue; online++; if(e.status==='battling') battling++; }
-  return { online:online, battling:battling };
+  let online=0, battling=0, matching=0;
+  for(const k in (obj||{})){ const e=obj[k]; if(!e||typeof e!=='object') continue; online++; if(e.status==='battling') battling++; else if(e.status==='matching') matching++; }
+  return { online:online, battling:battling, matching:matching };
 }
 // 認証状態が確定したuidで presence に参加（onAuthStateChangedから呼ぶ＝リダイレクト結果と競合しない）。
 function pvpPresenceStart(uid){
@@ -3452,7 +3452,7 @@ function pvpPresenceStart(uid){
 }
 function pvpPresenceSet(status){ pvpCurStatus=status||'home'; if(!pvpPresenceRef) return; try{ pvpPresenceRef.set({ status:pvpCurStatus, ts:Date.now() }); }catch(e){} }
 function renderPresence(){
-  const txt='🟢 オンライン '+pvpPresenceCounts.online+'人・対戦中 '+pvpPresenceCounts.battling+'人';
+  const txt='🟢 オンライン '+pvpPresenceCounts.online+'人・マッチ待ち '+(pvpPresenceCounts.matching||0)+'人・対戦中 '+pvpPresenceCounts.battling+'人';
   ['pvpOnlineCount','homeOnline'].forEach(function(id){ const el=$(id); if(el) el.textContent=txt; });
 }
 
