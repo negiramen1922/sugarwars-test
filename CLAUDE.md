@@ -26,7 +26,7 @@
 | key | 名前 | tier | count | atk | hp | speed | 特徴 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | daifuku | 大福サムライ | -1 | 1 | 22 | 160 | 60 | 居合チャージ→抜刀タックル（`chargerStep`）。突撃は範囲薙ぎ払い（reach≈40・dashDamage90） |
-| cookie | クッキーアーミー | 0 | 5 | 14 | 50 | 115 | flock=同種が多いほど攻撃UP |
+| cookie | クッキーアーミー | 0 | 5 | 14 | 50 | 115 | flock=同種が多いほど攻撃UP。強化「クッキーパーティー」中は `u.party` でサングラス立ち絵(`cookie_party_*`)に切替 |
 | slime | ゼリースライム | 0.5 | 3 | 12 | 55 | 90 | 強化カードで融合／倒れると分裂 |
 | bomb | ポップコーンTNT | -2.2 | 2 | 0 | 55 | 128 | 自爆（導火0.5s・HP無関係・死亡時も爆発・blast100/blastR60） |
 | soda | ランニングソーダ | -2 | 2 | 0 | 50 | 150 | 自爆＋炭酸沼（blast10/blastR50・沼puddleR60/5dps・移動低下） |
@@ -38,8 +38,8 @@
 | shoe | シュークリームアーチャー | 3 | 4 | 14 | 44 | 64 | 後衛射手（4人・射程150） |
 | ghost | わたあめゴースト | 3.5 | 3 | 16 | 44 | 95 | 開幕少し待って敵後方へワープ（warpDelay1.5・無敵中は狙われない） |
 | cannon | キャンディキャノン | 4 | 1 | 0 | 140 | 0 | 不動の全域誘導AoE迫撃（手前の敵を優先・爆発範囲 `splash`=35） |
-| icewiz | アイスクリームウィザード | 3.3 | 1 | 16 | 60 | 60 | 後衛魔導士。小範囲の氷弾（`ranged`＋`splash`=32）を撃ち、命中した敵に時限鈍足（`slowHit`=0.35/`slowDur`=1.2秒）を付与。鈍足は `u.chillT`/`chillAmt` で管理し `slowMul` に反映 |
-| macaron | シェルマカロン | 1 | 2 | 14 | 95 | 70 | 殻スピン（`shell`／`shellStep`）。開幕は殻で突進し壁で反射しながら約4秒(`SHELL_SPIN_DUR`)暴れる→約2秒(`SHELL_STUN_DUR`)スタン→以降は通常戦闘。スピン中は体当たり(`atk`)＋被ダメ9%カット(`SHELL_DR`／`u.inShell`)。`u.shellPhase`(spin/stun/normal)で挙動・立ち絵を切替 |
+| icewiz | アイスクリームウィザード | 3.3 | 1 | 20 | 70 | 60 | 後衛魔導士。小範囲の氷弾（`ranged`＋`splash`=32・`range`=190）を撃ち、命中した敵に時限鈍足（`slowHit`=0.35＝35%/`slowDur`=1.5秒）を付与。鈍足は `u.chillT`/`chillAmt` で管理し `slowMul` に反映 |
+| macaron | シェルマカロン | 1 | 2 | 18 | 120 | 70 | 殻スピン（`shell`／`shellStep`）。開幕は殻で突進し壁で反射しながら約4秒(`SHELL_SPIN_DUR`)暴れる→約2秒(`SHELL_STUN_DUR`)スタン→以降は通常戦闘。殻の間（スピン＆スタン）は体当たり(`atk`)＋被ダメ15%カット(`SHELL_DR`／`u.inShell`)。`u.shellPhase`(spin/stun/normal)で挙動・立ち絵を切替 |
 
 隊列 `arrangeFormation` は **tier が小さいほど前列、大きいほど後方**。
 
