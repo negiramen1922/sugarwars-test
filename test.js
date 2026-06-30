@@ -60,7 +60,7 @@ code += `
   applyPartyFlag, applyCookieParty, playerCanParty, countSideKey,
   applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff, buffCountFor,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck,
-  buildProfile, applyProfile,
+  buildProfile, applyProfile, displayProfile, get myProfile(){ return myProfile; },
   setCpuDeck:(d)=>{ cpuDeck = d; }, setCpuDeckMode:(m)=>{ cpuDeckMode = m; },
   startTutorial, tutNext, endTutorial, get tutorial(){ return tutorial; },
   endBattle, endGame, nextRound, resolveOverlaps,
@@ -2098,6 +2098,28 @@ console.log('\n=== 68) クラウド保存プロフィール: buildProfile / appl
   API.applyProfile(null);
   check('applyProfile: nullでも壊れない', API.getMyDeck().length === 4);
   API.setMyDeck([]);
+}
+
+console.log('\n=== 69) プロフィール: 名前/アイコンの保存と検証（不正アイコンは無視） ===');
+{
+  API.applyProfile({ name: 'シュガー王子', avatar: 'choco' });
+  const p = API.buildProfile();
+  check('buildProfile: 名前を書き出す', p.name === 'シュガー王子', p.name);
+  check('buildProfile: アイコン(ユニットkey)を書き出す', p.avatar === 'choco', p.avatar);
+  // 12文字に丸める
+  API.applyProfile({ name: 'あいうえおかきくけこさしすせそ' });
+  check('名前は12文字に丸める', API.myProfile.name.length === 12, API.myProfile.name);
+  // 不正/召喚専用アイコンは無視（直前の有効値chocoを保持）
+  API.applyProfile({ avatar: 'ginger' });   // 召喚専用
+  check('召喚専用アイコンは無視', API.myProfile.avatar === 'choco', API.myProfile.avatar);
+  API.applyProfile({ avatar: 'NOPE' });      // 不正キー
+  check('不正アイコンは無視', API.myProfile.avatar === 'choco', API.myProfile.avatar);
+  // displayProfile: 空名は既定ゲスト名、空アイコンは先頭候補で補完
+  API.applyProfile({ name: '', avatar: '' });   // avatar='' は無視されchocoのまま→明示クリアのため別途
+  API.myProfile.name = ''; API.myProfile.avatar = '';
+  const dp = API.displayProfile();
+  check('displayProfile: 空名は「ゲスト〇〇」で補完', /^ゲスト\d{4}$/.test(dp.name), dp.name);
+  check('displayProfile: 空アイコンは候補で補完', !!dp.avatar && dp.avatar.length > 0, dp.avatar);
 }
 
 Promise.resolve().then(() => {
