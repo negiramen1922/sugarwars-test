@@ -2180,11 +2180,12 @@ console.log('\n=== 72) トロフィー: ELOレート計算 ===');
 
 console.log('\n=== 73) オンライン人数: presence集計 ===');
 {
-  check('空はオンライン0・対戦中0', JSON.stringify(API.presenceCounts(null)) === JSON.stringify({ online: 0, battling: 0 }));
-  const obj = { a: { status: 'home' }, b: { status: 'battling' }, c: { status: 'matching' }, d: { status: 'battling' } };
+  check('空はオンライン0・マッチ待ち0・対戦中0', JSON.stringify(API.presenceCounts(null)) === JSON.stringify({ online: 0, battling: 0, matching: 0 }));
+  const obj = { a: { status: 'home' }, b: { status: 'battling' }, c: { status: 'matching' }, d: { status: 'battling' }, e: { status: 'matching' } };
   const r = API.presenceCounts(obj);
-  check('オンラインは全エントリ数', r.online === 4, r);
+  check('オンラインは全エントリ数', r.online === 5, r);
   check('対戦中はstatus=battlingの数', r.battling === 2, r);
+  check('マッチ待ちはstatus=matchingの数', r.matching === 2, r);
   check('壊れたエントリは無視', API.presenceCounts({ x: null, y: { status: 'home' } }).online === 1);
 }
 
