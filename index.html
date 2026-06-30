@@ -249,11 +249,17 @@
     <!-- home -->
     <section id="home" class="center">
       <p class="big home-title">Sugar <span class="clash">Wars</span></p>
+      <div id="homeTrophies" style="font-size:18px;font-weight:700;color:var(--brass);margin:2px 0 6px;cursor:pointer" onclick="openRanking()" title="ランキングを見る">🏆 1000</div>
       <p>お菓子の兵士を集めて軍を編成し、リアルタイム自動戦闘で王国の覇権を争うカードドラフト＆オートバトラー。</p>
       <div class="menu-list">
         <button class="menu-btn" onclick="goBattleMenu()">
           <span class="mb-ico">⚔</span>
           <span class="mb-txt"><b>バトル</b><small>AI と対戦して勝ち進む</small></span>
+          <span class="mb-arrow">›</span>
+        </button>
+        <button class="menu-btn" onclick="openRanking()">
+          <span class="mb-ico">🏆</span>
+          <span class="mb-txt"><b>ランキング</b><small>トロフィー上位プレイヤー</small></span>
           <span class="mb-arrow">›</span>
         </button>
         <button class="menu-btn" onclick="goRoster()">
@@ -262,6 +268,14 @@
           <span class="mb-arrow">›</span>
         </button>
       </div>
+    </section>
+
+    <!-- ランキング（トロフィー上位） -->
+    <section id="ranking" class="center hidden">
+      <p class="big" style="font-size:clamp(22px,5vw,34px)">🏆 ランキング</p>
+      <p class="stage-sub" id="rankingMine">あなた：🏆 1000</p>
+      <div id="rankingList" style="max-width:380px;margin:12px auto;text-align:left"></div>
+      <button class="btn btn-ghost" onclick="goHome()">← ホームへ戻る</button>
     </section>
 
     <!-- battle mode select -->
@@ -2880,11 +2894,15 @@ function nextRound(){ state.round++; if(pvpMode){ pvpTrace('host nextRound -> ro
 function endGame(){
   cancelAnimationFrame(raf);
   pvpClearResume();   // 決着：再接続情報をクリア（PVP）
+  const wasPvp = pvpMode;
   if(pvpMode){ pvpMode=false; foeCtl=makeCpuFoeController(); }   // PVP決着：後始末（「もう一度」はCPU対戦に戻す）
   const won=state.foeLives<=0;
+  let trophyLine='';
+  if(wasPvp){ const d=applyTrophyResult(won, pvpOppProfile&&pvpOppProfile.trophies); trophyLine='🏆 '+(d>=0?'+':'')+d+'（合計 '+myTrophies()+'）'; renderHomeTrophies(); }   // PVPのみトロフィー増減
   $('overTitle').textContent=won?'勝利！':'敗北…';
   $('overTitle').style.color=won?'var(--green)':'var(--rust)';
-  $('overText').textContent=won?`${state.round} ラウンドで決着。${state.youArmy.length} 体の軍を率いて勝利しました。`:`${state.round} ラウンドで力尽きました。デッキの相性を見直してみましょう。`;
+  const base=won?`${state.round} ラウンドで決着。${state.youArmy.length} 体の軍を率いて勝利しました。`:`${state.round} ラウンドで力尽きました。デッキの相性を見直してみましょう。`;
+  $('overText').textContent = base + (trophyLine?('　'+trophyLine):'');
   show('over');
 }
 
@@ -3144,7 +3162,13 @@ function genRoomCode(){ const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; fo
    ============================================================ */
 let authUser=null;            // ログイン中のユーザー（未ログインはnull）
 let _cloudSaveT=0;            // クラウド保存のデバウンス用タイマ
-let myProfile={ name:'', avatar:'' };   // 対戦相手に見せるニックネーム＋アイコン（ユニットkey）
+let myProfile={ name:'', avatar:'', trophies:1000, wins:0, losses:0 };   // 名前＋アイコン＋トロフィー(=レート)＋戦績
+const TROPHY_START = 1000;   // 初期トロフィー
+const ELO_K = 32;            // ELO変動係数（大きいほど勝敗で大きく動く）
+// ELO：自分と相手のトロフィーから期待勝率→変動量を算出（純粋関数・テスト対象）
+function eloExpected(mine, opp){ return 1/(1 + Math.pow(10, ((opp||TROPHY_START)-(mine||TROPHY_START))/400)); }
+function eloDelta(mine, opp, won, k){ return Math.round((k||ELO_K) * ((won?1:0) - eloExpected(mine, opp))); }
+function myTrophies(){ return (myProfile && typeof myProfile.trophies==='number') ? myProfile.trophies : TROPHY_START; }
 
 // アバター候補＝召喚専用を除く実プレイ可能ユニットのkey
 function avatarKeys(){ return UNITS.filter(u=>!u.summonOnly).map(u=>u.key); }
@@ -3163,7 +3187,7 @@ function loadProfileLocal(){ try{ const s=localStorage.getItem('sw_profile'); if
 function persistDeck(){ saveDeckLocal(); scheduleCloudSave(); }
 
 // --- 保存プロフィールの整形（純粋関数・テスト対象） ---
-function buildProfile(){ return { deck: myDeck.slice(0, CONFIG.deckSize), name: myProfile.name||'', avatar: myProfile.avatar||'', tutorialDone: tutSeen(), updatedAt: Date.now() }; }
+function buildProfile(){ return { deck: myDeck.slice(0, CONFIG.deckSize), name: myProfile.name||'', avatar: myProfile.avatar||'', trophies: myTrophies(), wins: myProfile.wins||0, losses: myProfile.losses||0, tutorialDone: tutSeen(), updatedAt: Date.now() }; }
 // クラウド/ローカルから読んだプロフィールをゲーム状態へ反映（不正キーは除外）
 function applyProfile(p){
   if(!p) return;
@@ -3172,6 +3196,9 @@ function applyProfile(p){
   }
   if(typeof p.name==='string') myProfile.name = p.name.slice(0,12);
   if(p.avatar && UNIT_BY_KEY[p.avatar] && !UNIT_BY_KEY[p.avatar].summonOnly) myProfile.avatar = p.avatar;   // 有効なユニットkeyのみ
+  if(typeof p.trophies==='number' && isFinite(p.trophies)) myProfile.trophies = Math.max(0, Math.round(p.trophies));
+  if(typeof p.wins==='number') myProfile.wins = Math.max(0, Math.round(p.wins));
+  if(typeof p.losses==='number') myProfile.losses = Math.max(0, Math.round(p.losses));
   if(p.tutorialDone) markTutSeen();
 }
 
@@ -3237,12 +3264,71 @@ function onSignedIn(user){
       cloudSaveNow();   // 新規アカウント：この端末の内容をアップロード
       authMsg('この端末の内容をクラウドに保存しました ☁');
     }
+    renderHomeTrophies(); leaderboardSubmit();   // トロフィー表示更新＋ランキングへ登録
   }).catch(function(e){ console.warn('cloud load失敗',e); authMsg('クラウド読込に失敗しました'); });
 }
 function scheduleCloudSave(){ if(!authUser) return; try{ clearTimeout(_cloudSaveT); }catch(e){} _cloudSaveT=setTimeout(cloudSaveNow, 800); }
 function cloudSaveNow(){
   if(!authUser) return; const db=ensureFirebase(); if(!db) return;
   try{ db.ref('users/'+authUser.uid+'/profile').set(buildProfile()); }catch(e){ console.warn('cloud save失敗',e); }
+}
+
+/* ===== トロフィー（=レート）＆ランキング ===== */
+let pvpOppProfile = null;   // 対戦相手のプロフィール（名前/アイコン/トロフィー）。ハンドシェイクで受信
+let pvpLastDelta = 0;       // 直近の対戦でのトロフィー増減（over画面表示用）
+// 通信で相手に渡す自分のプロフィール（名前・アイコン・トロフィー）
+function pvpNetProfile(){ const dp=displayProfile(); return { name:dp.name, avatar:dp.avatar, trophies:myTrophies() }; }
+// PVP決着時に1回だけ呼ぶ：ELOでトロフィーを増減し、戦績更新＋保存＋リーダーボード反映
+function applyTrophyResult(won, oppTrophies){
+  const before = myTrophies();
+  const d = eloDelta(before, (oppTrophies!=null?oppTrophies:TROPHY_START), won);
+  myProfile.trophies = Math.max(0, before + d);
+  if(won) myProfile.wins = (myProfile.wins||0)+1; else myProfile.losses = (myProfile.losses||0)+1;
+  pvpLastDelta = myProfile.trophies - before;
+  saveProfileLocal(); scheduleCloudSave(); leaderboardSubmit();
+  return pvpLastDelta;
+}
+// リーダーボードへ自分の成績を反映（ログイン時のみ・公開ノード）
+function leaderboardSubmit(){
+  if(!authUser) return; const db=ensureFirebase(); if(!db) return;
+  const dp=displayProfile();
+  try{ db.ref('leaderboard/'+authUser.uid).set({ name:dp.name, avatar:dp.avatar, trophies:myTrophies(), wins:myProfile.wins||0, ts:Date.now() }); }catch(e){ console.warn('LB保存失敗',e); }
+}
+// ホームのトロフィー表示を更新
+function renderHomeTrophies(){ const el=$('homeTrophies'); if(el) el.textContent='🏆 '+myTrophies(); }
+// ランキング画面を開いて上位を表示
+function openRanking(){
+  try{ SFX.play('button'); }catch(e){} closeMenu();
+  if($('rankingMine')) $('rankingMine').textContent='あなた：🏆 '+myTrophies()+'（'+(myProfile.wins||0)+'勝 '+(myProfile.losses||0)+'敗）';
+  const list=$('rankingList'); if(list) list.innerHTML='<div style="color:var(--muted);text-align:center">読み込み中…</div>';
+  show('ranking');
+  if(!firebaseConfigured()){ if(list) list.innerHTML='<div style="color:var(--muted);text-align:center">オンライン未設定です</div>'; return; }
+  leaderboardLoad(50, function(arr){ renderRankingList(arr); });
+}
+function renderRankingList(arr){
+  const list=$('rankingList'); if(!list) return; list.innerHTML='';
+  if(!arr || !arr.length){ list.innerHTML='<div style="color:var(--muted);text-align:center">まだ記録がありません。PVPで対戦してみよう！</div>'; return; }
+  arr.forEach(function(e, i){
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--line)';
+    const rank=document.createElement('span'); rank.style.cssText='width:30px;font-weight:800;color:'+(i<3?'var(--brass)':'var(--muted)'); rank.textContent='#'+(i+1);
+    const ico=document.createElement('span'); ico.style.cssText='font-size:22px'; ico.textContent=avatarIcon(e.avatar||'');
+    const nm=document.createElement('span'); nm.style.cssText='flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'; nm.textContent=String(e.name||'ゲスト').slice(0,16);   // textContentで安全表示
+    const tr=document.createElement('span'); tr.style.cssText='font-weight:700;color:var(--brass)'; tr.textContent='🏆 '+e.trophies;
+    row.appendChild(rank); row.appendChild(ico); row.appendChild(nm); row.appendChild(tr);
+    list.appendChild(row);
+  });
+}
+// 上位N件を取得（trophies降順）。cb(list) で返す。listは {uid,name,avatar,trophies,wins}
+function leaderboardLoad(n, cb){
+  const db=ensureFirebase(); if(!db){ cb([]); return; }
+  try{
+    db.ref('leaderboard').orderByChild('trophies').limitToLast(n||50).once('value').then(function(snap){
+      const arr=[]; snap.forEach(function(ch){ const v=ch.val()||{}; arr.push({ uid:ch.key, name:v.name||'ゲスト', avatar:v.avatar||'', trophies:v.trophies||0, wins:v.wins||0 }); });
+      arr.sort(function(a,b){ return b.trophies-a.trophies; });   // 降順
+      cb(arr);
+    }).catch(function(e){ console.warn('LB読込失敗',e); cb([]); });
+  }catch(e){ cb([]); }
 }
 
 // --- UI ---
@@ -3422,14 +3508,14 @@ function pvpOnConnected(roleLabel){
   if(roleLabel==='親'){
     pvpRole='host';
     pvpHostObj = makePvpHost(pvpConn, {
-      onGuestHello:(deck, proto)=>{ pvpGuestDeck=deck; pvpEnh=((proto||1)>=2 && PVP_PROTO>=2); pvpDiag('相手のデッキを受信。対戦開始！'+(pvpEnh?'（強化カードON）':'（相手が旧版のため強化カードOFF）')); pvpStartAsHost(); },
+      onGuestHello:(deck, proto, prof)=>{ pvpGuestDeck=deck; pvpEnh=((proto||1)>=2 && PVP_PROTO>=2); if(prof) pvpOppProfile=prof; pvpDiag('相手のデッキを受信。対戦開始！'+(pvpEnh?'（強化カードON）':'（相手が旧版のため強化カードOFF）')); pvpStartAsHost(); },
       onGuestPick:()=>{},
     });
     // 親のデッキは openPvpLobby で確認済み。子のHELLO（参加）待ち。
   } else {
     pvpRole='guest';
     pvpGuestObj = makePvpGuest(pvpConn, PVP_GUEST_HOOKS);
-    pvpGuestObj.hello(myDeck);
+    pvpGuestObj.hello(myDeck, pvpNetProfile());
     pvpDiag('デッキを送信。対戦開始を待っています…');
   }
 }
@@ -3681,7 +3767,7 @@ function makePvpGuest(conn, hooks){
     }catch(e){ try{ console.log('[PVP] guest 受信処理エラー('+msg.type+'): '+(e&&e.message||e)); }catch(_){} }
   });
   return {
-    hello(deck){ conn.send({ type:PVP_MSG.HELLO, deck:(deck||[]).slice(), proto:PVP_PROTO }); },   // 参加時に自分のデッキ＋通信バージョンを親へ
+    hello(deck, prof){ conn.send({ type:PVP_MSG.HELLO, deck:(deck||[]).slice(), proto:PVP_PROTO, prof:prof||null }); },   // 参加時に自分のデッキ＋通信バージョン＋プロフィール(トロフィー)を親へ
   };
 }
 
@@ -3691,7 +3777,7 @@ function makePvpHost(conn, hooks){
   let guestDeck=null; const pickResolvers=[]; let picksResolver=null, stepResolver=null;
   conn.onMessage(msg=>{
     if(!msg || !msg.type) return;
-    if(msg.type===PVP_MSG.HELLO){ guestDeck=(msg.deck||[]).slice(); if(hooks.onGuestHello) hooks.onGuestHello(guestDeck, (msg.proto||1)); }
+    if(msg.type===PVP_MSG.HELLO){ guestDeck=(msg.deck||[]).slice(); if(hooks.onGuestHello) hooks.onGuestHello(guestDeck, (msg.proto||1), msg.prof||null); }
     else if(msg.type===PVP_MSG.PICK){ const r=pickResolvers.shift(); if(r) r(msg.key); if(hooks.onGuestPick) hooks.onGuestPick(msg); }   // 旧・1枚ずつ方式（テスト互換）
     else if(msg.type===PVP_MSG.PICKS){ const r=picksResolver; picksResolver=null; if(r) r(msg.keys||[]); if(hooks.onGuestPicks) hooks.onGuestPicks(msg); }   // 一括方式（テスト互換）
     else if(msg.type===PVP_MSG.STEPPICK){ const r=stepResolver; stepResolver=null; if(r) r(msg.key); if(hooks.onGuestStep) hooks.onGuestStep(msg); }   // 同時選択方式：このステップの子の1枚
@@ -3742,7 +3828,7 @@ function pvpStartAsHost(){
   trackBattleStart('pvp');   // 計測：PVP対戦開始（親）
   pvpSaveResume();   // 再接続/リログ検知用に対戦情報を保存
   renderScore();
-  pvpHostObj.start({ lives:CONFIG.startLives, round:1, proto:PVP_PROTO, enh:pvpEnh });
+  pvpHostObj.start({ lives:CONFIG.startLives, round:1, proto:PVP_PROTO, enh:pvpEnh, prof:pvpNetProfile() });
   pvpHostStartRound();
 }
 // --- PVP 強化カード（フェーズ1：倍カード＋強化カード）。pvpEnh が真のときだけ働く ---
@@ -3935,7 +4021,7 @@ function pvpHostLockRound(){
 
 // 子：受信フック
 const PVP_GUEST_HOOKS = {
-  onStart:(m)=>{ pvpEnh=((m.proto||1)>=2 && PVP_PROTO>=2); pvpTrace('guest START enh='+pvpEnh); pvpGuestEnterPlay(m); },
+  onStart:(m)=>{ pvpEnh=((m.proto||1)>=2 && PVP_PROTO>=2); if(m.prof) pvpOppProfile=m.prof; pvpTrace('guest START enh='+pvpEnh); pvpGuestEnterPlay(m); },
   onStep:(m,sendPick)=>{ if(m.wait){ pvpTrace('guest 待機通知 受信（相手の逆転ボーナス）'); pvpGuestShowWait(m); } else { pvpTrace('guest STEP要求 受信 r'+m.round+' s'+m.step); pvpGuestShowStep(m,sendPick); } },   // 同時選択／逆転ボーナス
   onDraft:(m,sendPicks)=>{ pvpTrace('guest DRAFT要求 受信 r'+m.round); pvpGuestRunDraft(m,sendPicks); },   // 一括方式（未使用・互換）
   onOffer:(m,reply)=>{ pvpTrace('guest OFFER 受信 r'+m.round+' s'+m.step); pvpGuestShowOffer(m,reply); },   // 旧方式（未使用・互換）
@@ -4080,12 +4166,13 @@ function pvpGuestOnGameover(m){
   pvpGuestActive=false; cancelAnimationFrame(pvpGuestRaf);
   pvpClearResume();   // 正常終了：再接続情報をクリア
   const won=!!m.youWon;
+  const d=applyTrophyResult(won, pvpOppProfile&&pvpOppProfile.trophies); renderHomeTrophies();   // トロフィー増減
   $('overTitle').textContent=won?'勝利！':'敗北…'; $('overTitle').style.color=won?'var(--green)':'var(--rust)';
-  $('overText').textContent=won?'対戦に勝利しました！🎉':'対戦に敗北しました。';
+  $('overText').textContent=(won?'対戦に勝利しました！🎉':'対戦に敗北しました。')+'　🏆 '+(d>=0?'+':'')+d+'（合計 '+myTrophies()+'）';
   show('over');
 }
 
-resetState(); loadDeckLocal(); loadProfileLocal(); renderScore(); show('home');   // 端末に保存したデッキ／プロフィールを復元
+resetState(); loadDeckLocal(); loadProfileLocal(); renderScore(); renderHomeTrophies(); show('home');   // 端末に保存したデッキ／プロフィール／トロフィーを復元
 try{ authInit(); }catch(e){}   // ログイン状態の監視を開始（未設定なら何もしない）
 try{ getAnalytics(); }catch(e){}   // GA4を起動時に初期化（タグ検出＋page_view/セッションの自動計測。未設定なら何もしない）
 try{ pvpTryResumeOnLoad(); }catch(e){}   // リログ（再読み込み）で対戦が切れていたら通知
