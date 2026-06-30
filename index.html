@@ -28,10 +28,15 @@
   body{background:radial-gradient(1200px 600px at 50% -10%, #20283a 0%, transparent 60%), var(--bg);color:var(--ink);font-family:"Inter",system-ui,sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
   .wrap{max-width:760px;margin:0 auto;padding:18px 16px 60px}
   header.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
-  .brand{display:flex;align-items:center;gap:10px}
+  .brand{display:flex;flex-direction:column;align-items:flex-start;gap:5px}
+  .brand-row{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
   .brand h1{font-family:"Oswald",sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:clamp(22px,4.5vw,34px);margin:0}
   .brand h1 .clash{color:var(--brass)}
   .brand .tag{font-size:12px;color:var(--muted);letter-spacing:.18em;text-transform:uppercase}
+  .profile-chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--ink);background:var(--panel-2);border:1px solid var(--line);border-radius:999px;padding:3px 11px;cursor:pointer;transition:border-color .15s}
+  .profile-chip:hover{border-color:var(--brass)}
+  .profile-chip .pc-ico{font-size:16px;line-height:1}
+  .iconbtn.gear{font-size:20px;align-self:flex-start}
   .score{flex:1 1 100%;display:flex;align-items:center;justify-content:space-between;gap:14px;background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:12px;padding:8px clamp(14px,6vw,48px);box-shadow:var(--shadow)}
   .side-score{display:flex;flex-direction:column;align-items:center;min-width:84px}
   .side-score .name{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
@@ -234,10 +239,15 @@
 <div class="wrap">
   <header class="topbar">
     <div class="brand">
-      <h1>Sugar <span class="clash">Wars</span></h1>
-      <button id="menuBtn" class="iconbtn" onclick="toggleMenu()" title="メニュー">☰</button>
-      <span class="tag">お菓子の王国の戦争</span>
+      <div class="brand-row">
+        <h1>Sugar <span class="clash">Wars</span></h1>
+        <span class="tag">お菓子の王国の戦争</span>
+      </div>
+      <div class="profile-chip" id="profileChip" onclick="openAuth()" title="プロフィール / ログイン">
+        <span class="pc-ico" id="profileChipIco">🍬</span><span id="profileChipName">ゲスト</span>
+      </div>
     </div>
+    <button id="menuBtn" class="iconbtn gear" onclick="toggleMenu()" title="メニュー（設定）">⚙</button>
     <div class="score" id="scoreBar">
       <div class="side-score you"><span class="name">You</span><span class="hearts" id="youHearts">❤️❤️❤️</span></div>
       <div class="round-pill" id="roundPill">Round 1</div>
@@ -275,8 +285,8 @@
     <section id="ranking" class="center hidden">
       <p class="big" style="font-size:clamp(22px,5vw,34px)">🏆 ランキング</p>
       <p class="stage-sub" id="rankingMine">あなた：🏆 1000</p>
-      <div id="rankingList" style="max-width:380px;margin:12px auto;text-align:left"></div>
-      <button class="btn btn-ghost" onclick="goHome()">← ホームへ戻る</button>
+      <button class="btn btn-ghost" onclick="goHome()" style="margin-bottom:8px">← ホームへ戻る</button>
+      <div id="rankingList" style="max-width:380px;margin:8px auto;text-align:left;max-height:55vh;overflow:auto"></div>
     </section>
 
     <!-- battle mode select -->
@@ -930,7 +940,7 @@ function activeDeck(){ return rosterMode==='cpu' ? cpuDeck : myDeck; }
 let tutorial = false;        // ガイド付き体験バトル中か
 const TUT_DECK = ['choco','cookie','bomb','shoe'];   // チュートリアル用の固定デッキ
 const TUT_FOE  = ['ginger'];                          // チュートリアルの弱い相手（どのカードを選んでも勝てる）
-function show(sec){ ['home','battleMenu','cpuMode','pvpLobby','roster','play','over'].forEach(s=>$(s).classList.toggle('hidden', s!==sec)); const sb=$('scoreBar'); if(sb) sb.classList.toggle('hidden', !(sec==='play'||sec==='over')); if(sec==='play') SFX.bgmStop(); }   // 戦闘に入ったらホームBGMを止める
+function show(sec){ ['home','battleMenu','cpuMode','pvpLobby','roster','play','over','ranking'].forEach(s=>{ const el=$(s); if(el) el.classList.toggle('hidden', s!==sec); }); const sb=$('scoreBar'); if(sb) sb.classList.toggle('hidden', !(sec==='play'||sec==='over')); if(sec==='play') SFX.bgmStop(); }   // 戦闘に入ったらホームBGMを止める
 // 最初のタップ（オーディオ解禁）でホーム表示中ならBGM開始
 function onFirstAudioGesture(){ try{ if(!$('home').classList.contains('hidden')) SFX.bgm('home'); }catch(e){} }
 function heartStr(n){ return n>0 ? '❤️'.repeat(n) : '🖤'; }
@@ -3287,7 +3297,7 @@ function onSignedIn(user){
       cloudSaveNow();   // 新規アカウント：この端末の内容をアップロード
       authMsg('この端末の内容をクラウドに保存しました ☁');
     }
-    renderHomeTrophies(); leaderboardSubmit();   // トロフィー表示更新＋ランキングへ登録
+    renderHomeTrophies(); renderProfileChip(); leaderboardSubmit();   // トロフィー/プロフィール表示更新＋ランキングへ登録
   }).catch(function(e){ console.warn('cloud load失敗',e); authMsg('クラウド読込に失敗しました'); });
 }
 function scheduleCloudSave(){ if(!authUser) return; try{ clearTimeout(_cloudSaveT); }catch(e){} _cloudSaveT=setTimeout(cloudSaveNow, 800); }
@@ -3321,6 +3331,8 @@ function leaderboardSubmit(){
 }
 // ホームのトロフィー表示を更新
 function renderHomeTrophies(){ const el=$('homeTrophies'); if(el) el.textContent='🏆 '+myTrophies(); }
+// 左上タイトル下のプロフィールチップ（アイコン＋名前）を更新
+function renderProfileChip(){ const dp=displayProfile(); const ic=$('profileChipIco'), nm=$('profileChipName'); if(ic) ic.textContent=avatarIcon(dp.avatar); if(nm) nm.textContent=dp.name; }
 // ランキング画面を開いて上位を表示
 function openRanking(){
   try{ SFX.play('button'); }catch(e){} closeMenu();
@@ -3408,7 +3420,7 @@ function saveProfile(){
   const nm=(($('profileName')&&$('profileName').value)||'').trim().slice(0,12);
   myProfile.name = nm;
   if(_avatarPick) myProfile.avatar = _avatarPick;
-  saveProfileLocal(); scheduleCloudSave(); updateAuthUI();
+  saveProfileLocal(); scheduleCloudSave(); updateAuthUI(); renderProfileChip();
   authMsg('プロフィールを保存しました');
 }
 function closeAuth(e){ if(e && e.target!==e.currentTarget) return; const m=$('authModal'); if(m) m.classList.add('hidden'); }
@@ -4226,7 +4238,7 @@ function pvpGuestOnGameover(m){
   show('over');
 }
 
-resetState(); loadDeckLocal(); loadProfileLocal(); renderScore(); renderHomeTrophies(); show('home');   // 端末に保存したデッキ／プロフィール／トロフィーを復元
+resetState(); loadDeckLocal(); loadProfileLocal(); renderScore(); renderHomeTrophies(); renderProfileChip(); show('home');   // 端末に保存したデッキ／プロフィール／トロフィーを復元
 try{ authInit(); }catch(e){}   // ログイン状態の監視を開始（未設定なら何もしない）
 try{ getAnalytics(); }catch(e){}   // GA4を起動時に初期化（タグ検出＋page_view/セッションの自動計測。未設定なら何もしない）
 try{ pvpTryResumeOnLoad(); }catch(e){}   // リログ（再読み込み）で対戦が切れていたら通知
