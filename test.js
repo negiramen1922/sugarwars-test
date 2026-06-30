@@ -62,6 +62,7 @@ code += `
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck, needFullDeckForPvp,
   buildProfile, applyProfile, displayProfile, get myProfile(){ return myProfile; },
   mmPickWaiter, pvpResumeIsRecent, pvpReconnRemain, eloExpected, eloDelta, myTrophies, presenceCounts,
+  enhDisplay, specialCardIcon,
   setCpuDeck:(d)=>{ cpuDeck = d; }, setCpuDeckMode:(m)=>{ cpuDeckMode = m; },
   startTutorial, tutNext, endTutorial, get tutorial(){ return tutorial; },
   endBattle, endGame, nextRound, resolveOverlaps,
@@ -2198,6 +2199,27 @@ console.log('\n=== 74) PVPはデッキ4枚必須（4枚未満はブロック） 
   API.setMyDeck(['cookie', 'choco', 'shoe', 'bomb']);
   check('4枚そろえばPVP可（ブロック=false）', API.needFullDeckForPvp() === false);
   API.setMyDeck([]);
+}
+
+console.log('\n=== 75) キャラ詳細: 進化後/強化後の表示（enhDisplay）と強化カードの絵（specialCardIcon） ===');
+{
+  // チョコ：強化（ビター装甲）の強化後ステータスが出る（HP200→300・atk21→29）
+  const ec = API.enhDisplay(API.UNIT_BY_KEY['choco']);
+  const buff = ec.find(e => e.kind === '強化');
+  check('チョコに強化エントリが出る', !!buff, ec.map(e => e.kind));
+  check('強化後HP=300', buff && buff.stats && buff.stats.hp === 300, buff && buff.stats);
+  check('強化後ATK=29', buff && buff.stats && buff.stats.atk === 29, buff && buff.stats);
+  check('強化エントリに進化後の立ち絵キーが付く', buff && buff.sprite === 'choco_buff_blue', buff && buff.sprite);
+  // パンケーキ：進化＋強化の2エントリ。進化後HP=round(150*3.5)=525
+  const ep = API.enhDisplay(API.UNIT_BY_KEY['pancake']);
+  check('パンケーキは進化と強化の2エントリ', ep.length === 2 && ep[0].kind === '進化', ep.map(e => e.kind));
+  check('進化後HP=525', ep[0].stats.hp === 525, ep[0].stats);
+  // 効果のみの強化（クッキー）はステータス併記なし
+  const ek = API.enhDisplay(API.UNIT_BY_KEY['cookie']);
+  check('クッキーは強化エントリありでステータスはnull', ek.length === 1 && ek[0].stats === null, ek);
+  // specialCardIcon：evoSprite持ちは進化後の絵（img）、無ければ対象キャラのベース絵
+  check('強化カードの絵：evoSpriteありはimg', /<img /.test(API.specialCardIcon(API.SPECIALS['buff_choco'])));
+  check('強化カードの絵：evoSprite無し(特大大福)もベース絵にフォールバック', API.specialCardIcon(API.SPECIALS['buff_daifuku']).length > 0);
 }
 
 Promise.resolve().then(() => {
