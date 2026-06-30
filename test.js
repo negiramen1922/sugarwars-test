@@ -58,7 +58,7 @@ code += `
   evolvePancake, evolvedStep, nearestEnemy, spawnerStep, BAKERY_SPAWN_PATTERN,
   beginDraft, nextPick, pickCard, lockAndFight, aiPicks, startGame,
   applyPartyFlag, applyCookieParty, playerCanParty, countSideKey,
-  applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff, buffCountFor,
+  applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff, applyIcewizBuff, applyMacaronBuff, buffCountFor,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck, needFullDeckForPvp,
   buildProfile, applyProfile, displayProfile, get myProfile(){ return myProfile; },
   mmPickWaiter, pvpResumeIsRecent, pvpReconnRemain, eloExpected, eloDelta, myTrophies, presenceCounts,
@@ -2199,6 +2199,92 @@ console.log('\n=== 74) PVPはデッキ4枚必須（4枚未満はブロック） 
   API.setMyDeck(['cookie', 'choco', 'shoe', 'bomb']);
   check('4枚そろえばPVP可（ブロック=false）', API.needFullDeckForPvp() === false);
   API.setMyDeck([]);
+}
+
+console.log('\n=== 77) 新キャラ シェルマカロン（殻スピン→スタン→通常／ビッグシェル強化） ===');
+{
+  const W = 440, H = 660;
+  const mc = API.UNIT_BY_KEY['macaron'];
+  check('macaronが登録されている（2体・shell）', !!mc && mc.shell === true && mc.count === 2, mc && { shell: mc.shell, count: mc.count });
+  // 初期状態：殻スピン
+  let w = API.createWorld(W, H); API.world = w; w.phase = 'battle'; w.intro = 0;
+  const m = API.makeFighters('macaron', 'p', W, H, 'army')[0];
+  m.x = W / 2; m.y = H / 2; m.appear = 1; w.units.push(m);
+  const e = API.makeFighters('choco', 'e', W, H, 'army')[0];
+  e.x = W / 2 + 30; e.y = H / 2; e.appear = 1; e.hp = e.maxHp = 9999; w.units.push(e);
+  check('開幕は殻スピン（shellPhase=spin・inShell）', m.shellPhase === 'spin' && m.inShell === true);
+  // 殻スピン中の被ダメージ9%カット
+  const before = m.hp; API.applyHit(w, e, m, 100);
+  check('殻スピン中は被ダメージ9%カット（100→91）', Math.round(before - m.hp) === 91, before - m.hp);
+  // 以降は死亡で検証がブレないようマカロンを高HP化・敵の攻撃は無効化（体当たり検証は別）
+  m.hp = m.maxHp = 99999; e.atk = 0;
+  // スピン中は動き回り、敵に体当たりダメージが入る
+  const ex0 = m.x, ey0 = m.y; let rammed = false; const ehpBefore = e.hp;
+  for (let i = 0; i < 30; i++) { API.stepWorld(w, 1 / 60); if (e.hp < ehpBefore) rammed = true; }
+  check('スピン中は移動する', m.x !== ex0 || m.y !== ey0);
+  check('スピン中の体当たりで敵にダメージ', rammed, { before: ehpBefore, now: e.hp });
+  // 時間経過でスピン→スタン→通常 に遷移
+  let sawStun = false, sawNormal = false;
+  for (let i = 0; i < 60 * 8; i++) { API.stepWorld(w, 1 / 60); if (m.shellPhase === 'stun') sawStun = true; if (m.shellPhase === 'normal') { sawNormal = true; break; } }
+  check('スピン後にスタンへ遷移する', sawStun);
+  check('スタン後に通常戦闘へ遷移する', sawNormal);
+  check('通常時はinShellでない（カットなし）', m.inShell === false);
+  // ビッグシェル強化：HPが増える
+  let wb = API.createWorld(W, H); API.world = wb;
+  const m2 = API.makeFighters('macaron', 'p', W, H, 'army')[0]; m2.appear = 1; wb.units.push(m2);
+  API.makeFighters('macaron', 'e', W, H, 'army').forEach(f => { f.appear = 1; wb.units.push(f); });
+  const baseHp = m2.baseMaxHp;
+  API.applyMacaronBuff(wb, 'p');
+  check('ビッグシェルでHPが増える', m2.maxHp === Math.round(baseHp * (1 + 0.6)) && m2.hp === m2.maxHp, { base: baseHp, now: m2.maxHp });
+  check('macaronBuff フラグが立つ', m2.macaronBuff === true);
+  check('敵マカロンには適用されない', wb.units.filter(u => u.side === 'e' && u.key === 'macaron').every(u => !u.macaronBuff));
+  API.applyMacaronBuff(wb, 'p');
+  check('2回適用しても重ねがけしない', m2.maxHp === Math.round(baseHp * (1 + 0.6)));
+  // 詳細表示にビッグシェルが出る（HP増加なのでstatsあり）
+  const ed = API.enhDisplay(mc);
+  const be = ed.find(x => x.kind === '強化');
+  check('詳細にビッグシェルが出てHPが併記される', be && be.name === 'ビッグシェル' && be.stats && be.stats.hp > mc.hp, be && be.stats);
+}
+
+console.log('\n=== 76) 新キャラ アイスクリームウィザード（氷弾AoE＋ヒット鈍足／ブリザード強化） ===');
+{
+  const W = 440, H = 660;
+  // ユニット定義の基本
+  const iw = API.UNIT_BY_KEY['icewiz'];
+  check('icewizが登録されている', !!iw && iw.ranged === true && iw.count === 1, iw && { ranged: iw.ranged, count: iw.count });
+  check('小範囲AoE（splash>0）かつヒット鈍足（slowHit>0）', iw.splash > 0 && iw.slowHit > 0, { splash: iw.splash, slowHit: iw.slowHit });
+  // 氷弾が敵に当たると鈍足(chillT/chillAmt)が付き、slowMulが下がる
+  let w = API.createWorld(W, H); API.world = w; w.phase = 'battle'; w.intro = 0;
+  const caster = API.makeFighters('icewiz', 'p', W, H, 'army')[0];
+  caster.x = W / 2; caster.y = H / 2 + 40; caster.appear = 1; caster.cool = 0; w.units.push(caster);
+  const foe = API.makeFighters('choco', 'e', W, H, 'army')[0];
+  foe.x = W / 2; foe.y = H / 2 + 40 - (iw.range - 10); foe.appear = 1; w.units.push(foe);   // 射程内に配置
+  let fired = false, chilled = false;
+  for (let i = 0; i < 240 && !chilled; i++) {   // 最大4秒ぶん回す
+    API.stepWorld(w, 1 / 60);
+    if (w.shots.length) fired = true;
+    if (foe.chillT > 0) chilled = true;
+  }
+  check('氷弾を発射する（shotsが生成される）', fired);
+  check('命中した敵に鈍足が付く（chillT>0・chillAmt>0）', chilled && foe.chillAmt > 0, { chillT: foe.chillT, chillAmt: foe.chillAmt });
+  API.stepWorld(w, 1 / 60);   // 鈍足はヒット翌フレーム冒頭でslowMulに反映される
+  check('鈍足中はslowMulが1未満（足が遅くなる）', foe.slowMul < 1, foe.slowMul);
+  // ブリザード強化：爆風が広がり、スローが強化される
+  let wb = API.createWorld(W, H); API.world = wb;
+  const c2 = API.makeFighters('icewiz', 'p', W, H, 'army')[0]; c2.appear = 1; wb.units.push(c2);
+  API.makeFighters('icewiz', 'e', W, H, 'army').forEach(f => { f.appear = 1; wb.units.push(f); });
+  const baseSplash = c2.splash, baseSlow = c2.slowHit;
+  API.applyIcewizBuff(wb, 'p');
+  check('ブリザードで爆風が広がる', c2.splash > baseSplash, { base: baseSplash, now: c2.splash });
+  check('ブリザードでスローが強化される', c2.slowHit > baseSlow, { base: baseSlow, now: c2.slowHit });
+  check('icewizBuff フラグが立つ', c2.icewizBuff === true);
+  check('敵ウィザードには適用されない', wb.units.filter(u => u.side === 'e' && u.key === 'icewiz').every(u => !u.icewizBuff));
+  // 冪等性
+  API.applyIcewizBuff(wb, 'p');
+  check('2回適用しても重ねがけしない（基準から再計算）', c2.splash === Math.round((iw.splash) * 1.8));
+  // 詳細表示にブリザードが出る（ステータス変化なしなのでstatsはnull）
+  const ed = API.enhDisplay(iw);
+  check('詳細にブリザードの固有強化が出る', ed.some(e => e.kind === '強化' && e.name === 'ブリザード'), ed.map(e => e.name));
 }
 
 console.log('\n=== 75) キャラ詳細: 進化後/強化後の表示（enhDisplay）と強化カードの絵（specialCardIcon） ===');
