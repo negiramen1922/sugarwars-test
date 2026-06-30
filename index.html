@@ -288,6 +288,11 @@
         ⚠ Firebaseが未設定です。<code>FIREBASE_CONFIG</code> を設定すると対人戦が使えます（<code>FIREBASE_SETUP.md</code> 参照）。
       </div>
       <div class="menu-list" id="pvpChoice">
+        <button class="menu-btn" onclick="randomMatchStart()" style="border-color:var(--brass);box-shadow:0 0 10px rgba(212,165,68,.25)">
+          <span class="mb-ico">🎲</span>
+          <span class="mb-txt"><b>ランダムマッチ</b><small>あいことば不要。すぐ相手を探して対戦</small></span>
+          <span class="mb-arrow">›</span>
+        </button>
         <button class="menu-btn" onclick="pvpHost()">
           <span class="mb-ico">🏠</span>
           <span class="mb-txt"><b>部屋を作る</b><small>あいことばを相手に伝える（親）</small></span>
@@ -298,6 +303,13 @@
           <span class="mb-txt"><b>部屋に入る</b><small>あいことばを入力して参加（子）</small></span>
           <span class="mb-arrow">›</span>
         </button>
+      </div>
+      <!-- ランダムマッチ：相手探索中／相手発見 -->
+      <div id="pvpMmBox" class="hidden" style="text-align:center;margin-top:14px">
+        <div id="pvpMmSpinner" style="font-size:40px;margin:6px">🎲</div>
+        <p class="stage-sub" id="pvpMmStatus">対戦相手を探しています…</p>
+        <div id="pvpMmOpp" class="hidden" style="margin:10px 0;font-size:16px"></div>
+        <button class="btn btn-ghost" onclick="randomMatchCancel()" style="margin-top:6px">キャンセル</button>
       </div>
       <!-- 親：あいことば表示 -->
       <div id="pvpHostBox" class="hidden" style="text-align:center;margin-top:14px">
@@ -3265,8 +3277,11 @@ function createWebRTCTransport(opts){
   } else {
     pvpPC.ondatachannel = e=>{ const dc=e.channel; onDiag('データ通信路を受信'); dc.onopen=()=>markOpen(dc); };
     pvpPC.onicecandidate = e=> onLocalCand(e, 'calleeCandidates');
-    return roomRef.child('offer').once('value').then(snap=>{
-      const offer=snap.val(); if(!offer){ clearTimeout(watchdog); throw new Error('部屋が見つかりません'); }
+    // ランダムマッチ(waitOffer)では親のオファーが出るまで待つ。手動参加では即時に確認して無ければエラー。
+    const getOffer = opts.waitOffer
+      ? new Promise(res=>{ const r=roomRef.child('offer'); r.on('value', s=>{ const o=s.val(); if(o){ r.off(); res(o); } }); })
+      : roomRef.child('offer').once('value').then(s=>{ const o=s.val(); if(!o){ clearTimeout(watchdog); throw new Error('部屋が見つかりません'); } return o; });
+    return Promise.resolve(getOffer).then(offer=>{
       onDiag('オファー受信。アンサーを返します…');
       return pvpPC.setRemoteDescription(new RTCSessionDescription(offer))
         .then(()=> pvpPC.createAnswer())
@@ -3288,7 +3303,7 @@ function openPvpLobby(){
   show('pvpLobby');
 }
 function pvpResetLobby(){
-  ['pvpHostBox','pvpJoinBox','pvpConnBox'].forEach(id=>$(id).classList.add('hidden'));
+  ['pvpHostBox','pvpJoinBox','pvpConnBox','pvpMmBox'].forEach(id=>$(id)&&$(id).classList.add('hidden'));
   $('pvpChoice').classList.remove('hidden');
   const lg=$('pvpLog'); if(lg) lg.innerHTML='';
   const dg=$('pvpDiag'); if(dg) dg.innerHTML='';
@@ -3298,6 +3313,7 @@ function pvpDiag(line){ const dg=$('pvpDiag'); if(!dg) return; const p=document.
 // 接続をやり直す：今の接続/部屋を片付けて「部屋を作る/入る」の選択に戻る
 function pvpRetry(){
   SFX.play('button');
+  mmCleanup();
   try{ if(pvpConn) pvpConn.close(); }catch(e){}
   try{ if(pvpPC) pvpPC.close(); }catch(e){}
   try{ if(pvpRoomRef){ pvpRoomRef.off(); pvpRoomRef.remove().catch(()=>{}); } }catch(e){}
@@ -3337,7 +3353,7 @@ function pvpJoin(){
 }
 // 接続成立 → 対戦開始（親：子のデッキ待ち→開始 / 子：自デッキ送信→START待ち）
 function pvpOnConnected(roleLabel){
-  ['pvpHostBox','pvpJoinBox','pvpChoice','pvpConnBox'].forEach(id=>$(id).classList.add('hidden'));
+  ['pvpHostBox','pvpJoinBox','pvpChoice','pvpConnBox','pvpMmBox'].forEach(id=>$(id)&&$(id).classList.add('hidden'));
   SFX.play('special');
   pvpDiag('✅ 接続成立。対戦準備中…（あなた='+roleLabel+'）');
   if(roleLabel==='親'){
@@ -3360,8 +3376,106 @@ function pvpSendTest(){
   pvpConn.send({ type:PVP_MSG.HELLO, text });
   pvpLog('📤 送信: '+text);
 }
+
+/* ============================================================
+   12.5) ランダムマッチ（Firebaseの待機列で自動ペアリング → 既存WebRTCで接続）
+   ----------------------------------------------------------------
+   - 参加時のみ匿名認証でゲストuidを発行（ログイン済みならそのuid）。
+   - matchmaking/queue/<uid> に待機。トランザクションで「待機者を1人だけclaim」＝奪い合い防止。
+   - claimした側＝親(host・部屋を作る)／claimされた側＝子(guest)。matches/<guestUid> で部屋コードを通知。
+   - 接続後は既存の createWebRTCTransport → pvpOnConnected フローに合流（CPU/手動対戦は不変）。
+   ============================================================ */
+let mmActive=false, mmUid='', mmQueueRef=null, mmMyMatchRef=null, mmStartedConn=false;
+const MM_STALE_MS = 30000;   // この秒数より古い待機者は無効として無視（取り残し対策）
+
+// 待機列から「自分以外・期限内で最も古い」待機者キーを返す（純粋関数・テスト対象）
+function mmPickWaiter(queue, myUid, now, staleMs){
+  if(!queue) return null;
+  let best=null, bestTs=Infinity;
+  for(const k in queue){ if(k===myUid) continue; const e=queue[k]; if(!e||typeof e!=='object') continue; if(now-(e.ts||0) > staleMs) continue; if((e.ts||0) < bestTs){ bestTs=e.ts||0; best=k; } }
+  return best;   // FIFO（最も古い待機者）。なければnull
+}
+// 匿名（ゲスト）も含めてサインイン済みにし、uidを返す
+function ensureGuestSignIn(){
+  return new Promise(function(resolve,reject){
+    const a=getAuth(); if(!a){ reject(new Error('Firebase未設定')); return; }
+    if(a.currentUser){ resolve(a.currentUser.uid); return; }
+    a.signInAnonymously().then(function(c){ resolve(c.user.uid); }).catch(reject);
+  });
+}
+function mmShow(status){ ['pvpChoice','pvpHostBox','pvpJoinBox','pvpConnBox'].forEach(id=>$(id)&&$(id).classList.add('hidden')); const b=$('pvpMmBox'); if(b) b.classList.remove('hidden'); if($('pvpMmStatus')) $('pvpMmStatus').textContent=status||''; }
+function mmShowOpponent(prof){
+  const el=$('pvpMmOpp'); if(!el) return;
+  if(!prof){ el.classList.add('hidden'); el.textContent=''; return; }
+  el.classList.remove('hidden');
+  el.textContent = '対戦相手: '+avatarIcon(prof.avatar||'')+' '+String(prof.name||'ゲスト').slice(0,16);   // textContentで安全表示（相手名はエスケープ）
+}
+function randomMatchStart(){
+  SFX.play('button');
+  if(!firebaseConfigured()){ $('pvpSetupWarn').classList.remove('hidden'); return; }
+  if(needPlayerDeck()) return;   // 自分の編成デッキが必要
+  mmActive=true; mmStartedConn=false; mmShowOpponent(null); mmShow('接続を準備中…');
+  ensureGuestSignIn().then(function(uid){
+    if(!mmActive) return;
+    mmUid=uid;
+    const db=ensureFirebase(); if(!db) throw new Error('Firebase未設定');
+    mmQueueRef = db.ref('matchmaking/queue');
+    mmMyMatchRef = db.ref('matchmaking/matches/'+uid);
+    mmMyMatchRef.on('value', function(snap){ const m=snap.val(); if(m && mmActive && !mmStartedConn) mmGuestFromAssignment(m); });   // 自分がclaimされる＝子になるケース
+    mmShow('対戦相手を探しています…');
+    const me=displayProfile();
+    let claimed=null;
+    mmQueueRef.transaction(function(q){
+      q=q||{};
+      const pick = mmPickWaiter(q, uid, Date.now(), MM_STALE_MS);
+      if(pick){ claimed={uid:pick, prof:q[pick]}; delete q[pick]; delete q[uid]; }   // 待機者をclaim（自分は列に残さない）
+      else { claimed=null; q[uid]={ name:me.name, avatar:me.avatar, ts:Date.now() }; }   // いなければ自分が待機
+      return q;
+    }, function(err, committed){
+      if(!mmActive) return;
+      if(err || !committed){ mmShow('混み合っています。もう一度お試しください'); return; }
+      if(claimed){ mmBecomeHost(claimed); }
+      else { try{ mmQueueRef.child(uid).onDisconnect().remove(); mmMyMatchRef.onDisconnect().remove(); }catch(e){} }   // 待機登録：切断時に自動で外す
+    });
+  }).catch(function(err){ mmShow('エラー: '+(err&&err.message||err)); });
+}
+// claimした側＝親：部屋を作り、相手(子)へコードを通知
+function mmBecomeHost(claimed){
+  mmStartedConn=true; pvpRole='host';
+  const code=genRoomCode(), me=displayProfile();
+  mmShowOpponent(claimed.prof); mmShow('対戦相手が見つかりました！ 接続中…');
+  try{ ensureFirebase().ref('matchmaking/matches/'+claimed.uid).set({ code:code, role:'guest', opp:{name:me.name,avatar:me.avatar}, ts:Date.now() }); }catch(e){}
+  createWebRTCTransport({ mode:'host', code:code, onDiag:pvpDiag, onState:s=>{ if($('pvpMmStatus')) $('pvpMmStatus').textContent='接続状態: '+s; },
+    onOpen:tp=>{ pvpConn=tp; mmCleanup(); pvpOnConnected('親'); } })
+    .catch(err=>{ mmShow('接続エラー: '+(err&&err.message||err)); });
+}
+// claimされた側＝子：通知された部屋コードで接続（親のオファーを待つ）
+function mmGuestFromAssignment(m){
+  if(!m.code) return; mmStartedConn=true; pvpRole='guest';
+  mmShowOpponent(m.opp); mmShow('対戦相手が見つかりました！ 接続中…');
+  try{ if(mmQueueRef && mmUid) mmQueueRef.child(mmUid).remove(); }catch(e){}
+  createWebRTCTransport({ mode:'guest', code:m.code, waitOffer:true, onDiag:pvpDiag, onState:s=>{ if($('pvpMmStatus')) $('pvpMmStatus').textContent='接続状態: '+s; },
+    onOpen:tp=>{ pvpConn=tp; mmCleanup(); pvpOnConnected('子'); } })
+    .catch(err=>{ mmShow('接続エラー: '+(err&&err.message||err)); });
+}
+// マッチング用ノード/リスナの後始末（対戦には使わない。部屋データはpvpLeaveで掃除）
+function mmCleanup(){
+  mmActive=false;
+  try{ if(mmMyMatchRef){ mmMyMatchRef.off(); mmMyMatchRef.onDisconnect().cancel(); mmMyMatchRef.remove().catch(()=>{}); } }catch(e){}
+  try{ if(mmQueueRef && mmUid){ mmQueueRef.child(mmUid).onDisconnect().cancel(); mmQueueRef.child(mmUid).remove().catch(()=>{}); } }catch(e){}
+  mmMyMatchRef=null; mmQueueRef=null;
+}
+function randomMatchCancel(){
+  SFX.play('button');
+  mmCleanup();
+  try{ if(pvpPC) pvpPC.close(); }catch(e){}
+  try{ if(pvpRoomRef){ pvpRoomRef.off(); pvpRoomRef.remove().catch(()=>{}); } }catch(e){}
+  pvpPC=null; pvpRoomRef=null; pvpRole=null;
+  pvpResetLobby();
+}
 function pvpLeave(){
   SFX.play('button');
+  mmCleanup();
   pvpGuestActive=false; try{ cancelAnimationFrame(pvpGuestRaf); }catch(e){}
   pvpMode=false; pvpHostObj=null; pvpGuestObj=null; pvpRemoteFoe=null; pvpGuestDeck=null;
   foeCtl = makeCpuFoeController();   // 敵をCPUに戻す
