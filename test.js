@@ -61,7 +61,7 @@ code += `
   applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff, buffCountFor,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck,
   buildProfile, applyProfile, displayProfile, get myProfile(){ return myProfile; },
-  mmPickWaiter,
+  mmPickWaiter, pvpResumeIsRecent, pvpReconnRemain,
   setCpuDeck:(d)=>{ cpuDeck = d; }, setCpuDeckMode:(m)=>{ cpuDeckMode = m; },
   startTutorial, tutNext, endTutorial, get tutorial(){ return tutorial; },
   endBattle, endGame, nextRound, resolveOverlaps,
@@ -2136,6 +2136,18 @@ console.log('\n=== 70) ランダムマッチ: 待機列から claim 相手を選
   check('期限切れの待機者は無視', API.mmPickWaiter({ old: { ts: now - 40000 }, fresh: { ts: now - 1000 } }, 'me', now, stale) === 'fresh');
   check('期限切れしかいなければnull', API.mmPickWaiter({ old: { ts: now - 40000 } }, 'me', now, stale) === null);
   check('壊れたエントリは無視', API.mmPickWaiter({ bad: null, ok: { ts: now - 100 } }, 'me', now, stale) === 'ok');
+}
+
+console.log('\n=== 71) PVP再接続: 残り秒数とリログ検知の純粋ロジック ===');
+{
+  const now = 1000000;
+  check('残り秒数: 30秒先なら30', API.pvpReconnRemain(now + 30000, now) === 30);
+  check('残り秒数: 過ぎていたら0（負にならない）', API.pvpReconnRemain(now - 5000, now) === 0);
+  check('残り秒数: 端数は切り上げ', API.pvpReconnRemain(now + 1500, now) === 2);
+  check('リログ検知: 最近(10秒前)は有効', API.pvpResumeIsRecent({ ts: now - 10000 }, now) === true);
+  check('リログ検知: 古い(数分前)は無効', API.pvpResumeIsRecent({ ts: now - 300000 }, now) === false);
+  check('リログ検知: null/未記録は無効', API.pvpResumeIsRecent(null, now) === false);
+  check('リログ検知: maxMs指定が効く', API.pvpResumeIsRecent({ ts: now - 5000 }, now, 1000) === false);
 }
 
 Promise.resolve().then(() => {
