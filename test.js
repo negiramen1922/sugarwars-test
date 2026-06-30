@@ -58,7 +58,7 @@ code += `
   evolvePancake, evolvedStep, nearestEnemy, spawnerStep, BAKERY_SPAWN_PATTERN,
   beginDraft, nextPick, pickCard, lockAndFight, aiPicks, startGame,
   applyPartyFlag, applyCookieParty, playerCanParty, countSideKey,
-  applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff, applyIcewizBuff, buffCountFor,
+  applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff, applyIcewizBuff, applyMacaronBuff, buffCountFor,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck, needFullDeckForPvp,
   buildProfile, applyProfile, displayProfile, get myProfile(){ return myProfile; },
   mmPickWaiter, pvpResumeIsRecent, pvpReconnRemain, eloExpected, eloDelta, myTrophies, presenceCounts,
@@ -2199,6 +2199,51 @@ console.log('\n=== 74) PVPはデッキ4枚必須（4枚未満はブロック） 
   API.setMyDeck(['cookie', 'choco', 'shoe', 'bomb']);
   check('4枚そろえばPVP可（ブロック=false）', API.needFullDeckForPvp() === false);
   API.setMyDeck([]);
+}
+
+console.log('\n=== 77) 新キャラ シェルマカロン（殻スピン→スタン→通常／ビッグシェル強化） ===');
+{
+  const W = 440, H = 660;
+  const mc = API.UNIT_BY_KEY['macaron'];
+  check('macaronが登録されている（2体・shell）', !!mc && mc.shell === true && mc.count === 2, mc && { shell: mc.shell, count: mc.count });
+  // 初期状態：殻スピン
+  let w = API.createWorld(W, H); API.world = w; w.phase = 'battle'; w.intro = 0;
+  const m = API.makeFighters('macaron', 'p', W, H, 'army')[0];
+  m.x = W / 2; m.y = H / 2; m.appear = 1; w.units.push(m);
+  const e = API.makeFighters('choco', 'e', W, H, 'army')[0];
+  e.x = W / 2 + 30; e.y = H / 2; e.appear = 1; e.hp = e.maxHp = 9999; w.units.push(e);
+  check('開幕は殻スピン（shellPhase=spin・inShell）', m.shellPhase === 'spin' && m.inShell === true);
+  // 殻スピン中の被ダメージ9%カット
+  const before = m.hp; API.applyHit(w, e, m, 100);
+  check('殻スピン中は被ダメージ9%カット（100→91）', Math.round(before - m.hp) === 91, before - m.hp);
+  // 以降は死亡で検証がブレないようマカロンを高HP化・敵の攻撃は無効化（体当たり検証は別）
+  m.hp = m.maxHp = 99999; e.atk = 0;
+  // スピン中は動き回り、敵に体当たりダメージが入る
+  const ex0 = m.x, ey0 = m.y; let rammed = false; const ehpBefore = e.hp;
+  for (let i = 0; i < 30; i++) { API.stepWorld(w, 1 / 60); if (e.hp < ehpBefore) rammed = true; }
+  check('スピン中は移動する', m.x !== ex0 || m.y !== ey0);
+  check('スピン中の体当たりで敵にダメージ', rammed, { before: ehpBefore, now: e.hp });
+  // 時間経過でスピン→スタン→通常 に遷移
+  let sawStun = false, sawNormal = false;
+  for (let i = 0; i < 60 * 8; i++) { API.stepWorld(w, 1 / 60); if (m.shellPhase === 'stun') sawStun = true; if (m.shellPhase === 'normal') { sawNormal = true; break; } }
+  check('スピン後にスタンへ遷移する', sawStun);
+  check('スタン後に通常戦闘へ遷移する', sawNormal);
+  check('通常時はinShellでない（カットなし）', m.inShell === false);
+  // ビッグシェル強化：HPが増える
+  let wb = API.createWorld(W, H); API.world = wb;
+  const m2 = API.makeFighters('macaron', 'p', W, H, 'army')[0]; m2.appear = 1; wb.units.push(m2);
+  API.makeFighters('macaron', 'e', W, H, 'army').forEach(f => { f.appear = 1; wb.units.push(f); });
+  const baseHp = m2.baseMaxHp;
+  API.applyMacaronBuff(wb, 'p');
+  check('ビッグシェルでHPが増える', m2.maxHp === Math.round(baseHp * (1 + 0.6)) && m2.hp === m2.maxHp, { base: baseHp, now: m2.maxHp });
+  check('macaronBuff フラグが立つ', m2.macaronBuff === true);
+  check('敵マカロンには適用されない', wb.units.filter(u => u.side === 'e' && u.key === 'macaron').every(u => !u.macaronBuff));
+  API.applyMacaronBuff(wb, 'p');
+  check('2回適用しても重ねがけしない', m2.maxHp === Math.round(baseHp * (1 + 0.6)));
+  // 詳細表示にビッグシェルが出る（HP増加なのでstatsあり）
+  const ed = API.enhDisplay(mc);
+  const be = ed.find(x => x.kind === '強化');
+  check('詳細にビッグシェルが出てHPが併記される', be && be.name === 'ビッグシェル' && be.stats && be.stats.hp > mc.hp, be && be.stats);
 }
 
 console.log('\n=== 76) 新キャラ アイスクリームウィザード（氷弾AoE＋ヒット鈍足／ブリザード強化） ===');

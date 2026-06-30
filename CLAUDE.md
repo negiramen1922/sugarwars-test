@@ -21,7 +21,7 @@
 - 対戦は **CPU対戦** と **オンラインPVP（Firebase+WebRTC・ホスト権威型／下記「PVP」章）**。PVPは強化カード・逆転ボーナスまで実装済み。
 - **コアループ**：ホーム →「バトル」or「編成」。編成で4枚デッキ `myDeck` を作る → バトルでは毎ラウンド「3枚提示→1枚選ぶ」→ 選んだユニットは毎ラウンド復活して増え続ける軍（上限30）に加わる → 縦型キャンバスでリアルタイム自動戦闘（自分＝下/青、敵＝上/赤）→ 負けるとライフ−1（初期3）→ 先に0で敗北。CPUも自分のランダム4枚デッキで同じ仕組み。
 
-## 現在のロスター（`UNITS` 配列・全14種）
+## 現在のロスター（`UNITS` 配列・全15種）
 
 | key | 名前 | tier | count | atk | hp | speed | 特徴 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -39,6 +39,7 @@
 | ghost | わたあめゴースト | 3.5 | 3 | 16 | 44 | 95 | 開幕少し待って敵後方へワープ（warpDelay1.5・無敵中は狙われない） |
 | cannon | キャンディキャノン | 4 | 1 | 0 | 140 | 0 | 不動の全域誘導AoE迫撃（手前の敵を優先・爆発範囲 `splash`=35） |
 | icewiz | アイスクリームウィザード | 3.3 | 1 | 16 | 60 | 60 | 後衛魔導士。小範囲の氷弾（`ranged`＋`splash`=32）を撃ち、命中した敵に時限鈍足（`slowHit`=0.35/`slowDur`=1.2秒）を付与。鈍足は `u.chillT`/`chillAmt` で管理し `slowMul` に反映 |
+| macaron | シェルマカロン | 1 | 2 | 14 | 95 | 70 | 殻スピン（`shell`／`shellStep`）。開幕は殻で突進し壁で反射しながら約4秒(`SHELL_SPIN_DUR`)暴れる→約2秒(`SHELL_STUN_DUR`)スタン→以降は通常戦闘。スピン中は体当たり(`atk`)＋被ダメ9%カット(`SHELL_DR`／`u.inShell`)。`u.shellPhase`(spin/stun/normal)で挙動・立ち絵を切替 |
 
 隊列 `arrangeFormation` は **tier が小さいほど前列、大きいほど後方**。
 
@@ -73,7 +74,7 @@
 
 - **データ/描画**：`CONFIG` / `UNITS` / `UNIT_BY_KEY` / `SPECIALS`（X2は自動生成）/ `iconHTML`（カード用・スライム/ソーダは味方色）/ `SPRITE_DATA`(base64) / `SPRITES`(Image) / `spriteFor`（盤面用スプライト解決）/ `render` / `loop`。
 - **戦闘エンジン**：`createWorld` / `stepWorld(world,dt)`（phase=muster|battle|outro。毎フレームshuffleで左右バイアス除去）/ `nearestEnemy`（**無敵中`invuln>0`の敵は標的にしない**＝ワープ直後のゴーストにサムライ等が吊られない）/ `applyHit`（無敵中は無効。ノックバックは重量耐性＋上限＋無効時間。吸引中/起爆中は無反動）/ `killUnit`（爆発・スライム分裂・炭酸沼発生を一本化。爆発AoEも無敵中は当たらない）。
-- **専用挙動**：`chargerStep`(大福) / `artilleryStep`(キャノン) / `vacuumStep`(ドーナッツ) / `spawnerStep`(ベーカリー：`spawnerId` で個体ごとに独立した召喚枠) / `evolvePancake`・`evolvedStep`(パンケーキ進化＋ジャンプ衝撃波) / ワープ(ゴースト) / 炭酸沼は `world.puddles` を `stepWorld` で毎フレーム処理（DoT＋`slowMul`減速）。
+- **専用挙動**：`chargerStep`(大福) / `artilleryStep`(キャノン) / `vacuumStep`(ドーナッツ) / `spawnerStep`(ベーカリー：`spawnerId` で個体ごとに独立した召喚枠) / `evolvePancake`・`evolvedStep`(パンケーキ進化＋ジャンプ衝撃波) / ワープ(ゴースト) / `shellStep`(マカロン：殻スピン→スタン→通常／true返却でその場処理) / 氷弾のヒット時スローは `u.chillT`/`chillAmt`、炭酸沼は `world.puddles` を `stepWorld` で毎フレーム処理（DoT＋`slowMul`減速）。
 - **ドラフト/演出**：`beginDraft` / `nextPick` / `renderPickOffer` / `pickCardAnimated`（裏表フリップ）→ `pickCard` / `revealFoePick` / `aiPicks`（貪欲スコア）/ `lockAndFight`。
 - **隊列**：`arrangeFormation`（tierでグループ化し後方アンカーで整列）/ `centerMergedSlimes`。
 - **X2**：`doubleUnitsOnBoard` / `applyX2Replay` / `eligibleX2Specials` / `cloneFighter`。
@@ -83,6 +84,7 @@
 
 - 陣営で出し分けるキャラ：**スライム**（`slime_blue/red` ＋ `_big`）と**ソーダ**（`soda_blue`=味方/`soda_red`=敵）ほか多数（cookie/choco/shoe/daifuku/ghost/donut/bakery/ginger/cannon/**icewiz**＝`*_blue`味方/`*_red`敵）。`spriteFor()`/`iconHTML()` で解決。
 - パンケーキは進化前 `pancake`／進化後 `pancake_evo` を `u.evolved` で切替。
+- シェルマカロンは通常 `macaron_blue/red`／殻スピン・スタン中 `macaron_spin_blue/red` を `u.shellPhase` で切替（スピン中は描画を回転＋スタン中は★演出）。
 - 強化で立ち絵が変わるキャラ：**チョコ**（`choco_buff_blue/red`＝ビター装甲、`u.chocoBuff`）・**シュー**（`shoe_buff_blue/red`＝特盛り、`u.shoeBuff`）・**ソーダ**（`soda_buff_*`＝炭酸沼強化、`u.fizz`）。いずれも陣営色つき。`spriteFor()` で解決。
 - 立ち絵が無いキャラは絵文字フォールバック。
 - **強化カードの絵**：`SPECIALS` に `evoSprite`（例 `buff_choco`→`choco_buff_blue`／`fast_pancake`→`pancake_evo`）を持つ強化は、ドラフトのカード絵を**進化後/強化後の立ち絵**で出す（`specialCardIcon()`）。無ければ対象キャラのベース絵→絵文字にフォールバック。
