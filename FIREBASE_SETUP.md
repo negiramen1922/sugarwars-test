@@ -102,7 +102,30 @@ ONだと端末同士が直接通信できません。設定でOFFにできれば
 **片方のスマホでテザリング（インターネット共有）をON → もう片方をそのWi-Fiに接続。**
 2台が同じシンプルな回線に入るので端末分離に当たらず、直接つながりやすくなります。まずこれを試すのが速いです。
 
-### 確実な解決：TURN中継（Metered・設定済み）
+### おすすめ：Cloudflare Realtime TURN（無料枠が大きく安定）
+
+Meteredの無料枠（月500MB）が尽きると `code=400 allocate error`／`relay 0` で繋がらなくなります。
+**Cloudflare Realtime のTURN**は無料枠が大きく安定しているので、こちらを推奨します。設定すると自動でCloudflareを優先します。
+
+**手順（5分・Cloudflareアカウントは無料）**
+
+1. [Cloudflareダッシュボード](https://dash.cloudflare.com/) にログイン。
+2. 左メニュー **Realtime**（旧 Calls）→ **TURN** → **Create TURN Key**。
+3. 表示される **Turn Token ID（キーID）** と **API Token（トークン）** を控える。
+4. `index.html` のこの2行に貼る：
+
+   ```js
+   const CLOUDFLARE_TURN_KEY_ID = 'ここにキーID';
+   const CLOUDFLARE_TURN_TOKEN  = 'ここにAPIトークン';
+   ```
+
+5. これだけ。接続時に診断ログへ「**Cloudflare TURN取得OK**」が出て、対戦時に `経路候補[relay]` が出れば中継成功です。
+
+> ⚠ トークンはクライアントに埋め込まれて公開される前提です（WebRTCの仕様上、Meteredのキーと同じ扱い）。
+> スコープはTURN専用なので影響は限定的。気になれば後でサーバー側発行に変更できます。
+> Cloudflare/Metered の両方が空ならSTUNのみ（＝同一回線でしか繋がりません）。Cloudflareを設定すればMeteredは使いません。
+
+### 予備：TURN中継（Metered・設定済み）
 
 本リポジトリは [Metered](https://www.metered.ca/) のTURNを**接続時に自動取得**する方式で設定済みです
 （`index.html` の `METERED_SUBDOMAIN` / `METERED_API_KEY`）。接続のたびに最新の中継情報を取りに行きます。
