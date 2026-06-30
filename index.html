@@ -19,13 +19,13 @@
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#14161f; --bg2:#1b1f2b; --panel:#232838; --panel-2:#2c3247;
-    --ink:#f0ede3; --muted:#aeb6c9; --parch:#e8dcc0; --parch-dk:#d9c9a3;
-    --brass:#d4a544; --steel:#4ea3c9; --rust:#d2603a; --green:#6fbf73;
-    --line:rgba(255,255,255,.08); --radius:14px; --shadow:0 10px 30px rgba(0,0,0,.45);
+    --bg:#fff5f8; --bg2:#ffeaf1; --panel:#ffffff; --panel-2:#fdeef4;
+    --ink:#5a4350; --muted:#a08c99; --parch:#fff2dd; --parch-dk:#f0dcb4;
+    --brass:#f07aa6; --steel:#5cc4d6; --rust:#ff9a8a; --green:#62c79a;
+    --line:rgba(120,70,100,.14); --radius:16px; --shadow:0 8px 22px rgba(200,140,175,.22);
   }
   *{box-sizing:border-box} html,body{margin:0;padding:0}
-  body{background:radial-gradient(1200px 600px at 50% -10%, #20283a 0%, transparent 60%), var(--bg);color:var(--ink);font-family:"Inter",system-ui,sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+  body{background:radial-gradient(1100px 600px at 50% -8%, #ffe0ec 0%, transparent 60%), radial-gradient(820px 520px at 88% 10%, #ddf3ec 0%, transparent 55%), var(--bg);color:var(--ink);font-family:"Inter",system-ui,sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
   .wrap{max-width:760px;margin:0 auto;padding:18px 16px 60px}
   header.topbar{display:flex;flex-direction:column;gap:10px;margin-bottom:18px}
   .topbar-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
@@ -43,13 +43,13 @@
   .side-score .name{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
   .side-score.you .name{color:var(--steel)} .side-score.foe .name{color:var(--rust)}
   .hearts{font-size:18px;letter-spacing:2px;margin-top:2px}
-  .round-pill{font-family:"Space Mono",monospace;font-size:12px;color:var(--brass);border:1px solid rgba(212,165,68,.4);border-radius:999px;padding:4px 10px;white-space:nowrap}
+  .round-pill{font-family:"Space Mono",monospace;font-size:12px;color:var(--brass);border:1px solid rgba(240,122,166,.4);border-radius:999px;padding:4px 10px;white-space:nowrap}
   .stage{background:linear-gradient(180deg,var(--bg2),var(--bg));border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;min-height:340px}
   .stage-title{font-family:"Oswald",sans-serif;text-transform:uppercase;letter-spacing:.08em;font-size:15px;color:var(--muted);margin:0;font-weight:600}
   .stage-sub{font-size:13px;color:var(--muted);margin:6px 0 14px} .stage-sub b{color:var(--ink)}
   .btn{font-family:"Oswald",sans-serif;text-transform:uppercase;letter-spacing:.06em;font-weight:600;font-size:15px;cursor:pointer;border:none;border-radius:10px;padding:12px 22px;transition:transform .08s ease, filter .15s ease}
   .btn:active{transform:translateY(1px)}
-  .btn-primary{background:var(--brass);color:#241c08} .btn-primary:hover{filter:brightness(1.08)}
+  .btn-primary{background:var(--brass);color:#fff} .btn-primary:hover{filter:brightness(1.05)}
   .btn-primary:disabled{opacity:.4;cursor:not-allowed;filter:none}
   .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--line)} .btn-ghost:hover{color:var(--ink);border-color:var(--brass)}
 
@@ -85,7 +85,7 @@
   .tut-btns{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
   .tut-btns .hidden{display:none !important}
   /* チュートリアル：選べる3枚をハイライト */
-  #offer.tut-pick .card{border-color:var(--brass);box-shadow:0 0 0 3px rgba(212,165,68,.55),0 0 16px rgba(212,165,68,.5),0 6px 18px rgba(0,0,0,.5);animation:tutCardPulse 1s ease-in-out infinite}
+  #offer.tut-pick .card{border-color:var(--brass);box-shadow:0 0 0 3px rgba(240,122,166,.55),0 0 16px rgba(240,122,166,.5),0 6px 18px rgba(0,0,0,.5);animation:tutCardPulse 1s ease-in-out infinite}
   @keyframes tutCardPulse{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-5px) scale(1.04)}}
   .result-banner.win{color:#7be08e} .result-banner.lose{color:#ff7a5c} .result-banner.draw{color:#ffd56a}
   .result-banner.show{animation:resultPop .45s cubic-bezier(.2,1.4,.4,1) both}
@@ -144,7 +144,7 @@
   .card.upgrade .up-tag{font-family:"Space Mono",monospace;font-size:12px;color:#7a3fb0;background:rgba(255,255,255,.55);border-radius:6px;padding:1px 8px}
   .draft-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
   .pick-status{font-size:13px;color:var(--muted)} .pick-status b{color:var(--ink);font-family:"Space Mono",monospace}
-  .comeback-banner{background:linear-gradient(90deg,rgba(212,165,68,.18),transparent);border:1px solid rgba(212,165,68,.4);border-left:3px solid var(--brass);border-radius:8px;padding:8px 12px;margin:14px 0 0;font-size:13px;color:var(--ink)}
+  .comeback-banner{background:linear-gradient(90deg,rgba(240,122,166,.18),transparent);border:1px solid rgba(240,122,166,.4);border-left:3px solid var(--brass);border-radius:8px;padding:8px 12px;margin:14px 0 0;font-size:13px;color:var(--ink)}
   .comeback-banner b{color:var(--brass)}
   .draft-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-top:14px}
   .loadout-mini{display:flex;gap:6px;justify-content:center;margin:12px 0 2px;flex-wrap:wrap}
@@ -153,7 +153,7 @@
   .loadout-mini .chip{padding:2px 4px} .loadout-mini .chip img{width:24px;height:24px;image-rendering:pixelated;display:block}
   .loadout-mini .lbl{font-size:11px;color:var(--muted);align-self:center;letter-spacing:.08em;text-transform:uppercase;margin-right:2px}
   .loadout-mini .buff-lbl{color:var(--brass);margin-left:8px}
-  .loadout-mini .buffchip{background:linear-gradient(180deg,#3a2f12,#2a2410);border:1px solid var(--brass);box-shadow:0 0 6px rgba(212,165,68,.4)}
+  .loadout-mini .buffchip{background:linear-gradient(180deg,#fff0d8,#ffe6c2);border:1px solid var(--brass);box-shadow:0 0 6px rgba(240,122,166,.4)}
 
   .battle-controls{display:flex;gap:10px;justify-content:center;margin-top:14px}
   .result-line{font-family:"Oswald",sans-serif;text-transform:uppercase;letter-spacing:.06em;font-size:18px;text-align:center;margin:12px 0 0}
@@ -214,7 +214,7 @@
   .menu-card h3,.modal-card h3{font-family:"Oswald",sans-serif;text-transform:uppercase;letter-spacing:.04em;text-align:center;margin:0 0 12px;font-size:20px;color:var(--ink)}
   .menu-card .menu-row{display:flex;align-items:center;gap:10px;width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:13px 15px;color:var(--ink);font-size:15px;cursor:pointer;margin:8px 0;text-align:left;font-family:inherit;transition:border-color .15s}
   .menu-card .menu-row:hover{border-color:var(--brass)}
-  .menu-card .menu-row--accent{background:linear-gradient(180deg,#3a2f12,#2a2410);border-color:var(--brass);box-shadow:0 0 10px rgba(212,165,68,.25);font-weight:600}
+  .menu-card .menu-row--accent{background:linear-gradient(180deg,#fff1f6,#ffe3ef);border-color:var(--brass);box-shadow:0 0 10px rgba(240,122,166,.22);font-weight:600}
   .install-howto{color:var(--ink);font-size:14px;line-height:1.7}
   .install-howto ol,.install-howto ul{margin:6px 0 0;padding-left:20px}
   .install-howto li{margin:6px 0} .install-howto b{color:var(--brass)} .install-howto p{margin:6px 0;color:var(--muted)}
@@ -318,7 +318,7 @@
         ⚠ Firebaseが未設定です。<code>FIREBASE_CONFIG</code> を設定すると対人戦が使えます（<code>FIREBASE_SETUP.md</code> 参照）。
       </div>
       <div class="menu-list" id="pvpChoice">
-        <button class="menu-btn" onclick="randomMatchStart()" style="border-color:var(--brass);box-shadow:0 0 10px rgba(212,165,68,.25)">
+        <button class="menu-btn" onclick="randomMatchStart()" style="border-color:var(--brass);box-shadow:0 0 10px rgba(240,122,166,.25)">
           <span class="mb-ico">🎲</span>
           <span class="mb-txt"><b>ランダムマッチ</b><small>あいことば不要。すぐ相手を探して対戦</small></span>
           <span class="mb-arrow">›</span>
@@ -352,7 +352,7 @@
       <div id="pvpJoinBox" class="hidden" style="text-align:center;margin-top:14px">
         <p class="stage-sub">相手から聞いた「あいことば」を入力</p>
         <input id="pvpCodeInput" inputmode="latin" autocomplete="off" maxlength="4"
-          style="font-size:32px;text-transform:uppercase;letter-spacing:8px;text-align:center;width:180px;padding:8px;border-radius:12px;border:2px solid var(--brass);background:#1c1530;color:#fff" placeholder="ABCD">
+          style="font-size:32px;text-transform:uppercase;letter-spacing:8px;text-align:center;width:180px;padding:8px;border-radius:12px;border:2px solid var(--brass);background:var(--panel-2);color:var(--ink)" placeholder="ABCD">
         <div style="margin-top:10px"><button class="btn btn-primary" onclick="pvpJoin()">接続する 🔗</button>
           <button class="btn btn-ghost" onclick="pvpRetry()">🔄 やり直す</button></div>
         <p class="stage-sub" id="pvpJoinStatus"></p>
@@ -362,10 +362,10 @@
         <p class="big" style="color:var(--green)">接続成功！ 🎉</p>
         <p class="stage-sub">あなたは <b id="pvpRoleLabel">—</b> です。下のボタンで相手にメッセージを送れます（接続確認）。</p>
         <button class="btn btn-primary" onclick="pvpSendTest()">テスト送信 📤</button>
-        <div id="pvpLog" style="text-align:left;max-width:340px;margin:12px auto;font-size:13px;background:#1c1530;border-radius:12px;padding:10px;min-height:60px;max-height:160px;overflow:auto"></div>
+        <div id="pvpLog" style="text-align:left;max-width:340px;margin:12px auto;font-size:13px;background:var(--panel-2);border-radius:12px;padding:10px;min-height:60px;max-height:160px;overflow:auto"></div>
       </div>
       <!-- 接続の診断ログ（つながらないときの切り分け用） -->
-      <div id="pvpDiag" style="text-align:left;max-width:340px;margin:12px auto 0;font-size:12px;color:var(--muted);background:#160f28;border-radius:10px;padding:8px;max-height:140px;overflow:auto"></div>
+      <div id="pvpDiag" style="text-align:left;max-width:340px;margin:12px auto 0;font-size:12px;color:var(--muted);background:var(--panel-2);border-radius:10px;padding:8px;max-height:140px;overflow:auto"></div>
       <button class="btn btn-ghost" onclick="pvpLeave()" style="margin-top:8px">← もどる</button>
     </section>
 
