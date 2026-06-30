@@ -776,7 +776,7 @@ check('突撃の威力も上がる', db.dashDamage > dfDash, { base: dfDash, now
 check('daifukuBuff フラグが立つ', db.daifukuBuff === true);
 check('敵大福には適用されない', wds2.units.filter(u => u.side === 'e' && u.key === 'daifuku').every(u => !u.daifukuBuff && u.maxHp === u.baseMaxHp));
 API.applyDaifukuBuff(wds2, 'p'); // 冪等
-check('2回適用しても重ねがけしない', db.maxHp === Math.round(dfHp * (1 + 0.5)));
+check('2回適用しても重ねがけしない', db.maxHp === Math.round(dfHp * (1 + 0.6)));
 
 // pickCard で state.youDaifukuBuff が立ち、盤面大福が強化
 API.resetState();
@@ -845,12 +845,12 @@ wg3.units.push(gho);
 const atkr = API.makeFighters('shoe', 'e', W, H, 'army')[0]; atkr.x = W / 2; atkr.y = H / 2 + 20; atkr.appear = 1; wg3.units.push(atkr);
 API.applyHit(wg3, atkr, gho, 10);
 let decoys = wg3.units.filter(u => u.key === 'ghost' && u.isDecoy);
-check('被弾で分身が2体でる', decoys.length === 2, decoys.length);
+check('被弾で分身が1体でる', decoys.length === 1, decoys.length);
 check('分身はHP1（1撃で消える）', decoys[0] && decoys[0].maxHp === 1 && decoys[0].hp === 1);
 check('分身は味方側', decoys[0] && decoys[0].side === 'p');
 check('分身はワープしない・再分身しない', decoys[0] && decoys[0].warper === false && !decoys[0].cloneOn);
 API.applyHit(wg3, atkr, gho, 10);   // 2回目
-check('2回目の被弾では分身は増えない', wg3.units.filter(u => u.key === 'ghost' && u.isDecoy).length === 2);
+check('2回目の被弾では分身は増えない', wg3.units.filter(u => u.key === 'ghost' && u.isDecoy).length === 1);
 
 // 分身は1撃で消える
 const dec = decoys[0];
@@ -996,7 +996,7 @@ API.makeFighters('soda', 'e', W, H, 'army').forEach(f => { f.appear = 1; wf2.uni
 API.applySodaFizz(wf2, 'p');
 const ps = wf2.units.find(u => u.side === 'p' && u.key === 'soda');
 check('沼の半径が基準より拡大', ps.puddleR > sBase.puddleR, { base: sBase.puddleR, now: ps.puddleR });
-check('沼のダメージも基準より上がる（強化で+40%）', ps.puddleDps > sBase.puddleDps, { base: sBase.puddleDps, now: ps.puddleDps });
+check('沼のダメージは基準のまま（強化で上がらない）', ps.puddleDps === sBase.puddleDps, { base: sBase.puddleDps, now: ps.puddleDps });
 check('fizz フラグが立つ', ps.fizz === true);
 check('敵ソーダには適用されない', wf2.units.filter(u => u.side === 'e' && u.key === 'soda').every(u => !u.fizz && u.puddleR === sBase.puddleR));
 // 冪等性：2回適用しても基準ベース計算で同じ値
@@ -1010,13 +1010,13 @@ function sodaPuddle(fizz) {
   const s = API.makeFighters('soda', 'p', W, H, 'army')[0];
   s.x = W / 2; s.y = H / 2; s.appear = 1;
   wd.units.push(s);
-  if (fizz) API.applySodaFizz(wd, 'p');   // 実際の強化処理を通す（範囲拡大＋ダメージ強化）
+  if (fizz) API.applySodaFizz(wd, 'p');   // 実際の強化処理を通す（範囲のみ拡大・ダメージ据え置き）
   API.killUnit(wd, s);
   return wd.puddles[0];
 }
 const basePud = sodaPuddle(false), fizzPud = sodaPuddle(true);
 check('強化で沼の半径が大きい', fizzPud.r > basePud.r, { base: basePud.r, fizz: fizzPud.r });
-check('強化で沼のDPSも上がる', fizzPud.dps > basePud.dps, { base: basePud.dps, fizz: fizzPud.dps });
+check('強化でも沼のDPSは同じ（上がらない）', fizzPud.dps === basePud.dps, { base: basePud.dps, fizz: fizzPud.dps });
 
 // pickCard で state.youSodaFizz が立ち、盤面ソーダに付与
 API.resetState();
@@ -1081,7 +1081,7 @@ check('donutWall フラグが立つ', dn.donutWall === true);
 check('敵ドーナッツには適用されない', wn2.units.filter(u => u.side === 'e' && u.key === 'donut').every(u => !u.donutWall && u.maxHp === u.baseMaxHp));
 // 冪等性
 API.applyDonutWall(wn2, 'p');
-check('2回適用しても重ねがけしない（HP不変）', dn.maxHp === Math.round(dHp * (1 + 0.7)));
+check('2回適用しても重ねがけしない（HP不変）', dn.maxHp === Math.round(dHp * (1 + 0.9)));
 
 // pickCard で state.youDonutWall が立ち、盤面ドーナッツが鉄壁化
 API.resetState();
@@ -1142,7 +1142,7 @@ API.makeFighters('pancake', 'p', W, H, 'army').forEach(f => { f.appear = 1; wp3.
 API.makeFighters('pancake', 'e', W, H, 'army').forEach(f => { f.appear = 1; wp3.units.push(f); });
 API.applyPancakeFast(wp3, 'p');
 const myPk = wp3.units.find(u => u.side === 'p' && u.key === 'pancake');
-check('進化時間が短縮(10→6)', Math.abs(myPk.evolveAt - pkBase * 0.6) < 1e-6, { base: pkBase, now: myPk.evolveAt });
+check('進化時間が短縮(10→7.5)', Math.abs(myPk.evolveAt - pkBase * 0.75) < 1e-6, { base: pkBase, now: myPk.evolveAt });
 check('fastEvo フラグが立つ', myPk.fastEvo === true);
 check('敵パンケーキは据え置き(10)', wp3.units.filter(u => u.side === 'e' && u.key === 'pancake').every(u => u.evolveAt === pkBase));
 

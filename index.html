@@ -675,13 +675,12 @@ const FOE_BOMB_CHANCE = 0.4;    // 敵（ライバル）がおかわりを使う
 const DAIFUKU_CLEAVE_DASH = 1.54; // 突撃ヒットの薙ぎ払い到達（dashRange26×1.54≈半径40）
 /* ★特大大福サムライ（大福固有強化）の調整値。1回限りの単発強化（HP＆攻撃UP）。 */
 const DAIFUKU_MIN = 1;          // 盤面にこの数以上大福がいると「特大大福」カードが出る
-const DAIFUKU_HP = 0.5;         // HP上昇率（+50%）。強すぎたので+60%→+50%に調整
-const DAIFUKU_ATK = 0.42;       // 攻撃・突撃威力の上昇率（+42%）。強すぎたので+50%→+42%に調整
+const DAIFUKU_HP = 0.6;         // HP上昇率（+60%）
+const DAIFUKU_ATK = 0.5;        // 攻撃・突撃威力の上昇率（+50%）
 const FOE_DAIFUKU_CHANCE = 0.4; // 敵（ライバル）が特大大福を使う確率
 /* ★分身（わたあめゴースト固有強化）の調整値。1回限りの単発強化。 */
 const GHOST_MIN = 1;            // 盤面にこの数以上ゴーストがいると「分身」カードが出る
 const FOE_GHOST_CHANCE = 0.4;   // 敵（ライバル）が分身を使う確率
-const GHOST_CLONE_N = 2;        // 被弾時に出すおとり分身の数（弱かったので1→2に底上げ）
 // ※分身は各ゴーストが初被弾時に1回だけ出る、HP1（1撃で消える）のおとり。
 /* ★クラスター花火弾（キャンディキャノン固有強化）の調整値。1回限りの単発強化。 */
 const CANNON_MIN = 1;              // 盤面にこの数以上キャノンがいると「クラスター花火弾」カードが出る
@@ -693,21 +692,21 @@ const CANNON_CLUSTER_DMG_MUL = 0.5;   // 各小爆発の威力（本体mortarの
 const FOE_CANNON_CHANCE = 0.4;    // 敵（ライバル）がクラスター花火弾を使う確率
 /* ★メガ炭酸沼（ランニングソーダ固有強化）の調整値。1回限りの単発強化。 */
 const SODA_MIN = 2;            // 盤面にこの数以上ソーダがいると「メガ炭酸沼」カードが出る
-const SODA_R_MUL = 1.45;       // 炭酸沼の半径倍率（弱かったので1.25→1.45に拡大）
-const SODA_DPS_MUL = 1.4;      // 炭酸沼の継続ダメージ倍率（弱かったので強化で+40%＝復活。base5→7dps）
+const SODA_R_MUL = 1.25;       // 炭酸沼の半径倍率（強化時の範囲拡大・控えめに）
+const SODA_DPS_MUL = 1.8;      // （未使用）以前は強化で継続ダメージを上げていたが廃止
 const PUDDLE_DPS_CAP = 10;     // 1体が同時に受ける炭酸沼DoTの上限/秒（重ねがけ上限。base=5なので最大2匹分まで効く）
 const BLAST_KB = 10;          // 爆発（ポップコーン/ソーダ）のノックバック強さ（kb無敵を貫通・中心ほど強い）
 const BLAST_FALLOFF = 0.6;    // 爆発/範囲攻撃の距離減衰（中心=100% / 外周=1-0.6=40%）。0で減衰無し
 const FOE_SODA_CHANCE = 0.4;   // 敵（ライバル）がメガ炭酸沼を使う確率
 /* ★鉄壁ドーナッツ（バキュームドーナッツ固有強化）の調整値。1回限りの単発強化。 */
 const DONUT_MIN = 1;          // 盤面にこの数以上ドーナッツがいると「鉄壁ドーナッツ」カードが出る
-const DONUT_HP = 0.7;         // HP上昇率（+70%）。強すぎたので+90%→+70%に調整
+const DONUT_HP = 0.9;         // HP上昇率（+90%）
 const DONUT_SCALE = 0.18;     // 見た目サイズ上昇率（一回り巨大化）
 const DONUT_R = 0.12;         // 当たり判定上昇率（壁としての存在感）
 const FOE_DONUT_CHANCE = 0.4; // 敵（ライバル）が鉄壁ドーナッツを使う確率
 /* ★はや焼きパンケーキ（パンケーキキング固有強化）の調整値。1回限りの単発強化。 */
 const PANCAKE_MIN = 1;          // 盤面にこの数以上パンケーキがいると「はや焼き」カードが出る
-const PANCAKE_EVO_MUL = 0.6;    // 進化までの時間倍率（弱かったので25%短縮→40%短縮）
+const PANCAKE_EVO_MUL = 0.75;   // 進化までの時間倍率（25%短縮）
 const FOE_PANCAKE_CHANCE = 0.4; // 敵（ライバル）がはや焼きを使う確率
 /* ★特盛りシュークリーム（シュークリームアーチャー固有強化）の調整値。1回限りの単発強化。 */
 const SHOE_MIN = 2;            // 盤面にこの数以上シューがいると「特盛りシュークリーム」カードが出る
@@ -747,10 +746,10 @@ SPECIALS['buff_daifuku'] = {
   key:'buff_daifuku', name:'特大大福サムライ', icon:'🍡', upgrade:true, daifukuBuff:true, target:'daifuku',
   text:'大福サムライのHPと攻撃力（突撃の威力も）が大幅にアップする（以後ずっと有効）。',
 };
-/* わたあめゴースト固有強化「分身」：攻撃を受けると、おとりの分身を2体出す（分身は1撃で消える）。 */
+/* わたあめゴースト固有強化「分身」：攻撃を受けると、おとりの分身を1体出す（分身は1撃で消える）。 */
 SPECIALS['clone_ghost'] = {
   key:'clone_ghost', name:'分身', icon:'☁️', upgrade:true, ghostClone:true, target:'ghost',
-  text:'わたあめゴーストが攻撃を受けると、おとりの分身を2体出す（分身は1撃で消える・各ゴースト1回ずつ）。以後ずっと有効。',
+  text:'わたあめゴーストが攻撃を受けると、おとりの分身を1体出す（分身は1撃で消える・各ゴースト1回ずつ）。以後ずっと有効。',
 };
 /* キャンディキャノン固有強化「クラスター花火弾」：着弾すると小爆発がいくつも周囲に飛び散る。 */
 SPECIALS['cluster_cannon'] = {
@@ -760,17 +759,17 @@ SPECIALS['cluster_cannon'] = {
 /* ランニングソーダ固有強化「メガ炭酸沼」：自爆で残る炭酸沼の範囲とダメージが大幅UP。 */
 SPECIALS['fizz_soda'] = {
   key:'fizz_soda', name:'メガ炭酸沼', icon:'🥤', upgrade:true, sodaFizz:true, target:'soda', evoSprite:'soda_buff_blue',
-  text:'ランニングソーダが残す炭酸沼の範囲が広がり、継続ダメージも上がる（以後ずっと有効）。',
+  text:'ランニングソーダが残す炭酸沼の範囲が広がる（継続ダメージは据え置き・以後ずっと有効）。',
 };
 /* バキュームドーナッツ固有強化「鉄壁ドーナッツ」：HPが大幅UPし、一回り巨大化する超硬化の壁。 */
 SPECIALS['wall_donut'] = {
   key:'wall_donut', name:'鉄壁ドーナッツ', icon:'🍩', upgrade:true, donutWall:true, target:'donut',
   text:'バキュームドーナッツのHPが大幅にアップし、一回り巨大化する。とにかく硬く受け止める壁になる（以後ずっと有効）。',
 };
-/* パンケーキキング固有強化「はや焼きパンケーキ」：巨大化(進化)までの時間が40%短くなる。 */
+/* パンケーキキング固有強化「はや焼きパンケーキ」：巨大化(進化)までの時間が25%短くなる。 */
 SPECIALS['fast_pancake'] = {
   key:'fast_pancake', name:'はや焼きパンケーキ', icon:'🥞', upgrade:true, pancakeFast:true, target:'pancake', evoSprite:'pancake_evo',
-  text:'パンケーキキングが巨大化（進化）するまでの時間が40%短くなる。早く3段に育つ（以後ずっと有効）。',
+  text:'パンケーキキングが巨大化（進化）するまでの時間が25%短くなる。早く3段に育つ（以後ずっと有効）。',
 };
 /* シュークリームアーチャー固有強化「特盛りシュークリーム」：攻撃力とHPがシンプルにアップ。 */
 SPECIALS['buff_shoe'] = {
@@ -1370,8 +1369,8 @@ function clusterBurst(world, s){
 function applySodaFizz(world, side){
   const base=UNIT_BY_KEY['soda'];
   return eachBuffTarget(world, side, 'soda', u=>{
-    u.puddleR = Math.round((base.puddleR||70)*SODA_R_MUL);   // 範囲を広げる
-    u.puddleDps = Math.round((base.puddleDps||5)*SODA_DPS_MUL);   // 継続ダメージも強化（弱かったので復活）
+    u.puddleR = Math.round((base.puddleR||70)*SODA_R_MUL);   // 強化は範囲だけ広げる（控えめ）
+    // 強化しても沼の継続ダメージは上げない（base.puddleDps のまま）
     u.fizz = true;
   });
 }
@@ -2072,8 +2071,8 @@ function applyHit(world, atk, tgt, dmg){
   if((tgt.invuln||0) > 0){ world.dmgs.push({txt:'すり抜け',x:tgt.x,y:tgt.y-tgt.r-4,vy:-20,life:0.5,color:'#ffd9f2'}); return; }  // 無敵中は無効
   const real = Math.max(1, dmg - wallReduce(tgt, world));
   tgt.hp -= real; tgt.flash = 0.18;
-  // 分身：強化ゴーストが攻撃を受けたら、初回だけおとり分身をGHOST_CLONE_N体だす
-  if(tgt.key==='ghost' && tgt.cloneOn && !tgt.cloned){ tgt.cloned=true; for(let i=0;i<GHOST_CLONE_N;i++) spawnGhostClone(world, tgt); }
+  // 分身：強化ゴーストが攻撃を受けたら、初回だけおとり分身を1体だす
+  if(tgt.key==='ghost' && tgt.cloneOn && !tgt.cloned){ tgt.cloned=true; spawnGhostClone(world, tgt); }
   if((tgt.kbImmune||0) <= 0 && !tgt.vacuum && !tgt.armed){    // 無効時間中/吸引アンカー/起爆モード中は押されない
     const dx=tgt.x-atk.x, dy=tgt.y-atk.y, d=Math.hypot(dx,dy)||1;
     // 重い相手ほどノックバックが小さい（maxHpベースの耐性）。基礎値も控えめに
