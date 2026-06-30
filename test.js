@@ -1713,6 +1713,15 @@ console.log('\n=== 46) PVP土台: 盤面スナップショット（親→子の 
   check('ミラー：陣営が反転（p↔e）', m0.side === (u0.side === 'p' ? 'e' : 'p'), m0.side);
   check('ミラー：Yが上下反転（整数丸め誤差<1px）', Math.abs(m0.y - (660 - u0.y)) < 1, { got: m0.y, exp: 660 - u0.y });
   check('ミラー：Xは不変（整数丸め誤差<1px）', Math.abs(m0.x - u0.x) < 1);
+  // 砲弾(shots)の陣営色も反転する（子の画面で味方キャノンの玉が自陣色＝青に見えるように）
+  const Ws = API.createWorld(440, 660);
+  Ws.phase = 'battle';
+  Ws.shots.push({ x: 100, y: 200, side: 'p', sprite: 'ball', color: '#fff' });
+  const snapS = API.serializeWorld(Ws);
+  const wmS = API.applySnapshot(snapS, true);
+  check('ミラー：弾(shots)の陣営も反転（p→e）', wmS.shots[0].side === 'e', wmS.shots[0].side);
+  const w0S = API.applySnapshot(snapS, false);
+  check('非ミラー：弾(shots)の陣営はそのまま', w0S.shots[0].side === 'p', w0S.shots[0].side);
 }
 
 console.log('\n=== 47) PVP土台: コントローラ経由でもCPU対戦フローが従来どおり成立 ===');

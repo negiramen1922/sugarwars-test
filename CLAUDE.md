@@ -81,6 +81,7 @@
 
 - 陣営で出し分けるキャラ：**スライム**（`slime_blue/red` ＋ `_big`）と**ソーダ**（`soda_blue`=味方/`soda_red`=敵）。`spriteFor()` で解決。
 - パンケーキは進化前 `pancake`／進化後 `pancake_evo` を `u.evolved` で切替。
+- 強化で立ち絵が変わるキャラ：**チョコ**（`choco_buff_blue/red`＝ビター装甲、`u.chocoBuff`）・**シュー**（`shoe_buff_blue/red`＝特盛り、`u.shoeBuff`）・**ソーダ**（`soda_buff_*`＝炭酸沼強化、`u.fizz`）。いずれも陣営色つき。`spriteFor()` で解決。
 - 立ち絵が無いキャラは絵文字フォールバック。
 
 ### スプライト加工の手順（同梱の `sprite_proc.py` を使用）
