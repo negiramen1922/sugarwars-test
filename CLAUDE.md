@@ -170,6 +170,15 @@
 - **要設定**：匿名認証の有効化＋RTDBルールに `matchmaking`（`auth!=null`）。手順は `FIREBASE_SETUP.md`「ランダムマッチ」。
 - **要実機確認**：2台/2タブでのペアリング〜対戦通しはこの環境ではテスト不可。`mmPickWaiter` のみヘッドレス検証。
 
+### PVP 再接続（瞬断救済）— 実装済み（`<script>`「12.6) PVP 再接続」）
+
+- `createWebRTCTransport` の `onconnectionstatechange` から `pvpHandleConnState` を呼ぶ。対戦中(`pvpMatchActive`)に `disconnected/failed` を検知したら `pvpReconnBegin`（オーバーレイ＋30秒カウントダウン `PVP_RECONNECT_MS`）。
+- **瞬断（リロードなし）**：ICEが自己回復して `connected` に戻れば `pvpReconnRecover`（親は `sendSnapshot` で子を追いつかせる）。ホスト権威なので盤面は親で進み続ける。
+- **30秒で戻らない**：`pvpReconnFail`→`pvpReconnEndMatch`（引き分け扱いでメニューへ）。「対戦をやめる」= `pvpReconnGiveUp`。
+- **リログ（再読み込み）**：対戦開始時に `pvpSaveResume()`（sessionStorage `sw_pvp_resume`）。起動時 `pvpTryResumeOnLoad` が最近の記録を見て「前の対戦は切断で終了」と通知（同一試合の完全再同期はしない）。正常終了(`endGame`/`pvpGuestOnGameover`)・`pvpLeave` で `pvpClearResume`。
+- 純粋関数 `pvpReconnRemain` / `pvpResumeIsRecent` をヘッドレス検証（test.js 71）。実切断の通しは要実機。
+- **限界**：親(ホスト)の完全リログ復旧・ドラフト中の再同期は対象外（サーバー権威=Railway移行時に対応予定）。
+
 ## アカウント＆クラウド保存（実装済み・`<script>`「13) アカウント…」）
 
 - **Firebase Auth（Google＋メール/パスワード）でログイン**。`firebase-auth-compat.js` を追加読み込み。

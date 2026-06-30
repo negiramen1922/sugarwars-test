@@ -485,6 +485,16 @@
       <div style="text-align:center;margin-top:8px"><button class="btn btn-ghost" onclick="closeAuth()">閉じる</button></div>
     </div>
   </div>
+  <!-- PVP 再接続オーバーレイ（対戦中に通信が切れたとき） -->
+  <div id="pvpReconnOverlay" class="modal-overlay hidden" style="z-index:80">
+    <div class="modal-card" style="text-align:center;max-width:340px">
+      <div style="font-size:40px;margin:4px">🔌</div>
+      <p class="big" id="pvpReconnTitle" style="font-size:20px;margin:6px 0">通信が切れました</p>
+      <p class="stage-sub" id="pvpReconnText">再接続を試みています…</p>
+      <p style="font-size:28px;font-weight:800;color:var(--brass);margin:8px 0" id="pvpReconnCount">30</p>
+      <button class="btn btn-ghost" onclick="pvpReconnGiveUp()" style="margin-top:6px">対戦をやめる</button>
+    </div>
+  </div>
   <!-- ホームに追加（インストール）の手順モーダル -->
   <div id="installModal" class="modal-overlay hidden" onclick="closeInstall(event)">
     <div class="modal-card" onclick="event.stopPropagation()">
@@ -2869,6 +2879,7 @@ function endBattle(result){
 function nextRound(){ state.round++; if(pvpMode){ pvpTrace('host nextRound -> round '+state.round); pvpHostStartRound(); } else { beginDraft(); } }
 function endGame(){
   cancelAnimationFrame(raf);
+  pvpClearResume();   // 決着：再接続情報をクリア（PVP）
   if(pvpMode){ pvpMode=false; foeCtl=makeCpuFoeController(); }   // PVP決着：後始末（「もう一度」はCPU対戦に戻す）
   const won=state.foeLives<=0;
   $('overTitle').textContent=won?'勝利！':'敗北…';
@@ -3095,7 +3106,7 @@ function getIceServers(onDiag){
 // ICE候補の種類(host=同一LAN直結 / srflx=NAT越し / relay=TURN中継)を取り出す
 function candType(c){ try{ const s=(c&&c.candidate)||''; const m=s.match(/ typ (\w+)/); return m?m[1]:'?'; }catch(e){ return '?'; } }
 
-let pvpDb=null, pvpConn=null, pvpRole=null, pvpRoomRef=null, pvpPC=null;
+let pvpDb=null, pvpConn=null, pvpRole=null, pvpRoomRef=null, pvpPC=null, pvpRoomCode='';
 
 function firebaseConfigured(){
   return typeof firebase!=='undefined' && FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.indexOf('PASTE_')!==0;
@@ -3297,7 +3308,7 @@ function wrapChannel(dc){
 function createWebRTCTransport(opts){
   const db=ensureFirebase(); if(!db) return Promise.reject(new Error('Firebase未設定'));
   const code=opts.code, mode=opts.mode, onOpen=opts.onOpen||function(){}, onState=opts.onState||function(){}, onDiag=opts.onDiag||function(){};
-  const roomRef = db.ref('rooms/'+code); pvpRoomRef=roomRef;
+  const roomRef = db.ref('rooms/'+code); pvpRoomRef=roomRef; pvpRoomCode=code;   // 再接続で部屋を特定するため保持
   return getIceServers(onDiag).then(function(iceServers){   // 先にTURN情報を取得してから接続を作る
   pvpPC = new RTCPeerConnection({ iceServers });
   let opened=false, sent=0, recv=0, relaySent=0, relayRecv=0;
@@ -3305,7 +3316,7 @@ function createWebRTCTransport(opts){
   const onLocalCand = (e, child)=>{ if(!e.candidate) return; const t=candType(e.candidate); sent++; if(t==='relay') relaySent++; onDiag('→ 経路候補['+t+']を送信 ('+sent+')'); roomRef.child(child).push(e.candidate.toJSON()); };
   const onRemoteCand = (val)=>{ const t=candType(val); recv++; if(t==='relay') relayRecv++; onDiag('← 経路候補['+t+']を受信 ('+recv+')'); try{ pvpPC.addIceCandidate(new RTCIceCandidate(val)); }catch(e){} };
 
-  pvpPC.onconnectionstatechange = ()=>{ onState(pvpPC.connectionState); onDiag('接続: '+pvpPC.connectionState); };
+  pvpPC.onconnectionstatechange = ()=>{ onState(pvpPC.connectionState); onDiag('接続: '+pvpPC.connectionState); pvpHandleConnState(pvpPC.connectionState); };
   pvpPC.oniceconnectionstatechange = ()=>{ const s=pvpPC.iceConnectionState; onDiag('ICE: '+s);
     if(s==='failed'||s==='disconnected'){ onDiag('⚠ 経路確立に失敗。中継候補 自'+relaySent+'/相手'+relayRecv+'。relayが0ならTURNが必要（別回線/分離Wi-Fi）。「やり直す」か回線変更を。'); }
   };
@@ -3553,8 +3564,93 @@ function pvpLeave(){
   try{ if(pvpPC) pvpPC.close(); }catch(e){}
   try{ if(pvpRoomRef){ pvpRoomRef.off(); /* 後始末：部屋データ削除 */ pvpRoomRef.remove().catch(()=>{}); } }catch(e){}
   pvpConn=null; pvpPC=null; pvpRoomRef=null; pvpRole=null;
+  pvpClearResume();
   pvpResetLobby();
   show('battleMenu');
+}
+
+/* ============================================================
+   12.6) PVP 再接続（対戦中の瞬断を救う／30秒）
+   ----------------------------------------------------------------
+   - 瞬断（リロードなしでWebRTCが一時切断）：ICEの自己回復を30秒待ち、戻れば続行。
+     ホスト権威なので盤面は親側で進み続け、再開時に子が追いつく。
+   - リログ（再読み込み）：sessionStorageの記録で「前の対戦が切断された」と通知して綺麗に終了。
+     ※同一試合の完全な再同期はP2Pでは壊れやすいため、本格対応はサーバー権威(Railway)移行時に行う。
+   ============================================================ */
+const PVP_RECONNECT_MS = 30000;   // 再接続を待つ最大時間
+let pvpReconn = { active:false, deadline:0, ticker:0 };
+function pvpMatchActive(){ return !!(pvpMode || pvpGuestActive); }
+// 対戦中の対戦情報をsessionStorageに保存（リログ検知用）
+function pvpSaveResume(){ try{ sessionStorage.setItem('sw_pvp_resume', JSON.stringify({ code:pvpRoomCode, role:pvpRole, ts:Date.now() })); }catch(e){} }
+function pvpClearResume(){ try{ sessionStorage.removeItem('sw_pvp_resume'); }catch(e){} }
+function pvpReadResume(){ try{ const s=sessionStorage.getItem('sw_pvp_resume'); return s?JSON.parse(s):null; }catch(e){ return null; } }
+// 記録が「最近（既定120秒以内）」なら有効とみなす（純粋関数・テスト対象）
+function pvpResumeIsRecent(resume, now, maxMs){ return !!(resume && resume.ts && (now - resume.ts) <= (maxMs||120000)); }
+// 残り秒数（純粋関数・テスト対象）
+function pvpReconnRemain(deadline, now){ return Math.max(0, Math.ceil((deadline - now)/1000)); }
+
+// 接続状態の変化を受けて再接続フローを制御（createWebRTCTransportから呼ばれる）
+function pvpHandleConnState(s){
+  if(pvpReconn.active && s==='connected'){ pvpReconnRecover(); return; }   // 自己回復した
+  if((s==='failed' || s==='disconnected') && pvpMatchActive() && !pvpReconn.active){ pvpReconnBegin(); }
+}
+function pvpReconnBegin(){
+  pvpReconn.active = true; pvpReconn.deadline = Date.now() + PVP_RECONNECT_MS;
+  pvpSaveResume();
+  try{ SFX.play('button'); }catch(e){}
+  const ov=$('pvpReconnOverlay'); if(ov) ov.classList.remove('hidden');
+  if($('pvpReconnTitle')) $('pvpReconnTitle').textContent='相手との通信が切れました';
+  if($('pvpReconnText')) $('pvpReconnText').textContent='再接続を試みています…（相手の復帰を待っています）';
+  pvpReconnUpdateCount();
+  try{ clearInterval(pvpReconn.ticker); }catch(e){}
+  try{ pvpReconn.ticker = setInterval(pvpReconnTick, 1000); }catch(e){}
+  pvpDiag('⚠ 通信が切れました。30秒以内の自己回復を待っています…');
+}
+function pvpReconnTick(){
+  if(!pvpReconn.active) return;
+  pvpReconnUpdateCount();
+  if(Date.now() >= pvpReconn.deadline) pvpReconnFail();
+}
+function pvpReconnUpdateCount(){ const el=$('pvpReconnCount'); if(el) el.textContent = String(pvpReconnRemain(pvpReconn.deadline, Date.now())); }
+function pvpReconnRecover(){
+  if(!pvpReconn.active) return;
+  pvpReconn.active = false;
+  try{ clearInterval(pvpReconn.ticker); }catch(e){}
+  const ov=$('pvpReconnOverlay'); if(ov) ov.classList.add('hidden');
+  pvpDiag('✅ 通信が回復しました。対戦を続行します。');
+  // 親は最新盤面をすぐ送って子を追いつかせる
+  if(pvpMode && pvpHostObj && world){ try{ pvpHostObj.sendSnapshot(world); }catch(e){} }
+}
+function pvpReconnFail(){
+  pvpReconn.active = false;
+  try{ clearInterval(pvpReconn.ticker); }catch(e){}
+  const ov=$('pvpReconnOverlay'); if(ov) ov.classList.add('hidden');
+  pvpDiag('⏱ 30秒以内に回復しませんでした。対戦を終了します。');
+  pvpReconnEndMatch('相手と再接続できませんでした。対戦を終了します。');
+}
+function pvpReconnGiveUp(){ try{ SFX.play('button'); }catch(e){} pvpReconn.active=false; try{ clearInterval(pvpReconn.ticker); }catch(e){} const ov=$('pvpReconnOverlay'); if(ov) ov.classList.add('hidden'); pvpReconnEndMatch('対戦をやめました。'); }
+// 再接続失敗/中止時：PVPを片付けてメニューへ（引き分け扱い・ペナルティなし）
+function pvpReconnEndMatch(msg){
+  pvpClearResume();
+  pvpGuestActive=false; try{ cancelAnimationFrame(pvpGuestRaf); }catch(e){}
+  try{ cancelAnimationFrame(raf); }catch(e){}
+  pvpMode=false; pvpHostObj=null; pvpGuestObj=null; pvpRemoteFoe=null; pvpGuestDeck=null;
+  foeCtl = makeCpuFoeController();
+  try{ if(pvpConn) pvpConn.close(); }catch(e){}
+  try{ if(pvpPC) pvpPC.close(); }catch(e){}
+  try{ if(pvpRoomRef){ pvpRoomRef.off(); pvpRoomRef.remove().catch(()=>{}); } }catch(e){}
+  pvpConn=null; pvpPC=null; pvpRoomRef=null; pvpRole=null;
+  pvpResetLobby();
+  show('battleMenu');
+  if(msg){ try{ showDeckNote(msg); }catch(e){} }
+}
+// 起動時：リログ（再読み込み）で対戦が切れていたら通知して綺麗に戻す
+function pvpTryResumeOnLoad(){
+  const r = pvpReadResume();
+  pvpClearResume();
+  if(pvpResumeIsRecent(r, Date.now())){
+    try{ showDeckNote('前の対戦は接続が切れて終了しました。もう一度「バトル」から対戦できます。'); }catch(e){}
+  }
 }
 
 /* ============================================================
@@ -3644,6 +3740,7 @@ function pvpStartAsHost(){
   state.loadout = myDeck.slice();
   state.foeLoadout = (pvpGuestDeck||[]).slice();
   trackBattleStart('pvp');   // 計測：PVP対戦開始（親）
+  pvpSaveResume();   // 再接続/リログ検知用に対戦情報を保存
   renderScore();
   pvpHostObj.start({ lives:CONFIG.startLives, round:1, proto:PVP_PROTO, enh:pvpEnh });
   pvpHostStartRound();
@@ -3906,6 +4003,7 @@ function pvpGuestRunDraft(m, sendPicks){
 function pvpGuestEnterPlay(m){
   pvpMode=false; pvpGuestActive=true; pvpGuestPicking=false;
   trackBattleStart('pvp');   // 計測：PVP対戦開始（子）
+  pvpSaveResume();   // 再接続/リログ検知用に対戦情報を保存
   state.youLives=(m&&m.lives)||CONFIG.startLives; state.foeLives=(m&&m.lives)||CONFIG.startLives; state.round=(m&&m.round)||1;
   state.lostLast=false; state.foeLostLast=false;   // 逆転バナー用（初戦は両者なし）
   show('play'); setupCanvas(); world=null; pvpSnapBuf=[]; pvpGuestLastPhase=null;
@@ -3980,6 +4078,7 @@ function pvpGuestShowOffer(m, reply){
 function pvpGuestOnResult(m){ state.youLives=m.youLives; state.foeLives=m.foeLives; if(m.round) state.round=m.round; state.lostLast=(m.result==='lose'); state.foeLostLast=(m.result==='win'); renderScore(); showResultBanner(m.result); }
 function pvpGuestOnGameover(m){
   pvpGuestActive=false; cancelAnimationFrame(pvpGuestRaf);
+  pvpClearResume();   // 正常終了：再接続情報をクリア
   const won=!!m.youWon;
   $('overTitle').textContent=won?'勝利！':'敗北…'; $('overTitle').style.color=won?'var(--green)':'var(--rust)';
   $('overText').textContent=won?'対戦に勝利しました！🎉':'対戦に敗北しました。';
@@ -3989,6 +4088,7 @@ function pvpGuestOnGameover(m){
 resetState(); loadDeckLocal(); loadProfileLocal(); renderScore(); show('home');   // 端末に保存したデッキ／プロフィールを復元
 try{ authInit(); }catch(e){}   // ログイン状態の監視を開始（未設定なら何もしない）
 try{ getAnalytics(); }catch(e){}   // GA4を起動時に初期化（タグ検出＋page_view/セッションの自動計測。未設定なら何もしない）
+try{ pvpTryResumeOnLoad(); }catch(e){}   // リログ（再読み込み）で対戦が切れていたら通知
 if(!tutSeen()){ try{ startTutorial(); }catch(e){} }   // 初回プレイ時は自動でチュートリアル（メニューからいつでも再生可）
 
 // PWA：Service Worker を登録（オフライン起動・ホーム追加）。https/localhost でのみ有効。
