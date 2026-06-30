@@ -135,6 +135,8 @@
   .card .stats{display:flex;justify-content:center;gap:8px;font-family:"Space Mono",monospace;font-size:13px}
   .card .stats .atk{color:#9a3b1c} .card .stats .hp{color:#2f6d43}
   .card .picknum{position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:var(--steel);color:#06222e;font-family:"Space Mono",monospace;font-size:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+  .card .beta-badge{position:absolute;top:-7px;left:-7px;min-width:20px;height:20px;padding:0 5px;border-radius:9px;background:var(--accent2);color:#3a2f00;font-family:"Oswald",sans-serif;font-weight:700;font-size:11px;letter-spacing:.04em;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.3);z-index:2}
+  .modal-card .md-beta{margin-top:12px;padding:8px 12px;border:1px dashed var(--accent2);border-radius:10px;background:rgba(242,181,10,.10);color:#8a6d00;font-size:12px;line-height:1.6;text-align:center}
   /* 強化カード（融合など）：通常カードと見分けがつく特別な見た目 */
   .card.upgrade{background:linear-gradient(180deg,#f3e0ff,#d9b8f0);color:#3a2050;border:2px solid rgba(150,90,210,.55)}
   .card.upgrade:hover{box-shadow:0 0 0 3px rgba(160,90,220,.4),0 8px 18px rgba(0,0,0,.45)}
@@ -504,6 +506,8 @@
         <div style="font-size:12px;color:var(--muted);margin:10px 0 4px">アイコンを選ぶ（お菓子キャラ）</div>
         <div id="avatarGrid" style="display:flex;flex-wrap:wrap;gap:6px"></div>
         <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="saveProfile()">プロフィールを保存</button>
+        <div id="profileStats" style="display:flex;justify-content:space-around;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);text-align:center"></div>
+        <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px">※ 戦績はランダムマッチ（オンライン対戦）の記録です</div>
       </div>
       <div id="authSignedOut">
         <p style="font-size:13px;color:var(--muted);margin:0 0 10px">ログインすると<b>今のゲストの記録（トロフィー・デッキ）を引き継いで</b>クラウド保存され、別の端末でも続きから遊べます。</p>
@@ -634,8 +638,8 @@ const UNITS = [
   {key:'shoe',  name:'シュークリームアーチャー', icon:'🧁', role:'back', tier:3, count:4, atk:14, hp:44, speed:64, range:150, cd:0.9, tag:'後衛', short:'後方から矢を放つシュークリームの射手（4人）', text:'4人で矢を放つ後衛の射手。1体ずつは控えめだが数で手数を出す。射程が長い。', ranged:true},
   {key:'ghost', name:'わたあめゴースト', icon:'☁️', role:'back', tier:3.5, count:3, atk:16, hp:44, speed:95, range:28, cd:0.43, tag:'強襲', short:'敵陣の後ろへワープして後衛を急襲するわたあめ', text:'3体で出る奇襲役。戦闘開始から少し経つと消えて、敵陣の最後尾あたりへワープ。出現直後はすり抜け(無敵)で後衛を最優先に叩く（脆い）。', warper:true, warpDelay:1.5, target:'back'},
   {key:'cannon',name:'キャンディキャノン', icon:'🎆', role:'back', tier:4, count:1, atk:0, hp:140, speed:0, range:9999, cd:3.8, tag:'迫撃', short:'最後尾から全域へ撃ち込む花火の迫撃砲', text:'最後尾から動かず、ステージ全域へ範囲迫撃。遅いが密集地点で大爆発。', artillery:true, mortar:60, splash:35, shotSpeed:230, arcH:80, spriteScale:1.25},
-  {key:'icewiz', name:'アイスクリームウィザード', icon:'🍦', role:'back', tier:3.3, count:1, atk:16, hp:60, speed:60, range:150, cd:1.2, tag:'氷の魔導士', short:'小さな氷弾を撃ち、当てた敵を鈍足にする後衛魔導士', text:'後方から小さな範囲の氷弾を撃つ魔導士。爆風は小さいが、当たった敵を一定時間鈍足にして足止めする（1体・脆い）。', ranged:true, splash:32, slowHit:0.35, slowDur:1.2},
-  {key:'macaron', name:'シェルマカロン', icon:'🟣', role:'tank', tier:1, count:2, atk:14, hp:95, speed:70, range:28, cd:0.9, tag:'殻スピン', short:'殻にこもって突進＋反射で暴れ、スタン後に通常戦闘する2体', text:'2体で出る暴れん坊。開幕は殻にこもって近くの敵へ突進し、壁にぶつかると反射して約4秒あばれ回る（殻の間は被ダメージ9%カット）。そのあと約2秒スタンし、以降は普通に殴り合う。', shell:true},
+  {key:'icewiz', name:'アイスクリームウィザード', icon:'🍦', role:'back', tier:3.3, count:1, atk:16, hp:60, speed:60, range:150, cd:1.2, tag:'氷の魔導士', short:'小さな氷弾を撃ち、当てた敵を鈍足にする後衛魔導士', text:'後方から小さな範囲の氷弾を撃つ魔導士。爆風は小さいが、当たった敵を一定時間鈍足にして足止めする（1体・脆い）。', ranged:true, splash:32, slowHit:0.35, slowDur:1.2, beta:true},
+  {key:'macaron', name:'シェルマカロン', icon:'🟣', role:'tank', tier:1, count:2, atk:14, hp:95, speed:70, range:28, cd:0.9, tag:'殻スピン', short:'殻にこもって突進＋反射で暴れ、スタン後に通常戦闘する2体', text:'2体で出る暴れん坊。開幕は殻にこもって近くの敵へ突進し、壁にぶつかると反射して約4秒あばれ回る（殻の間は被ダメージ9%カット）。そのあと約2秒スタンし、以降は普通に殴り合う。', shell:true, beta:true},
 ];
 const UNIT_BY_KEY = Object.fromEntries(UNITS.map(u=>[u.key,u]));
 
@@ -1159,7 +1163,7 @@ function renderRoster(){
   UNITS.filter(u=>!u.summonOnly).forEach(u=>{
     const order = deck.indexOf(u.key);
     const el=document.createElement('div'); el.className='card rcard'+(order>=0?' picked':'');
-    el.innerHTML=`${order>=0?`<div class="picknum">${order+1}</div>`:''}
+    el.innerHTML=`${order>=0?`<div class="picknum">${order+1}</div>`:''}${u.beta?`<div class="beta-badge" title="ベータ実装・バランス調整中">β</div>`:''}
       <div class="icon">${iconHTML(u, cpu?'e':'p')}${u.count>1?`<span class="count">×${u.count}</span>`:''}</div>
       <div class="cname">${u.name}</div>
       <div class="stats"><span class="atk">⚔ ${u.atk}</span><span class="hp">✚ ${u.hp}</span></div>
@@ -1175,11 +1179,12 @@ function showDetail(key){
         <div><span class="md-enh-kind">${e.kind}</span><span class="md-enh-name">${e.name}</span></div></div>
       ${e.stats?`<div class="md-stats"><span class="atk">⚔ ${e.stats.atk}</span><span class="hp">✚ ${e.stats.hp}</span></div>`:''}
       <p>${e.text}</p></div>`).join('');
+  const betaNote = u.beta ? `<div class="md-beta">🔧 ベータ実装：性能はバランス調整中です（数値は今後変わることがあります）。</div>` : '';
   $('detailBody').innerHTML=`<div class="md-art">${iconHTML(u)}</div>
-    <h3>${u.name}</h3>
+    <h3>${u.name}${u.beta?' <span class="beta-badge" style="position:static;display:inline-flex;vertical-align:middle;text-transform:none">β</span>':''}</h3>
     <div class="md-tag">${u.tag||''}</div>
     <div class="md-stats"><span>召喚数 ×${u.count}</span><span class="atk">⚔ ${u.atk}</span><span class="hp">✚ ${u.hp}</span></div>
-    <p>${u.text}</p>${enh}`;
+    <p>${u.text}</p>${betaNote}${enh}`;
   $('detailModal').classList.remove('hidden');
 }
 /* キャラ詳細用：そのキャラの「進化」と「固有強化」を表示用にまとめる（強化後ステータスは定数から再計算）。 */
@@ -3641,6 +3646,17 @@ function fillProfileEditor(){
   if($('profileName')) $('profileName').value = myProfile.name||'';
   if($('profileAvatarPrev')) $('profileAvatarPrev').textContent = avatarIcon(_avatarPick);
   renderAvatarGrid();
+  renderProfileStats();
+}
+// プロフィールの戦績（トロフィー＝レート／バトル数／勝利／敗北）を表示。バトル数＝勝利＋敗北。
+function renderProfileStats(){
+  const box=$('profileStats'); if(!box) return;
+  const w=myProfile.wins||0, l=myProfile.losses||0, n=w+l;
+  const cell=(label,val,color)=>`<div style="flex:1"><div style="font-family:'Space Mono',monospace;font-size:18px;font-weight:700;color:${color||'var(--ink)'}">${val}</div><div style="font-size:11px;color:var(--muted)">${label}</div></div>`;
+  box.innerHTML = cell('🏆 トロフィー', myTrophies(), 'var(--accent2)')
+    + cell('バトル数', n)
+    + cell('勝利', w, 'var(--green)')
+    + cell('敗北', l, 'var(--rust)');
 }
 function renderAvatarGrid(){
   const grid=$('avatarGrid'); if(!grid) return; grid.innerHTML='';
