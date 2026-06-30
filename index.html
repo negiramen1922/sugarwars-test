@@ -3015,11 +3015,11 @@ const FIREBASE_CONFIG = {
 // ▼ Cloudflare Realtime TURN（無料枠が大きく安定）。ダッシュボードでTURNキーを作成し、IDとトークンを貼る。
 //   設定すると Cloudflare を優先利用。空ならMetered→STUNにフォールバック（手順は FIREBASE_SETUP.md）。
 //   ⚠ トークンはクライアントに露出する割り切り（TURN専用スコープ・気になれば後でサーバー側発行に）。
-// 推奨：Worker経由（turn-worker.js）。設定するとトークンをクライアントに出さずに済む＝最優先で使う。
-const CLOUDFLARE_TURN_WORKER = '';   // 例: 'https://sugarwars-turn.xxxx.workers.dev'
-// 直叩き（Worker未使用時のみ・トークンがクライアントに露出する割り切り。Worker化したら空にしてローテーション）
-const CLOUDFLARE_TURN_KEY_ID = '7ba84c9c2962bab7fddea605e63607b1';   // Realtime → TURN Server で作成したキーID
-const CLOUDFLARE_TURN_TOKEN  = '81943fdefba561a4e106ae53da1f6a39f369c3863fa80a2d5c4b8326aafad798';   // そのキーのAPIトークン
+// 推奨：Worker経由（turn-worker.js）。トークンはWorkerの秘密に置き、クライアントには出さない。
+const CLOUDFLARE_TURN_WORKER = 'https://sugarwars-turn.bedrock1922.workers.dev';
+// 直叩き用（Worker未使用時のみ）。Worker化したのでクライアントには置かない（空＝露出なし）。
+const CLOUDFLARE_TURN_KEY_ID = '';
+const CLOUDFLARE_TURN_TOKEN  = '';
 const METERED_SUBDOMAIN  = 'sugarwars.metered.live';
 const METERED_API_KEY    = '';   // 既に作成済みのAPI Keyがあれば直接ここに設定（あれば作成POSTは省略）
 const METERED_SECRET_KEY = 'KUbDEG6UWD4nIPLKqgDAdbHw6Nx3SPkZFgGNjTuiEazNESZI';   // 秘密鍵（初回にapiKeyを自動作成）
