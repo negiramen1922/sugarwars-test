@@ -212,6 +212,7 @@
   .install-howto{color:var(--ink);font-size:14px;line-height:1.7}
   .install-howto ol,.install-howto ul{margin:6px 0 0;padding-left:20px}
   .install-howto li{margin:6px 0} .install-howto b{color:var(--brass)} .install-howto p{margin:6px 0;color:var(--muted)}
+  .install-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px}
   .news-list{max-height:55vh;overflow-y:auto;margin-top:4px}
   .news-item{border-left:3px solid var(--brass);padding:2px 0 8px 12px;margin:14px 0}
   .news-item .news-ver{font-family:"Space Mono",monospace;color:var(--brass);font-size:12px;font-weight:700}
@@ -438,7 +439,7 @@
     <div class="modal-card" onclick="event.stopPropagation()">
       <h3 id="installTitle">ホームに追加</h3>
       <div id="installBody" class="install-howto"></div>
-      <div style="text-align:center;margin-top:14px"><button class="btn btn-primary" onclick="closeInstall()">OK</button></div>
+      <div id="installActions" class="install-actions"></div>
     </div>
   </div>
   <!-- チュートリアルのふきだし -->
@@ -933,7 +934,7 @@ function tutAfterBattle(result){
             : result==='lose' ? '今回は負けじゃったが、軍は次のラウンドへ引き継がれる。案ずるな。'
             : '相討ちかのう。ライフは減らんよ。';
   showTut(msg+'\n先に相手のライフを0にすれば勝ち、自分が0になると負け。全3ライフの勝負じゃ。', {tag:'④ 勝敗とライフ', onNext:()=>{
-    showTut('これで一通り教えたぞい。🍬\nあとはホームの「バトル」から本番に挑むがよい。「編成」で自分だけの軍も作れるでのう。達者でな！', {tag:'準備OK！', cta:'はじめる', hideSkip:true, onNext:()=>{ endTutorial(); }});
+    showTut('これで一通り教えたぞい。🍬\nあとはホームの「バトル」から本番に挑むがよい。「編成」で自分だけの軍も作れるでのう。達者でな！', {tag:'準備OK！', cta:'はじめる', hideSkip:true, onNext:()=>{ endTutorial(); offerInstallAfterTutorial(); }});
   }});
 }
 // プレイヤーのデッキが未編成なら編成へ誘導（共通）
@@ -2752,7 +2753,7 @@ function installApp(){
   SFX.play('button');
   if(pwaStandalone()){ showInstallInfo('インストール済み', '<p>このアプリはすでにホーム画面に追加されています。🎉</p>'); return; }
   if(deferredInstallPrompt){   // Android Chrome / PC Chrome：そのままインストール
-    $('menuModal').classList.add('hidden');
+    $('menuModal').classList.add('hidden'); $('installModal').classList.add('hidden');
     deferredInstallPrompt.prompt();
     try{ deferredInstallPrompt.userChoice.finally(()=>{ deferredInstallPrompt=null; updateInstallRow(); }); }catch(e){ deferredInstallPrompt=null; }
     return;
@@ -2766,8 +2767,20 @@ function installApp(){
       '<p>ブラウザのメニュー（<b>⋮</b>）から「<b>アプリをインストール</b>」または「<b>ホーム画面に追加</b>」を選んでください。</p><p>PCはアドレスバー右の<b>インストールアイコン</b>からでも追加できます。</p>');
   }
 }
-function showInstallInfo(title, html){ $('installTitle').textContent=title; $('installBody').innerHTML=html; $('menuModal').classList.add('hidden'); $('installModal').classList.remove('hidden'); }
+function showInstallInfo(title, html, offer){
+  $('installTitle').textContent=title; $('installBody').innerHTML=html;
+  // offer=true：チュートリアル後などの「お誘い」。タップ操作なのでここからインストールを起動できる。
+  $('installActions').innerHTML = offer
+    ? '<button class="btn btn-primary" onclick="installApp()">📲 ホームに追加</button><button class="btn btn-ghost" onclick="closeInstall()">あとで</button>'
+    : '<button class="btn btn-primary" onclick="closeInstall()">OK</button>';
+  $('menuModal').classList.add('hidden'); $('installModal').classList.remove('hidden');
+}
 function closeInstall(e){ if(e && e.target!==e.currentTarget) return; $('installModal').classList.add('hidden'); }
+// チュートリアルを“最後まで終えた”ときだけ、インストールのお誘いを出す（最初や途中では出さない／インストール済みなら出さない）
+function offerInstallAfterTutorial(){
+  if(pwaStandalone()) return;
+  setTimeout(()=>{ showInstallInfo('遊んでくれてありがとう！🍬', '<p>気に入ったら<b>ホーム画面に追加</b>すると、アプリのようにワンタップでいつでも遊べます。</p><p>（あとでメニューからも追加できます）</p>', true); }, 500);
+}
 function openDiscord(){ SFX.play('button'); const url='https://discord.gg/jxP6jMRunv'; try{ window.open(url,'_blank','noopener,noreferrer'); }catch(e){ try{ location.href=url; }catch(_){} } }
 function onBgmVol(v){ SFX.setBgmVol((+v)/100); }   // BGM音量を反映（ゲインに即時反映）
 let _sfxPrev=0;
