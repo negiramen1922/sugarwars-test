@@ -3988,6 +3988,7 @@ function pvpGuestOnGameover(m){
 
 resetState(); loadDeckLocal(); loadProfileLocal(); renderScore(); show('home');   // 端末に保存したデッキ／プロフィールを復元
 try{ authInit(); }catch(e){}   // ログイン状態の監視を開始（未設定なら何もしない）
+try{ getAnalytics(); }catch(e){}   // GA4を起動時に初期化（タグ検出＋page_view/セッションの自動計測。未設定なら何もしない）
 if(!tutSeen()){ try{ startTutorial(); }catch(e){} }   // 初回プレイ時は自動でチュートリアル（メニューからいつでも再生可）
 
 // PWA：Service Worker を登録（オフライン起動・ホーム追加）。https/localhost でのみ有効。
