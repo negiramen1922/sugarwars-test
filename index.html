@@ -2918,7 +2918,7 @@ function endGame(){
   if(pvpMode){ pvpMode=false; foeCtl=makeCpuFoeController(); }   // PVP決着：後始末（「もう一度」はCPU対戦に戻す）
   const won=state.foeLives<=0;
   let trophyLine='';
-  if(wasPvp){ const d=applyTrophyResult(won, pvpOppProfile&&pvpOppProfile.trophies); trophyLine='🏆 '+(d>=0?'+':'')+d+'（合計 '+myTrophies()+'）'; renderHomeTrophies(); }   // PVPのみトロフィー増減
+  if(wasPvp && pvpRanked){ const d=applyTrophyResult(won, pvpOppProfile&&pvpOppProfile.trophies); trophyLine='🏆 '+(d>=0?'+':'')+d+'（合計 '+myTrophies()+'）'; renderHomeTrophies(); }   // ランダムマッチのみトロフィー増減（あいことば/CPUは非変動）
   $('overTitle').textContent=won?'勝利！':'敗北…';
   $('overTitle').style.color=won?'var(--green)':'var(--rust)';
   const base=won?`${state.round} ラウンドで決着。${state.youArmy.length} 体の軍を率いて勝利しました。`:`${state.round} ラウンドで力尽きました。デッキの相性を見直してみましょう。`;
@@ -3565,6 +3565,7 @@ function pvpRetry(){
 function pvpHost(){
   SFX.play('button');
   if(!firebaseConfigured()){ $('pvpSetupWarn').classList.remove('hidden'); return; }
+  pvpRanked=false;   // あいことば（手動）はトロフィー非変動
   pvpRole='host';
   const code=genRoomCode();
   $('pvpChoice').classList.add('hidden');
@@ -3587,6 +3588,7 @@ function pvpJoin(){
   SFX.play('button');
   const code=($('pvpCodeInput').value||'').trim().toUpperCase();
   if(code.length!==4){ $('pvpJoinStatus').textContent='あいことばは4文字です'; return; }
+  pvpRanked=false;   // あいことば（手動）はトロフィー非変動
   $('pvpJoinStatus').textContent='接続中…';
   createWebRTCTransport({ mode:'guest', code, onState:s=>$('pvpJoinStatus').textContent='接続状態: '+s, onDiag:pvpDiag,
     onOpen:tp=>{ pvpConn=tp; pvpOnConnected('子'); } })
@@ -3701,7 +3703,7 @@ function randomMatchStart(){
 }
 // claimした側＝親：部屋を作り、相手(子)へコードを通知
 function mmBecomeHost(claimed){
-  mmStartedConn=true; pvpRole='host';
+  mmStartedConn=true; pvpRole='host'; pvpRanked=true;   // ランダムマッチはトロフィー変動対象
   const code=genRoomCode(), me=displayProfile();
   mmShowOpponent(claimed.prof); mmShow('対戦相手が見つかりました！ 接続中…');
   try{ ensureFirebase().ref('matchmaking/matches/'+claimed.uid).set({ code:code, role:'guest', opp:{name:me.name,avatar:me.avatar}, ts:Date.now() }); }catch(e){}
@@ -3711,7 +3713,7 @@ function mmBecomeHost(claimed){
 }
 // claimされた側＝子：通知された部屋コードで接続（親のオファーを待つ）
 function mmGuestFromAssignment(m){
-  if(!m.code) return; mmStartedConn=true; pvpRole='guest';
+  if(!m.code) return; mmStartedConn=true; pvpRole='guest'; pvpRanked=true;   // ランダムマッチはトロフィー変動対象
   mmShowOpponent(m.opp); mmShow('対戦相手が見つかりました！ 接続中…');
   try{ if(mmQueueRef && mmUid) mmQueueRef.child(mmUid).remove(); }catch(e){}
   createWebRTCTransport({ mode:'guest', code:m.code, waitOffer:true, onDiag:pvpDiag, onState:mmConnState,
@@ -3906,6 +3908,7 @@ function makePvpHost(conn, hooks){
 const PVP_PROTO = 2;   // PVP通信バージョン。両者がこの版以上のときだけ強化カードを有効化（旧版とは自動でv1互換）
 let pvpEnh=false;      // この対戦で強化カード（融合/X2/固有強化）を有効にするか（接続時のバージョン照合で決定）
 let pvpMode=false, pvpHostObj=null, pvpGuestObj=null, pvpRemoteFoe=null;
+let pvpRanked=false;   // ランダムマッチのみtrue＝トロフィー変動対象。あいことば(手動)PVPとCPU戦はfalse。
 let pvpGuestDeck=null, pvpGuestActive=false, pvpGuestRaf=0, pvpGuestPicking=false, pvpLastSnap=0;
 let pvpSnapBuf=[];   // 子：受信スナップショットのバッファ（時刻つき）。少し過去の2フレーム間を補間してなめらかに描く
 let pvpGuestLastPhase=null;   // 子：直前のphase（開戦の合図を1回だけ鳴らす用）
@@ -4260,9 +4263,10 @@ function pvpGuestOnGameover(m){
   pvpGuestActive=false; cancelAnimationFrame(pvpGuestRaf);
   pvpClearResume(); pvpPresenceSet('home');   // 正常終了：再接続情報クリア＋オンライン状態を戻す
   const won=!!m.youWon;
-  const d=applyTrophyResult(won, pvpOppProfile&&pvpOppProfile.trophies); renderHomeTrophies();   // トロフィー増減
+  let tro='';
+  if(pvpRanked){ const d=applyTrophyResult(won, pvpOppProfile&&pvpOppProfile.trophies); renderHomeTrophies(); tro='　🏆 '+(d>=0?'+':'')+d+'（合計 '+myTrophies()+'）'; }   // ランダムマッチのみ変動
   $('overTitle').textContent=won?'勝利！':'敗北…'; $('overTitle').style.color=won?'var(--green)':'var(--rust)';
-  $('overText').textContent=(won?'対戦に勝利しました！🎉':'対戦に敗北しました。')+'　🏆 '+(d>=0?'+':'')+d+'（合計 '+myTrophies()+'）';
+  $('overText').textContent=(won?'対戦に勝利しました！🎉':'対戦に敗北しました。')+tro;
   show('over');
 }
 
