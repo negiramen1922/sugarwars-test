@@ -864,6 +864,9 @@ function goCpuMode(){ SFX.play('button'); show('cpuMode'); }
 
 /* ===== チュートリアル（ガイド付き体験バトル）===== */
 let tutAction = null;   // ふきだしの「次へ」で実行するコールバック
+let tutSkipAsked = false;     // スキップ確認を出したか（チュートリアル中1度だけ）
+let tutConfirmingSkip = false; // いまスキップ確認画面を表示中か
+let tutPrev = null;            // 確認前のふきだし状態（「つづける」で戻す用）
 function tutSeen(){ try{ return localStorage.getItem('sw_tut_done')==='1'; }catch(e){ return true; } }
 function markTutSeen(){ try{ localStorage.setItem('sw_tut_done','1'); }catch(e){} }
 function showTut(text, opts){
@@ -875,22 +878,35 @@ function showTut(text, opts){
   $('tutLayer').classList.remove('hidden');
   $('tutNext').classList.toggle('hidden', !!opts.interactive);   // ピック待ちのときは「次へ」を隠す
   $('tutSkip').classList.toggle('hidden', !!opts.hideSkip);
+  $('tutSkip').textContent = opts.skipLabel || 'スキップ';
   $('tutNext').textContent = opts.cta || '次へ ›';
   tutAction = opts.onNext || null;
+  tutPrev = {text, opts};   // 直近の状態を保存（スキップ確認の「つづける」で戻す）
 }
 function hideTut(){ const l=$('tutLayer'); if(l) l.classList.add('hidden'); const o=$('offer'); if(o) o.classList.remove('tut-pick'); tutAction=null; }
 function tutNext(){ SFX.play('button'); const a=tutAction; tutAction=null; if(a) a(); }
-function tutSkip(){ SFX.play('button'); endTutorial(); }
+function tutSkip(){
+  SFX.play('button');
+  if(tutConfirmingSkip || tutSkipAsked){ endTutorial(); return; }   // 確認後／2回目以降はそのままスキップ
+  // 1度だけ確認画面を出す（「つづける」で元の案内に戻す）
+  tutSkipAsked = true; tutConfirmingSkip = true;
+  const prev = tutPrev;
+  showTut('ホントにチュートリアルをスキップしますか？\nチュートリアルはメニューからいつでも確認できます', {
+    tag:'スキップ確認', skipLabel:'スキップする', cta:'つづける',
+    onNext:()=>{ tutConfirmingSkip = false; if(prev) showTut(prev.text, prev.opts); else hideTut(); }
+  });
+}
 function startTutorial(){
   SFX.play('button'); closeMenu(); hideResultBanner();
-  tutorial = true;
+  tutorial = true; tutSkipAsked = false; tutConfirmingSkip = false;   // スキップ確認はチュートリアルごとに1度だけ
   myDeck = TUT_DECK.slice();
   cpuDeckMode = 'manual'; cpuDeck = TUT_FOE.slice();
   showTut('おお、よう来たのう…。ワシはクッキーじぃ。\nまずは1戦だけ、戦のイロハを教えるでのう。', {tag:'チュートリアル', cta:'はじめる', onNext:()=>{ hideTut(); startGame(); }});
 }
 function endTutorial(){ tutorial=false; hideTut(); markTutSeen(); cpuDeckMode='auto'; cpuDeck=[]; goHome(); }
 // ドラフトが表示された直後（tutorial）：1枚選ぶよう促す
-function tutOnDraft(){ const o=$('offer'); if(o) o.classList.add('tut-pick'); showTut('上の3枚から、1枚を選びなされ。\n選んだ仲間は毎ラウンドよみがえって「軍」に加わるんじゃよ。', {tag:'① ドラフト', interactive:true}); }
+// 「次へ」を押すと吹き出しだけ消えて、光る3枚が残る＝「あ、押さなきゃ」と気づける流れ
+function tutOnDraft(){ const o=$('offer'); if(o) o.classList.add('tut-pick'); showTut('上の3枚から、1枚を選びなされ。\n選んだ仲間は毎ラウンドよみがえって「軍」に加わるんじゃよ。', {tag:'① ドラフト', cta:'カードを選ぶ ›', onNext:()=>{ const l=$('tutLayer'); if(l) l.classList.add('hidden'); }}); }   // 吹き出しだけ隠し、tut-pickのハイライトは残す（カードを直接クリックさせる）
 // 1枚選び終えた直後（tutorial）：軍の説明→自動バトルへ
 function tutAfterPick(){
   showTut('ほっほっ、仲間が増えたのう。\nバトルは毎ラウンド「3枚→1枚」のくり返しでな、軍はどんどん大きくなるんじゃ。', {tag:'② 軍を育てる', onNext:()=>{
