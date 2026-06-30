@@ -21,7 +21,7 @@
 - 対戦は **CPU対戦** と **オンラインPVP（Firebase+WebRTC・ホスト権威型／下記「PVP」章）**。PVPは強化カード・逆転ボーナスまで実装済み。
 - **コアループ**：ホーム →「バトル」or「編成」。編成で4枚デッキ `myDeck` を作る → バトルでは毎ラウンド「3枚提示→1枚選ぶ」→ 選んだユニットは毎ラウンド復活して増え続ける軍（上限30）に加わる → 縦型キャンバスでリアルタイム自動戦闘（自分＝下/青、敵＝上/赤）→ 負けるとライフ−1（初期3）→ 先に0で敗北。CPUも自分のランダム4枚デッキで同じ仕組み。
 
-## 現在のロスター（`UNITS` 配列・全13種）
+## 現在のロスター（`UNITS` 配列・全14種）
 
 | key | 名前 | tier | count | atk | hp | speed | 特徴 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -38,6 +38,7 @@
 | shoe | シュークリームアーチャー | 3 | 4 | 14 | 44 | 64 | 後衛射手（4人・射程150） |
 | ghost | わたあめゴースト | 3.5 | 3 | 16 | 44 | 95 | 開幕少し待って敵後方へワープ（warpDelay1.5・無敵中は狙われない） |
 | cannon | キャンディキャノン | 4 | 1 | 0 | 140 | 0 | 不動の全域誘導AoE迫撃（手前の敵を優先・爆発範囲 `splash`=35） |
+| icewiz | アイスクリームウィザード | 3.3 | 1 | 16 | 60 | 60 | 後衛魔導士。小範囲の氷弾（`ranged`＋`splash`=32）を撃ち、命中した敵に時限鈍足（`slowHit`=0.35/`slowDur`=1.2秒）を付与。鈍足は `u.chillT`/`chillAmt` で管理し `slowMul` に反映 |
 
 隊列 `arrangeFormation` は **tier が小さいほど前列、大きいほど後方**。
 
@@ -65,6 +66,7 @@
 - **スライム融合**（`SPECIALS.up_slime`）：未融合スライム3体以上で出現。3体ずつ巨大化、倒れると3体に分裂。`state.youMerges` で永続。
 - **X2カード**（各キャラ `x2_<key>` を自動生成）：対象キャラが3体以上（`X2_MIN`）で専用カードが出現。ただし**多すぎる種類（`X2_OFFER_CAP`=15体以上）には出ない**（増えすぎ防止）。選ぶとそのキャラを今いる数だけ倍に増殖。`state.youX2` で永続。スライムは除外。
 - **逆転ボーナス（敗者先行）**：負けた側は4回ピック、勝った側は3回。**敗者の+1枚は最初の選択で単独で行い、その間は相手が待機**（`picksFor()` と `maybeRevealFoe()`、`state.playerExtra`）。
+- **固有強化**（各キャラ1種・`apply*Buff`／フラグ系）：取得すると永続・毎ラウンド再適用（`applyFlagBuffs`/`reapplyEnhancements`）。例：ビター装甲(choco)・特盛り(shoe)・メガ炭酸沼(soda)・**ブリザード(icewiz＝氷弾の爆風拡大＋鈍足強化／`applyIcewizBuff`)** など。`eligibleSpecials`/`foeEnhanceCandidates` で資格判定、`pickCard`/`applyPvpSpecial` で適用。
 - 敵（CPU）も融合・X2・逆転ボーナスを確率で使う（パリティ）。
 
 ## アーキテクチャ（単一 `<script>` 内の主な関数）
@@ -79,7 +81,7 @@
 
 ## スプライト（立ち絵）
 
-- 陣営で出し分けるキャラ：**スライム**（`slime_blue/red` ＋ `_big`）と**ソーダ**（`soda_blue`=味方/`soda_red`=敵）。`spriteFor()` で解決。
+- 陣営で出し分けるキャラ：**スライム**（`slime_blue/red` ＋ `_big`）と**ソーダ**（`soda_blue`=味方/`soda_red`=敵）ほか多数（cookie/choco/shoe/daifuku/ghost/donut/bakery/ginger/cannon/**icewiz**＝`*_blue`味方/`*_red`敵）。`spriteFor()`/`iconHTML()` で解決。
 - パンケーキは進化前 `pancake`／進化後 `pancake_evo` を `u.evolved` で切替。
 - 強化で立ち絵が変わるキャラ：**チョコ**（`choco_buff_blue/red`＝ビター装甲、`u.chocoBuff`）・**シュー**（`shoe_buff_blue/red`＝特盛り、`u.shoeBuff`）・**ソーダ**（`soda_buff_*`＝炭酸沼強化、`u.fizz`）。いずれも陣営色つき。`spriteFor()` で解決。
 - 立ち絵が無いキャラは絵文字フォールバック。
