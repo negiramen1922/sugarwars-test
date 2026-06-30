@@ -3410,10 +3410,25 @@ function mmShowOpponent(prof){
   el.classList.remove('hidden');
   el.textContent = '対戦相手: '+avatarIcon(prof.avatar||'')+' '+String(prof.name||'ゲスト').slice(0,16);   // textContentで安全表示（相手名はエスケープ）
 }
+// マッチ成立後の接続状態をプレイヤー向けに表示。failedは「相手は見つかったが経路を確保できず開始できない」旨を案内。
+function mmConnState(s){
+  const el=$('pvpMmStatus'); if(!el) return;
+  if(s==='failed'){
+    el.textContent='⚠ 相手は見つかりましたが、通信経路を確保できず対戦を開始できませんでした。お互いが別々のネット回線だと起きやすいです。同じWi-Fi（またはどちらかのテザリング）に揃えて、「キャンセル」→もう一度お試しください。';
+    const sp=$('pvpMmSpinner'); if(sp) sp.textContent='😢';
+  } else if(s==='disconnected'){
+    el.textContent='通信が不安定です…経路を確認中（つながらなければ回線を揃えて再挑戦を）';
+  } else if(s==='connected'){
+    el.textContent='接続成功！ 対戦を準備中…';
+  } else {
+    el.textContent='接続中…（'+s+'）';
+  }
+}
 function randomMatchStart(){
   SFX.play('button');
   if(!firebaseConfigured()){ $('pvpSetupWarn').classList.remove('hidden'); return; }
   if(needPlayerDeck()) return;   // 自分の編成デッキが必要
+  const sp=$('pvpMmSpinner'); if(sp) sp.textContent='🎲';   // 再挑戦時に表情を戻す
   mmActive=true; mmStartedConn=false; mmShowOpponent(null); mmShow('接続を準備中…');
   ensureGuestSignIn().then(function(uid){
     if(!mmActive) return;
@@ -3445,7 +3460,7 @@ function mmBecomeHost(claimed){
   const code=genRoomCode(), me=displayProfile();
   mmShowOpponent(claimed.prof); mmShow('対戦相手が見つかりました！ 接続中…');
   try{ ensureFirebase().ref('matchmaking/matches/'+claimed.uid).set({ code:code, role:'guest', opp:{name:me.name,avatar:me.avatar}, ts:Date.now() }); }catch(e){}
-  createWebRTCTransport({ mode:'host', code:code, onDiag:pvpDiag, onState:s=>{ if($('pvpMmStatus')) $('pvpMmStatus').textContent='接続状態: '+s; },
+  createWebRTCTransport({ mode:'host', code:code, onDiag:pvpDiag, onState:mmConnState,
     onOpen:tp=>{ pvpConn=tp; mmCleanup(); pvpOnConnected('親'); } })
     .catch(err=>{ mmShow('接続エラー: '+(err&&err.message||err)); });
 }
@@ -3454,7 +3469,7 @@ function mmGuestFromAssignment(m){
   if(!m.code) return; mmStartedConn=true; pvpRole='guest';
   mmShowOpponent(m.opp); mmShow('対戦相手が見つかりました！ 接続中…');
   try{ if(mmQueueRef && mmUid) mmQueueRef.child(mmUid).remove(); }catch(e){}
-  createWebRTCTransport({ mode:'guest', code:m.code, waitOffer:true, onDiag:pvpDiag, onState:s=>{ if($('pvpMmStatus')) $('pvpMmStatus').textContent='接続状態: '+s; },
+  createWebRTCTransport({ mode:'guest', code:m.code, waitOffer:true, onDiag:pvpDiag, onState:mmConnState,
     onOpen:tp=>{ pvpConn=tp; mmCleanup(); pvpOnConnected('子'); } })
     .catch(err=>{ mmShow('接続エラー: '+(err&&err.message||err)); });
 }
