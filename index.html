@@ -479,7 +479,7 @@ const CONFIG = {
   picksBase:3,       // 通常のピック回数（1ターン3回）
   picksComeback:4,   // 前回負けた側のピック回数（逆転ボーナスで4回）
   picksAfterWin:3,   // 前回勝った側のピック回数（そのまま3回）
-  armyCap:30,        // 軍の上限（増えすぎ防止）
+  armyCap:60,        // 軍の上限（大幅緩和：30→60。ほぼ無制限に近づけつつ性能/通信の安全マージンは残す）
   timeLimit:38,      // 1戦の制限時間(秒)。移動を遅くしたぶん延長（遠距離・ワープが活きる）
 };
 /* ★全体のユニット移動速度の倍率。小さくするほど端まで進むのに時間がかかる（衝突がゆっくり）。 */
@@ -525,7 +525,7 @@ const UNITS = [
   {key:'choco', name:'チョコレートナイト', icon:'🍫', role:'tank',   tier:2, count:2, atk:21, hp:200, speed:66,  range:30, cd:0.95, tag:'前衛', short:'とにかく硬いチョコの壁。最前線で攻撃を受け止める', text:'2体で並ぶ非常に硬い前衛。最前線で受け止める。', spriteScale:0.6},
   {key:'pancake', name:'パンケーキキング', icon:'🥞', role:'tank', tier:2.5, count:1, atk:22, hp:150, speed:58, range:30, cd:1.0, tag:'進化', short:'約10秒で巨大進化し、着地の衝撃波で暴れる王様', text:'最初は1枚のパンケーキ（やや脆い前衛）。戦闘開始から約10秒で3段に進化し、HPが大幅アップ＋ジャンプ着地の衝撃波で周囲を範囲攻撃するようになる。', evolve:true, evolveAt:10, evoHpMul:3.5, evoScale:1.3, shockR:88, shockDmg:52, jumpDur:0.55, jumpPeak:30, evoCd:1.8},
   {key:'donut', name:'バキュームドーナッツ', icon:'🍩', role:'tank', tier:1.5, count:1, atk:6, hp:430, speed:50, range:32, cd:1.1, tag:'吸引タンク', short:'敵を吸い寄せる超硬タンク。味方の範囲攻撃と好相性', text:'眼の前へ敵を吸い寄せる超大型タンク。攻撃は弱いが非常に硬く、大勢の攻撃を受け止める（味方の範囲攻撃と好相性）。', vacuum:true, pullR:155, pullForce:150, vacOn:2.4, vacOff:1.6, heavy:true, spriteScale:1.0},
-  {key:'bakery', name:'ジンジャーベーカリー', icon:'🏠', role:'back', tier:3.2, count:1, atk:0, hp:230, speed:0, range:0, cd:1, tag:'生産工場', short:'動かず2秒ごとにジンジャーを焼き続ける生産工場', text:'動かない生産工場。生きている間、約2秒ごとにジンジャーソルジャーを3体まとめて焼いて送り出す（最大7体まで）。倒すと供給が止まる。', spawner:true, spawnKey:'ginger', spawnCd:2.0, spawnCount:3, spawnCap:7, spriteScale:1.1},
+  {key:'bakery', name:'ジンジャーベーカリー', icon:'🏠', role:'back', tier:3.2, count:1, atk:0, hp:230, speed:0, range:0, cd:1, tag:'生産工場', short:'動かず2秒ごとにジンジャーを焼き続ける生産工場', text:'動かない生産工場。生きている間、約2秒ごとにジンジャーソルジャーを3体まとめて焼いて送り出す（最大30体まで）。倒すと供給が止まる。', spawner:true, spawnKey:'ginger', spawnCd:2.0, spawnCount:3, spawnCap:30, spriteScale:1.1},
   {key:'ginger', name:'ジンジャーソルジャー', icon:'🍪', role:'fodder', tier:0, count:1, atk:10, hp:25, speed:112, range:22, cd:0.55, tag:'召喚', short:'ベーカリーが焼く足の速い小さな兵士', text:'ジンジャーベーカリーが焼き上げる小さな兵士。脆いが足が速く、数で押し寄せる。', summonOnly:true},
   {key:'popcorn_mini', name:'小型ポップコーン', icon:'🍿', role:'fodder', tier:1, count:1, atk:0, hp:24, speed:132, range:22, cd:1.0, tag:'自爆', short:'TNTの爆発から飛び出してもう一度自爆する小型', text:'ポップコーンTNTの爆発から飛び出す小型。すぐに自爆する（さらに分裂はしない）。', suicide:true, blast:60, blastR:48, fuse:0.4, summonOnly:true, spriteScale:0.62},
   {key:'shoe',  name:'シュークリームアーチャー', icon:'🧁', role:'back', tier:3, count:4, atk:16, hp:44, speed:64, range:150, cd:0.9, tag:'後衛', short:'後方から矢を放つシュークリームの射手（4人）', text:'4人で矢を放つ後衛の射手。1体ずつは控えめだが数で手数を出す。射程が長い。', ranged:true},
@@ -545,11 +545,11 @@ const SPECIALS = {
 /* ★X2強化カードの調整値（ここをいじればバランス調整できる） */
 const X2_MIN = 3;                 // 盤面にこの数以上いる種類にX2カードが出る（2→3で厳しめに）
 const X2_OFFER_CAP = 15;          // 盤面にこの数以上いる種類にはX2カードを出さない（増えすぎ防止。例：クッキー15体以上ならx2_cookieは提示されない）
-const X2_COOLDOWN_ROUNDS = 1;     // 同じキャラの2倍を取ったら、そのキャラの2倍は残り同ラウンド＋このラウンド数ぶん出さない（同キャラ連打抑制。別キャラの2倍は出る）
+const X2_COOLDOWN_ROUNDS = 1;     // （未使用）同キャラ連打クールダウンは撤廃。盤面上限＋PVPの同時性で増えすぎを抑制する方針に変更
 const SPECIAL_OFFER_CHANCE = 0.3; // 強化カードが出せる状況のとき、1枠を強化カードに差し替える確率（0.6→0.3で出にくく）
 const FOE_X2_CHANCE = 0.4;        // 敵（ライバル）がX2強化を使う確率（0.6→0.4）
 const X2_EXCLUDE = new Set(['slime']); // X2対象から外すキー（スライムは「融合」があるため除外）
-const X2_BOARD_CAP = 40;          // X2で増やせる盤面ユニットの上限（軍上限30より大きめ。48→40で増えすぎ防止）
+const X2_BOARD_CAP = 120;         // X2で増やせる盤面ユニットの上限（大幅緩和：40→120。軍上限60より十分大きく、X2が空振りしないようにする）
 /* ★クッキーパーティー（クッキー固有強化）の調整値 */
 const PARTY_MIN = 3;              // 盤面にこの数以上クッキーがいると「クッキーパーティー」カードが出る
 const PARTY_R = 64;              // 近くのクッキーを数える半径(px)。この円内の味方クッキー数で段階が決まる
@@ -823,7 +823,7 @@ function resetState(){
     youMerges:0, foeMerges:0,           // これまでに獲得したスライム融合の回数（永続）
     youX2:{}, foeX2:{},                 // これまでに獲得したX2強化（key→回数。永続・毎ラウンド再適用）
     youBuffN:{}, foeBuffN:{},           // 固有強化を「取得した時点の数」だけに適用するための記録（key→強化された体数）
-    x2Block:{}, foeX2Block:{},          // キャラ別：このラウンド番号までそのキャラの2倍を出さない（同キャラ連打クールダウン。味方/敵）
+    x2Block:{}, foeX2Block:{},          // （未使用・互換のため保持）旧:同キャラ連打クールダウン。現在は撤廃
     youParty:false, foeParty:false,     // クッキーパーティーを獲得済みか（永続・毎ラウンド再適用）
     youChocoBuff:false, foeChocoBuff:false, // ビター装甲を獲得済みか（永続・毎ラウンド再適用・1回限り）
     youBombSplit:false, foeBombSplit:false, // おかわりポップコーンを獲得済みか（永続・毎ラウンド再適用・1回限り）
@@ -1302,10 +1302,10 @@ function buffCountFor(side){
 function foeEnhanceCandidates(){
   const cands=[];
   if(countUnmergedSlimes(world,'e')>=3) cands.push({key:'up_slime', fn:function(){ if(mergeOneSlimeGroup(world,'e')) state.foeMerges+=1; }});
-  { const fb=state.foeX2Block||{}; const fc={};
-    world.units.forEach(u=>{ if(u.side==='e'&&u.hp>0){ const unit=UNIT_BY_KEY[u.key]; if(unit&&!unit.summonOnly&&!X2_EXCLUDE.has(u.key) && state.round>(fb[u.key]||0)) fc[u.key]=(fc[u.key]||0)+1; }});  // クールダウン中のキャラは除外
+  { const fc={}; let aliveE=0;
+    world.units.forEach(u=>{ if(u.side==='e'&&u.hp>0){ aliveE++; const unit=UNIT_BY_KEY[u.key]; if(unit&&!unit.summonOnly&&!X2_EXCLUDE.has(u.key)) fc[u.key]=(fc[u.key]||0)+1; }});   // 連打クールダウンは撤廃
     let bestKey=null,bestN=0; for(const k in fc){ if(fc[k]>=X2_MIN && fc[k]<X2_OFFER_CAP && fc[k]>bestN){ bestN=fc[k]; bestKey=k; } }   // 多すぎる種類(>=X2_OFFER_CAP)はX2を出さない
-    if(bestKey) cands.push({key:'x2_'+bestKey, fn:function(){ const n=doubleUnitsOnBoard(world,'e',bestKey); if(n>0){ state.foeX2[bestKey]=(state.foeX2[bestKey]||0)+1; state.foeX2Block[bestKey]=state.round+X2_COOLDOWN_ROUNDS; } }});
+    if(bestKey && aliveE < X2_BOARD_CAP) cands.push({key:'x2_'+bestKey, fn:function(){ const n=doubleUnitsOnBoard(world,'e',bestKey); if(n>0){ state.foeX2[bestKey]=(state.foeX2[bestKey]||0)+1; } }});   // 盤面が上限なら空振りするので出さない
   }
   if(!state.foeParty        && countSideKey('e','cookie') >=PARTY_MIN)   cands.push({key:'party_cookie',  fn:function(){ state.foeParty=true;         setBuffCount('e','cookie',countSideKey('e','cookie'));   applyPartyFlag(world,'e'); }});
   if(!state.foeChocoBuff    && countSideKey('e','choco')  >=CHOCO_MIN)   cands.push({key:'buff_choco',    fn:function(){ state.foeChocoBuff=true;     setBuffCount('e','choco',countSideKey('e','choco'));     applyChocoBuff(world,'e'); }});
@@ -1464,13 +1464,12 @@ function applyX2Replay(world, side, x2map){
 function eligibleX2Specials(){
   const list=[];
   if(!world) return list;
-  const block = (state && state.x2Block) || {};
-  const counts={};
-  world.units.forEach(u=>{ if(u.side==='p' && u.hp>0) counts[u.key]=(counts[u.key]||0)+1; });
+  const counts={}; let aliveP=0;
+  world.units.forEach(u=>{ if(u.side==='p' && u.hp>0){ counts[u.key]=(counts[u.key]||0)+1; aliveP++; } });
+  if(aliveP >= X2_BOARD_CAP) return list;   // 盤面が上限なら倍化しても増えない＝空振りなのでX2は出さない
   Object.keys(counts).forEach(function(k){
     const unit=UNIT_BY_KEY[k];
-    if(state && state.round <= (block[k]||0)) return;   // そのキャラが連打クールダウン中ならスキップ（別キャラは出る）
-    if(unit && !unit.summonOnly && counts[k]>=X2_MIN && counts[k]<X2_OFFER_CAP && SPECIALS['x2_'+k]) list.push('x2_'+k);   // 多すぎる種類(>=X2_OFFER_CAP)はX2を出さない
+    if(unit && !unit.summonOnly && counts[k]>=X2_MIN && counts[k]<X2_OFFER_CAP && SPECIALS['x2_'+k]) list.push('x2_'+k);   // 多すぎる種類(>=X2_OFFER_CAP)はX2を出さない／連打クールダウンは撤廃
   });
   return list;
 }
@@ -1723,8 +1722,7 @@ function pickCard(key){
     } else if(SPECIALS[key].x2){
       const tgt = SPECIALS[key].target;
       const n = doubleUnitsOnBoard(world,'p',tgt);   // 対象キャラを今いる数だけ増殖
-      if(n>0){ state.youX2[tgt]=(state.youX2[tgt]||0)+1; arrangeFormation(world,'p',false); }
-      state.x2Block[tgt] = state.round + X2_COOLDOWN_ROUNDS;   // 同キャラ連打防止：このキャラの2倍をしばらく出さない（別キャラは出る）
+      if(n>0){ state.youX2[tgt]=(state.youX2[tgt]||0)+1; arrangeFormation(world,'p',false); }   // 連打クールダウンは撤廃（盤面上限で抑制）
     } else if(SPECIALS[key].party){
       state.youParty = true;
       setBuffCount('p','cookie', countSideKey('p','cookie'));   // 取得時にいたクッキーの数だけ（あとから増やしても増えない）
@@ -3262,7 +3260,7 @@ function pvpStartAsHost(){
   pvpMode=true; pvpGuestActive=false;
   pvpRemoteFoe = makeRemoteFoeController(); pvpRemoteFoe.setDeck(pvpGuestDeck||[]);
   foeCtl = pvpRemoteFoe;
-  resetState();
+  resetState(); resetPvpEnhPending();   // 強化の持ち越しはマッチ単位（ラウンドを跨いで繰り越す）
   state.loadout = myDeck.slice();
   state.foeLoadout = (pvpGuestDeck||[]).slice();
   renderScore();
@@ -3278,20 +3276,33 @@ function pvpInjectSpecial(offer, side){
   offer[Math.floor(Math.random()*offer.length)] = sp[Math.floor(Math.random()*sp.length)];
   return true;
 }
-// 単独で提示3枚を作る（テスト/旧互換）。pvpEnh時はSPECIAL_OFFER_CHANCEで1枠を強化に差し替える。
+// 強化の「持ち越し」フラグ：抽選が当たったのに資格不足で出せなかった側は true になり、
+// 次に資格を満たしたステップで（新たな抽選なしでも）必ず1枚差し込む＝結局は両者がもらえるフェア化。
+let pvpPendingP=false, pvpPendingE=false;
+function resetPvpEnhPending(){ pvpPendingP=false; pvpPendingE=false; }
+// 指定側に強化を差し込む。roll(今回の抽選当たり)か持ち越しがあれば試行し、
+// 出せたら持ち越し解消／出せなければ持ち越しをセット（次の機会へ繰り越す）。
+function pvpInjectOrDefer(offer, side, roll){
+  const pending = (side==='p') ? pvpPendingP : pvpPendingE;
+  if(!roll && !pending) return;
+  const injected = pvpInjectSpecial(offer, side);
+  if(side==='p') pvpPendingP = !injected; else pvpPendingE = !injected;
+}
+// 単独で提示3枚を作る（テスト/旧互換）。pvpEnh時はSPECIAL_OFFER_CHANCEで1枠を強化に差し替える（持ち越し対応）。
 function pvpMakeOffer(deck, side){
   const offer = shuffle(deck).slice(0, CONFIG.offerPerPick);
-  if(pvpEnh && world && Math.random() < SPECIAL_OFFER_CHANCE) pvpInjectSpecial(offer, side);
+  if(pvpEnh && world) pvpInjectOrDefer(offer, side, Math.random() < SPECIAL_OFFER_CHANCE);
   return offer;
 }
-// 親子“両方”の提示3枚を1回の抽選で作る。当たれば両陣営に強化を差し込む
-// ＝「片方に強化/X2が出たら、もう片方にも（出せるなら）出る」フェア仕様。
+// 親子“両方”の提示3枚を1回の抽選で作る。当たれば両陣営に強化を差し込む（出せない側は持ち越し）
+// ＝「片方に強化/X2が出たら、もう片方にも（出せなければ次の機会に必ず）出る」フェア仕様。
 function pvpMakeStepOffers(){
   const pOffer = shuffle(state.loadout).slice(0, CONFIG.offerPerPick);
   const eOffer = shuffle(state.foeLoadout).slice(0, CONFIG.offerPerPick);
-  if(pvpEnh && world && Math.random() < SPECIAL_OFFER_CHANCE){
-    pvpInjectSpecial(pOffer, 'p');   // 自分('p')に出せるなら出す
-    pvpInjectSpecial(eOffer, 'e');   // 同時に相手('e')にも出せるなら出す
+  if(pvpEnh && world){
+    const roll = Math.random() < SPECIAL_OFFER_CHANCE;
+    pvpInjectOrDefer(pOffer, 'p', roll);   // 自分('p')：当たり/持ち越しがあれば出す
+    pvpInjectOrDefer(eOffer, 'e', roll);   // 相手('e')：同上（出せなければ持ち越し）
   }
   return { pOffer, eOffer };
 }
@@ -3304,8 +3315,8 @@ function applyPvpSpecial(world, side, key){
     if(n>0){ if(p) state.youMerges += n; else state.foeMerges += n; }
   } else if(sp.x2){
     const tgt = sp.target, n = doubleUnitsOnBoard(world, side, tgt);
-    if(n>0){ if(p){ state.youX2[tgt]=(state.youX2[tgt]||0)+1; state.x2Block[tgt]=state.round+X2_COOLDOWN_ROUNDS; }
-             else { state.foeX2[tgt]=(state.foeX2[tgt]||0)+1; state.foeX2Block[tgt]=state.round+X2_COOLDOWN_ROUNDS; } }
+    if(n>0){ if(p){ state.youX2[tgt]=(state.youX2[tgt]||0)+1; }
+             else { state.foeX2[tgt]=(state.foeX2[tgt]||0)+1; } }   // 連打クールダウンは撤廃
   } else {
     const FLAG = {  // SPECIALSキー → [状態サフィックス, 対象ユニット, 適用関数]
       party_cookie:['Party','cookie',applyPartyFlag], buff_choco:['ChocoBuff','choco',applyChocoBuff],
