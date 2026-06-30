@@ -61,7 +61,7 @@ code += `
   applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff, buffCountFor,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck,
   buildProfile, applyProfile, displayProfile, get myProfile(){ return myProfile; },
-  mmPickWaiter, pvpResumeIsRecent, pvpReconnRemain, eloExpected, eloDelta, myTrophies,
+  mmPickWaiter, pvpResumeIsRecent, pvpReconnRemain, eloExpected, eloDelta, myTrophies, presenceCounts,
   setCpuDeck:(d)=>{ cpuDeck = d; }, setCpuDeckMode:(m)=>{ cpuDeckMode = m; },
   startTutorial, tutNext, endTutorial, get tutorial(){ return tutorial; },
   endBattle, endGame, nextRound, resolveOverlaps,
@@ -2167,6 +2167,16 @@ console.log('\n=== 72) トロフィー: ELOレート計算 ===');
   check('applyProfileでトロフィー反映', API.myTrophies() === 1234, API.myTrophies());
   check('トロフィーはbuildProfileに出る', API.buildProfile().trophies === 1234);
   check('不正トロフィーは無視', (API.applyProfile({ trophies: 'x' }), API.myTrophies() === 1234));
+}
+
+console.log('\n=== 73) オンライン人数: presence集計 ===');
+{
+  check('空はオンライン0・対戦中0', JSON.stringify(API.presenceCounts(null)) === JSON.stringify({ online: 0, battling: 0 }));
+  const obj = { a: { status: 'home' }, b: { status: 'battling' }, c: { status: 'matching' }, d: { status: 'battling' } };
+  const r = API.presenceCounts(obj);
+  check('オンラインは全エントリ数', r.online === 4, r);
+  check('対戦中はstatus=battlingの数', r.battling === 2, r);
+  check('壊れたエントリは無視', API.presenceCounts({ x: null, y: { status: 'home' } }).online === 1);
 }
 
 Promise.resolve().then(() => {

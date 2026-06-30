@@ -188,6 +188,13 @@
 - **要設定**：RTDBルールに `leaderboard`（read:true・$uidのみwrite）。`FIREBASE_SETUP.md` C章参照。
 - CPU対戦はトロフィー非変動（PVPのみ）。
 
+## オンライン人数（presence・実装済み）
+
+- 起動時に `pvpPresenceJoin()`＝**匿名サインイン**して `presence/<uid>={status,ts}`（`onDisconnect().remove()`）。`presence` を購読し `presenceCounts(obj)`（純粋関数・test.js 73）で集計→「🟢 オンラインN人・対戦中M人」をホーム/PVPロビーに表示（`renderPresence`）。
+- 状態遷移 `pvpPresenceSet`：起動/退出='home'、ランダムマッチ='matching'、対戦開始(`pvpStartAsHost`/`pvpGuestEnterPlay`)='battling'。
+- 匿名は「未ログイン扱い」（`updateAuthUI` は `!isAnonymous` で判定）＝ログイン誘導は残す。`leaderboardSubmit` は対戦経験者(`wins+losses>0`)のみ＝匿名の空エントリでランキングを埋めない。
+- **要設定**：RTDBルールに `presence`（read:auth!=null・$uidのみwrite）＋匿名認証有効化。`FIREBASE_SETUP.md` 参照。
+
 ## アカウント＆クラウド保存（実装済み・`<script>`「13) アカウント…」）
 
 - **Firebase Auth（Google＋メール/パスワード）でログイン**。`firebase-auth-compat.js` を追加読み込み。

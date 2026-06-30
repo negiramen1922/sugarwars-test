@@ -249,7 +249,8 @@
     <!-- home -->
     <section id="home" class="center">
       <p class="big home-title">Sugar <span class="clash">Wars</span></p>
-      <div id="homeTrophies" style="font-size:18px;font-weight:700;color:var(--brass);margin:2px 0 6px;cursor:pointer" onclick="openRanking()" title="ランキングを見る">🏆 1000</div>
+      <div id="homeTrophies" style="font-size:18px;font-weight:700;color:var(--brass);margin:2px 0 2px;cursor:pointer" onclick="openRanking()" title="ランキングを見る">🏆 1000</div>
+      <div id="homeOnline" style="font-size:12px;color:var(--green);margin:0 0 6px">🟢 オンライン –人・対戦中 –人</div>
       <p>お菓子の兵士を集めて軍を編成し、リアルタイム自動戦闘で王国の覇権を争うカードドラフト＆オートバトラー。</p>
       <div class="menu-list">
         <button class="menu-btn" onclick="goBattleMenu()">
@@ -299,6 +300,7 @@
     <!-- PVP lobby（部屋づくり / 部屋に入る → WebRTC接続） -->
     <section id="pvpLobby" class="center hidden">
       <p class="big" style="font-size:clamp(22px,5vw,34px)">PVP対戦（β）</p>
+      <div id="pvpOnlineCount" style="font-size:13px;color:var(--green);margin:0 0 8px">🟢 オンライン –人・対戦中 –人</div>
       <div id="pvpSetupWarn" class="comeback-banner hidden" style="max-width:360px;margin:0 auto 12px">
         ⚠ Firebaseが未設定です。<code>FIREBASE_CONFIG</code> を設定すると対人戦が使えます（<code>FIREBASE_SETUP.md</code> 参照）。
       </div>
@@ -948,7 +950,7 @@ function startGame(){
 }
 
 /* ホーム/メニュー遷移 */
-function goHome(){ SFX.play('button'); hideDeckNote(); hideResultBanner(); rosterMode='you'; show('home'); SFX.bgm('home'); }   // ホームでBGM再生
+function goHome(){ SFX.play('button'); hideDeckNote(); hideResultBanner(); rosterMode='you'; pvpPresenceSet('home'); show('home'); SFX.bgm('home'); }   // ホームでBGM再生
 function goBattleMenu(){ SFX.play('button'); show('battleMenu'); }
 // CPU対戦：まず「おまかせ / デッキ選択」の二択
 function goCpuMode(){ SFX.play('button'); show('cpuMode'); }
@@ -2893,7 +2895,7 @@ function endBattle(result){
 function nextRound(){ state.round++; if(pvpMode){ pvpTrace('host nextRound -> round '+state.round); pvpHostStartRound(); } else { beginDraft(); } }
 function endGame(){
   cancelAnimationFrame(raf);
-  pvpClearResume();   // 決着：再接続情報をクリア（PVP）
+  pvpClearResume(); pvpPresenceSet('home');   // 決着：再接続情報クリア＋オンライン状態を戻す
   const wasPvp = pvpMode;
   if(pvpMode){ pvpMode=false; foeCtl=makeCpuFoeController(); }   // PVP決着：後始末（「もう一度」はCPU対戦に戻す）
   const won=state.foeLives<=0;
@@ -3288,9 +3290,11 @@ function applyTrophyResult(won, oppTrophies){
   saveProfileLocal(); scheduleCloudSave(); leaderboardSubmit();
   return pvpLastDelta;
 }
-// リーダーボードへ自分の成績を反映（ログイン時のみ・公開ノード）
+// リーダーボードへ自分の成績を反映（ログイン時のみ・対戦経験者だけ＝匿名の空エントリで埋めない）
 function leaderboardSubmit(){
-  if(!authUser) return; const db=ensureFirebase(); if(!db) return;
+  if(!authUser) return;
+  if(((myProfile.wins||0)+(myProfile.losses||0)) <= 0) return;   // 未対戦はランキングに載せない
+  const db=ensureFirebase(); if(!db) return;
   const dp=displayProfile();
   try{ db.ref('leaderboard/'+authUser.uid).set({ name:dp.name, avatar:dp.avatar, trophies:myTrophies(), wins:myProfile.wins||0, ts:Date.now() }); }catch(e){ console.warn('LB保存失敗',e); }
 }
@@ -3331,6 +3335,32 @@ function leaderboardLoad(n, cb){
   }catch(e){ cb([]); }
 }
 
+/* ===== オンライン人数（presence） ===== */
+let pvpPresenceRef=null, pvpPresenceUid='', pvpPresenceCounts={online:0, battling:0};
+// presenceオブジェクト→{online, battling}（純粋関数・テスト対象）
+function presenceCounts(obj){
+  let online=0, battling=0;
+  for(const k in (obj||{})){ const e=obj[k]; if(!e||typeof e!=='object') continue; online++; if(e.status==='battling') battling++; }
+  return { online:online, battling:battling };
+}
+// 起動時に匿名でサインインして presence に参加（全員を数える）。onDisconnectで自動退出。
+function pvpPresenceJoin(){
+  if(pvpPresenceRef) return;
+  ensureGuestSignIn().then(function(uid){
+    const db=ensureFirebase(); if(!db) return;
+    pvpPresenceUid=uid;
+    pvpPresenceRef = db.ref('presence/'+uid);
+    try{ pvpPresenceRef.onDisconnect().remove(); }catch(e){}
+    pvpPresenceSet('home');
+    db.ref('presence').on('value', function(snap){ pvpPresenceCounts = presenceCounts(snap.val()); renderPresence(); });
+  }).catch(function(){});   // 匿名認証が無効/オフライン等は静かに無視
+}
+function pvpPresenceSet(status){ if(!pvpPresenceRef) return; try{ pvpPresenceRef.set({ status:status||'home', ts:Date.now() }); }catch(e){} }
+function renderPresence(){
+  const txt='🟢 オンライン '+pvpPresenceCounts.online+'人・対戦中 '+pvpPresenceCounts.battling+'人';
+  ['pvpOnlineCount','homeOnline'].forEach(function(id){ const el=$(id); if(el) el.textContent=txt; });
+}
+
 // --- UI ---
 function openAuth(){ try{ SFX.play('button'); }catch(e){} closeMenu(); updateAuthUI(); fillProfileEditor(); authMsg(''); const m=$('authModal'); if(m) m.classList.remove('hidden'); }
 // プロフィール編集UIを現在値で初期化（ニックネーム＋アバターのグリッド）
@@ -3364,7 +3394,8 @@ function closeAuth(e){ if(e && e.target!==e.currentTarget) return; const m=$('au
 function authMsg(s){ const el=$('authMsg'); if(el) el.textContent=s||''; }
 function updateAuthUI(){
   const inEl=$('authSignedIn'), outEl=$('authSignedOut'), row=$('accountRow');
-  if(authUser){
+  const realUser = authUser && !authUser.isAnonymous;   // 匿名(ゲスト)は「未ログイン」扱い＝ログイン誘導は残す
+  if(realUser){
     if(inEl) inEl.classList.remove('hidden');
     if(outEl) outEl.classList.add('hidden');
     const who = authUser.displayName || authUser.email || 'ログイン中';
@@ -3581,6 +3612,7 @@ function randomMatchStart(){
   if(needPlayerDeck()) return;   // 自分の編成デッキが必要
   const sp=$('pvpMmSpinner'); if(sp) sp.textContent='🎲';   // 再挑戦時に表情を戻す
   track('random_match_start');   // 計測：ランダムマッチ開始（成立/失敗率の母数）
+  pvpPresenceSet('matching');   // オンライン状態=マッチ待ち
   mmActive=true; mmStartedConn=false; mmShowOpponent(null); mmShow('接続を準備中…');
   ensureGuestSignIn().then(function(uid){
     if(!mmActive) return;
@@ -3634,7 +3666,7 @@ function mmCleanup(){
 }
 function randomMatchCancel(){
   SFX.play('button');
-  mmCleanup();
+  mmCleanup(); pvpPresenceSet('home');
   try{ if(pvpPC) pvpPC.close(); }catch(e){}
   try{ if(pvpRoomRef){ pvpRoomRef.off(); pvpRoomRef.remove().catch(()=>{}); } }catch(e){}
   pvpPC=null; pvpRoomRef=null; pvpRole=null;
@@ -3650,7 +3682,7 @@ function pvpLeave(){
   try{ if(pvpPC) pvpPC.close(); }catch(e){}
   try{ if(pvpRoomRef){ pvpRoomRef.off(); /* 後始末：部屋データ削除 */ pvpRoomRef.remove().catch(()=>{}); } }catch(e){}
   pvpConn=null; pvpPC=null; pvpRoomRef=null; pvpRole=null;
-  pvpClearResume();
+  pvpClearResume(); pvpPresenceSet('home');
   pvpResetLobby();
   show('battleMenu');
 }
@@ -3726,6 +3758,7 @@ function pvpReconnEndMatch(msg){
   try{ if(pvpPC) pvpPC.close(); }catch(e){}
   try{ if(pvpRoomRef){ pvpRoomRef.off(); pvpRoomRef.remove().catch(()=>{}); } }catch(e){}
   pvpConn=null; pvpPC=null; pvpRoomRef=null; pvpRole=null;
+  pvpPresenceSet('home');
   pvpResetLobby();
   show('battleMenu');
   if(msg){ try{ showDeckNote(msg); }catch(e){} }
@@ -3826,7 +3859,7 @@ function pvpStartAsHost(){
   state.loadout = myDeck.slice();
   state.foeLoadout = (pvpGuestDeck||[]).slice();
   trackBattleStart('pvp');   // 計測：PVP対戦開始（親）
-  pvpSaveResume();   // 再接続/リログ検知用に対戦情報を保存
+  pvpSaveResume(); pvpPresenceSet('battling');   // 再接続/リログ検知＋オンライン状態=対戦中
   renderScore();
   pvpHostObj.start({ lives:CONFIG.startLives, round:1, proto:PVP_PROTO, enh:pvpEnh, prof:pvpNetProfile() });
   pvpHostStartRound();
@@ -4089,7 +4122,7 @@ function pvpGuestRunDraft(m, sendPicks){
 function pvpGuestEnterPlay(m){
   pvpMode=false; pvpGuestActive=true; pvpGuestPicking=false;
   trackBattleStart('pvp');   // 計測：PVP対戦開始（子）
-  pvpSaveResume();   // 再接続/リログ検知用に対戦情報を保存
+  pvpSaveResume(); pvpPresenceSet('battling');   // 再接続/リログ検知＋オンライン状態=対戦中
   state.youLives=(m&&m.lives)||CONFIG.startLives; state.foeLives=(m&&m.lives)||CONFIG.startLives; state.round=(m&&m.round)||1;
   state.lostLast=false; state.foeLostLast=false;   // 逆転バナー用（初戦は両者なし）
   show('play'); setupCanvas(); world=null; pvpSnapBuf=[]; pvpGuestLastPhase=null;
@@ -4164,7 +4197,7 @@ function pvpGuestShowOffer(m, reply){
 function pvpGuestOnResult(m){ state.youLives=m.youLives; state.foeLives=m.foeLives; if(m.round) state.round=m.round; state.lostLast=(m.result==='lose'); state.foeLostLast=(m.result==='win'); renderScore(); showResultBanner(m.result); }
 function pvpGuestOnGameover(m){
   pvpGuestActive=false; cancelAnimationFrame(pvpGuestRaf);
-  pvpClearResume();   // 正常終了：再接続情報をクリア
+  pvpClearResume(); pvpPresenceSet('home');   // 正常終了：再接続情報クリア＋オンライン状態を戻す
   const won=!!m.youWon;
   const d=applyTrophyResult(won, pvpOppProfile&&pvpOppProfile.trophies); renderHomeTrophies();   // トロフィー増減
   $('overTitle').textContent=won?'勝利！':'敗北…'; $('overTitle').style.color=won?'var(--green)':'var(--rust)';
@@ -4176,6 +4209,7 @@ resetState(); loadDeckLocal(); loadProfileLocal(); renderScore(); renderHomeTrop
 try{ authInit(); }catch(e){}   // ログイン状態の監視を開始（未設定なら何もしない）
 try{ getAnalytics(); }catch(e){}   // GA4を起動時に初期化（タグ検出＋page_view/セッションの自動計測。未設定なら何もしない）
 try{ pvpTryResumeOnLoad(); }catch(e){}   // リログ（再読み込み）で対戦が切れていたら通知
+try{ pvpPresenceJoin(); }catch(e){}   // オンライン人数のカウントに参加（匿名サインイン）
 if(!tutSeen()){ try{ startTutorial(); }catch(e){} }   // 初回プレイ時は自動でチュートリアル（メニューからいつでも再生可）
 
 // PWA：Service Worker を登録（オフライン起動・ホーム追加）。https/localhost でのみ有効。
