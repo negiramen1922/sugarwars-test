@@ -425,7 +425,7 @@
   <div id="menuModal" class="modal-overlay hidden" onclick="closeMenu(event)">
     <div class="modal-card menu-card" onclick="event.stopPropagation()">
       <h3>メニュー</h3>
-      <button class="menu-row" id="accountRow" onclick="openAuth()">👤 ログイン（デッキをクラウド保存）</button>
+      <button class="menu-row" id="accountRow" onclick="openAuth()">👤 ログイン / プロフィール設定</button>
       <button class="menu-row menu-row--accent" id="installRow" onclick="installApp()">📲 ホームに追加（インストール）</button>
       <button class="menu-row" id="discordRow" onclick="openDiscord()">💬 コミュニティ Discord に参加</button>
       <button class="menu-row" onclick="startTutorial()">🎓 あそびかた（チュートリアル）</button>
@@ -440,6 +440,16 @@
   <div id="authModal" class="modal-overlay hidden" onclick="closeAuth(event)">
     <div class="modal-card menu-card" onclick="event.stopPropagation()">
       <h3>アカウント</h3>
+      <!-- プロフィール（ニックネーム＋アイコン）。ログイン有無に関わらず設定でき、対戦相手に表示される -->
+      <div id="profileBlock" style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div id="profileAvatarPrev" style="width:46px;height:46px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:26px;border-radius:10px;background:var(--panel-2);border:2px solid var(--brass)">🍪</div>
+          <input id="profileName" maxlength="12" placeholder="ニックネーム（12文字まで）" style="flex:1;box-sizing:border-box;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);font-family:inherit">
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin:10px 0 4px">アイコンを選ぶ（お菓子キャラ）</div>
+        <div id="avatarGrid" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+        <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="saveProfile()">プロフィールを保存</button>
+      </div>
       <div id="authSignedOut">
         <p style="font-size:13px;color:var(--muted);margin:0 0 10px">ログインすると、デッキと進捗が<b>クラウドに自動保存</b>され、別の端末でも続きから遊べます。</p>
         <button class="menu-row menu-row--accent" onclick="authGoogle()">🔵 Googleでログイン</button>
@@ -3059,21 +3069,34 @@ function genRoomCode(){ const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; fo
    ============================================================ */
 let authUser=null;            // ログイン中のユーザー（未ログインはnull）
 let _cloudSaveT=0;            // クラウド保存のデバウンス用タイマ
+let myProfile={ name:'', avatar:'' };   // 対戦相手に見せるニックネーム＋アイコン（ユニットkey）
 
-// --- デッキのローカル保存（ログイン有無に関わらず端末に残す） ---
+// アバター候補＝召喚専用を除く実プレイ可能ユニットのkey
+function avatarKeys(){ return UNITS.filter(u=>!u.summonOnly).map(u=>u.key); }
+function avatarIcon(key){ const u=UNIT_BY_KEY[key]; return (u&&u.icon)||'🍬'; }
+// 名前が未設定のときの既定ゲスト名（uidかランダムから4桁）
+function defaultGuestName(){ const uid=(authUser&&authUser.uid)||''; let n=0; for(let i=0;i<uid.length;i++) n=(n*31+uid.charCodeAt(i))>>>0; if(!uid) n=Math.floor(Math.random()*10000); return 'ゲスト'+String(1000+(n%9000)); }
+// 対戦などで使う「表示用」プロフィール（空欄は既定で補完）
+function displayProfile(){ return { name: (myProfile.name||'').trim() || defaultGuestName(), avatar: myProfile.avatar || avatarKeys()[0] }; }
+
+// --- デッキ／プロフィールのローカル保存（ログイン有無に関わらず端末に残す） ---
 function saveDeckLocal(){ try{ localStorage.setItem('sw_deck', JSON.stringify(myDeck)); }catch(e){} }
 function loadDeckLocal(){ try{ const s=localStorage.getItem('sw_deck'); if(s){ const a=JSON.parse(s); if(Array.isArray(a)) applyProfile({deck:a}); } }catch(e){} }
+function saveProfileLocal(){ try{ localStorage.setItem('sw_profile', JSON.stringify({name:myProfile.name,avatar:myProfile.avatar})); }catch(e){} }
+function loadProfileLocal(){ try{ const s=localStorage.getItem('sw_profile'); if(s){ const o=JSON.parse(s); applyProfile({name:o.name,avatar:o.avatar}); } }catch(e){} }
 // 編成変更時に呼ぶ：ローカル保存＋（ログイン中なら）クラウドへデバウンス保存
 function persistDeck(){ saveDeckLocal(); scheduleCloudSave(); }
 
 // --- 保存プロフィールの整形（純粋関数・テスト対象） ---
-function buildProfile(){ return { deck: myDeck.slice(0, CONFIG.deckSize), tutorialDone: tutSeen(), updatedAt: Date.now() }; }
+function buildProfile(){ return { deck: myDeck.slice(0, CONFIG.deckSize), name: myProfile.name||'', avatar: myProfile.avatar||'', tutorialDone: tutSeen(), updatedAt: Date.now() }; }
 // クラウド/ローカルから読んだプロフィールをゲーム状態へ反映（不正キーは除外）
 function applyProfile(p){
   if(!p) return;
   if(Array.isArray(p.deck)){
     myDeck = p.deck.filter(k=>UNIT_BY_KEY[k] && !UNIT_BY_KEY[k].summonOnly).slice(0, CONFIG.deckSize);
   }
+  if(typeof p.name==='string') myProfile.name = p.name.slice(0,12);
+  if(p.avatar && UNIT_BY_KEY[p.avatar] && !UNIT_BY_KEY[p.avatar].summonOnly) myProfile.avatar = p.avatar;   // 有効なユニットkeyのみ
   if(p.tutorialDone) markTutSeen();
 }
 
@@ -3148,7 +3171,34 @@ function cloudSaveNow(){
 }
 
 // --- UI ---
-function openAuth(){ try{ SFX.play('button'); }catch(e){} closeMenu(); updateAuthUI(); authMsg(''); const m=$('authModal'); if(m) m.classList.remove('hidden'); }
+function openAuth(){ try{ SFX.play('button'); }catch(e){} closeMenu(); updateAuthUI(); fillProfileEditor(); authMsg(''); const m=$('authModal'); if(m) m.classList.remove('hidden'); }
+// プロフィール編集UIを現在値で初期化（ニックネーム＋アバターのグリッド）
+let _avatarPick='';
+function fillProfileEditor(){
+  const dp=displayProfile(); _avatarPick = myProfile.avatar || dp.avatar;
+  if($('profileName')) $('profileName').value = myProfile.name||'';
+  if($('profileAvatarPrev')) $('profileAvatarPrev').textContent = avatarIcon(_avatarPick);
+  renderAvatarGrid();
+}
+function renderAvatarGrid(){
+  const grid=$('avatarGrid'); if(!grid) return; grid.innerHTML='';
+  avatarKeys().forEach(function(key){
+    const b=document.createElement('button');
+    const on=(key===_avatarPick);
+    b.textContent=avatarIcon(key);
+    b.style.cssText='width:40px;height:40px;font-size:22px;border-radius:8px;cursor:pointer;background:'+(on?'var(--brass)':'var(--panel-2)')+';border:2px solid '+(on?'var(--brass)':'var(--line)');
+    b.onclick=function(){ _avatarPick=key; if($('profileAvatarPrev')) $('profileAvatarPrev').textContent=avatarIcon(key); renderAvatarGrid(); };
+    grid.appendChild(b);
+  });
+}
+function saveProfile(){
+  try{ SFX.play('button'); }catch(e){}
+  const nm=(($('profileName')&&$('profileName').value)||'').trim().slice(0,12);
+  myProfile.name = nm;
+  if(_avatarPick) myProfile.avatar = _avatarPick;
+  saveProfileLocal(); scheduleCloudSave(); updateAuthUI();
+  authMsg('プロフィールを保存しました');
+}
 function closeAuth(e){ if(e && e.target!==e.currentTarget) return; const m=$('authModal'); if(m) m.classList.add('hidden'); }
 function authMsg(s){ const el=$('authMsg'); if(el) el.textContent=s||''; }
 function updateAuthUI(){
@@ -3162,7 +3212,7 @@ function updateAuthUI(){
   } else {
     if(inEl) inEl.classList.add('hidden');
     if(outEl) outEl.classList.remove('hidden');
-    if(row) row.textContent = '👤 ログイン（デッキをクラウド保存）';
+    if(row) row.textContent = myProfile.name ? ('👤 '+myProfile.name+'（ゲスト・未ログイン）') : '👤 ログイン / プロフィール設定';
   }
 }
 
@@ -3750,7 +3800,7 @@ function pvpGuestOnGameover(m){
   show('over');
 }
 
-resetState(); loadDeckLocal(); renderScore(); show('home');   // 端末に保存したデッキを復元
+resetState(); loadDeckLocal(); loadProfileLocal(); renderScore(); show('home');   // 端末に保存したデッキ／プロフィールを復元
 try{ authInit(); }catch(e){}   // ログイン状態の監視を開始（未設定なら何もしない）
 if(!tutSeen()){ try{ startTutorial(); }catch(e){} }   // 初回プレイ時は自動でチュートリアル（メニューからいつでも再生可）
 
