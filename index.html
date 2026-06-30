@@ -20,14 +20,15 @@
 <style>
   :root{
     --bg:#14161f; --bg2:#1b1f2b; --panel:#232838; --panel-2:#2c3247;
-    --ink:#e9e6dc; --muted:#9aa1b5; --parch:#e8dcc0; --parch-dk:#d9c9a3;
+    --ink:#f0ede3; --muted:#aeb6c9; --parch:#e8dcc0; --parch-dk:#d9c9a3;
     --brass:#d4a544; --steel:#4ea3c9; --rust:#d2603a; --green:#6fbf73;
     --line:rgba(255,255,255,.08); --radius:14px; --shadow:0 10px 30px rgba(0,0,0,.45);
   }
   *{box-sizing:border-box} html,body{margin:0;padding:0}
   body{background:radial-gradient(1200px 600px at 50% -10%, #20283a 0%, transparent 60%), var(--bg);color:var(--ink);font-family:"Inter",system-ui,sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
   .wrap{max-width:760px;margin:0 auto;padding:18px 16px 60px}
-  header.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+  header.topbar{display:flex;flex-direction:column;gap:10px;margin-bottom:18px}
+  .topbar-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
   .brand{display:flex;flex-direction:column;align-items:flex-start;gap:5px}
   .brand-row{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
   .brand h1{font-family:"Oswald",sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:clamp(22px,4.5vw,34px);margin:0}
@@ -238,16 +239,18 @@
 <body>
 <div class="wrap">
   <header class="topbar">
-    <div class="brand">
-      <div class="brand-row">
-        <h1>Sugar <span class="clash">Wars</span></h1>
-        <span class="tag">お菓子の王国の戦争</span>
+    <div class="topbar-head">
+      <div class="brand">
+        <div class="brand-row">
+          <h1>Sugar <span class="clash">Wars</span></h1>
+          <span class="tag">お菓子の王国の戦争</span>
+        </div>
+        <div class="profile-chip" id="profileChip" onclick="openAuth()" title="プロフィール / ログイン">
+          <span class="pc-ico" id="profileChipIco">🍬</span><span id="profileChipName">ゲスト</span>
+        </div>
       </div>
-      <div class="profile-chip" id="profileChip" onclick="openAuth()" title="プロフィール / ログイン">
-        <span class="pc-ico" id="profileChipIco">🍬</span><span id="profileChipName">ゲスト</span>
-      </div>
+      <button id="menuBtn" class="iconbtn gear" onclick="toggleMenu()" title="メニュー（設定）">⚙</button>
     </div>
-    <button id="menuBtn" class="iconbtn gear" onclick="toggleMenu()" title="メニュー（設定）">⚙</button>
     <div class="score" id="scoreBar">
       <div class="side-score you"><span class="name">You</span><span class="hearts" id="youHearts">❤️❤️❤️</span></div>
       <div class="round-pill" id="roundPill">Round 1</div>
@@ -552,7 +555,7 @@
       <div style="text-align:center;margin-top:14px"><button class="btn btn-ghost" onclick="closeNews()">閉じる</button></div>
     </div>
   </div>
-  <p class="footnote">プロトタイプ — ユニットやルールは <code>UNITS</code> と <code>CONFIG</code> を編集して調整できます。</p>
+  <p class="footnote hidden">プロトタイプ — ユニットやルールは <code>UNITS</code> と <code>CONFIG</code> を編集して調整できます。</p>
 </div>
 
 <script>
