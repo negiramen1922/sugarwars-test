@@ -1033,6 +1033,11 @@ function needPlayerDeck(){
   if(myDeck.length===0){ showDeckNote('まず自分のデッキを編成してください。下のキャラをタップして4枚選びましょう。'); rosterMode='you'; goRoster(); return true; }
   return false;
 }
+// PVPは4枚そろったデッキが必須（CPU戦は4枚未満でも可だが対人戦は不可）。未達なら編成へ誘導しtrue。
+function needFullDeckForPvp(){
+  if(myDeck.length < CONFIG.deckSize){ showDeckNote('対人戦（PVP）はデッキ'+CONFIG.deckSize+'枚が必要です。下のキャラをタップして'+CONFIG.deckSize+'枚そろえてください。'); rosterMode='you'; goRoster(); return true; }
+  return false;
+}
 // おまかせ：CPUデッキはランダム
 function cpuAuto(){ SFX.play('button'); cpuDeckMode='auto'; if(needPlayerDeck()) return; startGame(); }
 // デッキ選択：CPUのデッキを自分で組む
@@ -3533,7 +3538,7 @@ function createWebRTCTransport(opts){
 /* ---- ロビーUI（接続まで） ---- */
 function openPvpLobby(){
   SFX.play('button');
-  if(needPlayerDeck()) return;   // PVPも自分の編成デッキ(myDeck)を使う。未編成なら編成へ誘導。
+  if(needFullDeckForPvp()) return;   // PVPはデッキ4枚必須。未達なら編成へ誘導。
   pvpResetLobby();
   $('pvpSetupWarn').classList.toggle('hidden', firebaseConfigured());
   show('pvpLobby');
@@ -3665,7 +3670,7 @@ function mmConnState(s){
 function randomMatchStart(){
   SFX.play('button');
   if(!firebaseConfigured()){ $('pvpSetupWarn').classList.remove('hidden'); return; }
-  if(needPlayerDeck()) return;   // 自分の編成デッキが必要
+  if(needFullDeckForPvp()) return;   // ランダムマッチもデッキ4枚必須
   const sp=$('pvpMmSpinner'); if(sp) sp.textContent='🎲';   // 再挑戦時に表情を戻す
   track('random_match_start');   // 計測：ランダムマッチ開始（成立/失敗率の母数）
   pvpPresenceSet('matching');   // オンライン状態=マッチ待ち

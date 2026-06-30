@@ -59,7 +59,7 @@ code += `
   beginDraft, nextPick, pickCard, lockAndFight, aiPicks, startGame,
   applyPartyFlag, applyCookieParty, playerCanParty, countSideKey,
   applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff, buffCountFor,
-  setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck,
+  setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck, needFullDeckForPvp,
   buildProfile, applyProfile, displayProfile, get myProfile(){ return myProfile; },
   mmPickWaiter, pvpResumeIsRecent, pvpReconnRemain, eloExpected, eloDelta, myTrophies, presenceCounts,
   setCpuDeck:(d)=>{ cpuDeck = d; }, setCpuDeckMode:(m)=>{ cpuDeckMode = m; },
@@ -2177,6 +2177,17 @@ console.log('\n=== 73) オンライン人数: presence集計 ===');
   check('オンラインは全エントリ数', r.online === 4, r);
   check('対戦中はstatus=battlingの数', r.battling === 2, r);
   check('壊れたエントリは無視', API.presenceCounts({ x: null, y: { status: 'home' } }).online === 1);
+}
+
+console.log('\n=== 74) PVPはデッキ4枚必須（4枚未満はブロック） ===');
+{
+  API.setMyDeck([]);
+  check('0枚はPVP不可（ブロック=true）', API.needFullDeckForPvp() === true);
+  API.setMyDeck(['cookie', 'choco', 'shoe']);
+  check('3枚はPVP不可（ブロック=true）', API.needFullDeckForPvp() === true);
+  API.setMyDeck(['cookie', 'choco', 'shoe', 'bomb']);
+  check('4枚そろえばPVP可（ブロック=false）', API.needFullDeckForPvp() === false);
+  API.setMyDeck([]);
 }
 
 Promise.resolve().then(() => {
