@@ -223,7 +223,13 @@
   .news-item{border-left:3px solid var(--brass);padding:2px 0 8px 12px;margin:14px 0}
   .news-item .news-ver{font-family:"Space Mono",monospace;color:var(--brass);font-size:12px;font-weight:700}
   .news-item .news-date{color:var(--muted);font-size:11px;margin-left:8px}
-  .news-item h4{margin:5px 0 7px;font-size:15px;color:var(--ink)}
+  .news-head{display:flex;align-items:center;gap:8px;width:100%;background:transparent;border:none;cursor:pointer;text-align:left;padding:2px 20px 2px 0;font-family:inherit;flex-wrap:wrap}
+  .news-head .news-title{font-size:15px;font-weight:700;color:var(--ink);flex:1 1 100%;margin-top:2px}
+  .news-head .news-chev{position:absolute;right:0;color:var(--muted);font-size:12px;transition:transform .15s}
+  .news-item{position:relative}
+  .news-item.open .news-head .news-chev{transform:rotate(90deg)}
+  .news-body{display:none;margin-top:6px}
+  .news-item.open .news-body{display:block}
   .news-item ul{margin:0;padding-left:18px;color:var(--muted);font-size:13px;line-height:1.65}
   .news-item p{margin:0 0 6px;color:var(--ink);font-size:13px}
   .footnote{text-align:center;color:var(--muted);font-size:12px;margin-top:20px}
@@ -2817,6 +2823,19 @@ function updateMuteRow(){ const r=$('muteRow'); if(r) r.textContent = (SFX.muted
 /* ===== ハンバーガーメニュー＆お知らせ ===== */
 // お知らせ（新しいものを先頭に追加していく）
 const NEWS = [
+  { ver:'β1.2', date:'2026-06-30', title:'β1.2 アップデート🏆 ランキング＆ランダムマッチ', lines:[
+    '🎲 ランダムマッチを追加！あいことば不要で、ボタン1つで相手を自動で見つけて対戦できます',
+    '🏆 トロフィー（レート）＆ランキングを追加。ランダムマッチの勝敗で増減し、上位プレイヤーを一覧表示（あいことば対戦・CPU戦は変動しません）',
+    '🌐 別々の回線どうしでも繋がりやすく（TURN中継を強化）',
+    '🔌 対戦中に通信が切れても、約30秒は自動で再接続をこころみます',
+    '👤 ログイン（Google／メール）＆クラウド保存。ゲストで遊んだ記録もログインで引き継げます',
+    '🙂 プロフィール（ニックネーム＋お菓子アイコン）を設定でき、対戦相手に名前が表示されます',
+    '🟢 オンライン人数・対戦中の人数をホーム／対戦画面に表示',
+    '🆚 対戦画面の上部に相手の名前が出るようになりました',
+    '🎨 画面の色味をポップなパステル（みどり）に一新',
+    '⚔ 対人戦はデッキ4枚必須に／シュークリームアーチャーを少し調整',
+    'まだβ版です。あそんでみて感想をください！🍬',
+  ] },
   { ver:'β1.1', date:'2026-06-29', title:'β1.1 アップデート🍰 オンライン対戦＆大量バランス調整', lines:[
     '🌐 オンラインPVP対戦を追加！「あいことば」で友だちと直接たいせん（同じWi-Fiやテザリングが繋がりやすい）',
     '🃏 PVPでも倍カード・強化カード・逆転ボーナスが出るように（負けた側はピックが多くもらえる）',
@@ -2839,10 +2858,17 @@ const NEWS = [
 ];
 function renderNews(){
   const el=$('newsList'); if(!el) return;
-  el.innerHTML = NEWS.map(n=>
-    `<div class="news-item"><span class="news-ver">${n.ver}</span><span class="news-date">${n.date}</span>`+
-    `<h4>${n.title}</h4><ul>${n.lines.map(l=>`<li>${l}</li>`).join('')}</ul></div>`).join('');
+  // タイトルだけ表示し、詳細はトグル（アコーディオン）で開く
+  el.innerHTML = NEWS.map((n,i)=>
+    `<div class="news-item" id="newsItem${i}">`+
+      `<button class="news-head" onclick="toggleNews(${i})">`+
+        `<span class="news-ver">${n.ver}</span><span class="news-date">${n.date}</span>`+
+        `<span class="news-title">${n.title}</span><span class="news-chev">▶</span>`+
+      `</button>`+
+      `<div class="news-body"><ul>${n.lines.map(l=>`<li>${l}</li>`).join('')}</ul></div>`+
+    `</div>`).join('');
 }
+function toggleNews(i){ try{ SFX.play('button'); }catch(e){} const it=$('newsItem'+i); if(it) it.classList.toggle('open'); }
 function toggleMenu(){ SFX.play('button'); const bv=$('bgmVol'), sv=$('sfxVol'); if(bv) bv.value=Math.round(SFX.bgmVol*100); if(sv) sv.value=Math.round(SFX.sfxVol*100); updateMuteRow(); updateInstallRow(); $('menuModal').classList.remove('hidden'); }
 // ===== PWA：ホームに追加（インストール）導線 =====
 let deferredInstallPrompt=null;
