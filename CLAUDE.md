@@ -160,7 +160,15 @@
 - テスト：test.js 59（`picksFor`の逆転）・60（待機通知で子が返信しない）。
 - **未対応**：切断/タイムアウト処理、再戦動線（over画面の「もう一度」をPVP再戦に）、親子のキャンバスサイズ差の厳密なスケーリング。
 
-### F3 — 自動マッチング（Firebaseの待機リストでペアリング）
+### F3 — 自動マッチング（ランダムマッチ）— 実装済み（`<script>`「12.5) ランダムマッチ」）
+
+- **あいことば不要**。Firebaseの待機列 `matchmaking/queue/<uid>` でペアリングし、既存 `createWebRTCTransport`→`pvpOnConnected` フローに合流（CPU/手動対戦は不変）。
+- 参加時のみ `ensureGuestSignIn()`（**匿名認証** `signInAnonymously`／ログイン済みはそのuid）でuid発行。
+- `mmQueueRef.transaction` で**待機者を1人だけclaim**（奪い合い防止）。`mmPickWaiter(queue,uid,now,staleMs)`＝自分以外・期限内で最古を選ぶ純粋関数（test.js 70）。
+- **claimした側＝親(host)／claimされた側＝子(guest)**。親が部屋を作り `matchmaking/matches/<guestUid>` にコードを通知→子は `waitOffer:true` で親のオファーを待って接続。
+- 切断/キャンセルは `onDisconnect().remove()` と `mmCleanup()` で待機列を掃除。相手プロフィール（名前/アイコン）はマッチ割当て経由で表示（`mmShowOpponent`・textContentで安全表示）。
+- **要設定**：匿名認証の有効化＋RTDBルールに `matchmaking`（`auth!=null`）。手順は `FIREBASE_SETUP.md`「ランダムマッチ」。
+- **要実機確認**：2台/2タブでのペアリング〜対戦通しはこの環境ではテスト不可。`mmPickWaiter` のみヘッドレス検証。
 
 ## アカウント＆クラウド保存（実装済み・`<script>`「13) アカウント…」）
 

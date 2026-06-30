@@ -61,6 +61,7 @@ code += `
   applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff, buffCountFor,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck,
   buildProfile, applyProfile, displayProfile, get myProfile(){ return myProfile; },
+  mmPickWaiter,
   setCpuDeck:(d)=>{ cpuDeck = d; }, setCpuDeckMode:(m)=>{ cpuDeckMode = m; },
   startTutorial, tutNext, endTutorial, get tutorial(){ return tutorial; },
   endBattle, endGame, nextRound, resolveOverlaps,
@@ -2120,6 +2121,21 @@ console.log('\n=== 69) プロフィール: 名前/アイコンの保存と検証
   const dp = API.displayProfile();
   check('displayProfile: 空名は「ゲスト〇〇」で補完', /^ゲスト\d{4}$/.test(dp.name), dp.name);
   check('displayProfile: 空アイコンは候補で補完', !!dp.avatar && dp.avatar.length > 0, dp.avatar);
+}
+
+console.log('\n=== 70) ランダムマッチ: 待機列から claim 相手を選ぶ（mmPickWaiter） ===');
+{
+  const now = 1000000;
+  const stale = 30000;
+  check('空/nullの列はnull', API.mmPickWaiter(null, 'me', now, stale) === null && API.mmPickWaiter({}, 'me', now, stale) === null);
+  check('自分だけならnull（自分とはマッチしない）', API.mmPickWaiter({ me: { ts: now } }, 'me', now, stale) === null);
+  check('自分以外が1人いればその人を選ぶ', API.mmPickWaiter({ me: { ts: now }, a: { ts: now - 1000 } }, 'me', now, stale) === 'a');
+  // 複数いれば最も古い待機者（FIFO）
+  check('最も古い待機者を選ぶ(FIFO)', API.mmPickWaiter({ a: { ts: now - 1000 }, b: { ts: now - 5000 }, c: { ts: now - 2000 } }, 'me', now, stale) === 'b');
+  // 期限切れ(stale)は無視
+  check('期限切れの待機者は無視', API.mmPickWaiter({ old: { ts: now - 40000 }, fresh: { ts: now - 1000 } }, 'me', now, stale) === 'fresh');
+  check('期限切れしかいなければnull', API.mmPickWaiter({ old: { ts: now - 40000 } }, 'me', now, stale) === null);
+  check('壊れたエントリは無視', API.mmPickWaiter({ bad: null, ok: { ts: now - 100 } }, 'me', now, stale) === 'ok');
 }
 
 Promise.resolve().then(() => {
