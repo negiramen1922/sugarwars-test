@@ -480,7 +480,7 @@
         <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="saveProfile()">プロフィールを保存</button>
       </div>
       <div id="authSignedOut">
-        <p style="font-size:13px;color:var(--muted);margin:0 0 10px">ログインすると、デッキと進捗が<b>クラウドに自動保存</b>され、別の端末でも続きから遊べます。</p>
+        <p style="font-size:13px;color:var(--muted);margin:0 0 10px">ログインすると<b>今のゲストの記録（トロフィー・デッキ）を引き継いで</b>クラウド保存され、別の端末でも続きから遊べます。</p>
         <button class="menu-row menu-row--accent" onclick="authGoogle()">🔵 Googleでログイン</button>
         <div style="margin:10px 0 0">
           <input id="authEmail" type="email" autocomplete="email" placeholder="メールアドレス" style="width:100%;box-sizing:border-box;margin:4px 0;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);font-family:inherit">
@@ -3211,22 +3211,43 @@ function authInit(){
   try{ a.getRedirectResult().catch(function(){}); }catch(e){}   // モバイルのリダイレクトログイン結果を回収
   a.onAuthStateChanged(function(user){ authUser=user||null; updateAuthUI(); if(authUser) onSignedIn(authUser); });
 }
+// 匿名(ゲスト)中なら link で“引き継ぎ”、そうでなければ通常サインイン。
 function authGoogle(){
   const a=getAuth(); if(!a){ authMsg('Firebaseが未設定です'); return; }
   const prov=new firebase.auth.GoogleAuthProvider();
-  a.signInWithPopup(prov).catch(function(err){
-    const c=err&&err.code;
-    if(c==='auth/popup-blocked'||c==='auth/operation-not-supported-in-this-environment'||c==='auth/cancelled-popup-request'){ try{ a.signInWithRedirect(prov); }catch(e){ authMsg(authErrMsg(err)); } }
-    else if(c==='auth/popup-closed-by-user'){ /* ユーザーが閉じただけ：無視 */ }
-    else authMsg(authErrMsg(err));
-  });
+  const cur=a.currentUser, linking=!!(cur&&cur.isAnonymous);
+  const p = linking ? cur.linkWithPopup(prov) : a.signInWithPopup(prov);
+  p.then(function(){ authMsg(linking?'ゲストの記録を引き継いでログインしました ☁':'ログインしました'); })
+   .catch(function(err){
+     const c=err&&err.code;
+     if(linking && (c==='auth/credential-already-in-use'||c==='auth/email-already-in-use')){
+       authMsg('既存アカウントでログインします（このゲスト分の記録は引き継がれません）');
+       a.signInWithPopup(prov).catch(function(e2){ authGoogleFallback(a, prov, false, e2); });
+     } else if(c==='auth/popup-blocked'||c==='auth/operation-not-supported-in-this-environment'||c==='auth/cancelled-popup-request'){
+       authGoogleFallback(a, prov, linking, err);
+     } else if(c==='auth/popup-closed-by-user'){ /* 無視 */ }
+     else authMsg(authErrMsg(err));
+   });
+}
+// ポップアップ不可時のリダイレクト・フォールバック（匿名はlink、それ以外はsignIn）
+function authGoogleFallback(a, prov, linking, err){
+  try{ if(linking && a.currentUser && a.currentUser.isAnonymous) a.currentUser.linkWithRedirect(prov); else a.signInWithRedirect(prov); }
+  catch(e){ authMsg(authErrMsg(err||e)); }
 }
 function authEmailSignup(){
   const a=getAuth(); if(!a){ authMsg('Firebaseが未設定です'); return; }
   const em=($('authEmail').value||'').trim(), pw=$('authPass').value||'';
-  a.createUserWithEmailAndPassword(em, pw)
-    .then(function(cred){ try{ cred.user.sendEmailVerification(); }catch(e){} authMsg('登録しました（確認メールを送信）'); })
-    .catch(function(err){ authMsg(authErrMsg(err)); });
+  const cur=a.currentUser;
+  if(cur && cur.isAnonymous){   // ゲスト→メールで“引き継ぎ登録”
+    const cred=firebase.auth.EmailAuthProvider.credential(em, pw);
+    cur.linkWithCredential(cred)
+      .then(function(c){ try{ c.user.sendEmailVerification(); }catch(e){} authMsg('ゲストの記録を引き継いで登録しました（確認メール送信）'); })
+      .catch(function(err){ if(err&&err.code==='auth/email-already-in-use'){ authMsg('このメールは登録済みです。「ログイン」してください'); } else authMsg(authErrMsg(err)); });
+  } else {
+    a.createUserWithEmailAndPassword(em, pw)
+      .then(function(cred){ try{ cred.user.sendEmailVerification(); }catch(e){} authMsg('登録しました（確認メールを送信）'); })
+      .catch(function(err){ authMsg(authErrMsg(err)); });
+  }
 }
 function authEmailLogin(){
   const a=getAuth(); if(!a){ authMsg('Firebaseが未設定です'); return; }
