@@ -670,7 +670,7 @@ const UNITS = [
   {key:'ghost', name:'わたあめゴースト', icon:'☁️', role:'back', tier:3.5, count:3, atk:16, hp:44, speed:95, range:28, cd:0.43, tag:'強襲', short:'敵陣の後ろへワープして後衛を急襲するわたあめ', text:'3体で出る奇襲役。戦闘開始から少し経つと消えて、敵陣の最後尾あたりへワープ。出現直後はすり抜け(無敵)で後衛を最優先に叩く（脆い）。', warper:true, warpDelay:1.5, target:'back'},
   {key:'cannon',name:'キャンディキャノン', icon:'🎆', role:'back', tier:4, count:1, atk:0, hp:140, speed:0, range:9999, cd:3.8, tag:'迫撃', short:'最後尾から全域へ撃ち込む花火の迫撃砲', text:'最後尾から動かず、ステージ全域へ範囲迫撃。遅いが密集地点で大爆発。', artillery:true, mortar:60, splash:35, shotSpeed:230, arcH:80, spriteScale:1.25},
   {key:'icewiz', name:'アイスクリームウィザード', icon:'🍦', role:'back', tier:3.3, count:1, atk:20, hp:70, speed:60, range:190, cd:1.2, tag:'氷の魔導士', short:'小さな氷弾を撃ち、当てた敵を鈍足にする後衛魔導士', text:'後方から小さな範囲の氷弾を撃つ魔導士。爆風は小さいが、当たった敵を一定時間鈍足（足を約35%遅く・約1.5秒）にして足止めする。射程が長い。', ranged:true, splash:32, slowHit:0.35, slowDur:1.5, beta:true},
-  {key:'macaron', name:'シェルマカロン', icon:'🟣', role:'tank', tier:1, count:2, atk:18, hp:100, speed:70, range:28, cd:0.9, tag:'殻スピン', short:'殻にこもって突進＋反射で暴れ、スタン後に通常戦闘する2体', text:'2体で出る暴れん坊。開幕は殻にこもって近くの敵へ突進し、壁にぶつかると反射して約4秒あばれ回る。殻の間（スピン＆スタン）は被ダメージ80%カットでとても硬い。そのあと約2秒スタンし、以降は普通に殴り合う。', shell:true, beta:true},
+  {key:'macaron', name:'シェルマカロン', icon:'🟣', role:'tank', tier:1, count:2, atk:18, hp:100, speed:70, range:28, cd:0.9, tag:'殻スピン', short:'殻にこもって突進＋反射で暴れ、スタン後に通常戦闘する2体', text:'2体で出る暴れん坊。開幕は殻にこもって近くの敵へ突進し、壁にぶつかると反射して約4秒あばれ回る（スピン中は被ダメージ80%カットでとても硬い）。そのあと約2秒スタン（気絶中は無防備で普通にダメージを受ける）し、以降は普通に殴り合う。', shell:true, beta:true},
 ];
 const UNIT_BY_KEY = Object.fromEntries(UNITS.map(u=>[u.key,u]));
 
@@ -2215,7 +2215,7 @@ function wallReduce(target, world){
 }
 function applyHit(world, atk, tgt, dmg){
   if((tgt.invuln||0) > 0){ world.dmgs.push({txt:'すり抜け',x:tgt.x,y:tgt.y-tgt.r-4,vy:-20,life:0.5,color:'#ffd9f2'}); return; }  // 無敵中は無効
-  const real = Math.max(1, Math.round((tgt.inShell ? dmg*(1-SHELL_DR) : dmg) - wallReduce(tgt, world)));   // シェルマカロンは殻にこもっている間（スピン/スタン）被ダメージ80%カット。整数に丸めて表示（小数の桁あふれ防止）
+  const real = Math.max(1, Math.round((tgt.inShell ? dmg*(1-SHELL_DR) : dmg) - wallReduce(tgt, world)));   // シェルマカロンは殻スピン中だけ被ダメージ80%カット（スタン中は無防備）。整数に丸めて表示（小数の桁あふれ防止）
   tgt.hp -= real; tgt.flash = 0.18;
   // 分身：強化ゴーストが攻撃を受けたら、初回だけおとり分身を1体だす
   if(tgt.key==='ghost' && tgt.cloneOn && !tgt.cloned){ tgt.cloned=true; spawnGhostClone(world, tgt); }
@@ -2603,7 +2603,7 @@ function shellStep(world, u, tgt, dt){
   const W=world.W, H=world.H;
   if(u.flash>0) u.flash-=dt;
   if(u.shellPhase==='spin'){
-    u.inShell=true;   // 殻の間だけ被ダメージ9%カット
+    u.inShell=true;   // 殻スピン中だけ被ダメージカット（スタン中はカットしない）
     if(!u.shellInit){   // 発進：最寄りの敵へ向けて突進（敵が居なければ正面へ）
       let dx=0, dy=(u.side==='p'?-1:1);
       if(tgt){ const ddx=tgt.x-u.x, ddy=tgt.y-u.y, d=Math.hypot(ddx,ddy)||1; dx=ddx/d; dy=ddy/d; }
@@ -2625,7 +2625,7 @@ function shellStep(world, u, tgt, dt){
     return true;
   }
   if(u.shellPhase==='stun'){
-    u.inShell=true;   // スタン中も殻にこもっているのでダメージカットは継続（動けないのが隙）
+    u.inShell=false;   // スタン（気絶）中は無防備＝普通にダメージを受ける（動けない＋カットなしが隙）
     if(u.kbImmune>0) u.kbImmune-=dt;
     u.x+=u.knockx; u.y+=u.knocky; u.knockx*=0.6; u.knocky*=0.6;   // ノックバックだけは受ける
     u.x=Math.max(u.r,Math.min(W-u.r,u.x)); u.y=Math.max(u.r,Math.min(H-u.r,u.y));
