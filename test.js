@@ -65,7 +65,7 @@ code += `
   get MASTERY_WIN_XP(){ return MASTERY_WIN_XP; }, get MASTERY_LOSE_XP(){ return MASTERY_LOSE_XP; }, get MASTERY_XP_PER_LEVEL(){ return MASTERY_XP_PER_LEVEL; },
   mmPickWaiter, pvpResumeIsRecent, pvpReconnRemain, eloExpected, eloDelta, myTrophies, presenceCounts,
   enhDisplay, specialCardIcon,
-  pvpDecideIAmHost, pvpMatchupType, unitDamageType, mostUsedUnit,
+  pvpDecideIAmHost, pvpMatchupType, unitDamageType, unitAtkText, mostUsedUnit,
   get myProfileRef(){ return myProfile; },
   burst, partCap, get LOW_FX(){ return LOW_FX; }, set LOW_FX(v){ LOW_FX=v; },
   get PART_CAP_HI(){ return PART_CAP_HI; }, get PART_CAP_LO(){ return PART_CAP_LO; },
@@ -2499,6 +2499,22 @@ console.log('\n=== 86) プロフィール保存：最高トロフィー(best)と
   check('applyProfile: usage はキーごとに大きい方', prof.usage.cookie === 3 && prof.usage.choco === 9, prof.usage);
   API.applyProfile({ best: 100 });   // 小さい値では下がらない
   check('applyProfile: best は下がらない', prof.best === 1400, prof.best);
+}
+
+console.log('\n=== 87) 詳細：攻撃力に爆発/弾のダメージを表示＋スライム融合/ジンジャー併記 ===');
+{
+  const U = API.UNIT_BY_KEY, A = API.unitAtkText;
+  check('通常攻撃はatkを表示', A(U.cookie) === '⚔ 14', A(U.cookie));
+  check('ポップコーン＝爆発ダメージ(blast)', A(U.bomb) === '💥 100', A(U.bomb));
+  check('ソーダ＝爆発ダメージ(blast)', A(U.soda) === '💥 10', A(U.soda));
+  check('キャンディキャノン＝迫撃弾ダメージ(mortar)', A(U.cannon) === '💥 60', A(U.cannon));
+  check('ベーカリー＝攻撃しない(—)', A(U.bakery) === '—', A(U.bakery));
+  check('アイス＝氷弾のatkを表示', A(U.icewiz) === '⚔ 20', A(U.icewiz));
+  // enhDisplay：スライムに融合、ベーカリーにジンジャーの項目が入る
+  const es = API.enhDisplay(U.slime);
+  check('スライム詳細に「スライム融合」が出る', es.some(e => e.name.indexOf('融合') >= 0), es.map(e => e.name));
+  const eb = API.enhDisplay(U.bakery);
+  check('ベーカリー詳細に「ジンジャーソルジャー」が出る', eb.some(e => e.name.indexOf('ジンジャー') >= 0), eb.map(e => e.name));
 }
 
 Promise.resolve().then(() => {
