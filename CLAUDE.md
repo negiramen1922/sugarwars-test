@@ -75,6 +75,7 @@
 ## アーキテクチャ（単一 `<script>` 内の主な関数）
 
 - **データ/描画**：`CONFIG` / `UNITS` / `UNIT_BY_KEY` / `SPECIALS`（X2は自動生成）/ `iconHTML`（カード用・スライム/ソーダは味方色）/ `SPRITE_DATA`(base64) / `SPRITES`(Image) / `spriteFor`（盤面用スプライト解決）/ `render` / `loop`。
+- **軽量モード（弱い端末＝スマホ親のカクつき対策）**：**プレイヤーが設定メニュー（⚙）でON/OFF**する（`toggleLowFx`／`lowFxRow`・既定OFFでフル演出）。端末個別の好みなので `localStorage('sw_lowfx')` に保存＝**クラウド同期しない**（音量と同じ扱い）。ONのとき **見た目だけの粒子(`world.parts`) を削減**＝`burst()` の生成数を半減＋総数上限を `PART_CAP_HI`(200)→`PART_CAP_LO`(70) に下げ、`loop()` が毎フレーム古い粒子を間引く（`partCap()`）。炭酸沼はグラデ生成をやめフラット塗り。**CPU計算・当たり判定・スナップショットは不変＝ゲーム性/対戦の公平性に影響なし**（減るのは派手さだけ）。自動検知はしない（勝手に地味にしないため）。テスト：test.js 82。
 - **戦闘エンジン**：`createWorld` / `stepWorld(world,dt)`（phase=muster|battle|outro。毎フレームshuffleで左右バイアス除去）/ `nearestEnemy`（**無敵中`invuln>0`の敵は標的にしない**＝ワープ直後のゴーストにサムライ等が吊られない）/ `applyHit`（無敵中は無効。ノックバックは重量耐性＋上限＋無効時間。吸引中/起爆中は無反動）/ `killUnit`（爆発・スライム分裂・炭酸沼発生を一本化。爆発AoEも無敵中は当たらない）。
 - **専用挙動**：`chargerStep`(大福) / `artilleryStep`(キャノン) / `vacuumStep`(ドーナッツ) / `spawnerStep`(ベーカリー：`spawnerId` で個体ごとに独立した召喚枠) / `evolvePancake`・`evolvedStep`(パンケーキ進化＋ジャンプ衝撃波) / ワープ(ゴースト) / `shellStep`(マカロン：殻スピン→スタン→通常／true返却でその場処理) / 氷弾のヒット時スローは `u.chillT`/`chillAmt`、炭酸沼は `world.puddles` を `stepWorld` で毎フレーム処理（DoT＋`slowMul`減速）。
 - **ドラフト/演出**：`beginDraft` / `nextPick` / `renderPickOffer` / `pickCardAnimated`（裏表フリップ）→ `pickCard` / `revealFoePick` / `aiPicks`（貪欲スコア）/ `lockAndFight`。
@@ -138,6 +139,13 @@
 - クライアント：`createRelayTransport()`（WebSocket版transport）と `createPvpTransport()`（リレー優先→失敗時WebRTCフォールバック）。PVPの接続4箇所（`pvpHost`/`pvpJoin`/`mmBecomeHost`/`mmGuestFromAssignment`）は `createPvpTransport` 経由。
 - **切替**：`RELAY_URL`（wss）＋ `PVP_USE_RELAY`。**既定は `false`＝従来のWebRTCで一切影響なし**。サーバー確認後に `true` にして配信すると次リロードで全員切替（Webの自動更新）。CPU対戦は不変。
 - **要実機確認**：2台/2タブでの中継対戦はこの環境ではテスト不可。`RELAY_SETUP.md` 参照。
+
+### 親選び（役割調整・A案：PCを優先して親＝計算側）— 実装済み
+
+- **目的**：ホスト権威型なので**親（＝計算する側）が非力なスマホだと両者がカクつく**。PCとスマホが当たったら**必ずPCを親**にしてスマホ親を避ける。
+- **仕組み**：接続直後に `pvpOnConnected()` が端末種別(`PVP_MSG.ROLE`)を交換し、純粋関数 `pvpDecideIAmHost(iWasHost, myDev, theirDev)` で役割を決める。`pvpDeviceType()`＝UA/`pointer:coarse`/タッチで `'pc'|'mobile'` を判定（保守的にタッチ系は `mobile`）。**PC×スマホはPCが親／同種は従来どおり接続を張った側が親**（＝どの組み合わせでも親はちょうど1人）。決定後 `pvpSetupRole(iAmHost)` が `makePvpHost`/`makePvpGuest` を張り替える（transportの向きは不変・PVP層は対称なのでスワップ可）。
+- **下位互換**：旧版の相手は `ROLE` を送らない/無視する。相手が先に `HELLO` 等を送ってきたら旧版とみなし**従来割当てで即開始**（ネゴ中に届いたメッセージは退避して本ハンドラへ流し直す＝取りこぼしなし）。相手が無応答でも 1.5秒で従来割当てにフォールバック。**既存プレイヤーに影響なし**。
+- テスト：test.js 83（`pvpDecideIAmHost` の決定表＋「親はちょうど1人」）。スワップ実挙動＋旧版フォールバックはブラウザ(loopback)で確認済み。**実機（PC×スマホ）確認は手元で**。
 
 ### F2-②（対戦本体）— オーケストレーション層は実装済み（`<script>`「11) PVP 対戦オーケストレーション」）
 

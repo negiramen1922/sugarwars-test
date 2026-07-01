@@ -519,6 +519,7 @@
       <button class="menu-row" onclick="startTutorial()">🎓 あそびかた（チュートリアル）</button>
       <button class="menu-row" onclick="openNews()">📢 お知らせ</button>
       <button class="menu-row" id="muteRow" onclick="toggleSfx()">🔊 効果音 オン / オフ</button>
+      <button class="menu-row" id="lowFxRow" onclick="toggleLowFx()">⚡ 軽量モード（動作が重いとき）</button>
       <div class="menu-row" style="cursor:default">🎵 BGM音量<input type="range" id="bgmVol" min="0" max="100" oninput="onBgmVol(this.value)" style="flex:1;margin-left:8px"></div>
       <div class="menu-row" style="cursor:default">🔔 効果音音量<input type="range" id="sfxVol" min="0" max="100" oninput="onSfxVol(this.value)" style="flex:1;margin-left:8px"></div>
       <div style="text-align:center;margin-top:8px"><button class="btn btn-ghost" onclick="closeMenu()">閉じる</button></div>
@@ -2195,7 +2196,7 @@ function lockAndFight(){
    6) ワールド & ステップ（純粋ロジック）
    ============================================================ */
 function createWorld(W,H){ return { W,H, units:[], shots:[], dmgs:[], parts:[], rings:[], puddles:[], shake:0, t:0, done:false, result:null, intro:0, phase:'muster' }; }
-function burst(world,x,y,color,n,spd){ for(let i=0;i<n;i++){const a=Math.random()*6.28,s=spd*(0.4+Math.random());world.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.5+Math.random()*0.4,color,size:1.5+Math.random()*2.5});} }
+function burst(world,x,y,color,n,spd){ if(LOW_FX) n=Math.ceil(n*0.5); const cap=partCap(); for(let i=0;i<n;i++){ if(world.parts.length>=cap) break; const a=Math.random()*6.28,s=spd*(0.4+Math.random());world.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.5+Math.random()*0.4,color,size:1.5+Math.random()*2.5});} }
 function popDmg(world,x,y,txt,color){ world.dmgs.push({x,y,vy:-26,life:0.8,txt,color}); }
 function nearestEnemy(u, world){
   let best=null, bd=1e9;
@@ -2817,6 +2818,15 @@ function outroStep(world, dt){
    7) 描画 & ループ
    ============================================================ */
 let world=null, raf=0, lastT=0, speedMul=1, dpr=1, canvas, ctx, CW, CH;
+// 軽量モード（弱い端末＝スマホ親のカクつき対策）：プレイヤーが設定でON/OFFする。
+// ONのとき「見た目だけ」の粒子エフェクトを減らす。CPU計算・当たり判定・通信は不変＝ゲーム性に影響なし。
+// 既定OFF（フル演出）。端末個別の好みなので localStorage(sw_lowfx) に保存＝クラウド同期しない（音量と同じ扱い）。
+let LOW_FX=(function(){ try{ return localStorage.getItem('sw_lowfx')==='1'; }catch(e){ return false; } })();
+const PART_CAP_HI=200;       // 通常時の粒子(parts)上限
+const PART_CAP_LO=70;        // 軽量モード時の粒子上限
+function partCap(){ return LOW_FX ? PART_CAP_LO : PART_CAP_HI; }
+function toggleLowFx(){ LOW_FX=!LOW_FX; try{ localStorage.setItem('sw_lowfx', LOW_FX?'1':'0'); }catch(e){} try{ SFX.play('button'); }catch(e){} updateLowFxRow(); }
+function updateLowFxRow(){ const r=$('lowFxRow'); if(r) r.textContent = (LOW_FX ? '⚡ 軽量モード オン（タップでオフ）' : '⚡ 軽量モード オフ（動作が重いときオン）'); }
 function setupCanvas(){
   canvas=$('arena'); ctx=canvas.getContext('2d');
   const avail=(canvas.parentElement.clientWidth||440);
@@ -2830,6 +2840,8 @@ function loop(now){
   let frame=(now-lastT)/1000; lastT=now; frame=Math.max(0,Math.min(frame,0.05));   // 負のdt(初回フレーム等)を防ぐ=リング半径が負になりarcがクラッシュするのを回避
   const steps=speedMul;
   for(let i=0;i<steps && !world.done;i++) stepWorld(world, frame);
+  // 粒子(見た目だけ)の総数を上限に抑える＝弱い端末での描画/更新負荷を軽減（古いものから間引く）
+  if(world.parts.length>partCap()) world.parts.splice(0, world.parts.length-partCap());
   render();
   // 親→子：盤面配信。戦闘中は約10Hz、ドラフト中(盤面ほぼ静止)は約3Hzに落として通信量を削減。
   const snapEvery = (world.phase==='battle') ? 100 : 340;
@@ -2883,9 +2895,10 @@ function render(){
     const a=Math.max(0, Math.min(1, pd.life/Math.max(0.001,pd.maxLife)));
     ctx.save();
     ctx.globalAlpha=0.30*a+0.10;
-    const g=ctx.createRadialGradient(pd.x,pd.y,pd.r*0.2, pd.x,pd.y,pd.r);
-    g.addColorStop(0,'#bdeeff'); g.addColorStop(0.6,'#5cc6ee'); g.addColorStop(1,'rgba(70,170,210,0)');
-    ctx.fillStyle=g; ctx.beginPath(); ctx.ellipse(pd.x,pd.y,pd.r,pd.r*0.62,0,0,6.28); ctx.fill();
+    if(LOW_FX){ ctx.fillStyle='#5cc6ee'; }   // 低負荷時：毎フレームのグラデ生成を避けてフラット塗り
+    else { const g=ctx.createRadialGradient(pd.x,pd.y,pd.r*0.2, pd.x,pd.y,pd.r);
+      g.addColorStop(0,'#bdeeff'); g.addColorStop(0.6,'#5cc6ee'); g.addColorStop(1,'rgba(70,170,210,0)'); ctx.fillStyle=g; }
+    ctx.beginPath(); ctx.ellipse(pd.x,pd.y,pd.r,pd.r*0.62,0,0,6.28); ctx.fill();
     ctx.globalAlpha=0.5*a; ctx.strokeStyle='#9fe6ff'; ctx.lineWidth=1.5;
     ctx.beginPath(); ctx.ellipse(pd.x,pd.y,pd.r*0.92,pd.r*0.57,0,0,6.28); ctx.stroke();
     ctx.restore();
@@ -3109,7 +3122,7 @@ function renderNews(){
     `</div>`).join('');
 }
 function toggleNews(i){ try{ SFX.play('button'); }catch(e){} const it=$('newsItem'+i); if(it) it.classList.toggle('open'); }
-function toggleMenu(){ SFX.play('button'); const bv=$('bgmVol'), sv=$('sfxVol'); if(bv) bv.value=Math.round(SFX.bgmVol*100); if(sv) sv.value=Math.round(SFX.sfxVol*100); updateMuteRow(); updateInstallRow(); $('menuModal').classList.remove('hidden'); }
+function toggleMenu(){ SFX.play('button'); const bv=$('bgmVol'), sv=$('sfxVol'); if(bv) bv.value=Math.round(SFX.bgmVol*100); if(sv) sv.value=Math.round(SFX.sfxVol*100); updateMuteRow(); updateLowFxRow(); updateInstallRow(); $('menuModal').classList.remove('hidden'); }
 // ===== PWA：ホームに追加（インストール）導線 =====
 let deferredInstallPrompt=null;
 if(typeof window!=='undefined'){
@@ -3264,6 +3277,7 @@ const PVP_MSG = {
   RESULT:   'result',     // 親→子：ラウンド決着（ライフ更新）
   GAMEOVER: 'gameover',   // 親→子：マッチ決着
   REMATCH:  'rematch',    // 両方向：プライベート部屋で「もう一度」＝再戦希望（子→親はデッキも同送）
+  ROLE:     'role',       // 両方向：接続直後に端末種別を交換し「PCを優先して親(計算側)」に役割調整（A案）
 };
 
 // 通信路の抽象。F1ではメモリ内ループバックのみ（送ったメッセージはJSON複製して相手へ＝実通信を模す）。
@@ -3708,6 +3722,24 @@ let pvpOppProfile = null;   // 対戦相手のプロフィール（名前/アイ
 let pvpLastDelta = 0;       // 直近の対戦でのトロフィー増減（over画面表示用）
 // 通信で相手に渡す自分のプロフィール（名前・アイコン・トロフィー）
 function pvpNetProfile(){ const dp=displayProfile(); return { name:dp.name, avatar:dp.avatar, trophies:myTrophies() }; }
+// この端末の種別（'pc' or 'mobile'）。PVPの役割調整（A案：PCを優先して親=計算側）に使う。
+// 保守的：タッチ/モバイルUAは 'mobile' 扱い（弱い側を親にしないため）。
+function pvpDeviceType(){
+  try{
+    const ua = /Mobi|Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent||'');
+    const coarse = !!(window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
+    const touch = (navigator.maxTouchPoints||0) > 0 || ('ontouchstart' in window);
+    return (ua || coarse || touch) ? 'mobile' : 'pc';
+  }catch(e){ return 'pc'; }
+}
+// A案の役割決定（純粋関数・両者が同じ結果を出す）：
+//  ・PCとスマホなら必ずPCが親（計算側）。
+//  ・同じ種別なら従来どおり（接続を張った側＝元の親）を維持＝両者で必ず1人だけが親になる。
+function pvpDecideIAmHost(iWasHost, myDevice, theirDevice){
+  if(myDevice==='pc' && theirDevice==='mobile') return true;
+  if(myDevice==='mobile' && theirDevice==='pc') return false;
+  return !!iWasHost;
+}
 // PVP決着時に1回だけ呼ぶ：ELOでトロフィーを増減し、戦績更新＋保存＋リーダーボード反映
 function applyTrophyResult(won, oppTrophies){
   const before = myTrophies();
@@ -4031,11 +4063,43 @@ function pvpJoin(){
     .catch(err=>{ $('pvpJoinStatus').textContent='エラー: '+err.message; pvpDiag('エラー: '+err.message); });
 }
 // 接続成立 → 対戦開始（親：子のデッキ待ち→開始 / 子：自デッキ送信→START待ち）
+let pvpNegoTimer=0;
 function pvpOnConnected(roleLabel){
   ['pvpHostBox','pvpJoinBox','pvpChoice','pvpConnBox','pvpMmBox'].forEach(id=>$(id)&&$(id).classList.add('hidden'));
   SFX.play('special');
-  pvpDiag('✅ 接続成立。対戦準備中…（あなた='+roleLabel+'）');
-  if(roleLabel==='親'){
+  // A案：接続直後に端末種別(ROLE)を交換し、PCを優先して親(計算側)に役割を調整する。
+  // 旧版の相手はROLEを送らない/無視する→一定時間で従来割当てにフォールバック（下位互換）。
+  const iWasHost = (roleLabel==='親');
+  const myDev = pvpDeviceType();
+  pvpDiag('✅ 接続成立。役割を調整中…（端末='+(myDev==='pc'?'PC':'スマホ')+'）');
+  const origOnMessage = pvpConn.onMessage.bind(pvpConn);
+  let decided=false; const buffered=[];
+  const finish = (theirDev)=>{
+    if(decided) return; decided=true;
+    try{ clearTimeout(pvpNegoTimer); }catch(e){}
+    const iAmHost = pvpDecideIAmHost(iWasHost, myDev, theirDev||myDev);
+    // pvpSetupRole が張る「本ハンドラ」を捕まえるため onMessage を一時的にラップ→捕捉後に戻す。
+    let realCb=null;
+    pvpConn.onMessage = (fn)=>{ realCb=fn; origOnMessage(fn); };
+    pvpSetupRole(iAmHost);
+    pvpConn.onMessage = origOnMessage;
+    // ネゴ中に届いた対戦メッセージ（旧版の相手がすぐ送るHELLO等）を本ハンドラへ流し直す（取りこぼし防止）
+    for(const bm of buffered){ try{ if(realCb) realCb(bm); }catch(e){} }
+    buffered.length=0;
+  };
+  // 一時ハンドラ：ROLEを待つ。ROLE以外が来たら相手は旧版とみなし従来割当てで即開始（そのメッセージは退避して後で流す）。
+  origOnMessage((m)=>{
+    if(m && m.type===PVP_MSG.ROLE){ finish(m.device||'pc'); return; }
+    buffered.push(m);              // 退避（後で本ハンドラへ流す）
+    if(!decided) finish(myDev);    // 旧版の相手→従来割当てで開始
+  });
+  pvpConn.send({ type:PVP_MSG.ROLE, device:myDev });
+  pvpNegoTimer = setTimeout(()=>{ finish(myDev); }, 1500);   // 相手がROLE非対応なら従来どおり
+}
+// 決定した役割(iAmHost)で本来のPVP進行役をセットアップ（onMessageを本ハンドラに差し替える）。
+function pvpSetupRole(iAmHost){
+  pvpDiag('✅ 接続成立。対戦準備中…（あなた='+(iAmHost?'親':'子')+'）');
+  if(iAmHost){
     pvpRole='host';
     pvpHostObj = makePvpHost(pvpConn, {
       onGuestHello:(deck, proto, prof)=>{ pvpGuestDeck=deck; pvpEnh=((proto||1)>=2 && PVP_PROTO>=2); if(prof) pvpOppProfile=prof; pvpDiag('相手のデッキを受信。対戦開始！'+(pvpEnh?'（強化カードON）':'（相手が旧版のため強化カードOFF）')); pvpStartAsHost(); },

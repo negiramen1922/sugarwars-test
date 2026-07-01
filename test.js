@@ -65,6 +65,9 @@ code += `
   get MASTERY_WIN_XP(){ return MASTERY_WIN_XP; }, get MASTERY_LOSE_XP(){ return MASTERY_LOSE_XP; }, get MASTERY_XP_PER_LEVEL(){ return MASTERY_XP_PER_LEVEL; },
   mmPickWaiter, pvpResumeIsRecent, pvpReconnRemain, eloExpected, eloDelta, myTrophies, presenceCounts,
   enhDisplay, specialCardIcon,
+  pvpDecideIAmHost,
+  burst, partCap, get LOW_FX(){ return LOW_FX; }, set LOW_FX(v){ LOW_FX=v; },
+  get PART_CAP_HI(){ return PART_CAP_HI; }, get PART_CAP_LO(){ return PART_CAP_LO; },
   setCpuDeck:(d)=>{ cpuDeck = d; }, setCpuDeckMode:(m)=>{ cpuDeckMode = m; },
   startTutorial, tutNext, endTutorial, get tutorial(){ return tutorial; },
   endBattle, endGame, nextRound, resolveOverlaps,
@@ -2402,6 +2405,53 @@ console.log('\n=== 81) 爆発など直接ダメージにも殻カットが効く
   const d1 = h1 - m1.hp, d2 = h2 - m2.hp;
   check('殻マカロン(inShell)は爆発ダメージが軽減される', d1 > 0 && d1 < d2, { shell: d1, normal: d2 });
   check('軽減量は殻カット相当（約80%カット＝2割）', Math.abs(d1 - Math.round(d2 * 0.2)) <= 1, { shell: d1, normal: d2 });
+}
+
+console.log('\n=== 82) 低負荷モード：粒子(見た目)の上限とburstの間引き ===');
+{
+  const W = 440, H = 660;
+  const w = API.createWorld(W, H); API.world = w;
+  // 通常時は上限=HI
+  API.LOW_FX = false;
+  check('通常時 partCap = PART_CAP_HI', API.partCap() === API.PART_CAP_HI, API.partCap());
+  // 大量に burst してもキャップを超えない
+  for (let i = 0; i < 50; i++) API.burst(w, 100, 100, '#fff', 20, 120);
+  check('通常時 burst は partCap を超えない', w.parts.length <= API.PART_CAP_HI, w.parts.length);
+  const hiLen = w.parts.length;
+  // 低負荷モードに切替＝上限が下がる＋生成が半減する
+  API.LOW_FX = true;
+  check('低負荷時 partCap = PART_CAP_LO', API.partCap() === API.PART_CAP_LO, API.partCap());
+  check('PART_CAP_LO < PART_CAP_HI', API.PART_CAP_LO < API.PART_CAP_HI, [API.PART_CAP_LO, API.PART_CAP_HI]);
+  const w2 = API.createWorld(W, H);
+  for (let i = 0; i < 50; i++) API.burst(w2, 100, 100, '#fff', 20, 120);
+  check('低負荷時 burst は PART_CAP_LO を超えない', w2.parts.length <= API.PART_CAP_LO, w2.parts.length);
+  // 1回のburstで生成される数：低負荷は約半分（cap未満の空worldで比較）
+  API.LOW_FX = false; const wa = API.createWorld(W, H); API.burst(wa, 0, 0, '#fff', 20, 120);
+  API.LOW_FX = true;  const wb = API.createWorld(W, H); API.burst(wb, 0, 0, '#fff', 20, 120);
+  check('低負荷時 burst の生成数は通常の約半分', wb.parts.length === Math.ceil(wa.parts.length * 0.5), [wa.parts.length, wb.parts.length]);
+  API.LOW_FX = false;   // 後続に影響しないよう戻す
+  void hiLen;
+}
+
+console.log('\n=== 83) PVP役割調整（A案：PCを優先して親） ===');
+{
+  const D = API.pvpDecideIAmHost;
+  // PC×スマホは端末で決まる（誰が接続を張ったかに関係なくPCが親）
+  check('PC自分 × スマホ相手 → 自分が親', D(false, 'pc', 'mobile') === true && D(true, 'pc', 'mobile') === true);
+  check('スマホ自分 × PC相手 → 自分は子', D(true, 'mobile', 'pc') === false && D(false, 'mobile', 'pc') === false);
+  // 同種は従来どおり（接続を張った側＝元の親を維持）
+  check('PC同士は元の親を維持', D(true, 'pc', 'pc') === true && D(false, 'pc', 'pc') === false);
+  check('スマホ同士は元の親を維持', D(true, 'mobile', 'mobile') === true && D(false, 'mobile', 'mobile') === false);
+  // 「必ず1人だけが親」＝両者の判定を突き合わせて host はちょうど1人
+  const combos = [['pc','pc'],['pc','mobile'],['mobile','pc'],['mobile','mobile']];
+  let ok = true;
+  for (const [aDev, bDev] of combos) {
+    // a=元の親(true), b=元の子(false) の視点。相手デバイスを入れ替えて渡す。
+    const aHost = D(true,  aDev, bDev);
+    const bHost = D(false, bDev, aDev);
+    if ((aHost ? 1 : 0) + (bHost ? 1 : 0) !== 1) ok = false;   // 合計で親はちょうど1人
+  }
+  check('どの端末組み合わせでも親はちょうど1人（役割の一貫性）', ok);
 }
 
 Promise.resolve().then(() => {
