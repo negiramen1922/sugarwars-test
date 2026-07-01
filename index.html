@@ -40,7 +40,10 @@
   .iconbtn.gear{font-size:20px;align-self:flex-start}
   .score{flex:1 1 100%;display:flex;align-items:center;justify-content:space-between;gap:14px;background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:12px;padding:8px clamp(14px,6vw,48px);box-shadow:var(--shadow)}
   .side-score{display:flex;flex-direction:column;align-items:center;min-width:84px}
-  .side-score .name{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .side-score .sc-name{display:flex;align-items:center;gap:5px;max-width:110px}
+  .side-score .pico{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;line-height:1}
+  .side-score .pico img{border-radius:5px;object-fit:cover;image-rendering:pixelated;display:block}
+  .side-score .name{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .side-score.you .name{color:var(--steel)} .side-score.foe .name{color:var(--rust)}
   .hearts{font-size:18px;letter-spacing:2px;margin-top:2px}
   .round-pill{font-family:"Space Mono",monospace;font-size:12px;color:var(--brass);border:1px solid rgba(70,193,135,.4);border-radius:999px;padding:4px 10px;white-space:nowrap}
@@ -310,9 +313,9 @@
       </div>
     </div>
     <div class="score" id="scoreBar">
-      <div class="side-score you"><span class="name" id="youName">You</span><span class="hearts" id="youHearts">❤️❤️❤️</span></div>
+      <div class="side-score you"><div class="sc-name"><span class="pico" id="youIco"></span><span class="name" id="youName">You</span></div><span class="hearts" id="youHearts">❤️❤️❤️</span></div>
       <div class="round-pill" id="roundPill">Round 1</div>
-      <div class="side-score foe"><span class="name" id="foeName">Rival</span><span class="hearts" id="foeHearts">❤️❤️❤️</span></div>
+      <div class="side-score foe"><div class="sc-name"><span class="pico" id="foeIco"></span><span class="name" id="foeName">Rival</span></div><span class="hearts" id="foeHearts">❤️❤️❤️</span></div>
     </div>
   </header>
 
@@ -1068,11 +1071,16 @@ function heartStr(n){ return n>0 ? '❤️'.repeat(n) : '🖤'; }
 function renderScore(){ $('youHearts').textContent=heartStr(state.youLives); $('foeHearts').textContent=heartStr(state.foeLives); $('roundPill').textContent='Round '+state.round; renderBattleNames(); }
 // スコア表示の「自分／相手」名。PVPは相手プロフィール名、CPUは「ライバル」。
 function renderBattleNames(){
-  let me='You', foe='ライバル';
-  try{ if(typeof displayProfile==='function'){ const n=displayProfile().name; if(n) me=n; } }catch(e){}
-  try{ if((pvpMode||pvpGuestActive) && pvpOppProfile && pvpOppProfile.name) foe=String(pvpOppProfile.name).slice(0,16); }catch(e){}
+  let me='You', foe='ライバル', meAva='';
+  const isPvp = (pvpMode||pvpGuestActive);
+  try{ if(typeof displayProfile==='function'){ const dp=displayProfile(); if(dp.name) me=dp.name; meAva=dp.avatar||''; } }catch(e){}
+  let foeAva=null;   // null=CPU（絵文字ロボットで表示）
+  try{ if(isPvp && pvpOppProfile){ if(pvpOppProfile.name) foe=String(pvpOppProfile.name).slice(0,16); foeAva=pvpOppProfile.avatar||''; } }catch(e){}
   if($('youName')) $('youName').textContent=me;   // textContentで安全表示
   if($('foeName')) $('foeName').textContent=foe;
+  // 上のスコアバーに自分と相手のアイコンを表示（相手がCPUのときは🤖）
+  if($('youIco')) $('youIco').innerHTML = avatarHTML(meAva, 18);
+  if($('foeIco')) $('foeIco').innerHTML = isPvp ? avatarHTML(foeAva, 18) : '<span style="font-size:16px;line-height:1">🤖</span>';
 }
 function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 function capArmy(keys){ return keys.length>CONFIG.armyCap ? keys.slice(keys.length-CONFIG.armyCap) : keys; }
