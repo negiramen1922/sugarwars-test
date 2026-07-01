@@ -2195,7 +2195,7 @@ function lockAndFight(){
    6) ワールド & ステップ（純粋ロジック）
    ============================================================ */
 function createWorld(W,H){ return { W,H, units:[], shots:[], dmgs:[], parts:[], rings:[], puddles:[], shake:0, t:0, done:false, result:null, intro:0, phase:'muster' }; }
-function burst(world,x,y,color,n,spd){ for(let i=0;i<n;i++){const a=Math.random()*6.28,s=spd*(0.4+Math.random());world.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.5+Math.random()*0.4,color,size:1.5+Math.random()*2.5});} }
+function burst(world,x,y,color,n,spd){ if(LOW_FX) n=Math.ceil(n*0.5); const cap=partCap(); for(let i=0;i<n;i++){ if(world.parts.length>=cap) break; const a=Math.random()*6.28,s=spd*(0.4+Math.random());world.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.5+Math.random()*0.4,color,size:1.5+Math.random()*2.5});} }
 function popDmg(world,x,y,txt,color){ world.dmgs.push({x,y,vy:-26,life:0.8,txt,color}); }
 function nearestEnemy(u, world){
   let best=null, bd=1e9;
@@ -2817,6 +2817,13 @@ function outroStep(world, dt){
    7) 描画 & ループ
    ============================================================ */
 let world=null, raf=0, lastT=0, speedMul=1, dpr=1, canvas, ctx, CW, CH;
+// 低負荷モード（弱い端末＝スマホ親のカクつき対策）：フレーム時間を測って重い端末では
+// 「見た目だけ」の粒子エフェクトを自動で減らす。強い端末は LOW_FX=false のまま一切変わらない。
+let LOW_FX=false;            // 自動切替（重い端末で true）。CPU計算・当たり判定は不変＝ゲーム性に影響なし
+let _frameEMA=16.7;          // フレーム時間の指数移動平均(ms)
+const PART_CAP_HI=200;       // 通常時の粒子(parts)上限
+const PART_CAP_LO=70;        // 低負荷時の粒子上限
+function partCap(){ return LOW_FX ? PART_CAP_LO : PART_CAP_HI; }
 function setupCanvas(){
   canvas=$('arena'); ctx=canvas.getContext('2d');
   const avail=(canvas.parentElement.clientWidth||440);
@@ -2828,8 +2835,14 @@ function setupCanvas(){
 function startLoop(){ cancelAnimationFrame(raf); lastT=performance.now(); raf=requestAnimationFrame(loop); }
 function loop(now){
   let frame=(now-lastT)/1000; lastT=now; frame=Math.max(0,Math.min(frame,0.05));   // 負のdt(初回フレーム等)を防ぐ=リング半径が負になりarcがクラッシュするのを回避
+  // フレーム時間を平滑化し、重い端末なら低負荷モードへ（ヒステリシスでバタつき防止）
+  _frameEMA += ((frame*1000)-_frameEMA)*0.1;
+  if(!LOW_FX && _frameEMA>30) LOW_FX=true;        // ~33fps未満が続いたらON
+  else if(LOW_FX && _frameEMA<20) LOW_FX=false;   // ~50fpsまで戻ったらOFF
   const steps=speedMul;
   for(let i=0;i<steps && !world.done;i++) stepWorld(world, frame);
+  // 粒子(見た目だけ)の総数を上限に抑える＝弱い端末での描画/更新負荷を軽減（古いものから間引く）
+  if(world.parts.length>partCap()) world.parts.splice(0, world.parts.length-partCap());
   render();
   // 親→子：盤面配信。戦闘中は約10Hz、ドラフト中(盤面ほぼ静止)は約3Hzに落として通信量を削減。
   const snapEvery = (world.phase==='battle') ? 100 : 340;
@@ -2883,9 +2896,10 @@ function render(){
     const a=Math.max(0, Math.min(1, pd.life/Math.max(0.001,pd.maxLife)));
     ctx.save();
     ctx.globalAlpha=0.30*a+0.10;
-    const g=ctx.createRadialGradient(pd.x,pd.y,pd.r*0.2, pd.x,pd.y,pd.r);
-    g.addColorStop(0,'#bdeeff'); g.addColorStop(0.6,'#5cc6ee'); g.addColorStop(1,'rgba(70,170,210,0)');
-    ctx.fillStyle=g; ctx.beginPath(); ctx.ellipse(pd.x,pd.y,pd.r,pd.r*0.62,0,0,6.28); ctx.fill();
+    if(LOW_FX){ ctx.fillStyle='#5cc6ee'; }   // 低負荷時：毎フレームのグラデ生成を避けてフラット塗り
+    else { const g=ctx.createRadialGradient(pd.x,pd.y,pd.r*0.2, pd.x,pd.y,pd.r);
+      g.addColorStop(0,'#bdeeff'); g.addColorStop(0.6,'#5cc6ee'); g.addColorStop(1,'rgba(70,170,210,0)'); ctx.fillStyle=g; }
+    ctx.beginPath(); ctx.ellipse(pd.x,pd.y,pd.r,pd.r*0.62,0,0,6.28); ctx.fill();
     ctx.globalAlpha=0.5*a; ctx.strokeStyle='#9fe6ff'; ctx.lineWidth=1.5;
     ctx.beginPath(); ctx.ellipse(pd.x,pd.y,pd.r*0.92,pd.r*0.57,0,0,6.28); ctx.stroke();
     ctx.restore();
