@@ -3383,6 +3383,14 @@ const CLOUDFLARE_TURN_WORKER = 'https://sugarwars-turn.bedrock1922.workers.dev';
 // 直叩き用（Worker未使用時のみ）。Worker化したのでクライアントには置かない（空＝露出なし）。
 const CLOUDFLARE_TURN_KEY_ID = '';
 const CLOUDFLARE_TURN_TOKEN  = '';
+// === 非P2P：WebSocket中継サーバー（Cloudflare Durable Objects）===
+// P2Pの代わりに、1部屋=1 Durable Object に2人を繋いでメッセージを中継する。対戦本体は transport にだけ依存
+// するので、WebRTCとまるごと差し替え可能（手順は RELAY_SETUP.md）。
+//   ▼ デプロイした中継Workerの wss URL を貼る（例 'wss://sugarwars-relay.bedrock1922.workers.dev'）。空ならリレー未使用。
+const RELAY_URL = '';
+//   ▼ true にするとリレーを優先（失敗時はWebRTCへ自動フォールバック）。まずは false のまま＝現行のWebRTCで一切影響なし。
+//     サーバーをデプロイして RELAY_URL を設定し、動作確認できたら true にして配信する。
+const PVP_USE_RELAY = false;
 const METERED_SUBDOMAIN  = 'sugarwars.metered.live';
 const METERED_API_KEY    = '';   // 既に作成済みのAPI Keyがあれば直接ここに設定（あれば作成POSTは省略）
 const METERED_SECRET_KEY = 'KUbDEG6UWD4nIPLKqgDAdbHw6Nx3SPkZFgGNjTuiEazNESZI';   // 秘密鍵（初回にapiKeyを自動作成）
@@ -3866,6 +3874,45 @@ function wrapChannel(dc){
 
 // WebRTC接続を確立して transport を返す（mode:'host'=親 / 'guest'=子）。onOpenで接続成立を通知。
 // onDiag(msg) があれば接続の進行状況（ICE状態・候補の送受信数・タイムアウト）を逐次通知する。
+// 非P2P：Cloudflare Durable Objects の中継サーバーへ WebSocket 接続する transport。
+// 返り値は WebRTC/loopback と同じIF {send,onMessage,close}＋onOpen(相手も揃ったら)/onState/onDiag。
+function createRelayTransport(opts){
+  return new Promise(function(resolve,reject){
+    if(!RELAY_URL){ reject(new Error('リレー未設定')); return; }
+    const code=opts.code, mode=opts.mode, onOpen=opts.onOpen||function(){}, onState=opts.onState||function(){}, onDiag=opts.onDiag||function(){};
+    let opened=false, msgCb=null, ws;
+    const url = RELAY_URL.replace(/\/+$/,'') + '/ws/' + encodeURIComponent(code) + '?role=' + (mode==='host'?'host':'guest');
+    try{ ws = new WebSocket(url); }catch(e){ reject(e); return; }
+    const transport = {
+      send(m){ try{ ws.send(JSON.stringify(m)); }catch(e){} },
+      onMessage(cb){ msgCb=cb; },
+      close(){ try{ ws.close(); }catch(e){} },
+    };
+    ws.onopen = function(){ onState('ws-open'); onDiag('中継サーバーに接続。相手を待っています…（部屋 '+code+'/'+(mode==='host'?'親':'子')+'）'); };
+    ws.onerror = function(){ onDiag('中継サーバーへの接続エラー'); if(!opened) reject(new Error('中継サーバー接続エラー')); };
+    ws.onclose = function(){ onState(opened?'disconnected':'closed'); pvpHandleConnState('disconnected'); };
+    ws.onmessage = function(evt){
+      let m; try{ m=JSON.parse(evt.data); }catch(e){ return; }
+      if(m && m.__relay){   // サーバーの制御メッセージ
+        if(m.__relay==='ready'){ if(!opened){ opened=true; onState('connected'); onDiag('✅ 相手と接続（中継）'); onOpen(transport); resolve(transport); } }
+        else if(m.__relay==='peer-left'){ onState('disconnected'); onDiag('相手が退出しました'); pvpHandleConnState('disconnected'); }
+        else if(m.__relay==='full'){ if(!opened) reject(new Error('部屋が満室です')); }
+        return;
+      }
+      if(msgCb) msgCb(m);   // 対戦メッセージはそのまま
+    };
+  });
+}
+// PVP用 transport を選ぶ：リレー優先（失敗時はWebRTCへフォールバック）／既定はWebRTC。
+function createPvpTransport(opts){
+  if(PVP_USE_RELAY && RELAY_URL){
+    return createRelayTransport(opts).catch(function(err){
+      if(opts.onDiag) opts.onDiag('中継に失敗→WebRTCにフォールバック: '+(err&&err.message||err));
+      return createWebRTCTransport(opts);
+    });
+  }
+  return createWebRTCTransport(opts);
+}
 function createWebRTCTransport(opts){
   const db=ensureFirebase(); if(!db) return Promise.reject(new Error('Firebase未設定'));
   const code=opts.code, mode=opts.mode, onOpen=opts.onOpen||function(){}, onState=opts.onState||function(){}, onDiag=opts.onDiag||function(){};
@@ -3960,7 +4007,7 @@ function pvpHost(){
   $('pvpHostBox').classList.remove('hidden');
   $('pvpCode').textContent=code;
   $('pvpHostStatus').textContent='相手の参加を待っています…';
-  createWebRTCTransport({ mode:'host', code, onState:s=>$('pvpHostStatus').textContent='接続状態: '+s, onDiag:pvpDiag,
+  createPvpTransport({ mode:'host', code, onState:s=>$('pvpHostStatus').textContent='接続状態: '+s, onDiag:pvpDiag,
     onOpen:tp=>{ pvpConn=tp; pvpOnConnected('親'); } })
     .catch(err=>{ $('pvpHostStatus').textContent='エラー: '+err.message; pvpDiag('エラー: '+err.message); });
 }
@@ -3979,7 +4026,7 @@ function pvpJoin(){
   pvpRanked=false;   // あいことば（手動）はトロフィー非変動
   pvpPresenceSet('connecting');   // プライベート部屋に入る側もランダムの「マッチ待ち」には数えない
   $('pvpJoinStatus').textContent='接続中…';
-  createWebRTCTransport({ mode:'guest', code, onState:s=>$('pvpJoinStatus').textContent='接続状態: '+s, onDiag:pvpDiag,
+  createPvpTransport({ mode:'guest', code, onState:s=>$('pvpJoinStatus').textContent='接続状態: '+s, onDiag:pvpDiag,
     onOpen:tp=>{ pvpConn=tp; pvpOnConnected('子'); } })
     .catch(err=>{ $('pvpJoinStatus').textContent='エラー: '+err.message; pvpDiag('エラー: '+err.message); });
 }
@@ -4099,7 +4146,7 @@ function mmBecomeHost(claimed){
   const code=genRoomCode(), me=displayProfile();
   mmShowOpponent(claimed.prof); mmShow('対戦相手が見つかりました！ 接続中…');
   try{ ensureFirebase().ref('matchmaking/matches/'+claimed.uid).set({ code:code, role:'guest', opp:{name:me.name,avatar:me.avatar}, ts:Date.now() }); }catch(e){}
-  createWebRTCTransport({ mode:'host', code:code, onDiag:pvpDiag, onState:mmConnState,
+  createPvpTransport({ mode:'host', code:code, onDiag:pvpDiag, onState:mmConnState,
     onOpen:tp=>{ pvpConn=tp; mmCleanup(); pvpOnConnected('親'); } })
     .catch(err=>{ mmShow('接続エラー: '+(err&&err.message||err)); });
 }
@@ -4109,7 +4156,7 @@ function mmGuestFromAssignment(m){
   pvpPresenceSet('connecting');   // 既にペア成立＝待機列から外れたので「マッチ待ち」には数えない（接続中）
   mmShowOpponent(m.opp); mmShow('対戦相手が見つかりました！ 接続中…');
   try{ if(mmQueueRef && mmUid) mmQueueRef.child(mmUid).remove(); }catch(e){}
-  createWebRTCTransport({ mode:'guest', code:m.code, waitOffer:true, onDiag:pvpDiag, onState:mmConnState,
+  createPvpTransport({ mode:'guest', code:m.code, waitOffer:true, onDiag:pvpDiag, onState:mmConnState,
     onOpen:tp=>{ pvpConn=tp; mmCleanup(); pvpOnConnected('子'); } })
     .catch(err=>{ mmShow('接続エラー: '+(err&&err.message||err)); });
 }

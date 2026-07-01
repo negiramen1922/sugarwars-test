@@ -131,6 +131,14 @@
 - 設定手順は `FIREBASE_SETUP.md`。Realtime Database のルールは `rooms/$code` のみ read/write 可の割り切り。
 - **2台＋Firebaseの実機テストはこのリポジトリ環境ではできない**ため、接続確認はユーザーの手元で行う。
 
+### F2.5（非P2P：WebSocket中継）— 実装済み（transport差し替えのみ／既定OFF）
+
+- **目的**：P2P(WebRTC)の代わりに Cloudflare **Durable Objects**（1部屋=1オブジェクト）でメッセージを中継。対戦本体は transport IF `{send,onMessage,close}` にしか依存しないので**まるごと差し替え**（ホスト権威＝親が計算は不変）。
+- サーバー：`relay-worker.js`（Worker+DO `Room`）／設定 `relay-wrangler.toml`／手順 `RELAY_SETUP.md`。制御は `{__relay:'ready'|'peer-left'|'full'}`、対戦データ(`PVP_MSG.*`)は素通し。
+- クライアント：`createRelayTransport()`（WebSocket版transport）と `createPvpTransport()`（リレー優先→失敗時WebRTCフォールバック）。PVPの接続4箇所（`pvpHost`/`pvpJoin`/`mmBecomeHost`/`mmGuestFromAssignment`）は `createPvpTransport` 経由。
+- **切替**：`RELAY_URL`（wss）＋ `PVP_USE_RELAY`。**既定は `false`＝従来のWebRTCで一切影響なし**。サーバー確認後に `true` にして配信すると次リロードで全員切替（Webの自動更新）。CPU対戦は不変。
+- **要実機確認**：2台/2タブでの中継対戦はこの環境ではテスト不可。`RELAY_SETUP.md` 参照。
+
 ### F2-②（対戦本体）— オーケストレーション層は実装済み（`<script>`「11) PVP 対戦オーケストレーション」）
 
 - `makePvpHost(conn, hooks)` / `makePvpGuest(conn, hooks)`：通信路(transport)にだけ依存する進行役。
