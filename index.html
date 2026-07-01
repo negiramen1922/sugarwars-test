@@ -519,6 +519,7 @@
       <button class="menu-row" onclick="startTutorial()">🎓 あそびかた（チュートリアル）</button>
       <button class="menu-row" onclick="openNews()">📢 お知らせ</button>
       <button class="menu-row" id="muteRow" onclick="toggleSfx()">🔊 効果音 オン / オフ</button>
+      <button class="menu-row" id="lowFxRow" onclick="toggleLowFx()">⚡ 軽量モード（動作が重いとき）</button>
       <div class="menu-row" style="cursor:default">🎵 BGM音量<input type="range" id="bgmVol" min="0" max="100" oninput="onBgmVol(this.value)" style="flex:1;margin-left:8px"></div>
       <div class="menu-row" style="cursor:default">🔔 効果音音量<input type="range" id="sfxVol" min="0" max="100" oninput="onSfxVol(this.value)" style="flex:1;margin-left:8px"></div>
       <div style="text-align:center;margin-top:8px"><button class="btn btn-ghost" onclick="closeMenu()">閉じる</button></div>
@@ -2817,13 +2818,15 @@ function outroStep(world, dt){
    7) 描画 & ループ
    ============================================================ */
 let world=null, raf=0, lastT=0, speedMul=1, dpr=1, canvas, ctx, CW, CH;
-// 低負荷モード（弱い端末＝スマホ親のカクつき対策）：フレーム時間を測って重い端末では
-// 「見た目だけ」の粒子エフェクトを自動で減らす。強い端末は LOW_FX=false のまま一切変わらない。
-let LOW_FX=false;            // 自動切替（重い端末で true）。CPU計算・当たり判定は不変＝ゲーム性に影響なし
-let _frameEMA=16.7;          // フレーム時間の指数移動平均(ms)
+// 軽量モード（弱い端末＝スマホ親のカクつき対策）：プレイヤーが設定でON/OFFする。
+// ONのとき「見た目だけ」の粒子エフェクトを減らす。CPU計算・当たり判定・通信は不変＝ゲーム性に影響なし。
+// 既定OFF（フル演出）。端末個別の好みなので localStorage(sw_lowfx) に保存＝クラウド同期しない（音量と同じ扱い）。
+let LOW_FX=(function(){ try{ return localStorage.getItem('sw_lowfx')==='1'; }catch(e){ return false; } })();
 const PART_CAP_HI=200;       // 通常時の粒子(parts)上限
-const PART_CAP_LO=70;        // 低負荷時の粒子上限
+const PART_CAP_LO=70;        // 軽量モード時の粒子上限
 function partCap(){ return LOW_FX ? PART_CAP_LO : PART_CAP_HI; }
+function toggleLowFx(){ LOW_FX=!LOW_FX; try{ localStorage.setItem('sw_lowfx', LOW_FX?'1':'0'); }catch(e){} try{ SFX.play('button'); }catch(e){} updateLowFxRow(); }
+function updateLowFxRow(){ const r=$('lowFxRow'); if(r) r.textContent = (LOW_FX ? '⚡ 軽量モード オン（タップでオフ）' : '⚡ 軽量モード オフ（動作が重いときオン）'); }
 function setupCanvas(){
   canvas=$('arena'); ctx=canvas.getContext('2d');
   const avail=(canvas.parentElement.clientWidth||440);
@@ -2835,10 +2838,6 @@ function setupCanvas(){
 function startLoop(){ cancelAnimationFrame(raf); lastT=performance.now(); raf=requestAnimationFrame(loop); }
 function loop(now){
   let frame=(now-lastT)/1000; lastT=now; frame=Math.max(0,Math.min(frame,0.05));   // 負のdt(初回フレーム等)を防ぐ=リング半径が負になりarcがクラッシュするのを回避
-  // フレーム時間を平滑化し、重い端末なら低負荷モードへ（ヒステリシスでバタつき防止）
-  _frameEMA += ((frame*1000)-_frameEMA)*0.1;
-  if(!LOW_FX && _frameEMA>30) LOW_FX=true;        // ~33fps未満が続いたらON
-  else if(LOW_FX && _frameEMA<20) LOW_FX=false;   // ~50fpsまで戻ったらOFF
   const steps=speedMul;
   for(let i=0;i<steps && !world.done;i++) stepWorld(world, frame);
   // 粒子(見た目だけ)の総数を上限に抑える＝弱い端末での描画/更新負荷を軽減（古いものから間引く）
@@ -3123,7 +3122,7 @@ function renderNews(){
     `</div>`).join('');
 }
 function toggleNews(i){ try{ SFX.play('button'); }catch(e){} const it=$('newsItem'+i); if(it) it.classList.toggle('open'); }
-function toggleMenu(){ SFX.play('button'); const bv=$('bgmVol'), sv=$('sfxVol'); if(bv) bv.value=Math.round(SFX.bgmVol*100); if(sv) sv.value=Math.round(SFX.sfxVol*100); updateMuteRow(); updateInstallRow(); $('menuModal').classList.remove('hidden'); }
+function toggleMenu(){ SFX.play('button'); const bv=$('bgmVol'), sv=$('sfxVol'); if(bv) bv.value=Math.round(SFX.bgmVol*100); if(sv) sv.value=Math.round(SFX.sfxVol*100); updateMuteRow(); updateLowFxRow(); updateInstallRow(); $('menuModal').classList.remove('hidden'); }
 // ===== PWA：ホームに追加（インストール）導線 =====
 let deferredInstallPrompt=null;
 if(typeof window!=='undefined'){
