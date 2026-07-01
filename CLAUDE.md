@@ -201,6 +201,7 @@
 - ランダムマッチ決着時のみ増減（あいことば手動PVP・CPU戦は非変動。pvpRankedで判定）：親は `endGame`（`wasPvp`時）、子は `pvpGuestOnGameover` で `applyTrophyResult(won, oppTrophies)`。相手トロフィーはハンドシェイク（HELLO/START の `prof`＝`pvpNetProfile()`）で交換し `pvpOppProfile` に保持。over画面に増減を表示。
 - 保存：`myProfile.trophies/wins/losses` を buildProfile/applyProfile に統合（端末＋クラウド）。
 - **戦績表示**：プロフィール欄（`#authModal`）に `renderProfileStats()` でトロフィー／バトル数（=wins+losses）／勝利／敗北を表示（`fillProfileEditor` から呼ぶ）。wins/losses はランダムマッチのみ反映。
+- **熟練度で解禁する特別アバター**：`myProfile.mastery`（key→対戦回数）を対戦開始時に `bumpMasteryForDeck()` で加算（デッキの各キャラ+1・チュートリアル除外・CPU/PVP両方）。`SPECIAL_AVATARS`（現在 `ava_bomb`/`ava_choco`/`ava_cookie`＝背景つき画像アイコン）は対象キャラを `MASTERY_NEED`(=10)回使うと `avatarUnlocked()` が真になり選択可。アバターは `avatarHTML()` で「特別=画像／通常=ユニット絵文字」を出し分け（プロフィールチップ/ランキング/対戦相手表示/選択グリッド）。ロック中は🔒＋進捗を表示。解禁時は `toast()` で通知。熟練度は buildProfile/applyProfile とローカル保存に統合（マージは大きい方採用）。テスト：test.js 79。
 - **リーダーボード**：`leaderboard/<uid>={name,avatar,trophies,wins}`（公開read・自分のみwrite）。`leaderboardSubmit`（決着/ログイン時）・`leaderboardLoad`（trophies降順・上位50）。`#ranking` 画面＝`openRanking`/`renderRankingList`。ホームに `🏆` 表示（`renderHomeTrophies`）。
 - **要設定**：RTDBルールに `leaderboard`（read:true・$uidのみwrite）。`FIREBASE_SETUP.md` C章参照。
 - CPU対戦はトロフィー非変動（PVPのみ）。
