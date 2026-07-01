@@ -67,6 +67,7 @@ code += `
   mmPickWaiter, pvpResumeIsRecent, pvpReconnRemain, eloExpected, eloDelta, myTrophies, presenceCounts,
   enhDisplay, specialCardIcon,
   pvpDecideIAmHost, pvpMatchupType, unitDamageType, unitAtkText, mostUsedUnit,
+  spriteFor, get SPRITES(){ return SPRITES; },
   get myProfileRef(){ return myProfile; },
   burst, partCap, get LOW_FX(){ return LOW_FX; }, set LOW_FX(v){ LOW_FX=v; },
   get PART_CAP_HI(){ return PART_CAP_HI; }, get PART_CAP_LO(){ return PART_CAP_LO; },
@@ -2563,6 +2564,28 @@ console.log('\n=== 89) 無料アイコン（最初から選べる）＋絵文字
   prof.avatar = 'ava_macaron';   // 有効な画像アイコンはそのまま
   check('有効な画像アイコンは保持', API.displayProfile().avatar === 'ava_macaron', API.displayProfile().avatar);
   prof.avatar = '';
+}
+
+console.log('\n=== 90) アニメ付きキャラ（マシュマロエンジェル）：フレーム切替＋テスト除外 ===');
+{
+  const U = API.UNIT_BY_KEY.mangel;
+  check('mangel が存在する', !!U, U);
+  check('anim フレームを3枚持つ', U && U.anim && U.anim.length === 3, U && U.anim);
+  check('test:true（通常プレイから除外）', U && U.test === true);
+  // フレームがworld.tで切り替わる（animFps=5）
+  const w = API.createWorld(440, 660); API.world = w; w.phase = 'battle';
+  const f = API.makeFighters('mangel', 'p', 440, 660, 'army')[0]; w.units.push(f);
+  w.t = 0.0; const s0 = API.spriteFor(f);
+  w.t = 0.25; const s1 = API.spriteFor(f);   // floor(0.25*5)=1 → 2枚目
+  w.t = 0.45; const s2 = API.spriteFor(f);   // floor(0.45*5)=2 → 3枚目
+  check('t=0 は1枚目', s0 === API.SPRITES['mangel_1'], !!s0);
+  check('t=0.25 は2枚目', s1 === API.SPRITES['mangel_2'], !!s1);
+  check('t=0.45 は3枚目', s2 === API.SPRITES['mangel_3'], !!s2);
+  check('フレームが実際に変化する', s0 !== s1 && s1 !== s2, [s0 === s1, s1 === s2]);
+  // ランダムCPUデッキにテストキャラは入らない
+  let poolHasTest = false;
+  for (const u of API.UNITS) { if (u.test) poolHasTest = true; }
+  check('UNITSにtestキャラは居るが、通常ロスターからは除外設計', poolHasTest === true);
 }
 
 Promise.resolve().then(() => {
