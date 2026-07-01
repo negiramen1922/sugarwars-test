@@ -63,6 +63,11 @@ code += `
   buildProfile, applyProfile, displayProfile, get myProfile(){ return myProfile; },
   masteryXp, masteryLevel, avatarUnlocked, awardMasteryXp,
   masteryXpForLevel, skinUnlocked, activeSkinBase, equipSkin, get SPECIAL_SKINS(){ return SPECIAL_SKINS; },
+  packPool, rollPack, openPackOnce, ownsCollected, alreadyHave, addMasteryXp,
+  battleCoinReward, grantBattleReward, myCoins,
+  equipFrame, equipTitle, equipNameColor, equippedFrame, equippedTitle, equippedNameColor,
+  get FRAMES(){ return FRAMES; }, get TITLES(){ return TITLES; }, get NAME_COLORS(){ return NAME_COLORS; },
+  get PACK_COST(){ return PACK_COST; }, get COIN_PLAY(){ return COIN_PLAY; }, get COIN_WIN(){ return COIN_WIN; }, get COIN_DAILY_WIN(){ return COIN_DAILY_WIN; }, get PACK_DUP_XP(){ return PACK_DUP_XP; },
   get MASTERY_WIN_XP(){ return MASTERY_WIN_XP; }, get MASTERY_LOSE_XP(){ return MASTERY_LOSE_XP; }, get MASTERY_XP_PER_LEVEL(){ return MASTERY_XP_PER_LEVEL; },
   mmPickWaiter, pvpResumeIsRecent, pvpReconnRemain, eloExpected, eloDelta, myTrophies, presenceCounts,
   enhDisplay, specialCardIcon,
@@ -2563,6 +2568,87 @@ console.log('\n=== 89) 無料アイコン（最初から選べる）＋絵文字
   prof.avatar = 'ava_macaron';   // 有効な画像アイコンはそのまま
   check('有効な画像アイコンは保持', API.displayProfile().avatar === 'ava_macaron', API.displayProfile().avatar);
   prof.avatar = '';
+}
+
+console.log('\n=== 90) 経済：カードパック＋通貨（見た目だけ＝対戦は常にフェア） ===');
+{
+  const prof = API.myProfileRef;
+  prof.mastery={}; prof.collected={}; prof.coins=0; prof.frame=''; prof.title=''; prof.nameColor=''; prof.dailyWinKey='';
+  // プール：フレーム/称号/カラー＋非freeアバター＋スキンを含み、freeアバターは含まない
+  const pool = API.packPool(); const ids = pool.map(p=>p.id);
+  check('プールにフレーム', ids.includes('frame_gold'));
+  check('プールに称号', ids.includes('title_king'));
+  check('プールにネームカラー', ids.includes('nc_gold'));
+  check('プールに非freeアバター', ids.includes('ava_daifuku'));
+  check('freeアバターは出ない', !ids.includes('ava_cookie_free'));
+  // rollPack：範囲とクランプ
+  check('rollPack(0)=先頭', API.rollPack(pool,0)===pool[0]);
+  check('rollPack(0.999)=末尾', API.rollPack(pool,0.999)===pool[pool.length-1]);
+  check('rollPack(1.5)はクランプ', API.rollPack(pool,1.5)===pool[pool.length-1]);
+  check('空プールはnull', API.rollPack([],0.5)===null);
+  // 初回入手：dupではない・collected=1・XPは入らない
+  const idx=ids.indexOf('frame_gold'), r=(idx+0.5)/pool.length;
+  const res1=API.openPackOnce(r);
+  check('初回：frame_gold入手・dupなし', res1.item.id==='frame_gold' && res1.dup===false, res1);
+  check('初回：collected=1', prof.collected['frame_gold']===1);
+  check('初回：熟練度XPは入らない', API.masteryXp('pancake')===0);
+  // 重複：dup・テーマキャラ(pancake)に+XP
+  const res2=API.openPackOnce(r);
+  check('重複：dup=true', res2.dup===true);
+  check('重複：collected=2', prof.collected['frame_gold']===2);
+  check('重複：pancakeに+PACK_DUP_XP', API.masteryXp('pancake')===API.PACK_DUP_XP, API.masteryXp('pancake'));
+  // アバターは熟練度解禁でも「所持扱い」→重複でXP変換
+  prof.collected={}; prof.mastery={ daifuku: API.masteryXpForLevel(3) };
+  check('ava_daifukuは熟練度Lv3で解禁済み', API.avatarUnlocked('ava_daifuku')===true);
+  const ai=ids.indexOf('ava_daifuku'), ar=(ai+0.5)/pool.length, before=API.masteryXp('daifuku');
+  const res3=API.openPackOnce(ar);
+  check('熟練度解禁済みアバターは重複扱い', res3.item.id==='ava_daifuku' && res3.dup===true, res3);
+  check('重複でdaifukuに+XP', API.masteryXp('daifuku')===before+API.PACK_DUP_XP);
+  // collected経由でアバター解禁（熟練度0でも可）＝パックで初入手して使えるように
+  prof.mastery={}; prof.collected={ ava_donut:1 };
+  check('collected所持でアバター解禁', API.avatarUnlocked('ava_donut')===true);
+  check('未所持/低熟練度アバターは未解禁', API.avatarUnlocked('ava_choco')===false);
+  // 装備トグル（所持のみ）
+  prof.collected={ frame_gold:1, title_king:1, nc_gold:1 }; prof.frame=''; prof.title=''; prof.nameColor='';
+  API.equipFrame('frame_gold'); check('フレーム装備', API.equippedFrame()==='frame_gold');
+  API.equipFrame('frame_gold'); check('再クリックで解除', API.equippedFrame()==='');
+  API.equipTitle('title_king'); check('称号装備', API.equippedTitle()==='title_king');
+  API.equipNameColor('nc_gold'); check('ネームカラー装備', API.equippedNameColor()==='nc_gold');
+  API.equipFrame('frame_berry'); check('未所持は装備できない', API.equippedFrame()==='');
+  prof.frame='frame_gold'; prof.collected={};
+  check('手放すと装備は無効化', API.equippedFrame()==='');
+  // 通貨：報酬計算（純粋関数）
+  check('負け報酬=PLAY', API.battleCoinReward(false,false)===API.COIN_PLAY);
+  check('勝ち報酬=PLAY+WIN', API.battleCoinReward(true,false)===API.COIN_PLAY+API.COIN_WIN);
+  check('勝ち＋デイリー=PLAY+WIN+DAILY', API.battleCoinReward(true,true)===API.COIN_PLAY+API.COIN_WIN+API.COIN_DAILY_WIN);
+  check('負けはデイリー無し', API.battleCoinReward(false,true)===API.COIN_PLAY);
+  // grantBattleReward：デイリー初勝利は1日1回
+  prof.coins=0; prof.dailyWinKey='';
+  const g1=API.grantBattleReward(true);
+  check('初勝利：デイリー込み', g1.first===true && g1.gain===API.COIN_PLAY+API.COIN_WIN+API.COIN_DAILY_WIN, g1);
+  const c1=API.myCoins();
+  const g2=API.grantBattleReward(true);
+  check('同日2回目：デイリー無し', g2.first===false && g2.gain===API.COIN_PLAY+API.COIN_WIN, g2);
+  check('コインは累積', API.myCoins()===c1+g2.gain);
+  prof.mastery={}; prof.collected={}; prof.coins=0; prof.frame=''; prof.title=''; prof.nameColor=''; prof.dailyWinKey='';
+}
+
+console.log('\n=== 91) 経済：プロフィール保存の往復（コイン/コレクション/装備） ===');
+{
+  const prof = API.myProfileRef;
+  prof.coins=300; prof.collected={ frame_gold:2, title_king:1 }; prof.frame='frame_gold'; prof.title='title_king'; prof.nameColor='nc_soda'; prof.dailyWinKey='2026-7-1';
+  const p=API.buildProfile();
+  check('buildProfile: coins', p.coins===300, p.coins);
+  check('buildProfile: collected', p.collected.frame_gold===2, p.collected);
+  check('buildProfile: frame/title/nameColor', p.frame==='frame_gold'&&p.title==='title_king'&&p.nameColor==='nc_soda');
+  // マージ：coins=大きい方／collected=個数の大きい方／新規もマージ
+  prof.coins=100; prof.collected={ frame_gold:1 };
+  API.applyProfile({ coins:250, collected:{ frame_gold:5, nc_gold:1 }, frame:'frame_berry', dailyWinKey:'2026-7-2' });
+  check('applyProfile: coinsは大きい方(250)', prof.coins===250, prof.coins);
+  check('applyProfile: collected個数は大きい方(5)', prof.collected.frame_gold===5, prof.collected.frame_gold);
+  check('applyProfile: 新規collectedもマージ', prof.collected.nc_gold===1);
+  check('applyProfile: frameは反映', prof.frame==='frame_berry');
+  prof.coins=0; prof.collected={}; prof.frame=''; prof.title=''; prof.nameColor=''; prof.dailyWinKey='';
 }
 
 Promise.resolve().then(() => {

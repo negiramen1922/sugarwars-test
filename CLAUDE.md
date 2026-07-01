@@ -225,6 +225,18 @@
 - **要設定**：RTDBルールに `leaderboard`（read:true・$uidのみwrite）。`FIREBASE_SETUP.md` C章参照。
 - CPU対戦はトロフィー非変動（PVPのみ）。
 
+## 経済（通貨キャンディコイン＋カードパック＋見た目コレクション・実装済み・`<script>`「13.5) 経済」）
+
+**最優先の原則：経済は「見た目」だけに効かせる＝ユニット性能・強化カードは一切解禁しない（対戦は常にフェア）**。人が少なくても課金・レベル差で格差が広がらないための割り切り。テスト：test.js 90・91。
+
+- **通貨（🍬キャンディコイン＝`myProfile.coins`）**：課金ではなく**対戦報酬**で配る（子ども向けに安全）。`grantBattleReward(won)` を決着時に呼ぶ＝**CPU/PVP両方**（`endGame`＋子の `pvpGuestOnGameover`。チュートリアルは除外）。報酬額は純粋関数 `battleCoinReward(won, firstWinToday)`＝`COIN_PLAY`(10・参加)＋`COIN_WIN`(15・勝利)＋`COIN_DAILY_WIN`(50・その日の初勝利=`myProfile.dailyWinKey` で1日1回)。ホーム＆ショップに残高表示（`renderHomeCoins`/`renderShopCoins`）。
+- **カードパック**：`PACK_COST`(120コイン)で `buyPack()`→`openPackOnce(Math.random())`。中身は**レア度なし＝全アイテム同確率**（`packPool()`＝フレーム＋称号＋ネームカラー＋**非freeアバター**＋スキン。freeアバターは出さない）。抽選は純粋関数 `rollPack(pool, r)`（0..1）。
+- **初入手 vs 重複**：`alreadyHave(item)`（collected所持 or アバター/スキンは熟練度解禁済みも所持扱い）で判定。初入手→`myProfile.collected[id]` に加算して**解禁**（`ownsCollected`）。**重複→そのアイテムのテーマキャラ(`unit`)の熟練度XPに変換**（`addMasteryXp`・`PACK_DUP_XP`=25／熟練度Lvアップで既存アイコンが早く解禁＝良い循環）。
+- **見た目3種（絵素材不要・CSS/テキスト）**：`FRAMES`（アイコン装飾枠＝box-shadow）／`TITLES`（名前横の称号テキスト）／`NAME_COLORS`（名前の色・グラデ）。各行に `unit`（テーマ＝重複時のXP先）。装備は `myProfile.frame/title/nameColor`＋`equipFrame/equipTitle/equipNameColor`（トグル・所持のみ）。表示は**自分のプロフィールチップ**（`renderProfileChip`＝`avatarHTML(...,frame)`＋`applyNameColor`＋`#profileChipTitle`）とプロフィール編集プレビューに反映（相手の見た目共有はスキン同様に未対応＝自分だけ）。
+- **アバター/スキンもパックで当たる**：`avatarUnlocked`/`skinUnlocked` を「熟練度Lv **または** collected所持」に拡張＝パックで初入手しても既存UI（プロフィールのアイコングリッド／キャラ詳細の熟練度タブの装備）でそのまま使える。新規見た目を足すときは各配列（`FRAMES`/`TITLES`/`NAME_COLORS` は1行、アバター/スキンは `SPRITE_DATA` 注入＋`SPECIAL_AVATARS`/`SPECIAL_SKINS`）に追加するだけでパックプール・コレクション画面（`renderCollection`）に自動反映。
+- **保存**：`coins`/`collected`/`frame`/`title`/`nameColor`/`dailyWinKey` を `saveProfileLocal`（端末）＋`buildProfile`/`applyProfile`（クラウド）に統合。マージは coins=大きい方・collected=個数の大きい方（進捗が消えない割り切り）。
+- **UI**：ホームメニュー「🎁 ショップ＆コレクション」＋ホームのコイン表示（クリックでショップ）→ `#shopModal`（`openShop`/`closeShop`/`renderShop`）。
+
 ## オンライン人数（presence・実装済み）
 
 - 起動時に `pvpPresenceJoin()`＝**匿名サインイン**して `presence/<uid>={status,ts}`（`onDisconnect().remove()`）。`presence` を購読し `presenceCounts(obj)`（純粋関数・test.js 73）で集計→「🟢 オンラインN人・マッチ待ちW人・対戦中M人」をホーム/PVPロビーに表示（`renderPresence`）。マッチ待ち=`status:'matching'` の数。

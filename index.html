@@ -304,7 +304,7 @@
           <span class="tag">お菓子の王国の戦争</span>
         </div>
         <div class="profile-chip" id="profileChip" onclick="openAuth()" title="プロフィール / ログイン">
-          <span class="pc-ico" id="profileChipIco">🍬</span><span id="profileChipName">ゲスト</span>
+          <span class="pc-ico" id="profileChipIco">🍬</span><span id="profileChipTitle" style="font-size:.82em;opacity:.85;margin-right:3px"></span><span id="profileChipName">ゲスト</span>
         </div>
       </div>
       <div class="topbar-actions">
@@ -328,6 +328,7 @@
     <section id="home" class="center">
       <p class="big home-title">Sugar <span class="clash">Wars</span></p>
       <div id="homeTrophies" style="font-size:18px;font-weight:700;color:var(--brass);margin:2px 0 2px;cursor:pointer" onclick="openRanking()" title="ランキングを見る">🏆 1000</div>
+      <div id="homeCoins" style="font-size:14px;font-weight:700;color:var(--accent2);margin:0 0 2px;cursor:pointer" onclick="openShop()" title="ショップを開く">🍬 0 コイン</div>
       <div id="homeOnline" style="font-size:12px;color:var(--green);margin:0 0 6px">🟢 オンライン –人・対戦中 –人</div>
       <p>お菓子の兵士を集めて軍を編成し、リアルタイム自動戦闘で王国の覇権を争うカードドラフト＆オートバトラー。</p>
       <div class="menu-list">
@@ -344,6 +345,11 @@
         <button class="menu-btn" onclick="goRoster()">
           <span class="mb-ico">📋</span>
           <span class="mb-txt"><b>編成（キャラリスト）</b><small>登場キャラと性能を見る</small></span>
+          <span class="mb-arrow">›</span>
+        </button>
+        <button class="menu-btn" onclick="openShop()">
+          <span class="mb-ico">🎁</span>
+          <span class="mb-txt"><b>ショップ＆コレクション</b><small>コインでパックを開けて見た目を集める</small></span>
           <span class="mb-arrow">›</span>
         </button>
       </div>
@@ -639,6 +645,20 @@
       <h3>お知らせ</h3>
       <div id="newsList" class="news-list"></div>
       <div style="text-align:center;margin-top:14px"><button class="btn btn-ghost" onclick="closeNews()">閉じる</button></div>
+    </div>
+  </div>
+  <div id="shopModal" class="modal-overlay hidden" onclick="closeShop(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <h3>🎁 ショップ＆コレクション</h3>
+      <div style="text-align:center;font-size:16px;margin:2px 0 8px" id="shopCoins">🍬 <b>0</b> コイン</div>
+      <div style="text-align:center;margin-bottom:6px">
+        <button class="btn btn-primary" id="buyPackBtn" onclick="buyPack()">パックを開ける（🍬<span id="packCostLabel">120</span>）</button>
+      </div>
+      <div id="packResult" style="min-height:0;text-align:center;margin:6px 0"></div>
+      <p style="font-size:11.5px;color:var(--muted);text-align:center;margin:4px 0 2px">見た目だけのごほうびです（対戦バランスには影響しません）。同じものが出たら、そのキャラの<b>熟練度XP</b>になります。</p>
+      <div id="collectionGrid" style="max-height:46vh;overflow-y:auto;margin-top:6px"></div>
+      <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px">アイコン／スキンもパックから当たります。装備はプロフィール（👤）とキャラ詳細の「熟練度」から。</p>
+      <div style="text-align:center;margin-top:12px"><button class="btn btn-ghost" onclick="closeShop()">閉じる</button></div>
     </div>
   </div>
   <p class="footnote hidden">プロトタイプ — ユニットやルールは <code>UNITS</code> と <code>CONFIG</code> を編集して調整できます。</p>
@@ -3352,7 +3372,8 @@ function endGame(){
   $('overTitle').textContent=won?'勝利！':'敗北…';
   $('overTitle').style.color=won?'var(--green)':'var(--rust)';
   const base=won?`${state.round} ラウンドで決着。${state.youArmy.length} 体の軍を率いて勝利しました。`:`${state.round} ラウンドで力尽きました。デッキの相性を見直してみましょう。`;
-  $('overText').textContent = base + (trophyLine?('　'+trophyLine):'');
+  const rw=grantBattleReward(won); const coinLine='🍬 +'+rw.gain+' コイン'+(rw.first?'（デイリー初勝利ボーナス込み！）':''); renderHomeCoins();   // 対戦報酬（CPU/PVP共通・チュートリアル除外）
+  $('overText').textContent = base + (trophyLine?('　'+trophyLine):'') + '　'+coinLine;
   pvpSetupOverButtons(privateRoom);
   show('over');
 }
@@ -3668,7 +3689,7 @@ function genRoomCode(){ const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; fo
    ============================================================ */
 let authUser=null;            // ログイン中のユーザー（未ログインはnull）
 let _cloudSaveT=0;            // クラウド保存のデバウンス用タイマ
-let myProfile={ name:'', avatar:'', trophies:1000, best:1000, wins:0, losses:0, mastery:{}, usage:{}, skins:{} };   // 名前＋アイコン＋トロフィー(=レート)＋最高トロフィー＋戦績＋熟練度(key→XP)＋使用回数(key→回)＋装備スキン(unit→skinId)
+let myProfile={ name:'', avatar:'', trophies:1000, best:1000, wins:0, losses:0, mastery:{}, usage:{}, skins:{}, coins:0, collected:{}, frame:'', title:'', nameColor:'', dailyWinKey:'' };   // 名前＋アイコン＋トロフィー(=レート)＋最高トロフィー＋戦績＋熟練度(key→XP)＋使用回数(key→回)＋装備スキン(unit→skinId)＋通貨(coins)＋所持コレクション(collected: id→個数)＋装備中フレーム/称号/ネームカラー＋デイリー初勝利の付与日(dailyWinKey)
 /* 熟練度（キャラ経験値）で解禁する特別アバターアイコン。XPは【PVP対戦のみ】、勝ち=多め/負け=少なめで加算。
    ★重要：解禁は見た目（アイコン/スキン）だけにする。強化カード等ゲーム性能は熟練度で解禁しない＝対戦は常にフェア。 */
 const MASTERY_WIN_XP = 10;      // PVPで勝ったとき、デッキ各キャラに入る熟練度XP
@@ -3709,8 +3730,125 @@ const SPECIAL_SKINS = [
 const SPECIAL_SKIN_BY_ID = Object.fromEntries(SPECIAL_SKINS.map(s=>[s.id,s]));
 function masteryXp(unit){ return (myProfile.mastery && myProfile.mastery[unit]) || 0; }
 function masteryLevel(unit){ const xp=masteryXp(unit); let L=0; while(L<100 && masteryXpForLevel(L+1)<=xp) L++; return L; }   // XP→レベル（Lv3以降は必要XP増）
-function avatarUnlocked(id){ const s=SPECIAL_AVATAR_BY_ID[id]; return !s ? true : (masteryLevel(s.unit) >= s.lvl); }   // 通常(ユニット)アイコンは常に可、特別は熟練度レベルで判定
-function skinUnlocked(id){ const s=SPECIAL_SKIN_BY_ID[id]; return !!s && masteryLevel(s.unit) >= s.lvl; }
+function avatarUnlocked(id){ const s=SPECIAL_AVATAR_BY_ID[id]; if(!s) return true; return masteryLevel(s.unit) >= s.lvl || ownsCollected(id); }   // 通常アイコンは常に可／特別は熟練度Lv 或いは カードパックで入手済みなら可
+function skinUnlocked(id){ const s=SPECIAL_SKIN_BY_ID[id]; return !!s && (masteryLevel(s.unit) >= s.lvl || ownsCollected(id)); }   // 熟練度Lv 或いは カードパックで入手済み
+
+/* ============================================================
+   13.5) 経済（通貨キャンディコイン＋カードパック＋見た目コレクション）
+   ★最優先の原則：経済は「見た目」だけに効かせる。ユニット性能・強化カードは一切解禁しない＝対戦は常にフェア。
+     - 通貨は課金ではなく【対戦報酬＋デイリー初勝利】で配る（子ども向けに安全）。CPU戦でも貯まる（人が少なくても進む）。
+     - パックの中身：フレーム／称号／ネームカラー（絵素材不要のCSS装飾）＋既存のアバター/スキンも当たる。レア度なし＝全部同確率。
+     - 重複＝そのアイテムのテーマキャラの熟練度XPに変換（＝熟練度の解禁がより早く進む）。
+   調整したい数値はこのブロック先頭の定数（PACK_COST／COIN_各種／PACK_DUP_XP）と各コレクション配列。
+   ============================================================ */
+const PACK_COST      = 120;   // カードパック1回の価格（コイン）
+const COIN_PLAY      = 10;    // 対戦を終えるともらえる参加報酬
+const COIN_WIN       = 15;    // 勝ったときの追加ボーナス
+const COIN_DAILY_WIN = 50;    // その日の初勝利ボーナス（1日1回）
+const PACK_DUP_XP    = 25;    // パックで重複が出たとき、テーマキャラに入る熟練度XP
+
+// アバターの装飾フレーム（CSSで描画＝絵素材不要）。ring=アイコン画像に足すbox-shadow。unit=テーマ（重複時のXP先）。
+const FRAMES = [
+  { id:'frame_gold',  name:'ゴールドフレーム', unit:'pancake', ring:'0 0 0 2px #f6c945, 0 0 7px 1px rgba(246,201,69,.85)' },
+  { id:'frame_choco', name:'チョコフレーム',   unit:'choco',   ring:'0 0 0 2px #7a4a22, 0 0 6px 1px rgba(122,74,34,.8)' },
+  { id:'frame_berry', name:'ベリーフレーム',   unit:'macaron', ring:'0 0 0 2px #ff6f9c, 0 0 7px 1px rgba(255,111,156,.8)' },
+  { id:'frame_mint',  name:'ミントフレーム',   unit:'icewiz',  ring:'0 0 0 2px #59d3c8, 0 0 7px 1px rgba(89,211,200,.8)' },
+  { id:'frame_grape', name:'グレープフレーム', unit:'ghost',   ring:'0 0 0 2px #a56cf0, 0 0 7px 1px rgba(165,108,240,.8)' },
+  { id:'frame_soda',  name:'ソーダフレーム',   unit:'soda',    ring:'0 0 0 2px #46b7f0, 0 0 7px 1px rgba(70,183,240,.8)' },
+];
+const FRAME_BY_ID = Object.fromEntries(FRAMES.map(f=>[f.id,f]));
+// 名前の横に付く称号（テキストのみ＝絵素材不要）。unit=テーマ。
+const TITLES = [
+  { id:'title_king',    name:'お菓子の王',     unit:'pancake' },
+  { id:'title_novice',  name:'甘党見習い',     unit:'cookie'  },
+  { id:'title_samurai', name:'もち侍',         unit:'daifuku' },
+  { id:'title_boom',    name:'爆裂職人',       unit:'bomb'    },
+  { id:'title_frost',   name:'氷菓の魔導士',   unit:'icewiz'  },
+  { id:'title_baker',   name:'王室パティシエ', unit:'bakery'  },
+];
+const TITLE_BY_ID = Object.fromEntries(TITLES.map(t=>[t.id,t]));
+// ニックネームの色（CSS）。grad=trueならグラデ文字（background-clip:text）。unit=テーマ。
+const NAME_COLORS = [
+  { id:'nc_berry',  name:'ストロベリー', css:'#ff5b7f',                                unit:'macaron' },
+  { id:'nc_soda',   name:'ソーダ',       css:'#38bdf8',                                unit:'soda'    },
+  { id:'nc_matcha', name:'抹茶',         css:'#7cb342',                                unit:'daifuku' },
+  { id:'nc_grape',  name:'グレープ',     css:'#a855f7',                                unit:'ghost'   },
+  { id:'nc_choco',  name:'チョコ',       css:'#a9722e',                                unit:'choco'   },
+  { id:'nc_gold',   name:'ゴールド',     css:'linear-gradient(90deg,#f6c945,#ffe9a3)', grad:true, unit:'pancake' },
+];
+const NAME_COLOR_BY_ID = Object.fromEntries(NAME_COLORS.map(c=>[c.id,c]));
+
+// パックの排出プール（レア度なし＝全アイテム同確率）。type: frame|title|color|ava|skin
+function packPool(){
+  const pool=[];
+  FRAMES.forEach(f=>pool.push({ type:'frame', id:f.id, unit:f.unit, name:f.name }));
+  TITLES.forEach(t=>pool.push({ type:'title', id:t.id, unit:t.unit, name:t.name }));
+  NAME_COLORS.forEach(c=>pool.push({ type:'color', id:c.id, unit:c.unit, name:c.name }));
+  SPECIAL_AVATARS.forEach(a=>{ if(!a.free) pool.push({ type:'ava', id:a.id, unit:a.unit, name:a.name }); });   // 無料アイコンはパックに出さない
+  SPECIAL_SKINS.forEach(s=>pool.push({ type:'skin', id:s.id, unit:s.unit, name:s.name }));
+  return pool;
+}
+// 0..1 の乱数からプールの1つを選ぶ（純粋関数・テスト対象）
+function rollPack(pool, r){ if(!pool||!pool.length) return null; let i=Math.floor((r||0)*pool.length); if(i<0)i=0; if(i>=pool.length)i=pool.length-1; return pool[i]; }
+// 所持判定（collectedに入っているか）
+function ownsCollected(id){ return !!(myProfile.collected && myProfile.collected[id]>0); }
+// 既に「使える」状態か（アバター/スキンは熟練度解禁でも所持扱い＝重複判定に使う）
+function alreadyHave(item){
+  if(ownsCollected(item.id)) return true;
+  if(item.type==='ava'){ const s=SPECIAL_AVATAR_BY_ID[item.id]; return !!s && masteryLevel(s.unit)>=s.lvl; }
+  if(item.type==='skin'){ const s=SPECIAL_SKIN_BY_ID[item.id]; return !!s && masteryLevel(s.unit)>=s.lvl; }
+  return false;
+}
+// テーマキャラに熟練度XPを加算（重複変換用）。解禁したらトースト通知。
+function addMasteryXp(unit, xp){
+  if(!UNIT_BY_KEY[unit] || !(xp>0)) return;
+  if(!myProfile.mastery) myProfile.mastery={};
+  const before=masteryLevel(unit);
+  myProfile.mastery[unit]=(myProfile.mastery[unit]||0)+xp;
+  const after=masteryLevel(unit);
+  if(after>before){ SPECIAL_AVATARS.forEach(function(s){ if(s.unit===unit && before<s.lvl && after>=s.lvl) toast('🎉 熟練度Lv'+s.lvl+'到達！ アイコン「'+s.name+'」を解禁'); }); }
+}
+// パックを1回開ける（乱数r／myProfileを更新して結果 {item,dup,xp} を返す）。テスト対象。
+function openPackOnce(r){
+  const pool=packPool(); const item=rollPack(pool, r); if(!item) return null;
+  const had=alreadyHave(item);
+  if(!myProfile.collected) myProfile.collected={};
+  myProfile.collected[item.id]=(myProfile.collected[item.id]||0)+1;
+  let dup=false, xp=0;
+  if(had){ dup=true; xp=PACK_DUP_XP; addMasteryXp(item.unit, xp); }
+  return { item, dup, xp };
+}
+// 装備中の（所持済み・有効な）フレーム/称号/ネームカラーid。未所持や不正は空＝なし。
+function equippedFrame(){ const id=myProfile.frame; return (id && FRAME_BY_ID[id] && ownsCollected(id))?id:''; }
+function equippedTitle(){ const id=myProfile.title; return (id && TITLE_BY_ID[id] && ownsCollected(id))?id:''; }
+function equippedNameColor(){ const id=myProfile.nameColor; return (id && NAME_COLOR_BY_ID[id] && ownsCollected(id))?id:''; }
+function frameRing(id){ const f=FRAME_BY_ID[id]; return f?('box-shadow:'+f.ring+';'):''; }
+function titleText(id){ const t=TITLE_BY_ID[id]; return t?t.name:''; }
+// 名前要素に色/グラデを適用（グラデはbackground-clip:text）。id空でリセット。
+function applyNameColor(el, id){ if(!el) return;
+  el.style.backgroundImage=''; el.style.webkitBackgroundClip=''; el.style.backgroundClip=''; el.style.color='';
+  const c=NAME_COLOR_BY_ID[id]; if(!c) return;
+  if(c.grad){ el.style.backgroundImage=c.css; el.style.webkitBackgroundClip='text'; el.style.backgroundClip='text'; el.style.color='transparent'; }
+  else el.style.color=c.css;
+}
+// 装備トグル（コレクション画面から）。所持していないものは装備できない。
+function equipFrame(id){ if(id && !ownsCollected(id)) return; myProfile.frame=(myProfile.frame===id?'':id); saveProfileLocal(); scheduleCloudSave(); renderProfileChip(); renderCollection(); }
+function equipTitle(id){ if(id && !ownsCollected(id)) return; myProfile.title=(myProfile.title===id?'':id); saveProfileLocal(); scheduleCloudSave(); renderProfileChip(); renderCollection(); }
+function equipNameColor(id){ if(id && !ownsCollected(id)) return; myProfile.nameColor=(myProfile.nameColor===id?'':id); saveProfileLocal(); scheduleCloudSave(); renderProfileChip(); renderCollection(); }
+// 通貨まわり
+function myCoins(){ return (myProfile && typeof myProfile.coins==='number')?myProfile.coins:0; }
+function todayKey(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+// 対戦報酬のコイン計算（純粋関数・テスト対象）
+function battleCoinReward(won, firstWinToday){ return COIN_PLAY + (won?COIN_WIN:0) + ((won&&firstWinToday)?COIN_DAILY_WIN:0); }
+// 対戦決着時にコインを付与（勝敗＋デイリー初勝利を反映）。CPU/PVP両方で呼ぶ（チュートリアルは除外）。結果 {gain,first,won} を返す。
+function grantBattleReward(won){
+  const first = !!won && myProfile.dailyWinKey!==todayKey();
+  const gain = battleCoinReward(!!won, first);
+  myProfile.coins = myCoins()+gain;
+  if(first) myProfile.dailyWinKey=todayKey();
+  saveProfileLocal(); scheduleCloudSave();
+  return { gain, first, won:!!won };
+}
 // 指定ユニットに「装備中かつ解禁済み」のスキンの立ち絵接頭辞(base)を返す。無ければ null。
 function activeSkinBase(unitKey){
   const id = myProfile.skins && myProfile.skins[unitKey]; if(!id) return null;
@@ -3726,10 +3864,11 @@ function equipSkin(unit, id){
   const pane=$('detTabMastery'); if(pane) pane.innerHTML=masteryDetailHTML(unit);   // その場で再描画
 }
 // アバターの表示HTML（特別アイコンは画像／通常はユニット絵文字）。keyは ユニットkey か 特別アバターid。
-function avatarHTML(key, size){
+function avatarHTML(key, size, frameId){
   size = size||22;
   const id = validAvatarId(key);   // 絵文字/不正キーは既定クッキー画像に置き換え（絵文字アイコンは廃止）
-  return '<img src="'+SPRITE_DATA[id]+'" alt="" style="width:'+size+'px;height:'+size+'px;border-radius:6px;object-fit:cover;image-rendering:pixelated;vertical-align:middle">';
+  const ring = frameId ? frameRing(frameId) : '';   // 装飾フレーム（あれば）＝box-shadowなのでレイアウトに影響しない
+  return '<img src="'+SPRITE_DATA[id]+'" alt="" style="width:'+size+'px;height:'+size+'px;border-radius:6px;object-fit:cover;image-rendering:pixelated;vertical-align:middle;'+ring+'">';
 }
 // PVP対戦の決着時に呼ぶ：デッキ各キャラに熟練度XPを付与（勝ち=多め/負け=少なめ）。CPU戦では呼ばない。
 // レベルが上がって特別アイコンの解禁レベルに達したらトースト通知。
@@ -3772,13 +3911,13 @@ function displayProfile(){ return { name: (myProfile.name||'').trim() || default
 // --- デッキ／プロフィールのローカル保存（ログイン有無に関わらず端末に残す） ---
 function saveDeckLocal(){ try{ localStorage.setItem('sw_deck', JSON.stringify(myDeck)); }catch(e){} }
 function loadDeckLocal(){ try{ const s=localStorage.getItem('sw_deck'); if(s){ const a=JSON.parse(s); if(Array.isArray(a)) applyProfile({deck:a}); } }catch(e){} }
-function saveProfileLocal(){ try{ localStorage.setItem('sw_profile', JSON.stringify({name:myProfile.name,avatar:myProfile.avatar,mastery:myProfile.mastery||{}})); }catch(e){} }
-function loadProfileLocal(){ try{ const s=localStorage.getItem('sw_profile'); if(s){ const o=JSON.parse(s); applyProfile({name:o.name,avatar:o.avatar,mastery:o.mastery}); } }catch(e){} }
+function saveProfileLocal(){ try{ localStorage.setItem('sw_profile', JSON.stringify({name:myProfile.name,avatar:myProfile.avatar,mastery:myProfile.mastery||{},coins:myProfile.coins||0,collected:myProfile.collected||{},frame:myProfile.frame||'',title:myProfile.title||'',nameColor:myProfile.nameColor||'',dailyWinKey:myProfile.dailyWinKey||''})); }catch(e){} }
+function loadProfileLocal(){ try{ const s=localStorage.getItem('sw_profile'); if(s){ const o=JSON.parse(s); applyProfile({name:o.name,avatar:o.avatar,mastery:o.mastery,coins:o.coins,collected:o.collected,frame:o.frame,title:o.title,nameColor:o.nameColor,dailyWinKey:o.dailyWinKey}); } }catch(e){} }
 // 編成変更時に呼ぶ：ローカル保存＋（ログイン中なら）クラウドへデバウンス保存
 function persistDeck(){ saveDeckLocal(); scheduleCloudSave(); }
 
 // --- 保存プロフィールの整形（純粋関数・テスト対象） ---
-function buildProfile(){ return { deck: myDeck.slice(0, CONFIG.deckSize), name: myProfile.name||'', avatar: myProfile.avatar||'', trophies: myTrophies(), best: Math.max(myProfile.best||0, myTrophies()), wins: myProfile.wins||0, losses: myProfile.losses||0, mastery: myProfile.mastery||{}, usage: myProfile.usage||{}, skins: myProfile.skins||{}, tutorialDone: tutSeen(), updatedAt: Date.now() }; }
+function buildProfile(){ return { deck: myDeck.slice(0, CONFIG.deckSize), name: myProfile.name||'', avatar: myProfile.avatar||'', trophies: myTrophies(), best: Math.max(myProfile.best||0, myTrophies()), wins: myProfile.wins||0, losses: myProfile.losses||0, mastery: myProfile.mastery||{}, usage: myProfile.usage||{}, skins: myProfile.skins||{}, coins: myCoins(), collected: myProfile.collected||{}, frame: myProfile.frame||'', title: myProfile.title||'', nameColor: myProfile.nameColor||'', dailyWinKey: myProfile.dailyWinKey||'', tutorialDone: tutSeen(), updatedAt: Date.now() }; }
 // クラウド/ローカルから読んだプロフィールをゲーム状態へ反映（不正キーは除外）
 function applyProfile(p){
   if(!p) return;
@@ -3793,6 +3932,12 @@ function applyProfile(p){
   myProfile.best = Math.max(myProfile.best||0, myProfile.trophies||0);   // 現在値より下がらないよう保証
   if(p.usage && typeof p.usage==='object'){ if(!myProfile.usage) myProfile.usage={}; for(const k in p.usage){ const v=p.usage[k]; if(UNIT_BY_KEY[k] && typeof v==='number' && isFinite(v)) myProfile.usage[k]=Math.max(myProfile.usage[k]||0, Math.max(0,Math.round(v))); } }   // 使用回数も大きい方を採用（マージ）
   if(p.skins && typeof p.skins==='object'){ if(!myProfile.skins) myProfile.skins={}; for(const k in p.skins){ const v=p.skins[k]; if(UNIT_BY_KEY[k] && SPECIAL_SKIN_BY_ID[v] && SPECIAL_SKIN_BY_ID[v].unit===k) myProfile.skins[k]=v; } }   // 装備スキン（有効なものだけ反映）
+  if(typeof p.coins==='number' && isFinite(p.coins)) myProfile.coins = Math.max(myProfile.coins||0, Math.max(0,Math.round(p.coins)));   // コインは大きい方を採用（端末とクラウドのマージ・進捗が消えないように）
+  if(p.collected && typeof p.collected==='object'){ if(!myProfile.collected) myProfile.collected={}; for(const id in p.collected){ const v=p.collected[id]; if(typeof v==='number' && isFinite(v) && v>0) myProfile.collected[id]=Math.max(myProfile.collected[id]||0, Math.round(v)); } }   // 所持コレクション（個数は大きい方）
+  if(typeof p.frame==='string') myProfile.frame = p.frame;         // 装備フレーム（使用時に所持/有効を再検証するのでそのまま反映）
+  if(typeof p.title==='string') myProfile.title = p.title;         // 装備称号
+  if(typeof p.nameColor==='string') myProfile.nameColor = p.nameColor;   // 装備ネームカラー
+  if(typeof p.dailyWinKey==='string' && p.dailyWinKey) myProfile.dailyWinKey = p.dailyWinKey;   // デイリー初勝利の付与日
   if(typeof p.wins==='number') myProfile.wins = Math.max(0, Math.round(p.wins));
   if(typeof p.losses==='number') myProfile.losses = Math.max(0, Math.round(p.losses));
   if(p.tutorialDone) markTutSeen();
@@ -3822,7 +3967,7 @@ function googleCredFromErr(err){
        if(firebase.auth.GoogleAuthProvider.credentialFromError) return firebase.auth.GoogleAuthProvider.credentialFromError(err); }catch(e){}
   return null;
 }
-function authGoogleDone(){ try{ authMsg('ログインしました ☁'); updateAuthUI(); renderProfileChip(); renderHomeTrophies(); }catch(e){} }
+function authGoogleDone(){ try{ authMsg('ログインしました ☁'); updateAuthUI(); renderProfileChip(); renderHomeTrophies(); renderHomeCoins(); }catch(e){} }
 // 匿名(ゲスト)中なら link で“引き継ぎ”、そうでなければ通常サインイン。
 function authGoogle(){
   const a=getAuth(); if(!a){ authMsg('Firebaseが未設定です'); return; }
@@ -3903,7 +4048,7 @@ function onSignedIn(user){
       cloudSaveNow();   // 新規アカウント：この端末の内容をアップロード
       authMsg('この端末の内容をクラウドに保存しました ☁');
     }
-    renderHomeTrophies(); renderProfileChip(); leaderboardSubmit();   // トロフィー/プロフィール表示更新＋ランキングへ登録
+    renderHomeTrophies(); renderHomeCoins(); renderProfileChip(); leaderboardSubmit();   // トロフィー/コイン/プロフィール表示更新＋ランキングへ登録
   }).catch(function(e){ console.warn('cloud load失敗',e); authMsg('クラウド読込に失敗しました'); });
 }
 function scheduleCloudSave(){ if(!authUser) return; try{ clearTimeout(_cloudSaveT); }catch(e){} _cloudSaveT=setTimeout(cloudSaveNow, 800); }
@@ -3965,8 +4110,65 @@ function leaderboardSubmit(){
 }
 // ホームのトロフィー表示を更新
 function renderHomeTrophies(){ const el=$('homeTrophies'); if(el) el.textContent='🏆 '+myTrophies(); }
+function renderHomeCoins(){ const el=$('homeCoins'); if(el) el.textContent='🍬 '+myCoins()+' コイン'; }
+
+/* ===== ショップ＆コレクション（見た目だけ・対戦バランス不変） ===== */
+function openShop(){ try{ SFX.play('button'); }catch(e){} const mm=$('menuModal'); if(mm) mm.classList.add('hidden'); renderShop(); const m=$('shopModal'); if(m) m.classList.remove('hidden'); }
+function closeShop(e){ if(e && e.target!==e.currentTarget) return; const m=$('shopModal'); if(m) m.classList.add('hidden'); }
+function renderShop(){ const cl=$('packCostLabel'); if(cl) cl.textContent=PACK_COST; renderShopCoins(); const pr=$('packResult'); if(pr) pr.innerHTML=''; renderCollection(); }
+function renderShopCoins(){ const el=$('shopCoins'); if(el) el.innerHTML='🍬 <b>'+myCoins()+'</b> コイン'; const btn=$('buyPackBtn'); if(btn){ btn.disabled=myCoins()<PACK_COST; btn.style.opacity=btn.disabled?'.5':'1'; } renderHomeCoins(); }
+// アイテムの小さな見た目プレビュー（コレクション/開封結果用）。
+function packItemVisual(it, size){ size=size||40;
+  if(it.type==='ava')  return avatarHTML(it.id, size);
+  if(it.type==='skin'){ const s=SPECIAL_SKIN_BY_ID[it.id]; return s?('<img src="'+SPRITE_DATA[s.base+'_blue']+'" alt="" style="width:'+size+'px;height:'+size+'px;object-fit:contain;image-rendering:pixelated;vertical-align:middle">'):''; }
+  if(it.type==='frame') return '<span style="display:inline-block;width:'+size+'px;height:'+size+'px;border-radius:8px;background:var(--panel-2);'+frameRing(it.id)+'"></span>';
+  if(it.type==='color'){ const c=NAME_COLOR_BY_ID[it.id]; const st = c ? (c.grad?('background-image:'+c.css+';-webkit-background-clip:text;background-clip:text;color:transparent'):('color:'+c.css)) : ''; return '<span style="display:inline-flex;align-items:center;justify-content:center;width:'+size+'px;height:'+size+'px;font-weight:800;font-size:'+Math.round(size*0.6)+'px;'+st+'">A</span>'; }
+  if(it.type==='title') return '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:'+size+'px;height:'+size+'px;font-size:11px;font-weight:700;color:var(--brass)">「'+it.name+'」</span>';
+  return '';
+}
+// パックを1回開ける（コインを消費）。
+function buyPack(){
+  if(myCoins()<PACK_COST){ toast('コインが足りません（🍬'+PACK_COST+'必要）'); return; }
+  try{ SFX.play('pick'); }catch(e){}
+  myProfile.coins=myCoins()-PACK_COST;
+  const res=openPackOnce(Math.random());
+  saveProfileLocal(); scheduleCloudSave();
+  renderShopCoins();
+  const pr=$('packResult');
+  if(pr && res){ const it=res.item; const kind={frame:'フレーム',title:'称号',color:'ネームカラー',ava:'アイコン',skin:'スキン'}[it.type]||'アイテム';
+    let body;
+    if(res.dup){ const u=UNIT_BY_KEY[it.unit]; body='<div style="font-weight:700;color:var(--steel)">重複！ 「'+it.name+'」→ '+(u?u.name:it.unit)+'の熟練度 +'+res.xp+'XP</div>'; }
+    else body='<div style="font-weight:800;color:var(--green)">🎉 NEW！ '+kind+'「'+it.name+'」を入手！</div>';
+    pr.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px;background:var(--panel-2);border-radius:12px">'+packItemVisual(it,48)+body+'</div>';
+  }
+  renderCollection();
+}
+// コレクション一覧（フレーム／称号／ネームカラー）。所持=装備トグル、未所持=🔒。
+function renderCollection(){
+  const box=$('collectionGrid'); if(!box) return;
+  const sec=function(title, items, type, curEquip){
+    let rows=items.map(function(it){
+      const owned=ownsCollected(it.id); const on=(curEquip===it.id);
+      const btn = owned
+        ? '<button class="btn '+(on?'btn-primary':'btn-ghost')+'" style="padding:4px 10px;font-size:12px" onclick="equip'+type+'(\''+it.id+'\')">'+(on?'装備中 ✓':'装備する')+'</button>'
+        : '<span style="font-size:11px;color:var(--muted)">🔒 パックで入手</span>';
+      return '<div style="display:flex;align-items:center;gap:10px;padding:6px 4px;border-bottom:1px dashed var(--line);opacity:'+(owned?'1':'.6')+'">'
+        + packItemVisual({type:type==='Frame'?'frame':type==='Title'?'title':'color', id:it.id, name:it.name}, 34)
+        + '<div style="flex:1;font-size:13px;font-weight:600">'+it.name+'</div>'+btn+'</div>';
+    }).join('');
+    return '<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:800;color:var(--muted);margin:4px 0">'+title+'</div>'+rows+'</div>';
+  };
+  box.innerHTML =
+      sec('🖼 フレーム', FRAMES, 'Frame', equippedFrame())
+    + sec('🏷 称号', TITLES, 'Title', equippedTitle())
+    + sec('🎨 ネームカラー', NAME_COLORS, 'NameColor', equippedNameColor());
+}
 // 左上タイトル下のプロフィールチップ（アイコン＋名前）を更新
-function renderProfileChip(){ const dp=displayProfile(); const ic=$('profileChipIco'), nm=$('profileChipName'); if(ic) ic.innerHTML=avatarHTML(dp.avatar, 22); if(nm) nm.textContent=dp.name; }
+function renderProfileChip(){ const dp=displayProfile(); const ic=$('profileChipIco'), nm=$('profileChipName'), tt=$('profileChipTitle');
+  if(ic) ic.innerHTML=avatarHTML(dp.avatar, 22, equippedFrame());
+  if(nm){ nm.textContent=dp.name; applyNameColor(nm, equippedNameColor()); }
+  if(tt) tt.textContent = titleText(equippedTitle());   // 称号（TITLESの固定文字＝安全）
+}
 // ランキング画面を開いて上位を表示
 function openRanking(){
   try{ SFX.play('button'); }catch(e){} closeMenu();
@@ -4033,7 +4235,7 @@ let _avatarPick='';
 function fillProfileEditor(){
   const dp=displayProfile(); _avatarPick = validAvatarId(myProfile.avatar);
   if($('profileName')) $('profileName').value = myProfile.name||'';
-  if($('profileAvatarPrev')) $('profileAvatarPrev').innerHTML = avatarHTML(_avatarPick, 30);
+  if($('profileAvatarPrev')) $('profileAvatarPrev').innerHTML = avatarHTML(_avatarPick, 30, equippedFrame());
   renderAvatarGrid();
   renderProfileStats();
 }
@@ -4995,13 +5197,14 @@ function pvpGuestOnGameover(m){
   awardMasteryXp(won);   // 子は常にPVP。熟練度XPを付与（勝ち多め/負け少なめ）
   let tro='';
   if(pvpRanked){ const d=applyTrophyResult(won, pvpOppProfile&&pvpOppProfile.trophies); renderHomeTrophies(); tro='　🏆 '+(d>=0?'+':'')+d+'（合計 '+myTrophies()+'）'; }   // ランダムマッチのみ変動
+  const rw=grantBattleReward(won); const coinLine='　🍬 +'+rw.gain+' コイン'+(rw.first?'（デイリー初勝利ボーナス込み！）':''); renderHomeCoins();   // 子も対戦報酬をもらう
   $('overTitle').textContent=won?'勝利！':'敗北…'; $('overTitle').style.color=won?'var(--green)':'var(--rust)';
-  $('overText').textContent=(won?'対戦に勝利しました！🎉':'対戦に敗北しました。')+tro;
+  $('overText').textContent=(won?'対戦に勝利しました！🎉':'対戦に敗北しました。')+tro+coinLine;
   pvpSetupOverButtons(privateRoom);
   show('over');
 }
 
-resetState(); loadDeckLocal(); loadProfileLocal(); renderScore(); renderHomeTrophies(); renderProfileChip(); renderNewsDot(); show('home');   // 端末に保存したデッキ／プロフィール／トロフィーを復元＋お知らせ新着ドット
+resetState(); loadDeckLocal(); loadProfileLocal(); renderScore(); renderHomeTrophies(); renderHomeCoins(); renderProfileChip(); renderNewsDot(); show('home');   // 端末に保存したデッキ／プロフィール／トロフィー／コインを復元＋お知らせ新着ドット
 try{ authInit(); }catch(e){}   // ログイン状態の監視を開始（未設定なら何もしない）
 try{ getAnalytics(); }catch(e){}   // GA4を起動時に初期化（タグ検出＋page_view/セッションの自動計測。未設定なら何もしない）
 try{ pvpTryResumeOnLoad(); }catch(e){}   // リログ（再読み込み）で対戦が切れていたら通知
