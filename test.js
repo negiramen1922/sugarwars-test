@@ -2361,6 +2361,25 @@ console.log('\n=== 79) 熟練度XP（PVPのみ・勝ち多め/負け少なめ）
   check('applyProfileで熟練度XPが復元される', API.masteryXp('cookie') === needXp);
 }
 
+console.log('\n=== 80) 大福サムライ：敵を見失って(ゴーストのワープ中)も固まらず復帰 ===');
+{
+  const W = 440, H = 660;
+  const w = API.createWorld(W, H); API.world = w; w.phase = 'battle'; w.intro = 0;
+  const sam = API.makeFighters('daifuku', 'p', W, H, 'army')[0];
+  sam.x = W / 2; sam.y = H / 2 + 100; sam.appear = 1; sam.hp = sam.maxHp = 99999; w.units.push(sam);
+  const foe = API.makeFighters('choco', 'e', W, H, 'army')[0];
+  foe.x = W / 2; foe.y = H / 2 - 100; foe.appear = 1; foe.hp = foe.maxHp = 99999; w.units.push(foe);
+  // 敵を無敵にして「見失う」状態を作る（ゴーストのワープ中＝nearestEnemyが返さないのと同じ）
+  for (let i = 0; i < 120; i++) { foe.invuln = 5; API.stepWorld(w, 1 / 60); }
+  check('敵を見失うと idle になる', sam.cstate === 'idle', sam.cstate);
+  // 敵が戻る（無敵解除＝ワープ終了）→ 固まらず居合に復帰する
+  foe.invuln = 0;
+  for (let i = 0; i < 240; i++) { API.stepWorld(w, 1 / 60); }
+  check('敵が戻ると idle から復帰する（固まらない）', sam.cstate !== 'idle', sam.cstate);
+  check('復帰後は居合の状態（charge/dash/walk）になる', ['charge', 'dash', 'walk'].includes(sam.cstate), sam.cstate);
+  check('復帰後に敵へダメージが入る（実際に攻撃できている）', foe.hp < foe.maxHp, { hp: foe.hp, max: foe.maxHp });
+}
+
 Promise.resolve().then(() => {
   console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
   process.exit(fail ? 1 : 0);
