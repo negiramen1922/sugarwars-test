@@ -2232,6 +2232,8 @@ function applyHit(world, atk, tgt, dmg){
   popDmg(world, tgt.x, tgt.y-tgt.r-4, real, '#ffd9c2');
   if(tgt.hp<=0) killUnit(world, tgt);
 }
+// 直接HPを引く範囲ダメージ（爆発・衝撃波など applyHit を通さない経路）にも殻ダメージカットを効かせる。
+function shellCut(o, dmg){ return (o && o.inShell) ? Math.max(1, Math.round(dmg*(1-SHELL_DR))) : dmg; }
 function killUnit(world, t){
   if(t._dead) return; t._dead=true; t.hp=0;
   t.dying=true; t.dieT=0; t.dieDir=(Math.random()<0.5?-1:1);   // 立ち絵を横に倒してから消す演出
@@ -2242,7 +2244,7 @@ function killUnit(world, t){
     world.rings.push({x:t.x,y:t.y,r:4,max:t.blastR,life:0.35,color:'#ffb24d'});
     burst(world,t.x,t.y,'#ffb24d',22,150);
     for(const o of world.units){ if(o.side===t.side||o.hp<=0||(o.invuln||0)>0) continue; const dx=o.x-t.x, dy=o.y-t.y, dd=dx*dx+dy*dy; if(dd < t.blastR*t.blastR){   // 無敵中は爆発も当たらない
-      const dl=Math.sqrt(dd)||1, dmg=Math.max(1,Math.round(t.blast*(1-BLAST_FALLOFF*(dl/t.blastR))));   // 中心ほど高ダメージ（外周は減衰）
+      const dl=Math.sqrt(dd)||1, dmg=shellCut(o, Math.max(1,Math.round(t.blast*(1-BLAST_FALLOFF*(dl/t.blastR)))));   // 中心ほど高ダメージ（外周は減衰）。殻マカロンはカット
       o.hp-=dmg; o.flash=0.2; popDmg(world,o.x,o.y-o.r-4,dmg,'#ffb24d');
       const kf=(1-dl/t.blastR)*BLAST_KB; o.knockx+=dx/dl*kf; o.knocky+=dy/dl*kf;   // 爆発ノックバック（中心ほど強い・kb無敵を貫通）
       if(o.hp<=0) killUnit(world,o); } }
@@ -2328,7 +2330,7 @@ function evolvedStep(world, u, tgt, dt){
         if(o.side===u.side||o.hp<=0) continue;
         const dx=o.x-u.x,dy=o.y-u.y,dd=dx*dx+dy*dy;
         if(dd<u.shockR*u.shockR){
-          o.hp-=u.shockDmg; o.flash=0.2; popDmg(world,o.x,o.y-o.r-4,u.shockDmg,'#ffb24d');
+          const sdmg=shellCut(o, u.shockDmg); o.hp-=sdmg; o.flash=0.2; popDmg(world,o.x,o.y-o.r-4,sdmg,'#ffb24d');
           const d=Math.sqrt(dd)||1;
           if((o.kbImmune||0)<=0 && !o.vacuum && !o.armed){ o.knockx+=dx/d*3.2; o.knocky+=dy/d*3.2; }
           if(o.hp<=0) killUnit(world,o);
