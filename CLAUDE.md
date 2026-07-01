@@ -91,6 +91,7 @@
 - 強化で立ち絵が変わるキャラ：**チョコ**（`choco_buff_*`＝ビター装甲、`u.chocoBuff`）・**シュー**（`shoe_buff_*`＝特盛り、`u.shoeBuff`）・**ソーダ**（`soda_buff_*`＝炭酸沼強化、`u.fizz`）・**ベーカリー**（`bakery_buff_*`＝ラストベイク、`u.bakeryBuff`）・**ポップコーン**（`bomb_buff_*`＝おかわり、`u.spawnMini`）・**大福**（`daifuku_buff_*`＝特大大福、`u.daifukuBuff`）・**ゴースト**（`ghost_buff_*`＝分身、`u.cloneOn`／おとり分身は通常絵）・**キャノン**（`cannon_buff_*`＝クラスター花火弾、`u.cluster`）・**ドーナッツ**（`donut_buff_*`＝鉄壁、`u.donutWall`）・**アイス**（`icewiz_buff_*`＝ブリザード、`u.icewizBuff`）・**マカロン**（`macaron_buff_*`/`macaron_spin_buff_*`＝ビッグシェル）。いずれも陣営色つき。`spriteFor()` で解決。
 - 立ち絵が無いキャラは絵文字フォールバック。
 - **強化カードの絵**：`SPECIALS` に `evoSprite`（例 `buff_choco`→`choco_buff_blue`／`fast_pancake`→`pancake_evo`）を持つ強化は、ドラフトのカード絵を**進化後/強化後の立ち絵**で出す（`specialCardIcon()`）。無ければ対象キャラのベース絵→絵文字にフォールバック。
+- **ヘッダーのアクション（`.topbar-actions`）**：右上に「コミュニティに参加！(Discord・他より横長)」→「お知らせ📢(`#newsBtn`)」→「設定⚙」の順。お知らせは**新着があると赤ドット**（`renderNewsDot`/`#newsDot`）＝最新 `NEWS[0].ver` を `localStorage('sw_news_seen')` と比較（`newsUnseen`）、`openNews` で既読化（`markNewsSeen`）。起動時に `renderNewsDot()`。
 - **キャラ詳細（`showDetail`）**：**「ステータス」「熟練度」の2タブ**（`switchDetailTab`）。ステータスタブ＝ダメージタイプのバッジ（`unitDamageType()`＝近距離/遠距離×単体/範囲・自爆/生産）＋ステータスグリッド（召喚数/攻撃/HP/移動速度/攻撃速度=`cd`秒/回/射程＝`fmtSpeed`不動・`fmtRange`全域）＋説明＋`enhDisplay()`（進化＝自動／固有強化＝強化後HP/攻撃を定数から再計算＋進化後の立ち絵）。熟練度タブ＝`masteryDetailHTML()`。モーダルは `.modal-card` に `max-height:calc(100vh-40px);overflow-y:auto` で**縦長でもスクロール**（全モーダル共通）。テスト：test.js 85。
 
 ### スプライト加工の手順（同梱の `sprite_proc.py` を使用）
