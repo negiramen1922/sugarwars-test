@@ -1244,9 +1244,10 @@ function showDetail(key){
       <p>${e.text}</p></div>`).join('');
   const betaNote = u.beta ? `<div class="md-beta">🔧 ベータ実装：性能はバランス調整中です（数値は今後変わることがあります）。</div>` : '';
   const gcell=(v,l)=>`<div class="g"><div class="gv">${v}</div><div class="gl">${l}</div></div>`;
+  const atkSpd = (u.suicide||u.spawner) ? '—' : fmtCd(u);   // 自爆/生産は攻撃速度の概念がない
   const grid=`<div class="md-grid">
-    ${gcell('×'+u.count,'召喚数')}${gcell('<span class="atk">⚔ '+u.atk+'</span>','攻撃')}${gcell('<span class="hp">✚ '+u.hp+'</span>','HP')}
-    ${gcell(fmtSpeed(u.speed),'移動速度')}${gcell(fmtCd(u),'攻撃速度')}${gcell(fmtRange(u.range),'射程')}
+    ${gcell('×'+u.count,'召喚数')}${gcell('<span class="atk">'+unitAtkText(u)+'</span>',unitAtkLabel(u))}${gcell('<span class="hp">✚ '+u.hp+'</span>','HP')}
+    ${gcell(fmtSpeed(u.speed),'移動速度')}${gcell(atkSpd,'攻撃速度')}${gcell(fmtRange(u.range),'射程')}
   </div>`;
   $('detailBody').innerHTML=`<div class="md-art">${iconHTML(u)}</div>
     <h3>${u.name}${u.beta?' <span class="beta-badge" style="position:static;display:inline-flex;vertical-align:middle;text-transform:none">β</span>':''}</h3>
@@ -1304,6 +1305,18 @@ function enhDisplay(u){
     else if(u.key==='macaron') stats={hp:Math.round(u.hp*(1+MACARON_HP)),  atk:u.atk};
     out.push({ kind:'強化', name:s.name, sprite:s.evoSprite||'', stats:stats, text:s.text });
   }
+  // スライムは「融合」(SPECIALS.up_slime)が実質の強化。合体後のステータスを再計算して表示する。
+  if(u.key==='slime'){
+    const shp=Math.round(u.hp*3*FUSE.hpMul), satk=Math.round(u.atk*FUSE.atkMul);
+    out.push({ kind:'強化', name:SPECIALS.up_slime.name, sprite:'slime_blue_big', stats:{hp:shp, atk:satk},
+      text:'今いるスライムを3体ずつ巨大スライムに合体（余りはそのまま）。硬く強くなり（3体合体でHP約'+shp+'・攻撃約'+satk+'）、倒れると3体に分裂してまた戦う。' });
+  }
+  // ベーカリーは自分では攻撃しないので、召喚するジンジャーソルジャーの性能も併記する。
+  if(u.key==='bakery'){
+    const g=UNIT_BY_KEY['ginger'];
+    if(g) out.push({ kind:'生産ユニット', name:g.name, sprite:'ginger_blue', stats:{hp:g.hp, atk:g.atk},
+      text:'ベーカリーが焼き上げる小さな兵士。脆いが足が速い（攻撃'+g.atk+'／HP'+g.hp+'／移動速度'+g.speed+'／攻撃速度'+g.cd+'秒／射程'+g.range+'・近距離単体）。約'+u.spawnCd+'秒ごとに生産し、個体ごと最大'+u.spawnCap+'体まで増える。' });
+  }
   return out;
 }
 // キャラのダメージタイプ（近距離/遠距離 × 単体/範囲）を判定。詳細画面のバッジに使う（純粋関数）。
@@ -1316,6 +1329,14 @@ function unitDamageType(u){
   if(ranged) return aoe ? '遠距離・範囲' : '遠距離・単体';
   return aoe ? '近距離・範囲' : '近距離・単体';
 }
+// 攻撃力の表示：殴り攻撃が0でも、自爆や迫撃などは実際のダメージ（爆発/弾）を出す。
+function unitAtkText(u){
+  if(u.atk>0) return '⚔ '+u.atk;
+  if(u.suicide && u.blast) return '💥 '+u.blast;       // 自爆の爆発ダメージ
+  if(u.artillery && u.mortar) return '💥 '+u.mortar;   // 迫撃弾の爆発ダメージ
+  return '—';                                          // 生産役など（攻撃しない）
+}
+function unitAtkLabel(u){ return (u.atk<=0 && ((u.suicide&&u.blast)||(u.artillery&&u.mortar))) ? '爆発ダメージ' : '攻撃'; }
 // 詳細画面のステータス表示用の整形（不動/全域などを分かりやすく）。
 function fmtSpeed(v){ return (v===0||v==null) ? '不動' : String(v); }
 function fmtRange(v){ if(v==null) return '—'; if(v>=9999) return '全域'; return String(v); }
