@@ -2375,7 +2375,7 @@ function chargerStep(world, u, tgt, dt){
   const clamp=()=>{ u.x=Math.max(u.r,Math.min(world.W-u.r,u.x)); u.y=Math.max(u.r,Math.min(world.H-u.r,u.y)); };
   if(!tgt){ u.cstate='idle'; u.drawn=false; clamp(); return; }
   const dist=Math.hypot(tgt.x-u.x, tgt.y-u.y);
-  if(!u.cstate) u.cstate='charge';
+  if(!u.cstate || u.cstate==='idle') u.cstate='charge';   // 敵を見失って'idle'になっても、敵が戻ったら居合に復帰（ゴーストのワープ中に固まるバグ対策）
 
   if(u.cstate==='walk'){
     u.drawn=true;
