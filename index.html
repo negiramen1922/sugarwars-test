@@ -1039,7 +1039,6 @@ function startGame(){
   // ライバルのデッキは「敵コントローラ」が決める（CPU＝従来どおり／将来はPVPの相手プレイヤー）
   state.foeLoadout = foeCtl.deck();
   trackBattleStart(tutorial?'tutorial':'cpu');   // 計測：対戦開始（CPU/チュートリアル）
-  if(!tutorial) bumpMasteryForDeck();   // 熟練度加算（チュートリアルは除外）
   renderScore();
   beginDraft();
 }
@@ -3154,6 +3153,7 @@ function endGame(){
   if(privateRoom){ pvpPresenceSet('connecting'); }   // 接続は保持・対戦間は待機表示にしない（マッチ待ちにも数えない）
   else { pvpPresenceSet('home'); if(wasPvp) foeCtl=makeCpuFoeController(); }   // 後始末（「もう一度」はCPU対戦に戻す）
   const won=state.foeLives<=0;
+  if(wasPvp) awardMasteryXp(won);   // 熟練度XPはPVPのみ（CPU戦は除外）・勝ち多め/負け少なめ
   let trophyLine='';
   if(wasPvp && pvpRanked){ const d=applyTrophyResult(won, pvpOppProfile&&pvpOppProfile.trophies); trophyLine='🏆 '+(d>=0?'+':'')+d+'（合計 '+myTrophies()+'）'; renderHomeTrophies(); }   // ランダムマッチのみトロフィー増減（あいことば/CPUは非変動）
   $('overTitle').textContent=won?'勝利！':'敗北…';
@@ -3456,30 +3456,40 @@ function genRoomCode(){ const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; fo
    ============================================================ */
 let authUser=null;            // ログイン中のユーザー（未ログインはnull）
 let _cloudSaveT=0;            // クラウド保存のデバウンス用タイマ
-let myProfile={ name:'', avatar:'', trophies:1000, wins:0, losses:0, mastery:{} };   // 名前＋アイコン＋トロフィー(=レート)＋戦績＋キャラ熟練度(key→対戦回数)
-/* 熟練度で解禁する特別アバターアイコン。そのキャラをデッキに入れて MASTERY_NEED 回対戦すると解禁。 */
-const MASTERY_NEED = 10;   // 解禁に必要な対戦回数（このキャラをデッキに入れて戦った回数）
+let myProfile={ name:'', avatar:'', trophies:1000, wins:0, losses:0, mastery:{} };   // 名前＋アイコン＋トロフィー(=レート)＋戦績＋キャラ熟練度(key→XP)
+/* 熟練度（キャラ経験値）で解禁する特別アバターアイコン。XPは【PVP対戦のみ】、勝ち=多め/負け=少なめで加算。
+   ★重要：解禁は見た目（アイコン/スキン）だけにする。強化カード等ゲーム性能は熟練度で解禁しない＝対戦は常にフェア。 */
+const MASTERY_WIN_XP = 10;      // PVPで勝ったとき、デッキ各キャラに入る熟練度XP
+const MASTERY_LOSE_XP = 3;      // 負けたときのXP（少量）
+const MASTERY_XP_PER_LEVEL = 50; // このXPごとに熟練度レベル+1
 const SPECIAL_AVATARS = [
-  { id:'ava_bomb',   unit:'bomb',   name:'クールポップコーン' },
-  { id:'ava_choco',  unit:'choco',  name:'アイアンチョコナイト' },
-  { id:'ava_cookie', unit:'cookie', name:'サングラスクッキー' },
+  { id:'ava_bomb',   unit:'bomb',   name:'クールポップコーン',   lvl:3 },   // そのキャラの熟練度が lvl 以上で解禁
+  { id:'ava_choco',  unit:'choco',  name:'アイアンチョコナイト', lvl:3 },
+  { id:'ava_cookie', unit:'cookie', name:'サングラスクッキー',   lvl:3 },
 ];
 const SPECIAL_AVATAR_BY_ID = Object.fromEntries(SPECIAL_AVATARS.map(s=>[s.id,s]));
-function masteryOf(unit){ return (myProfile.mastery && myProfile.mastery[unit]) || 0; }
-function avatarUnlocked(id){ const s=SPECIAL_AVATAR_BY_ID[id]; return !s ? true : (masteryOf(s.unit) >= MASTERY_NEED); }   // 通常(ユニット)アイコンは常に可、特別は熟練度で判定
+function masteryXp(unit){ return (myProfile.mastery && myProfile.mastery[unit]) || 0; }
+function masteryLevel(unit){ return Math.floor(masteryXp(unit) / MASTERY_XP_PER_LEVEL); }   // XP→レベル
+function avatarUnlocked(id){ const s=SPECIAL_AVATAR_BY_ID[id]; return !s ? true : (masteryLevel(s.unit) >= s.lvl); }   // 通常(ユニット)アイコンは常に可、特別は熟練度レベルで判定
 // アバターの表示HTML（特別アイコンは画像／通常はユニット絵文字）。keyは ユニットkey か 特別アバターid。
 function avatarHTML(key, size){
   size = size||22;
   if(SPECIAL_AVATAR_BY_ID[key] && SPRITE_DATA[key]) return '<img src="'+SPRITE_DATA[key]+'" alt="" style="width:'+size+'px;height:'+size+'px;border-radius:6px;object-fit:cover;image-rendering:pixelated;vertical-align:middle">';
   return '<span style="font-size:'+size+'px;line-height:1">'+avatarIcon(key)+'</span>';
 }
-// 対戦開始時：デッキに入れた各キャラの熟練度を+1。ちょうど閾値に達したら特別アイコンを解禁して通知。
-function bumpMasteryForDeck(){
+// PVP対戦の決着時に呼ぶ：デッキ各キャラに熟練度XPを付与（勝ち=多め/負け=少なめ）。CPU戦では呼ばない。
+// レベルが上がって特別アイコンの解禁レベルに達したらトースト通知。
+function awardMasteryXp(won){
   if(!myProfile.mastery) myProfile.mastery={};
-  const seen={};
-  (myDeck||[]).forEach(function(k){ if(!k||seen[k]) return; seen[k]=1; myProfile.mastery[k]=(myProfile.mastery[k]||0)+1; });
-  const just=SPECIAL_AVATARS.filter(function(s){ return (myProfile.mastery[s.unit]||0)===MASTERY_NEED; });   // ちょうど到達した瞬間だけ通知
-  if(just.length) toast('🎉 新しいアイコンを解禁！ '+just.map(function(s){return s.name;}).join('・')+'（プロフィールで設定できます）');
+  const gain = won ? MASTERY_WIN_XP : MASTERY_LOSE_XP;
+  const seen={}, unlocked=[];
+  (myDeck||[]).forEach(function(k){ if(!k||seen[k]) return; seen[k]=1;
+    const before=masteryLevel(k);
+    myProfile.mastery[k]=(myProfile.mastery[k]||0)+gain;
+    const after=masteryLevel(k);
+    if(after>before){ SPECIAL_AVATARS.forEach(function(s){ if(s.unit===k && before<s.lvl && after>=s.lvl) unlocked.push(s); }); }
+  });
+  if(unlocked.length) toast('🎉 新しいアイコンを解禁！ '+unlocked.map(function(s){return s.name;}).join('・')+'（プロフィールで設定できます）');
   saveProfileLocal(); scheduleCloudSave();
 }
 // 画面下に数秒だけ出るトースト通知（どの画面でも使える）。
@@ -3759,9 +3769,9 @@ function renderAvatarGrid(){
     const unlocked=avatarUnlocked(sa.id), on=(sa.id===_avatarPick);
     const b=document.createElement('button');
     b.style.cssText='position:relative;width:40px;height:40px;border-radius:8px;cursor:'+(unlocked?'pointer':'default')+';padding:0;overflow:hidden;background:var(--panel-2);border:2px solid '+(on?'var(--brass)':'var(--line)');
-    const u=UNIT_BY_KEY[sa.unit];
-    b.title = (unlocked? sa.name : (sa.name+'（'+(u?u.name:sa.unit)+'を'+MASTERY_NEED+'回使うと解禁：'+Math.min(masteryOf(sa.unit),MASTERY_NEED)+'/'+MASTERY_NEED+'）'));
-    b.innerHTML = avatarHTML(sa.id, 36) + (unlocked ? '' : '<div style="position:absolute;inset:0;background:rgba(20,20,25,.62);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:8px;line-height:1.1">🔒<span style="font-family:\'Space Mono\',monospace;font-size:8px">'+Math.min(masteryOf(sa.unit),MASTERY_NEED)+'/'+MASTERY_NEED+'</span></div>');
+    const u=UNIT_BY_KEY[sa.unit], curLv=masteryLevel(sa.unit), needXp=sa.lvl*MASTERY_XP_PER_LEVEL, curXp=Math.min(masteryXp(sa.unit),needXp);
+    b.title = (unlocked? sa.name+'（熟練度Lv'+curLv+'・解禁済み）' : (sa.name+'：'+(u?u.name:sa.unit)+'の熟練度Lv'+sa.lvl+'で解禁（PVP対戦で獲得・今Lv'+curLv+'・XP '+curXp+'/'+needXp+'）'));
+    b.innerHTML = avatarHTML(sa.id, 36) + (unlocked ? '' : '<div style="position:absolute;inset:0;background:rgba(20,20,25,.62);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:9px;line-height:1.15">🔒<span style="font-family:\'Space Mono\',monospace;font-size:8px">Lv'+sa.lvl+'</span></div>');
     if(unlocked) b.onclick=function(){ pickAvatar(sa.id); };
     grid.appendChild(b);
   });
@@ -4270,7 +4280,6 @@ function pvpStartAsHost(){
   state.loadout = myDeck.slice();
   state.foeLoadout = (pvpGuestDeck||[]).slice();
   trackBattleStart('pvp');   // 計測：PVP対戦開始（親）
-  bumpMasteryForDeck();   // 熟練度加算（自分のデッキ）
   pvpSaveResume(); pvpPresenceSet('battling');   // 再接続/リログ検知＋オンライン状態=対戦中
   renderScore();
   pvpHostObj.start({ lives:CONFIG.startLives, round:1, proto:PVP_PROTO, enh:pvpEnh, prof:pvpNetProfile() });
@@ -4537,7 +4546,6 @@ function pvpGuestEnterPlay(m){
   pvpCanRematch=false; pvpRematchMine=false; pvpRematchOpp=false;   // 再戦フラグをリセット（新しい対戦の開始）
   pvpMode=false; pvpGuestActive=true; pvpGuestPicking=false;
   trackBattleStart('pvp');   // 計測：PVP対戦開始（子）
-  bumpMasteryForDeck();   // 熟練度加算（自分のデッキ）
   pvpSaveResume(); pvpPresenceSet('battling');   // 再接続/リログ検知＋オンライン状態=対戦中
   state.youLives=(m&&m.lives)||CONFIG.startLives; state.foeLives=(m&&m.lives)||CONFIG.startLives; state.round=(m&&m.round)||1;
   state.lostLast=false; state.foeLostLast=false;   // 逆転バナー用（初戦は両者なし）
@@ -4618,6 +4626,7 @@ function pvpGuestOnGameover(m){
   if(privateRoom){ pvpPresenceSet('connecting'); }   // 接続は保持
   else { pvpPresenceSet('home'); }   // 正常終了：オンライン状態を戻す
   const won=!!m.youWon;
+  awardMasteryXp(won);   // 子は常にPVP。熟練度XPを付与（勝ち多め/負け少なめ）
   let tro='';
   if(pvpRanked){ const d=applyTrophyResult(won, pvpOppProfile&&pvpOppProfile.trophies); renderHomeTrophies(); tro='　🏆 '+(d>=0?'+':'')+d+'（合計 '+myTrophies()+'）'; }   // ランダムマッチのみ変動
   $('overTitle').textContent=won?'勝利！':'敗北…'; $('overTitle').style.color=won?'var(--green)':'var(--rust)';
