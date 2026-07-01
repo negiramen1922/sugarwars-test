@@ -203,12 +203,25 @@
   .rcard .detail-btn:hover{border-color:var(--rust);background:rgba(255,255,255,.8)}
   /* 詳細モーダル */
   .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px}
-  .modal-card{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:16px;max-width:420px;width:100%;padding:22px;box-shadow:var(--shadow)}
+  .modal-card{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:16px;max-width:420px;width:100%;padding:22px;box-shadow:var(--shadow);max-height:calc(100vh - 40px);overflow-y:auto;overscroll-behavior:contain}
   .modal-card .md-art{text-align:center} .modal-card .md-art img{width:72px;height:72px;image-rendering:pixelated}
   .modal-card h3{font-family:"Oswald",sans-serif;text-transform:uppercase;letter-spacing:.04em;text-align:center;margin:8px 0 2px;font-size:20px}
   .modal-card .md-tag{text-align:center;color:var(--brass);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
   .modal-card .md-stats{display:flex;gap:18px;justify-content:center;font-family:"Space Mono",monospace;font-size:14px;margin:12px 0}
   .modal-card .md-stats .atk{color:var(--rust)} .modal-card .md-stats .hp{color:var(--green)}
+  /* ダメージタイプのバッジ（近距離単体/遠距離範囲 など） */
+  .modal-card .md-dtype{text-align:center;margin:8px 0 2px}
+  .modal-card .md-dtype span{display:inline-block;font-size:11px;letter-spacing:.06em;padding:3px 10px;border-radius:9px;background:var(--panel-2);border:1px solid var(--brass);color:var(--brass)}
+  /* キャラ詳細のタブ（ステータス／熟練度） */
+  .modal-card .md-tabs{display:flex;gap:6px;margin:14px 0 4px}
+  .modal-card .md-tab{flex:1;padding:8px 4px;border-radius:10px 10px 0 0;border:1px solid var(--line);border-bottom:none;background:var(--bg2);color:var(--muted);font-family:"Oswald",sans-serif;letter-spacing:.06em;font-size:13px;cursor:pointer}
+  .modal-card .md-tab.active{background:var(--panel-2);color:var(--ink);border-color:var(--brass)}
+  .modal-card .md-tabpane{border-top:1px solid var(--brass);padding-top:12px}
+  /* ステータスのグリッド（移動速度・攻撃速度・射程など） */
+  .modal-card .md-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:10px 0}
+  .modal-card .md-grid .g{background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:7px 4px;text-align:center}
+  .modal-card .md-grid .gv{font-family:"Space Mono",monospace;font-size:15px;font-weight:700;color:var(--ink)}
+  .modal-card .md-grid .gl{font-size:10px;color:var(--muted);margin-top:2px}
   .modal-card p{color:var(--muted);font-size:13px;line-height:1.65;margin:0}
   .modal-card .md-enh{margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--bg2)}
   .modal-card .md-enh-head{display:flex;align-items:center;gap:10px}
@@ -1213,11 +1226,22 @@ function showDetail(key){
       ${e.stats?`<div class="md-stats"><span class="atk">⚔ ${e.stats.atk}</span><span class="hp">✚ ${e.stats.hp}</span></div>`:''}
       <p>${e.text}</p></div>`).join('');
   const betaNote = u.beta ? `<div class="md-beta">🔧 ベータ実装：性能はバランス調整中です（数値は今後変わることがあります）。</div>` : '';
+  const gcell=(v,l)=>`<div class="g"><div class="gv">${v}</div><div class="gl">${l}</div></div>`;
+  const grid=`<div class="md-grid">
+    ${gcell('×'+u.count,'召喚数')}${gcell('<span class="atk">⚔ '+u.atk+'</span>','攻撃')}${gcell('<span class="hp">✚ '+u.hp+'</span>','HP')}
+    ${gcell(fmtSpeed(u.speed),'移動速度')}${gcell(fmtCd(u),'攻撃速度')}${gcell(fmtRange(u.range),'射程')}
+  </div>`;
   $('detailBody').innerHTML=`<div class="md-art">${iconHTML(u)}</div>
     <h3>${u.name}${u.beta?' <span class="beta-badge" style="position:static;display:inline-flex;vertical-align:middle;text-transform:none">β</span>':''}</h3>
     <div class="md-tag">${u.tag||''}</div>
-    <div class="md-stats"><span>召喚数 ×${u.count}</span><span class="atk">⚔ ${u.atk}</span><span class="hp">✚ ${u.hp}</span></div>
-    <p>${u.text}</p>${betaNote}${enh}${masteryDetailHTML(key)}`;
+    <div class="md-dtype"><span>🎯 ${unitDamageType(u)}</span></div>
+    <div class="md-tabs">
+      <button class="md-tab active" data-tab="stat" onclick="switchDetailTab('stat')">ステータス</button>
+      <button class="md-tab" data-tab="mastery" onclick="switchDetailTab('mastery')">熟練度</button>
+    </div>
+    <div id="detTabStat" class="md-tabpane">${grid}<p>${u.text}</p>${betaNote}${enh}</div>
+    <div id="detTabMastery" class="md-tabpane hidden">${masteryDetailHTML(key)}</div>`;
+  const _card=$('detailModal').querySelector('.modal-card'); if(_card) _card.scrollTop=0;   // 開くたび先頭から
   $('detailModal').classList.remove('hidden');
 }
 /* キャラ詳細の熟練度セクション：現在のレベル/XP進捗バー＋解禁ロードマップ（PVPで貯まる）。 */
@@ -1264,6 +1288,26 @@ function enhDisplay(u){
     out.push({ kind:'強化', name:s.name, sprite:s.evoSprite||'', stats:stats, text:s.text });
   }
   return out;
+}
+// キャラのダメージタイプ（近距離/遠距離 × 単体/範囲）を判定。詳細画面のバッジに使う（純粋関数）。
+function unitDamageType(u){
+  if(!u) return '—';
+  if(u.spawner) return '生産（非攻撃）';
+  if(u.suicide) return '自爆・範囲';
+  const ranged = !!(u.ranged || u.artillery);          // 遠距離＝矢/氷弾/迫撃
+  const aoe = !!(u.splash || u.cleave || u.shockR || u.blast);   // 範囲＝爆風/薙ぎ払い/衝撃波
+  if(ranged) return aoe ? '遠距離・範囲' : '遠距離・単体';
+  return aoe ? '近距離・範囲' : '近距離・単体';
+}
+// 詳細画面のステータス表示用の整形（不動/全域などを分かりやすく）。
+function fmtSpeed(v){ return (v===0||v==null) ? '不動' : String(v); }
+function fmtRange(v){ if(v==null) return '—'; if(v>=9999) return '全域'; return String(v); }
+function fmtCd(u){ return (u.cd==null) ? '—' : (u.cd+'秒/回'); }
+function switchDetailTab(name){
+  const bs=document.querySelectorAll('#detailBody .md-tab'); bs.forEach(b=>b.classList.toggle('active', b.getAttribute('data-tab')===name));
+  const st=$('detTabStat'), ms=$('detTabMastery');
+  if(st) st.classList.toggle('hidden', name!=='stat');
+  if(ms) ms.classList.toggle('hidden', name!=='mastery');
 }
 function closeDetail(){ $('detailModal').classList.add('hidden'); }
 
@@ -3505,6 +3549,16 @@ function track(name, params){ try{ const a=getAnalytics(); if(a) a.logEvent(name
 function trackBattleStart(mode){
   track('battle_start', { mode:mode });
   try{ (myDeck||[]).forEach(function(k){ track('unit_in_deck', { unit:k, mode:mode }); }); }catch(e){}
+  // 「最も使うキャラ」用にデッキ各キャラの使用回数をローカル集計（全モード・同キャラは1戦1回）。
+  try{ if(!myProfile.usage) myProfile.usage={}; const seen={}; (myDeck||[]).forEach(function(k){ if(!k||seen[k]||!UNIT_BY_KEY[k])return; seen[k]=1; myProfile.usage[k]=(myProfile.usage[k]||0)+1; }); saveProfileLocal(); scheduleCloudSave(); }catch(e){}
+}
+// 最も使っているキャラのkey（使用回数が最大）。未プレイなら熟練度→null にフォールバック。
+function mostUsedUnit(){
+  const src=myProfile.usage||{}; let best=null, bestN=0;
+  for(const k in src){ if(!UNIT_BY_KEY[k]) continue; if(src[k]>bestN){ bestN=src[k]; best=k; } }
+  if(best) return best;
+  const m=myProfile.mastery||{}; let mk=null, mn=0; for(const k in m){ if(UNIT_BY_KEY[k] && m[k]>mn){ mn=m[k]; mk=k; } }
+  return mk;
 }
 function ensureFirebase(){
   if(!firebaseConfigured()) return null;
@@ -3523,7 +3577,7 @@ function genRoomCode(){ const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; fo
    ============================================================ */
 let authUser=null;            // ログイン中のユーザー（未ログインはnull）
 let _cloudSaveT=0;            // クラウド保存のデバウンス用タイマ
-let myProfile={ name:'', avatar:'', trophies:1000, wins:0, losses:0, mastery:{} };   // 名前＋アイコン＋トロフィー(=レート)＋戦績＋キャラ熟練度(key→XP)
+let myProfile={ name:'', avatar:'', trophies:1000, best:1000, wins:0, losses:0, mastery:{}, usage:{} };   // 名前＋アイコン＋トロフィー(=レート)＋最高トロフィー＋戦績＋熟練度(key→XP)＋使用回数(key→回)
 /* 熟練度（キャラ経験値）で解禁する特別アバターアイコン。XPは【PVP対戦のみ】、勝ち=多め/負け=少なめで加算。
    ★重要：解禁は見た目（アイコン/スキン）だけにする。強化カード等ゲーム性能は熟練度で解禁しない＝対戦は常にフェア。 */
 const MASTERY_WIN_XP = 10;      // PVPで勝ったとき、デッキ各キャラに入る熟練度XP
@@ -3591,7 +3645,7 @@ function loadProfileLocal(){ try{ const s=localStorage.getItem('sw_profile'); if
 function persistDeck(){ saveDeckLocal(); scheduleCloudSave(); }
 
 // --- 保存プロフィールの整形（純粋関数・テスト対象） ---
-function buildProfile(){ return { deck: myDeck.slice(0, CONFIG.deckSize), name: myProfile.name||'', avatar: myProfile.avatar||'', trophies: myTrophies(), wins: myProfile.wins||0, losses: myProfile.losses||0, mastery: myProfile.mastery||{}, tutorialDone: tutSeen(), updatedAt: Date.now() }; }
+function buildProfile(){ return { deck: myDeck.slice(0, CONFIG.deckSize), name: myProfile.name||'', avatar: myProfile.avatar||'', trophies: myTrophies(), best: Math.max(myProfile.best||0, myTrophies()), wins: myProfile.wins||0, losses: myProfile.losses||0, mastery: myProfile.mastery||{}, usage: myProfile.usage||{}, tutorialDone: tutSeen(), updatedAt: Date.now() }; }
 // クラウド/ローカルから読んだプロフィールをゲーム状態へ反映（不正キーは除外）
 function applyProfile(p){
   if(!p) return;
@@ -3602,6 +3656,9 @@ function applyProfile(p){
   if(p.mastery && typeof p.mastery==='object'){ if(!myProfile.mastery) myProfile.mastery={}; for(const k in p.mastery){ const v=p.mastery[k]; if(UNIT_BY_KEY[k] && typeof v==='number' && isFinite(v)) myProfile.mastery[k]=Math.max(myProfile.mastery[k]||0, Math.max(0,Math.round(v))); } }   // 熟練度は大きい方を採用（端末とクラウドのマージ）
   if(p.avatar && ((UNIT_BY_KEY[p.avatar] && !UNIT_BY_KEY[p.avatar].summonOnly) || SPECIAL_AVATAR_BY_ID[p.avatar])) myProfile.avatar = p.avatar;   // 有効なユニットkey or 特別アバターid
   if(typeof p.trophies==='number' && isFinite(p.trophies)) myProfile.trophies = Math.max(0, Math.round(p.trophies));
+  if(typeof p.best==='number' && isFinite(p.best)) myProfile.best = Math.max(myProfile.best||0, Math.round(p.best));   // 最高トロフィーは大きい方（端末とクラウドのマージ）
+  myProfile.best = Math.max(myProfile.best||0, myProfile.trophies||0);   // 現在値より下がらないよう保証
+  if(p.usage && typeof p.usage==='object'){ if(!myProfile.usage) myProfile.usage={}; for(const k in p.usage){ const v=p.usage[k]; if(UNIT_BY_KEY[k] && typeof v==='number' && isFinite(v)) myProfile.usage[k]=Math.max(myProfile.usage[k]||0, Math.max(0,Math.round(v))); } }   // 使用回数も大きい方を採用（マージ）
   if(typeof p.wins==='number') myProfile.wins = Math.max(0, Math.round(p.wins));
   if(typeof p.losses==='number') myProfile.losses = Math.max(0, Math.round(p.losses));
   if(p.tutorialDone) markTutSeen();
@@ -3758,6 +3815,7 @@ function applyTrophyResult(won, oppTrophies){
   const before = myTrophies();
   const d = eloDelta(before, (oppTrophies!=null?oppTrophies:TROPHY_START), won);
   myProfile.trophies = Math.max(0, before + d);
+  myProfile.best = Math.max(myProfile.best||0, myProfile.trophies);   // 最高トロフィーを更新
   if(won) myProfile.wins = (myProfile.wins||0)+1; else myProfile.losses = (myProfile.losses||0)+1;
   pvpLastDelta = myProfile.trophies - before;
   saveProfileLocal(); scheduleCloudSave(); leaderboardSubmit();
@@ -3849,11 +3907,25 @@ function fillProfileEditor(){
 function renderProfileStats(){
   const box=$('profileStats'); if(!box) return;
   const w=myProfile.wins||0, l=myProfile.losses||0, n=w+l;
-  const cell=(label,val,color)=>`<div style="flex:1"><div style="font-family:'Space Mono',monospace;font-size:18px;font-weight:700;color:${color||'var(--ink)'}">${val}</div><div style="font-size:11px;color:var(--muted)">${label}</div></div>`;
-  box.innerHTML = cell('🏆 トロフィー', myTrophies(), 'var(--accent2)')
+  const best=Math.max(myProfile.best||0, myTrophies());
+  const wr = n>0 ? Math.round(w/n*100)+'%' : '—';   // 勝率（未対戦は—）
+  const cell=(label,val,color)=>`<div style="flex:1 1 30%;min-width:70px"><div style="font-family:'Space Mono',monospace;font-size:18px;font-weight:700;color:${color||'var(--ink)'}">${val}</div><div style="font-size:11px;color:var(--muted)">${label}</div></div>`;
+  let html = cell('🏆 トロフィー', myTrophies(), 'var(--accent2)')
+    + cell('最高🏆', best, 'var(--brass)')
+    + cell('勝率', wr, 'var(--steel)')
     + cell('バトル数', n)
     + cell('勝利', w, 'var(--green)')
     + cell('敗北', l, 'var(--rust)');
+  // 最も使うキャラ（使用回数の集計から）
+  const mu=mostUsedUnit();
+  if(mu){ const u=UNIT_BY_KEY[mu];
+    html += `<div style="flex:1 1 100%;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:6px;padding-top:10px;border-top:1px dashed var(--line)">
+      <span style="font-size:11px;color:var(--muted)">よく使うキャラ</span>
+      <span style="font-size:20px;line-height:1">${avatarHTML(mu,22)}</span>
+      <b style="font-size:13px">${u?u.name:mu}</b></div>`;
+  }
+  box.innerHTML = html;
+  box.style.flexWrap='wrap';
 }
 function renderAvatarGrid(){
   const grid=$('avatarGrid'); if(!grid) return; grid.innerHTML='';
