@@ -126,6 +126,8 @@
   .foe-pick .fp-lbl{font-family:"Oswald",sans-serif;font-size:10px;color:var(--rust);text-transform:uppercase;letter-spacing:.1em}
   .foe-pick img{width:30px;height:30px;image-rendering:pixelated;display:block}
   .foe-pick .fp-ico{font-size:22px;line-height:1}
+  .uspr{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;overflow:hidden;flex:0 0 auto}
+  .uspr img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated;display:block}
   .foe-pick .fp-name{font-size:12px;color:var(--ink);font-weight:600}
   @keyframes foePop{0%{transform:translateX(-50%) translateY(-6px) scale(.7);opacity:0}60%{transform:translateX(-50%) translateY(0) scale(1.08);opacity:1}100%{transform:translateX(-50%) translateY(0) scale(1);opacity:1}}
   .card{position:relative;background:linear-gradient(180deg,var(--parch),var(--parch-dk));border-radius:12px;padding:9px 8px 8px;color:#3a3020;cursor:pointer;border:2px solid transparent;transition:transform .1s ease, box-shadow .15s ease, border-color .15s ease;box-shadow:0 4px 12px rgba(0,0,0,.35);user-select:none}
@@ -712,7 +714,7 @@ const UNIT_BY_KEY = Object.fromEntries(UNITS.map(u=>[u.key,u]));
    今後ここに第2弾・第3弾を足していける。 */
 const SPECIALS = {
   up_slime: {
-    key:'up_slime', name:'スライム融合', icon:'🔄', upgrade:true,
+    key:'up_slime', name:'スライム融合', icon:'🔄', upgrade:true, evoSprite:'slime_blue_big',
     text:'今いるスライムを3体ずつ巨大スライムに合体（余りはそのまま）。硬く強く、倒れると3体に分裂。',
   },
 };
@@ -1017,6 +1019,12 @@ function iconHTML(u, side){
 function specialCardIcon(s){
   if(s && s.evoSprite && SPRITE_DATA[s.evoSprite]) return '<img src="'+SPRITE_DATA[s.evoSprite]+'" alt="">';
   return (s && s.target && UNIT_BY_KEY[s.target]) ? iconHTML(UNIT_BY_KEY[s.target]) : (s ? s.icon : '');
+}
+/* ユニットの立ち絵を指定サイズで囲って返す（プロフィール等の小さな表示用）。絵文字フォールバックにも対応。 */
+function unitSpriteImg(key, size){
+  const u = UNIT_BY_KEY[key]; if(!u) return '';
+  size = size||26;
+  return '<span class="uspr" style="width:'+size+'px;height:'+size+'px;font-size:'+Math.round(size*0.8)+'px">'+iconHTML(u)+'</span>';
 }
 
 /* ============================================================
@@ -2229,10 +2237,13 @@ let foePickTimer=0;
 function showFoePickCard(key){
   const el=$('foePick'); if(!el) return;
   const u=UNIT_BY_KEY[key] || SPECIALS[key]; if(!u) return;
-  const art = UNIT_BY_KEY[key] ? iconHTML(UNIT_BY_KEY[key]) : `<span class="fp-ico">${u.icon}</span>`;
+  // ユニットは敵チーム色の立ち絵、強化カードは強化後(evoSprite)の絵を使う（無ければ絵文字にフォールバック）
+  let art;
+  if(UNIT_BY_KEY[key]) art = iconHTML(UNIT_BY_KEY[key], 'e');
+  else { const ic = specialCardIcon(SPECIALS[key]); art = /^</.test(String(ic)) ? ic : `<span class="fp-ico">${ic}</span>`; }
   el.innerHTML=`<span class="fp-lbl">ライバルの選択</span>${art}<span class="fp-name">${u.name}</span>`;
   el.classList.remove('hidden'); el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
-  clearTimeout(foePickTimer); foePickTimer=setTimeout(()=>{ el.classList.add('hidden'); }, 1500);
+  clearTimeout(foePickTimer); foePickTimer=setTimeout(()=>{ el.classList.add('hidden'); }, 2000);   // 少し長めに表示して見やすく
 }
 function hideFoePick(){ const el=$('foePick'); if(el) el.classList.add('hidden'); }
 
@@ -3990,7 +4001,7 @@ function renderProfileStats(){
   if(mu){ const u=UNIT_BY_KEY[mu];
     html += `<div style="flex:1 1 100%;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:6px;padding-top:10px;border-top:1px dashed var(--line)">
       <span style="font-size:11px;color:var(--muted)">よく使うキャラ</span>
-      <span style="font-size:20px;line-height:1">${avatarHTML(mu,22)}</span>
+      ${unitSpriteImg(mu,30)}
       <b style="font-size:13px">${u?u.name:mu}</b></div>`;
   }
   box.innerHTML = html;
