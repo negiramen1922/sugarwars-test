@@ -3277,6 +3277,7 @@ const PVP_MSG = {
   RESULT:   'result',     // 親→子：ラウンド決着（ライフ更新）
   GAMEOVER: 'gameover',   // 親→子：マッチ決着
   REMATCH:  'rematch',    // 両方向：プライベート部屋で「もう一度」＝再戦希望（子→親はデッキも同送）
+  ROLE:     'role',       // 両方向：接続直後に端末種別を交換し「PCを優先して親(計算側)」に役割調整（A案）
 };
 
 // 通信路の抽象。F1ではメモリ内ループバックのみ（送ったメッセージはJSON複製して相手へ＝実通信を模す）。
@@ -3721,6 +3722,24 @@ let pvpOppProfile = null;   // 対戦相手のプロフィール（名前/アイ
 let pvpLastDelta = 0;       // 直近の対戦でのトロフィー増減（over画面表示用）
 // 通信で相手に渡す自分のプロフィール（名前・アイコン・トロフィー）
 function pvpNetProfile(){ const dp=displayProfile(); return { name:dp.name, avatar:dp.avatar, trophies:myTrophies() }; }
+// この端末の種別（'pc' or 'mobile'）。PVPの役割調整（A案：PCを優先して親=計算側）に使う。
+// 保守的：タッチ/モバイルUAは 'mobile' 扱い（弱い側を親にしないため）。
+function pvpDeviceType(){
+  try{
+    const ua = /Mobi|Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent||'');
+    const coarse = !!(window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
+    const touch = (navigator.maxTouchPoints||0) > 0 || ('ontouchstart' in window);
+    return (ua || coarse || touch) ? 'mobile' : 'pc';
+  }catch(e){ return 'pc'; }
+}
+// A案の役割決定（純粋関数・両者が同じ結果を出す）：
+//  ・PCとスマホなら必ずPCが親（計算側）。
+//  ・同じ種別なら従来どおり（接続を張った側＝元の親）を維持＝両者で必ず1人だけが親になる。
+function pvpDecideIAmHost(iWasHost, myDevice, theirDevice){
+  if(myDevice==='pc' && theirDevice==='mobile') return true;
+  if(myDevice==='mobile' && theirDevice==='pc') return false;
+  return !!iWasHost;
+}
 // PVP決着時に1回だけ呼ぶ：ELOでトロフィーを増減し、戦績更新＋保存＋リーダーボード反映
 function applyTrophyResult(won, oppTrophies){
   const before = myTrophies();
@@ -4044,11 +4063,43 @@ function pvpJoin(){
     .catch(err=>{ $('pvpJoinStatus').textContent='エラー: '+err.message; pvpDiag('エラー: '+err.message); });
 }
 // 接続成立 → 対戦開始（親：子のデッキ待ち→開始 / 子：自デッキ送信→START待ち）
+let pvpNegoTimer=0;
 function pvpOnConnected(roleLabel){
   ['pvpHostBox','pvpJoinBox','pvpChoice','pvpConnBox','pvpMmBox'].forEach(id=>$(id)&&$(id).classList.add('hidden'));
   SFX.play('special');
-  pvpDiag('✅ 接続成立。対戦準備中…（あなた='+roleLabel+'）');
-  if(roleLabel==='親'){
+  // A案：接続直後に端末種別(ROLE)を交換し、PCを優先して親(計算側)に役割を調整する。
+  // 旧版の相手はROLEを送らない/無視する→一定時間で従来割当てにフォールバック（下位互換）。
+  const iWasHost = (roleLabel==='親');
+  const myDev = pvpDeviceType();
+  pvpDiag('✅ 接続成立。役割を調整中…（端末='+(myDev==='pc'?'PC':'スマホ')+'）');
+  const origOnMessage = pvpConn.onMessage.bind(pvpConn);
+  let decided=false; const buffered=[];
+  const finish = (theirDev)=>{
+    if(decided) return; decided=true;
+    try{ clearTimeout(pvpNegoTimer); }catch(e){}
+    const iAmHost = pvpDecideIAmHost(iWasHost, myDev, theirDev||myDev);
+    // pvpSetupRole が張る「本ハンドラ」を捕まえるため onMessage を一時的にラップ→捕捉後に戻す。
+    let realCb=null;
+    pvpConn.onMessage = (fn)=>{ realCb=fn; origOnMessage(fn); };
+    pvpSetupRole(iAmHost);
+    pvpConn.onMessage = origOnMessage;
+    // ネゴ中に届いた対戦メッセージ（旧版の相手がすぐ送るHELLO等）を本ハンドラへ流し直す（取りこぼし防止）
+    for(const bm of buffered){ try{ if(realCb) realCb(bm); }catch(e){} }
+    buffered.length=0;
+  };
+  // 一時ハンドラ：ROLEを待つ。ROLE以外が来たら相手は旧版とみなし従来割当てで即開始（そのメッセージは退避して後で流す）。
+  origOnMessage((m)=>{
+    if(m && m.type===PVP_MSG.ROLE){ finish(m.device||'pc'); return; }
+    buffered.push(m);              // 退避（後で本ハンドラへ流す）
+    if(!decided) finish(myDev);    // 旧版の相手→従来割当てで開始
+  });
+  pvpConn.send({ type:PVP_MSG.ROLE, device:myDev });
+  pvpNegoTimer = setTimeout(()=>{ finish(myDev); }, 1500);   // 相手がROLE非対応なら従来どおり
+}
+// 決定した役割(iAmHost)で本来のPVP進行役をセットアップ（onMessageを本ハンドラに差し替える）。
+function pvpSetupRole(iAmHost){
+  pvpDiag('✅ 接続成立。対戦準備中…（あなた='+(iAmHost?'親':'子')+'）');
+  if(iAmHost){
     pvpRole='host';
     pvpHostObj = makePvpHost(pvpConn, {
       onGuestHello:(deck, proto, prof)=>{ pvpGuestDeck=deck; pvpEnh=((proto||1)>=2 && PVP_PROTO>=2); if(prof) pvpOppProfile=prof; pvpDiag('相手のデッキを受信。対戦開始！'+(pvpEnh?'（強化カードON）':'（相手が旧版のため強化カードOFF）')); pvpStartAsHost(); },

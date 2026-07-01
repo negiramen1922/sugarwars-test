@@ -140,6 +140,13 @@
 - **切替**：`RELAY_URL`（wss）＋ `PVP_USE_RELAY`。**既定は `false`＝従来のWebRTCで一切影響なし**。サーバー確認後に `true` にして配信すると次リロードで全員切替（Webの自動更新）。CPU対戦は不変。
 - **要実機確認**：2台/2タブでの中継対戦はこの環境ではテスト不可。`RELAY_SETUP.md` 参照。
 
+### 親選び（役割調整・A案：PCを優先して親＝計算側）— 実装済み
+
+- **目的**：ホスト権威型なので**親（＝計算する側）が非力なスマホだと両者がカクつく**。PCとスマホが当たったら**必ずPCを親**にしてスマホ親を避ける。
+- **仕組み**：接続直後に `pvpOnConnected()` が端末種別(`PVP_MSG.ROLE`)を交換し、純粋関数 `pvpDecideIAmHost(iWasHost, myDev, theirDev)` で役割を決める。`pvpDeviceType()`＝UA/`pointer:coarse`/タッチで `'pc'|'mobile'` を判定（保守的にタッチ系は `mobile`）。**PC×スマホはPCが親／同種は従来どおり接続を張った側が親**（＝どの組み合わせでも親はちょうど1人）。決定後 `pvpSetupRole(iAmHost)` が `makePvpHost`/`makePvpGuest` を張り替える（transportの向きは不変・PVP層は対称なのでスワップ可）。
+- **下位互換**：旧版の相手は `ROLE` を送らない/無視する。相手が先に `HELLO` 等を送ってきたら旧版とみなし**従来割当てで即開始**（ネゴ中に届いたメッセージは退避して本ハンドラへ流し直す＝取りこぼしなし）。相手が無応答でも 1.5秒で従来割当てにフォールバック。**既存プレイヤーに影響なし**。
+- テスト：test.js 83（`pvpDecideIAmHost` の決定表＋「親はちょうど1人」）。スワップ実挙動＋旧版フォールバックはブラウザ(loopback)で確認済み。**実機（PC×スマホ）確認は手元で**。
+
 ### F2-②（対戦本体）— オーケストレーション層は実装済み（`<script>`「11) PVP 対戦オーケストレーション」）
 
 - `makePvpHost(conn, hooks)` / `makePvpGuest(conn, hooks)`：通信路(transport)にだけ依存する進行役。
