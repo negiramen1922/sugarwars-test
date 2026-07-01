@@ -2591,6 +2591,15 @@ console.log('\n=== 90) アニメ付きキャラ（マシュマロエンジェル
   let poolHasTest = false;
   for (const u of API.UNITS) { if (u.test) poolHasTest = true; }
   check('UNITSにtestキャラは居るが、通常ロスターからは除外設計', poolHasTest === true);
+  // クマグミ（静止・陣営色を1枚アニメで出し分け）
+  const K = API.UNIT_BY_KEY.kumagumi;
+  check('kumagumi が存在し test:true', !!K && K.test === true);
+  const kp = API.makeFighters('kumagumi', 'p', 440, 660, 'army')[0]; w.units.push(kp);
+  const ke = API.makeFighters('kumagumi', 'e', 440, 660, 'army')[0]; w.units.push(ke);
+  check('クマグミ 味方=青スプライト', API.spriteFor(kp) === API.SPRITES['kumagumi_blue'], true);
+  check('クマグミ 敵=赤スプライト', API.spriteFor(ke) === API.SPRITES['kumagumi_red'], true);
+  // テスト用キャラは2体以上（選択できる）
+  check('テスト用キャラが2体以上（アニメテストで選択可）', API.UNITS.filter(u => u.test).length >= 2, API.UNITS.filter(u => u.test).map(u => u.key));
 }
 
 Promise.resolve().then(() => {
