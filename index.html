@@ -475,9 +475,17 @@
     <section id="over" class="hidden center">
       <p class="big" id="overTitle">勝利！</p>
       <p id="overText"></p>
-      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <div id="overDefaultBtns" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="startGame()">もう一度</button>
         <button class="btn btn-ghost" onclick="goHome()">ホームへ</button>
+      </div>
+      <!-- プライベート部屋：接続を保ったまま同じ相手と再戦 -->
+      <div id="overRematch" class="hidden">
+        <p id="overRematchStatus" class="stage-sub" style="margin:0 0 10px">つないだまま、同じ相手と何度でも対戦できます（編成も維持）。</p>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+          <button id="overRematchBtn" class="btn btn-primary" onclick="pvpRematchClick()">🔁 もう一度（同じ相手と）</button>
+          <button class="btn btn-ghost" onclick="pvpLeave()">🚪 部屋を出る</button>
+        </div>
       </div>
     </section>
   </main>
@@ -3138,9 +3146,12 @@ function endBattle(result){
 function nextRound(){ state.round++; if(pvpMode){ pvpTrace('host nextRound -> round '+state.round); pvpHostStartRound(); } else { beginDraft(); } }
 function endGame(){
   cancelAnimationFrame(raf);
-  pvpClearResume(); pvpPresenceSet('home');   // 決着：再接続情報クリア＋オンライン状態を戻す
   const wasPvp = pvpMode;
-  if(pvpMode){ pvpMode=false; foeCtl=makeCpuFoeController(); }   // PVP決着：後始末（「もう一度」はCPU対戦に戻す）
+  const privateRoom = wasPvp && !pvpRanked && !!pvpConn;   // プライベート部屋＝接続を保って再戦できる（ランダム/CPUは従来どおり片付ける）
+  pvpMode=false;
+  pvpClearResume();
+  if(privateRoom){ pvpPresenceSet('connecting'); }   // 接続は保持・対戦間は待機表示にしない（マッチ待ちにも数えない）
+  else { pvpPresenceSet('home'); if(wasPvp) foeCtl=makeCpuFoeController(); }   // 後始末（「もう一度」はCPU対戦に戻す）
   const won=state.foeLives<=0;
   let trophyLine='';
   if(wasPvp && pvpRanked){ const d=applyTrophyResult(won, pvpOppProfile&&pvpOppProfile.trophies); trophyLine='🏆 '+(d>=0?'+':'')+d+'（合計 '+myTrophies()+'）'; renderHomeTrophies(); }   // ランダムマッチのみトロフィー増減（あいことば/CPUは非変動）
@@ -3148,7 +3159,42 @@ function endGame(){
   $('overTitle').style.color=won?'var(--green)':'var(--rust)';
   const base=won?`${state.round} ラウンドで決着。${state.youArmy.length} 体の軍を率いて勝利しました。`:`${state.round} ラウンドで力尽きました。デッキの相性を見直してみましょう。`;
   $('overText').textContent = base + (trophyLine?('　'+trophyLine):'');
+  pvpSetupOverButtons(privateRoom);
   show('over');
+}
+
+/* ---- プライベート部屋の再戦（接続を保ったまま同じ相手と何度でも） ---- */
+// 決着画面のボタンを切替：プライベート部屋なら「もう一度／部屋を出る」、それ以外は従来（もう一度=新規/ホーム）。
+function pvpSetupOverButtons(canRematch){
+  pvpCanRematch=!!canRematch; pvpRematchMine=false; pvpRematchOpp=false;
+  const def=$('overDefaultBtns'), rm=$('overRematch');
+  if(def) def.classList.toggle('hidden', !!canRematch);
+  if(rm) rm.classList.toggle('hidden', !canRematch);
+  if(canRematch) pvpRematchUpdateUI();
+}
+// 「もう一度」を押したとき：自分の再戦希望を立てて相手に伝える（親は両者OKなら再戦開始）。
+function pvpRematchClick(){
+  if(!pvpCanRematch || pvpRematchMine) return;
+  SFX.play('button');
+  pvpRematchMine=true;
+  if(pvpRole==='host'){ try{ if(pvpHostObj) pvpHostObj.rematch(); }catch(e){} pvpRematchTryStart(); }
+  else { try{ if(pvpGuestObj) pvpGuestObj.rematch(myDeck); }catch(e){} }   // 子は今のデッキを送り、親のSTARTを待つ
+  pvpRematchUpdateUI();
+}
+// 親だけが実際の再戦を起動：両者が「もう一度」を押していれば、同じ接続で新しい対戦を開始（STARTが子へ飛ぶ）。
+function pvpRematchTryStart(){
+  if(pvpRole!=='host' || !pvpCanRematch) return;
+  if(pvpRematchMine && pvpRematchOpp){ pvpCanRematch=false; pvpRematchMine=false; pvpRematchOpp=false; pvpStartAsHost(); }
+}
+// 決着画面の再戦ステータス表示を更新。
+function pvpRematchUpdateUI(){
+  if(!pvpCanRematch) return;
+  const el=$('overRematchStatus');
+  if(el){
+    if(!pvpRematchMine && !pvpRematchOpp) el.textContent='つないだまま、同じ相手と何度でも対戦できます（編成も維持）。';
+    else el.textContent=(pvpRematchMine?'あなた：準備OK ✅':'あなた：未')+' ／ '+(pvpRematchOpp?'相手：準備OK ✅':'相手：待っています…');
+  }
+  const btn=$('overRematchBtn'); if(btn){ btn.disabled=pvpRematchMine; btn.textContent=pvpRematchMine?'相手を待っています…':'🔁 もう一度（同じ相手と）'; }
 }
 
 /* ============================================================
@@ -3175,6 +3221,7 @@ const PVP_MSG = {
   SNAPSHOT: 'snapshot',   // 親→子：盤面の描画用スナップショット（親→子はミラー変換して見せる）
   RESULT:   'result',     // 親→子：ラウンド決着（ライフ更新）
   GAMEOVER: 'gameover',   // 親→子：マッチ決着
+  REMATCH:  'rematch',    // 両方向：プライベート部屋で「もう一度」＝再戦希望（子→親はデッキも同送）
 };
 
 // 通信路の抽象。F1ではメモリ内ループバックのみ（送ったメッセージはJSON複製して相手へ＝実通信を模す）。
@@ -3370,6 +3417,7 @@ function getIceServers(onDiag){
 function candType(c){ try{ const s=(c&&c.candidate)||''; const m=s.match(/ typ (\w+)/); return m?m[1]:'?'; }catch(e){ return '?'; } }
 
 let pvpDb=null, pvpConn=null, pvpRole=null, pvpRoomRef=null, pvpPC=null, pvpRoomCode='';
+let pvpCanRematch=false, pvpRematchMine=false, pvpRematchOpp=false;   // プライベート部屋の再戦（接続を保ったまま同じ相手ともう一度）
 
 function firebaseConfigured(){
   return typeof firebase!=='undefined' && FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.indexOf('PASTE_')!==0;
@@ -3846,6 +3894,7 @@ function pvpOnConnected(roleLabel){
     pvpHostObj = makePvpHost(pvpConn, {
       onGuestHello:(deck, proto, prof)=>{ pvpGuestDeck=deck; pvpEnh=((proto||1)>=2 && PVP_PROTO>=2); if(prof) pvpOppProfile=prof; pvpDiag('相手のデッキを受信。対戦開始！'+(pvpEnh?'（強化カードON）':'（相手が旧版のため強化カードOFF）')); pvpStartAsHost(); },
       onGuestPick:()=>{},
+      onGuestRematch:(deck)=>{ if(deck&&deck.length) pvpGuestDeck=deck; pvpRematchOpp=true; pvpRematchUpdateUI(); pvpRematchTryStart(); },   // 子が再戦希望→両者OKなら親が再戦開始
     });
     // 親のデッキは openPvpLobby で確認済み。子のHELLO（参加）待ち。
   } else {
@@ -4103,11 +4152,13 @@ function makePvpGuest(conn, hooks){
         case PVP_MSG.SNAPSHOT: if(hooks.onSnapshot) hooks.onSnapshot(applySnapshot(msg.snap, true), msg); break;   // 子は常に下(青)に見えるようミラー展開
         case PVP_MSG.RESULT:   if(hooks.onResult)   hooks.onResult(msg); break;
         case PVP_MSG.GAMEOVER: if(hooks.onGameover) hooks.onGameover(msg); break;
+        case PVP_MSG.REMATCH:  if(hooks.onRematch)  hooks.onRematch(msg); break;   // 親が「もう一度」を希望（UI表示用）
       }
     }catch(e){ try{ console.log('[PVP] guest 受信処理エラー('+msg.type+'): '+(e&&e.message||e)); }catch(_){} }
   });
   return {
     hello(deck, prof){ conn.send({ type:PVP_MSG.HELLO, deck:(deck||[]).slice(), proto:PVP_PROTO, prof:prof||null }); },   // 参加時に自分のデッキ＋通信バージョン＋プロフィール(トロフィー)を親へ
+    rematch(deck){ conn.send({ type:PVP_MSG.REMATCH, deck:(deck||[]).slice() }); },   // 再戦希望＋（編成を変えていても）今のデッキを親へ
   };
 }
 
@@ -4121,10 +4172,12 @@ function makePvpHost(conn, hooks){
     else if(msg.type===PVP_MSG.PICK){ const r=pickResolvers.shift(); if(r) r(msg.key); if(hooks.onGuestPick) hooks.onGuestPick(msg); }   // 旧・1枚ずつ方式（テスト互換）
     else if(msg.type===PVP_MSG.PICKS){ const r=picksResolver; picksResolver=null; if(r) r(msg.keys||[]); if(hooks.onGuestPicks) hooks.onGuestPicks(msg); }   // 一括方式（テスト互換）
     else if(msg.type===PVP_MSG.STEPPICK){ const r=stepResolver; stepResolver=null; if(r) r(msg.key); if(hooks.onGuestStep) hooks.onGuestStep(msg); }   // 同時選択方式：このステップの子の1枚
+    else if(msg.type===PVP_MSG.REMATCH){ guestDeck=(msg.deck||guestDeck||[]).slice(); if(hooks.onGuestRematch) hooks.onGuestRematch(guestDeck); }   // 子が再戦希望（編成を変えていれば新デッキを反映）
   });
   return {
     getGuestDeck(){ return guestDeck ? guestDeck.slice() : null; },
     start(info){ conn.send(Object.assign({ type:PVP_MSG.START }, info||{})); },
+    rematch(){ conn.send({ type:PVP_MSG.REMATCH }); },   // 親が再戦希望を子へ通知（UI表示用）
     // 旧：子に1枚提示し、子の選択(PICK)が返るまで待つ（テスト互換のため保持）。
     offerAndAwait(round, step, offer3){ return new Promise(res=>{ pickResolvers.push(res); conn.send({ type:PVP_MSG.OFFER, round, step, offer3:offer3.slice() }); }); },
     // 一括：このラウンドのドラフトを子に要求し、子が選んだ全カード(PICKS)が返るまで待つ（テスト互換）。
@@ -4160,6 +4213,7 @@ function pvpTrace(s){ try{ console.log('[PVP]', s); }catch(e){} }   // 進行の
 
 // 親：相手デッキ受信後にマッチ開始（敵をリモートに差し替え→既存フローへ）
 function pvpStartAsHost(){
+  pvpCanRematch=false; pvpRematchMine=false; pvpRematchOpp=false;   // 再戦フラグをリセット（新しい対戦の開始）
   pvpMode=true; pvpGuestActive=false;
   pvpRemoteFoe = makeRemoteFoeController(); pvpRemoteFoe.setDeck(pvpGuestDeck||[]);
   foeCtl = pvpRemoteFoe;
@@ -4370,6 +4424,7 @@ const PVP_GUEST_HOOKS = {
   onSnapshot:(w)=>pvpGuestRenderSnapshot(w),
   onResult:(m)=>{ pvpTrace('guest RESULT 受信 '+m.result); pvpGuestOnResult(m); },
   onGameover:(m)=>{ pvpTrace('guest GAMEOVER 受信'); pvpGuestOnGameover(m); },
+  onRematch:()=>{ pvpRematchOpp=true; pvpRematchUpdateUI(); },   // 親が再戦希望（子は親のSTARTで再戦が始まる）
 };
 // 子：相手(親)が逆転ボーナスで先に選ぶ間の待機表示（このステップは選ばない）。
 function pvpGuestShowWait(m){
@@ -4429,6 +4484,7 @@ function pvpGuestRunDraft(m, sendPicks){
   showStep();
 }
 function pvpGuestEnterPlay(m){
+  pvpCanRematch=false; pvpRematchMine=false; pvpRematchOpp=false;   // 再戦フラグをリセット（新しい対戦の開始）
   pvpMode=false; pvpGuestActive=true; pvpGuestPicking=false;
   trackBattleStart('pvp');   // 計測：PVP対戦開始（子）
   pvpSaveResume(); pvpPresenceSet('battling');   // 再接続/リログ検知＋オンライン状態=対戦中
@@ -4506,12 +4562,16 @@ function pvpGuestShowOffer(m, reply){
 function pvpGuestOnResult(m){ state.youLives=m.youLives; state.foeLives=m.foeLives; if(m.round) state.round=m.round; state.lostLast=(m.result==='lose'); state.foeLostLast=(m.result==='win'); renderScore(); showResultBanner(m.result); }
 function pvpGuestOnGameover(m){
   pvpGuestActive=false; cancelAnimationFrame(pvpGuestRaf);
-  pvpClearResume(); pvpPresenceSet('home');   // 正常終了：再接続情報クリア＋オンライン状態を戻す
+  const privateRoom = !pvpRanked && !!pvpConn;   // プライベート部屋＝接続を保って再戦できる
+  pvpClearResume();
+  if(privateRoom){ pvpPresenceSet('connecting'); }   // 接続は保持
+  else { pvpPresenceSet('home'); }   // 正常終了：オンライン状態を戻す
   const won=!!m.youWon;
   let tro='';
   if(pvpRanked){ const d=applyTrophyResult(won, pvpOppProfile&&pvpOppProfile.trophies); renderHomeTrophies(); tro='　🏆 '+(d>=0?'+':'')+d+'（合計 '+myTrophies()+'）'; }   // ランダムマッチのみ変動
   $('overTitle').textContent=won?'勝利！':'敗北…'; $('overTitle').style.color=won?'var(--green)':'var(--rust)';
   $('overText').textContent=(won?'対戦に勝利しました！🎉':'対戦に敗北しました。')+tro;
+  pvpSetupOverButtons(privateRoom);
   show('over');
 }
 

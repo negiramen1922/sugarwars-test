@@ -167,7 +167,14 @@
 - **敗者先行**：差分（`pvpHostExtra`/`pvpGuestExtra`）ぶんを先頭ステップで**単独ピック**。`pvpHostDraftStep()` が各ステップで `pvpStepHostActive`/`pvpStepGuestActive` を判定し、片側のみアクティブなら単独・両方なら同時選択（強化パリティはこのときだけ）。
 - **待機同期**：親が単独で選ぶステップは `notifyGuestWait()` が STEP に `wait:true` を載せ、子は `pvpGuestShowWait()` で待機表示＋**返信しない**。子が単独のステップは親が `pvpHostShowOffer` を出さず待機表示。
 - テスト：test.js 59（`picksFor`の逆転）・60（待機通知で子が返信しない）。
-- **未対応**：切断/タイムアウト処理、再戦動線（over画面の「もう一度」をPVP再戦に）、親子のキャンバスサイズ差の厳密なスケーリング。
+- **未対応**：親子のキャンバスサイズ差の厳密なスケーリング。
+
+### プライベート部屋の再戦（接続を保ったまま何度でも）— 実装済み
+
+- **ロビーは2段**：PVP →「ランダムマッチ / プライベート対戦」（`pvpShowPrivate`/`pvpBackToChoice`）→ プライベートは「部屋を作る / 部屋に入る」。
+- **presence**：ペア成立後（`mmBecomeHost`/`mmGuestFromAssignment`）とプライベート部屋のホスト/参加（`pvpHost`/`pvpJoin`）は `'connecting'`＝「マッチ待ち」に数えない。実際に待機列に並ぶ人だけが `matching`。
+- **再戦**：プライベート部屋（`pvpRanked===false` かつ `pvpConn` あり）は決着後も**接続を切らず**、over画面に「🔁 もう一度／🚪 部屋を出る」（`pvpSetupOverButtons`）。両者が「もう一度」を押すと親が同じ接続で `pvpStartAsHost()` を再実行＝新しい対戦（**編成=`myDeck`/`pvpGuestDeck` は維持**、子が編成を変えていれば `REMATCH` に添えた新デッキを反映）。`PVP_MSG.REMATCH`／`pvpRematchClick`/`pvpRematchTryStart`/`pvpRematchUpdateUI`。子の再戦は親の `START` で開始。テスト：test.js 78。
+- **限界**：対戦間（over画面）に相手が抜けた場合の即時検知はしない（`pvpMatchActive()`＝対戦中のみ再接続監視）。要2台実機確認。
 
 ### F3 — 自動マッチング（ランダムマッチ）— 実装済み（`<script>`「12.5) ランダムマッチ」）
 

@@ -2308,6 +2308,26 @@ console.log('\n=== 75) キャラ詳細: 進化後/強化後の表示（enhDispla
   check('強化カードの絵：evoSprite無し(特大大福)もベース絵にフォールバック', API.specialCardIcon(API.SPECIALS['buff_daifuku']).length > 0);
 }
 
+console.log('\n=== 78) PVP プライベート部屋の再戦ハンドシェイク（REMATCH往復） ===');
+{
+  const [hWire, gWire] = API.createLoopbackPair();
+  let hostGotRematch = null, guestGotRematch = 0;
+  const host = API.makePvpHost(hWire, {
+    onGuestHello: () => {},
+    onGuestRematch: (deck) => { hostGotRematch = deck; },
+  });
+  const guest = API.makePvpGuest(gWire, {
+    onRematch: () => { guestGotRematch++; },
+  });
+  // 子が「もう一度」＝今のデッキを添えて再戦希望を親へ
+  guest.rematch(['cookie', 'choco', 'shoe', 'bomb']);
+  check('子→親：REMATCHでデッキが届く', JSON.stringify(hostGotRematch) === JSON.stringify(['cookie', 'choco', 'shoe', 'bomb']), hostGotRematch);
+  check('子→親：getGuestDeckも再戦デッキに更新される', JSON.stringify(host.getGuestDeck()) === JSON.stringify(['cookie', 'choco', 'shoe', 'bomb']), host.getGuestDeck());
+  // 親が「もう一度」＝子へ再戦希望を通知（UI表示用）
+  host.rematch();
+  check('親→子：REMATCH通知が届く', guestGotRematch === 1, guestGotRematch);
+}
+
 Promise.resolve().then(() => {
   console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
   process.exit(fail ? 1 : 0);
