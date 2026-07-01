@@ -164,6 +164,7 @@
 - **子**：`PVP_GUEST_HOOKS`＋`pvpGuestEnterPlay/ShowOffer/RenderSnapshot/OnResult/OnGameover`。
   計算せず、OFFERで選び・SNAPSHOTを `render` で描画するだけの薄いクライアント。
 - `pvpOnConnected` が接続後に親=子デッキ待ち→開始／子=デッキ送信→START待ち、に分岐。`openPvpLobby` は `needPlayerDeck()` で編成を要求。
+- **VSカットイン**：対戦開始時（`pvpStartAsHost`/`pvpGuestEnterPlay` 冒頭）に `pvpShowVsCutin()`→`showVsCutin(foe,you)`。全画面 `#vsCutin`（上=相手・赤／下=自分・青／間に斜めライン、アイコン大＋横に名前/レート縦並び）を約2秒アニメ表示（`pvpOppProfile` から相手名/アイコン/トロフィー）。`pointer-events:none`・自動で消える。
 - テスト：test.js 48（オーケストレーション往復）＋49（リモート敵が実フローを駆動）。CPU対戦は不変。
 - **要・実機確認**：2台（または同端末2タブ）での対戦通しはこのリポジトリ環境ではテスト不可。手元で確認する。
 
