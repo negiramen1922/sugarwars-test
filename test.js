@@ -65,7 +65,7 @@ code += `
   get MASTERY_WIN_XP(){ return MASTERY_WIN_XP; }, get MASTERY_LOSE_XP(){ return MASTERY_LOSE_XP; }, get MASTERY_XP_PER_LEVEL(){ return MASTERY_XP_PER_LEVEL; },
   mmPickWaiter, pvpResumeIsRecent, pvpReconnRemain, eloExpected, eloDelta, myTrophies, presenceCounts,
   enhDisplay, specialCardIcon,
-  pvpDecideIAmHost,
+  pvpDecideIAmHost, pvpMatchupType,
   burst, partCap, get LOW_FX(){ return LOW_FX; }, set LOW_FX(v){ LOW_FX=v; },
   get PART_CAP_HI(){ return PART_CAP_HI; }, get PART_CAP_LO(){ return PART_CAP_LO; },
   setCpuDeck:(d)=>{ cpuDeck = d; }, setCpuDeckMode:(m)=>{ cpuDeckMode = m; },
@@ -2452,6 +2452,15 @@ console.log('\n=== 83) PVP役割調整（A案：PCを優先して親） ===');
     if ((aHost ? 1 : 0) + (bHost ? 1 : 0) !== 1) ok = false;   // 合計で親はちょうど1人
   }
   check('どの端末組み合わせでも親はちょうど1人（役割の一貫性）', ok);
+}
+
+console.log('\n=== 84) PVP端末組み合わせの集計カテゴリ（pvpMatchupType） ===');
+{
+  const T = API.pvpMatchupType;
+  check('PC同士 → pc_pc', T('pc', 'pc') === 'pc_pc');
+  check('スマホ同士 → mobile_mobile', T('mobile', 'mobile') === 'mobile_mobile');
+  check('スマホ×PC → pc_mobile（順不同）', T('mobile', 'pc') === 'pc_mobile' && T('pc', 'mobile') === 'pc_mobile');
+  check('相手不明(旧版) → unknown', T('pc', 'unknown') === 'unknown' && T('unknown', 'mobile') === 'unknown' && T('pc', '') === 'unknown');
 }
 
 Promise.resolve().then(() => {
