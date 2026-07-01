@@ -75,7 +75,7 @@
 ## アーキテクチャ（単一 `<script>` 内の主な関数）
 
 - **データ/描画**：`CONFIG` / `UNITS` / `UNIT_BY_KEY` / `SPECIALS`（X2は自動生成）/ `iconHTML`（カード用・スライム/ソーダは味方色）/ `SPRITE_DATA`(base64) / `SPRITES`(Image) / `spriteFor`（盤面用スプライト解決）/ `render` / `loop`。
-- **軽量モード（弱い端末＝スマホ親のカクつき対策）**：**プレイヤーが設定メニュー（⚙）でON/OFF**する（`toggleLowFx`／`lowFxRow`・既定OFFでフル演出）。端末個別の好みなので `localStorage('sw_lowfx')` に保存＝**クラウド同期しない**（音量と同じ扱い）。ONのとき **見た目だけの粒子(`world.parts`) を削減**＝`burst()` の生成数を半減＋総数上限を `PART_CAP_HI`(200)→`PART_CAP_LO`(70) に下げ、`loop()` が毎フレーム古い粒子を間引く（`partCap()`）。炭酸沼はグラデ生成をやめフラット塗り。**CPU計算・当たり判定・スナップショットは不変＝ゲーム性/対戦の公平性に影響なし**（減るのは派手さだけ）。自動検知はしない（勝手に地味にしないため）。テスト：test.js 82。
+- **軽量モード（弱い端末＝スマホ親のカクつき対策）**：**プレイヤーが設定メニュー（⚙）でON/OFF**する（`toggleLowFx`／`lowFxRow`・既定OFFでフル演出）。端末個別の好みなので `localStorage('sw_lowfx')` に保存＝**クラウド同期しない**（音量と同じ扱い）。ONのとき **見た目だけの粒子(`world.parts`) を削減**＝`burst()` の生成数を半減＋総数上限を `PART_CAP_HI`(200)→`PART_CAP_LO`(70) に下げ、`loop()` が毎フレーム古い粒子を間引く（`partCap()`）。炭酸沼はグラデ生成をやめフラット塗り。さらに `render` の**装飾的な強化オーラ（進化/パーティ/各種バフの脈動リング一式）をON時はまとめて描画スキップ**（強化の有無はスプライト＋頭上の✦バッジで分かるので情報は失われない／足元の陣営リング・起爆警告・チャージ光など情報系は残す）。**CPU計算・当たり判定・スナップショットは不変＝ゲーム性/対戦の公平性に影響なし**（減るのは派手さだけ）。自動検知はしない（勝手に地味にしないため）。テスト：test.js 82。
 - **戦闘エンジン**：`createWorld` / `stepWorld(world,dt)`（phase=muster|battle|outro。毎フレームshuffleで左右バイアス除去）/ `nearestEnemy`（**無敵中`invuln>0`の敵は標的にしない**＝ワープ直後のゴーストにサムライ等が吊られない）/ `applyHit`（無敵中は無効。ノックバックは重量耐性＋上限＋無効時間。吸引中/起爆中は無反動）/ `killUnit`（爆発・スライム分裂・炭酸沼発生を一本化。爆発AoEも無敵中は当たらない）。
 - **専用挙動**：`chargerStep`(大福) / `artilleryStep`(キャノン) / `vacuumStep`(ドーナッツ) / `spawnerStep`(ベーカリー：`spawnerId` で個体ごとに独立した召喚枠) / `evolvePancake`・`evolvedStep`(パンケーキ進化＋ジャンプ衝撃波) / ワープ(ゴースト) / `shellStep`(マカロン：殻スピン→スタン→通常／true返却でその場処理) / 氷弾のヒット時スローは `u.chillT`/`chillAmt`、炭酸沼は `world.puddles` を `stepWorld` で毎フレーム処理（DoT＋`slowMul`減速）。
 - **ドラフト/演出**：`beginDraft` / `nextPick` / `renderPickOffer` / `pickCardAnimated`（裏表フリップ）→ `pickCard` / `revealFoePick` / `aiPicks`（貪欲スコア）/ `lockAndFight`。
@@ -245,7 +245,7 @@
 ## 利用状況の計測（GA4＝Firebase Analytics・実装済み・`<script>`「track()」）
 
 - `firebase-analytics-compat.js` を追加。`getAnalytics()`＝遅延初期化（未設定/ヘッドレスはno-op）。`track(name,params)` でイベント送信。PIIは送らない。
-- 送信イベント：`battle_start{mode}`／`unit_in_deck{unit,mode}`（デッキ構成＝使用率）／`unit_pick{unit}`（ドラフト選択＝使用率）／`battle_end{mode,result}`／`tutorial_complete`／`random_match_start`・`random_match_connected`・`random_match_failed`（マッチ成立/接続健全性）。
+- 送信イベント：`battle_start{mode}`／`unit_in_deck{unit,mode}`（デッキ構成＝使用率）／`unit_pick{unit}`（ドラフト選択＝使用率）／`battle_end{mode,result}`／`tutorial_complete`／`random_match_start`・`random_match_connected`・`random_match_failed`（マッチ成立/接続健全性）／`pvp_matchup{type,ranked}`（端末組み合わせ＝`pc_pc`/`pc_mobile`/`mobile_mobile`/`unknown`。**親側から1回だけ**送信＝1対戦1件で重複なし。A案=サーバー権威型の要否判断に使う。`pvpMatchupType()`・test.js 84）。
 - 計測点：`startGame`（cpu/tutorial）・`pvpStartAsHost`/`pvpGuestEnterPlay`（pvp）・`endBattle`・`pickCard`・`endTutorial`・`randomMatchStart`/`mmConnState`。
 - **要確認**：Firebaseプロジェクトで Google Analytics 連携が有効なこと（`FIREBASE_CONFIG.measurementId` があれば連携済み）。GA4のDebugView/リアルタイムでイベント確認。キャラ別の正確な実数が要るなら将来 GA4→BigQueryエクスポート（無料）かRTDB集計カウンタ。
 

@@ -2963,6 +2963,9 @@ function render(){
       ctx.beginPath(); ctx.arc(u.x,u.y+bob,(u.r+6)*sc,0,6.28);
       ctx.strokeStyle='rgba(255,80,40,'+(0.4+0.5*p)+')'; ctx.lineWidth=3; ctx.stroke();
     }
+    // 装飾的な強化オーラ（進化/パーティ/各種バフの脈動リング）。軽量モードではまとめてスキップ
+    // ＝重い端末の負荷を下げる。強化の有無はスプライトと頭上の✦バッジで分かるので情報は失われない。
+    if(!LOW_FX){
     // 進化済みパンケーキキング：金色のオーラ
     if(u.evolved){
       const p=0.5+0.5*Math.sin(world.t*6);
@@ -3023,6 +3026,7 @@ function render(){
       ctx.beginPath(); ctx.arc(u.x,u.y+bob,(u.r+4)*sc*vis,0,6.28);
       ctx.strokeStyle='rgba(214,158,92,'+(0.3+0.2*p)+')'; ctx.lineWidth=2.6; ctx.stroke();
     }
+    }   // end if(!LOW_FX) 装飾オーラ
     if(spr && spr.complete && spr.naturalWidth){
       const S=u.r*SPRITE_MUL*sc*vis; ctx.imageSmoothingEnabled=false;
       if(u.shellPhase==='spin'){   // 殻スピン中はくるくる回転して描画
@@ -3740,6 +3744,15 @@ function pvpDecideIAmHost(iWasHost, myDevice, theirDevice){
   if(myDevice==='mobile' && theirDevice==='pc') return false;
   return !!iWasHost;
 }
+// 対戦の端末組み合わせを集計用カテゴリにする（順不同）。相手の種別が不明（旧版）なら 'unknown'。
+// GA4 の pvp_matchup{type} で「スマホ同士/スマホPC/PC同士」の割合を見る＝A案(サーバー権威型)の要否判断に使う。
+function pvpMatchupType(a, b){
+  if(a!=='pc' && a!=='mobile') return 'unknown';
+  if(b!=='pc' && b!=='mobile') return 'unknown';
+  if(a==='pc' && b==='pc') return 'pc_pc';
+  if(a==='mobile' && b==='mobile') return 'mobile_mobile';
+  return 'pc_mobile';
+}
 // PVP決着時に1回だけ呼ぶ：ELOでトロフィーを増減し、戦績更新＋保存＋リーダーボード反映
 function applyTrophyResult(won, oppTrophies){
   const before = myTrophies();
@@ -4077,7 +4090,9 @@ function pvpOnConnected(roleLabel){
   const finish = (theirDev)=>{
     if(decided) return; decided=true;
     try{ clearTimeout(pvpNegoTimer); }catch(e){}
-    const iAmHost = pvpDecideIAmHost(iWasHost, myDev, theirDev||myDev);
+    const iAmHost = pvpDecideIAmHost(iWasHost, myDev, theirDev);
+    // 集計：端末組み合わせ（スマホ同士/スマホPC/PC同士）を親側から1回だけ送る＝1対戦=1件で重複しない。
+    if(iAmHost){ try{ track('pvp_matchup', { type:pvpMatchupType(myDev, theirDev), ranked:pvpRanked?1:0 }); }catch(e){} }
     // pvpSetupRole が張る「本ハンドラ」を捕まえるため onMessage を一時的にラップ→捕捉後に戻す。
     let realCb=null;
     pvpConn.onMessage = (fn)=>{ realCb=fn; origOnMessage(fn); };
@@ -4091,10 +4106,10 @@ function pvpOnConnected(roleLabel){
   origOnMessage((m)=>{
     if(m && m.type===PVP_MSG.ROLE){ finish(m.device||'pc'); return; }
     buffered.push(m);              // 退避（後で本ハンドラへ流す）
-    if(!decided) finish(myDev);    // 旧版の相手→従来割当てで開始
+    if(!decided) finish('unknown');// 旧版の相手（ROLE非対応）→従来割当てで開始（端末不明）
   });
   pvpConn.send({ type:PVP_MSG.ROLE, device:myDev });
-  pvpNegoTimer = setTimeout(()=>{ finish(myDev); }, 1500);   // 相手がROLE非対応なら従来どおり
+  pvpNegoTimer = setTimeout(()=>{ finish('unknown'); }, 1500);   // 相手がROLE非対応なら従来どおり（端末不明）
 }
 // 決定した役割(iAmHost)で本来のPVP進行役をセットアップ（onMessageを本ハンドラに差し替える）。
 function pvpSetupRole(iAmHost){
