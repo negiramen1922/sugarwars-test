@@ -39,7 +39,7 @@
 | ghost | わたあめゴースト | 3.5 | 3 | 16 | 44 | 95 | 開幕少し待って敵後方へワープ（warpDelay1.5・無敵中は狙われない） |
 | cannon | キャンディキャノン | 4 | 1 | 0 | 140 | 0 | 不動の全域誘導AoE迫撃（手前の敵を優先・爆発範囲 `splash`=35） |
 | icewiz | アイスクリームウィザード | 3.3 | 1 | 20 | 70 | 60 | 後衛魔導士。小範囲の氷弾（`ranged`＋`splash`=32・`range`=190）を撃ち、命中した敵に時限鈍足（`slowHit`=0.35＝35%/`slowDur`=1.5秒）を付与。鈍足は `u.chillT`/`chillAmt` で管理し `slowMul` に反映 |
-| macaron | シェルマカロン | 1 | 2 | 18 | 100 | 70 | 殻スピン（`shell`／`shellStep`）。開幕は殻で突進し壁で反射しながら約4秒(`SHELL_SPIN_DUR`)暴れる→約2秒(`SHELL_STUN_DUR`)スタン→以降は通常戦闘。殻の間（スピン＆スタン）は体当たり(`atk`)＋被ダメ80%カット(`SHELL_DR`／`u.inShell`)。`u.shellPhase`(spin/stun/normal)で挙動・立ち絵を切替 |
+| macaron | シェルマカロン | 1 | 2 | 18 | 100 | 70 | 殻スピン（`shell`／`shellStep`）。開幕は殻で突進し壁で反射しながら約4秒(`SHELL_SPIN_DUR`)暴れる→約2秒(`SHELL_STUN_DUR`)スタン→以降は通常戦闘。スピン中は体当たり(`atk`)＋被ダメ80%カット(`SHELL_DR`／`u.inShell`)、スタン(気絶)中は無防備でカットなし。`u.shellPhase`(spin/stun/normal)で挙動・立ち絵を切替 |
 
 隊列 `arrangeFormation` は **tier が小さいほど前列、大きいほど後方**。
 
