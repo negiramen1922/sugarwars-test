@@ -2578,10 +2578,15 @@ console.log('\n=== 90) アニメ付きキャラ（マシュマロエンジェル
   w.t = 0.0; const s0 = API.spriteFor(f);
   w.t = 0.25; const s1 = API.spriteFor(f);   // floor(0.25*5)=1 → 2枚目
   w.t = 0.45; const s2 = API.spriteFor(f);   // floor(0.45*5)=2 → 3枚目
-  check('t=0 は1枚目', s0 === API.SPRITES['mangel_1'], !!s0);
-  check('t=0.25 は2枚目', s1 === API.SPRITES['mangel_2'], !!s1);
-  check('t=0.45 は3枚目', s2 === API.SPRITES['mangel_3'], !!s2);
+  check('t=0 は1枚目（青）', s0 === API.SPRITES['mangel_1'], !!s0);
+  check('t=0.25 は2枚目（青）', s1 === API.SPRITES['mangel_2'], !!s1);
+  check('t=0.45 は3枚目（青）', s2 === API.SPRITES['mangel_3'], !!s2);
   check('フレームが実際に変化する', s0 !== s1 && s1 !== s2, [s0 === s1, s1 === s2]);
+  // 敵(side='e')は赤フレームを使う
+  check('animRed を3枚持つ', U && U.animRed && U.animRed.length === 3, U && U.animRed);
+  const fe = API.makeFighters('mangel', 'e', 440, 660, 'army')[0]; w.units.push(fe);
+  w.t = 0.0; check('敵 t=0 は赤1枚目', API.spriteFor(fe) === API.SPRITES['mangel_red_1'], true);
+  w.t = 0.25; check('敵 t=0.25 は赤2枚目', API.spriteFor(fe) === API.SPRITES['mangel_red_2'], true);
   // ランダムCPUデッキにテストキャラは入らない
   let poolHasTest = false;
   for (const u of API.UNITS) { if (u.test) poolHasTest = true; }
