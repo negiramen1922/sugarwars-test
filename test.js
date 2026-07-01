@@ -65,7 +65,8 @@ code += `
   get MASTERY_WIN_XP(){ return MASTERY_WIN_XP; }, get MASTERY_LOSE_XP(){ return MASTERY_LOSE_XP; }, get MASTERY_XP_PER_LEVEL(){ return MASTERY_XP_PER_LEVEL; },
   mmPickWaiter, pvpResumeIsRecent, pvpReconnRemain, eloExpected, eloDelta, myTrophies, presenceCounts,
   enhDisplay, specialCardIcon,
-  pvpDecideIAmHost, pvpMatchupType,
+  pvpDecideIAmHost, pvpMatchupType, unitDamageType, mostUsedUnit,
+  get myProfileRef(){ return myProfile; },
   burst, partCap, get LOW_FX(){ return LOW_FX; }, set LOW_FX(v){ LOW_FX=v; },
   get PART_CAP_HI(){ return PART_CAP_HI; }, get PART_CAP_LO(){ return PART_CAP_LO; },
   setCpuDeck:(d)=>{ cpuDeck = d; }, setCpuDeckMode:(m)=>{ cpuDeckMode = m; },
@@ -2461,6 +2462,43 @@ console.log('\n=== 84) PVP端末組み合わせの集計カテゴリ（pvpMatchu
   check('スマホ同士 → mobile_mobile', T('mobile', 'mobile') === 'mobile_mobile');
   check('スマホ×PC → pc_mobile（順不同）', T('mobile', 'pc') === 'pc_mobile' && T('pc', 'mobile') === 'pc_mobile');
   check('相手不明(旧版) → unknown', T('pc', 'unknown') === 'unknown' && T('unknown', 'mobile') === 'unknown' && T('pc', '') === 'unknown');
+}
+
+console.log('\n=== 85) キャラ詳細：ダメージタイプ判定＋最も使うキャラ ===');
+{
+  const U = API.UNIT_BY_KEY, D = API.unitDamageType;
+  check('クッキー＝近距離・単体', D(U.cookie) === '近距離・単体', D(U.cookie));
+  check('シューアーチャー＝遠距離・単体', D(U.shoe) === '遠距離・単体', D(U.shoe));
+  check('アイス＝遠距離・範囲', D(U.icewiz) === '遠距離・範囲', D(U.icewiz));
+  check('キャノン＝遠距離・範囲', D(U.cannon) === '遠距離・範囲', D(U.cannon));
+  check('大福＝近距離・範囲（薙ぎ払い）', D(U.daifuku) === '近距離・範囲', D(U.daifuku));
+  check('ポップコーン＝自爆・範囲', D(U.bomb) === '自爆・範囲', D(U.bomb));
+  check('ベーカリー＝生産（非攻撃）', D(U.bakery) === '生産（非攻撃）', D(U.bakery));
+  check('マカロン＝近距離・単体', D(U.macaron) === '近距離・単体', D(U.macaron));
+  // 最も使うキャラ：使用回数の最大を返す
+  const prof = API.myProfileRef;
+  prof.usage = { cookie: 2, choco: 5, shoe: 1 };
+  check('mostUsedUnit＝使用回数が最大のキャラ', API.mostUsedUnit() === 'choco', API.mostUsedUnit());
+  prof.usage = {};   // 使用回数なし→熟練度にフォールバック
+  prof.mastery = { bomb: 30, cookie: 10 };
+  check('使用回数ゼロなら熟練度が最大のキャラにフォールバック', API.mostUsedUnit() === 'bomb', API.mostUsedUnit());
+  prof.mastery = {};
+  check('どちらも無ければ null', API.mostUsedUnit() === null, API.mostUsedUnit());
+}
+
+console.log('\n=== 86) プロフィール保存：最高トロフィー(best)と使用回数(usage)の往復 ===');
+{
+  const prof = API.myProfileRef;
+  prof.trophies = 1200; prof.best = 1150; prof.usage = { cookie: 3 };
+  const p = API.buildProfile();
+  check('buildProfile: best は現在値と保存値の大きい方', p.best === 1200, p.best);
+  check('buildProfile: usage を書き出す', p.usage && p.usage.cookie === 3, p.usage);
+  // マージ：大きい方を採用
+  API.applyProfile({ best: 1400, usage: { cookie: 1, choco: 9 } });
+  check('applyProfile: best は大きい方(1400)', prof.best === 1400, prof.best);
+  check('applyProfile: usage はキーごとに大きい方', prof.usage.cookie === 3 && prof.usage.choco === 9, prof.usage);
+  API.applyProfile({ best: 100 });   // 小さい値では下がらない
+  check('applyProfile: best は下がらない', prof.best === 1400, prof.best);
 }
 
 Promise.resolve().then(() => {

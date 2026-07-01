@@ -91,7 +91,8 @@
 - 強化で立ち絵が変わるキャラ：**チョコ**（`choco_buff_*`＝ビター装甲、`u.chocoBuff`）・**シュー**（`shoe_buff_*`＝特盛り、`u.shoeBuff`）・**ソーダ**（`soda_buff_*`＝炭酸沼強化、`u.fizz`）・**ベーカリー**（`bakery_buff_*`＝ラストベイク、`u.bakeryBuff`）・**ポップコーン**（`bomb_buff_*`＝おかわり、`u.spawnMini`）・**大福**（`daifuku_buff_*`＝特大大福、`u.daifukuBuff`）・**ゴースト**（`ghost_buff_*`＝分身、`u.cloneOn`／おとり分身は通常絵）・**キャノン**（`cannon_buff_*`＝クラスター花火弾、`u.cluster`）・**ドーナッツ**（`donut_buff_*`＝鉄壁、`u.donutWall`）・**アイス**（`icewiz_buff_*`＝ブリザード、`u.icewizBuff`）・**マカロン**（`macaron_buff_*`/`macaron_spin_buff_*`＝ビッグシェル）。いずれも陣営色つき。`spriteFor()` で解決。
 - 立ち絵が無いキャラは絵文字フォールバック。
 - **強化カードの絵**：`SPECIALS` に `evoSprite`（例 `buff_choco`→`choco_buff_blue`／`fast_pancake`→`pancake_evo`）を持つ強化は、ドラフトのカード絵を**進化後/強化後の立ち絵**で出す（`specialCardIcon()`）。無ければ対象キャラのベース絵→絵文字にフォールバック。
-- **キャラ詳細（`showDetail`）**：`enhDisplay()` がそのキャラの「進化（自動）」と「固有強化」を表示用にまとめ、強化後HP/攻撃（定数から再計算）＋進化後の立ち絵を併記する。
+- **ヘッダーのアクション（`.topbar-actions`）**：右上に「コミュニティに参加！(Discord・他より横長)」→「お知らせ📢(`#newsBtn`)」→「設定⚙」の順。お知らせは**新着があると赤ドット**（`renderNewsDot`/`#newsDot`）＝最新 `NEWS[0].ver` を `localStorage('sw_news_seen')` と比較（`newsUnseen`）、`openNews` で既読化（`markNewsSeen`）。起動時に `renderNewsDot()`。
+- **キャラ詳細（`showDetail`）**：**「ステータス」「熟練度」の2タブ**（`switchDetailTab`）。ステータスタブ＝ダメージタイプのバッジ（`unitDamageType()`＝近距離/遠距離×単体/範囲・自爆/生産）＋ステータスグリッド（召喚数/攻撃/HP/移動速度/攻撃速度=`cd`秒/回/射程＝`fmtSpeed`不動・`fmtRange`全域）＋説明＋`enhDisplay()`（進化＝自動／固有強化＝強化後HP/攻撃を定数から再計算＋進化後の立ち絵）。熟練度タブ＝`masteryDetailHTML()`。モーダルは `.modal-card` に `max-height:calc(100vh-40px);overflow-y:auto` で**縦長でもスクロール**（全モーダル共通）。テスト：test.js 85。
 
 ### スプライト加工の手順（同梱の `sprite_proc.py` を使用）
 
@@ -216,7 +217,7 @@
 - **トロフィー＝ELOレート**。初期 `TROPHY_START`=1000、`ELO_K`=32。`eloExpected`/`eloDelta`（純粋関数・test.js 72）。
 - ランダムマッチ決着時のみ増減（あいことば手動PVP・CPU戦は非変動。pvpRankedで判定）：親は `endGame`（`wasPvp`時）、子は `pvpGuestOnGameover` で `applyTrophyResult(won, oppTrophies)`。相手トロフィーはハンドシェイク（HELLO/START の `prof`＝`pvpNetProfile()`）で交換し `pvpOppProfile` に保持。over画面に増減を表示。
 - 保存：`myProfile.trophies/wins/losses` を buildProfile/applyProfile に統合（端末＋クラウド）。
-- **戦績表示**：プロフィール欄（`#authModal`）に `renderProfileStats()` でトロフィー／バトル数（=wins+losses）／勝利／敗北を表示（`fillProfileEditor` から呼ぶ）。wins/losses はランダムマッチのみ反映。
+- **戦績表示**：プロフィール欄（`#authModal`）に `renderProfileStats()` でトロフィー／**最高トロフィー(`myProfile.best`)**／**勝率(%)**／バトル数（=wins+losses）／勝利／敗北＋**よく使うキャラ(`mostUsedUnit()`)** を表示（`fillProfileEditor` から呼ぶ）。wins/losses はランダムマッチのみ反映。`best` は `applyTrophyResult` で更新、`usage`（key→回・全モードで `trackBattleStart` が加算）から `mostUsedUnit()` を算出。どちらも buildProfile/applyProfile でマージ（大きい方）＝端末＋クラウド。テスト：test.js 86。
 - **熟練度（キャラ経験値）で解禁する特別アバター**：`myProfile.mastery`（key→XP）。XPは**PVP対戦の決着時のみ** `awardMasteryXp(won)` で付与（デッキ各キャラに 勝ち=`MASTERY_WIN_XP`(10)／負け=`MASTERY_LOSE_XP`(3)・CPU戦は非加算）。レベル＝`masteryLevel()`＝`floor(XP/MASTERY_XP_PER_LEVEL(50))`。`SPECIAL_AVATARS`（`ava_bomb`/`ava_choco`/`ava_cookie`＝背景つき画像・各 `lvl`=3）は対象キャラの熟練度Lvが `lvl` 以上で `avatarUnlocked()` が真＝選択可。アバターは `avatarHTML()` で「特別=画像／通常=ユニット絵文字」を出し分け（プロフィールチップ/ランキング/対戦相手表示/選択グリッド）。ロック中は🔒＋必要Lv表示、解禁時は `toast()` 通知。熟練度は buildProfile/applyProfile とローカル保存に統合（マージは大きい方）。キャラ詳細（`showDetail`）に `masteryDetailHTML()` で**熟練度Lv/XP進捗バー＋解禁ロードマップ**を表示。**方針：解禁は見た目（アイコン/スキン）だけ＝強化カード等の性能は熟練度で解禁しない（対戦を常にフェアに）**。テスト：test.js 79。
 - **リーダーボード**：`leaderboard/<uid>={name,avatar,trophies,wins}`（公開read・自分のみwrite）。`leaderboardSubmit`（決着/ログイン時）・`leaderboardLoad`（trophies降順・上位50）。`#ranking` 画面＝`openRanking`/`renderRankingList`。ホームに `🏆` 表示（`renderHomeTrophies`）。
 - **要設定**：RTDBルールに `leaderboard`（read:true・$uidのみwrite）。`FIREBASE_SETUP.md` C章参照。
