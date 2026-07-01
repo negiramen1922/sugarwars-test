@@ -237,6 +237,28 @@
 - **保存**：`coins`/`collected`/`frame`/`title`/`nameColor`/`dailyWinKey` を `saveProfileLocal`（端末）＋`buildProfile`/`applyProfile`（クラウド）に統合。マージは coins=大きい方・collected=個数の大きい方（進捗が消えない割り切り）。
 - **UI**：ホームメニュー「🎁 ショップ＆コレクション」＋ホームのコイン表示（クリックでショップ）→ `#shopModal`（`openShop`/`closeShop`/`renderShop`）。
 
+## キャラ解禁（スターター＋💎ジェム・実装済み・`<script>`「13.6) キャラ解禁」）
+
+**方針（①=全モード解禁制を採用）**：スターターを実用的な数にし、ジェムは無料で貯まる（指南クリア＋対戦報酬）ので、初心者でもすぐ4枚デッキを組めて、いつかは全員そろう＝格差を最小化。将来は課金でのジェム購入も想定。テスト：test.js 92。
+
+- **スターター**：`STARTER_UNITS`＝`cookie/slime/bomb/soda/choco/shoe`（群れ/分裂/自爆×2/タンク/遠距離の6体）は最初から使える。
+- **解禁状態**：`myProfile.units`（解禁済みキャラのkey配列）。`unitUnlocked(key)`＝召喚専用は非対象／スターター／units に入っていれば真。`lockedUnits()`＝まだロックのkey一覧。
+- **💎ジェム**：`myProfile.gems`。`myGems()`。対戦報酬 `battleGemReward(won,first)`＝`GEM_WIN`(10・勝利)＋`GEM_DAILY`(30・その日の初勝利)を `grantBattleReward` で付与（CPU/PVP両方）。
+- **解禁手段**：戦術指南クリア（下記）＋`buyUnit(key)`（💎で直接購入・`unitUnlockCost`=一律300）。`unlockUnit(key)` が units に追加。
+- **編成のゲート**：`toggleDeck` は自分の編成（`rosterMode==='you'`）で未解禁キャラを拒否（トースト）。`renderRoster` はロックキャラに🔒＋💎コストのオーバーレイ（`.rlocked`/`.rlock`）。CPUデッキ編成はゲートしない。
+- **既存救済**：`migrateUnlocks()`＝今のデッキに入っている非スターターは解禁済み扱い（起動時＋クラウド復元後に呼ぶ）＝新システムでデッキが壊れない。
+- **保存**：`gems`/`units`/`guideDone` を `saveProfileLocal`＋`buildProfile`/`applyProfile` に統合。マージは gems=大きい方・units/guideDone=和集合。
+
+## PVE 戦術指南（ステージ制レッスン・実装済み・`<script>`「13.7) PVE 戦術指南」）
+
+ユーザー要望の「PVEの戦術指南でカードを入手→その後ガチャ」の前半。各レッスン＝1テーマを実戦で学び、**勝利で仲間（キャラ）解禁＋💎ジェム（初回のみ）**。順番にクリアして進む。テスト：test.js 93。
+
+- **データ**：`GUIDE_STAGES`（`{id,title,theme,tip,deck,foe,unit,gems}`）。`deck`＝レッスン用おすすめデッキ（学ぶキャラを含めて体験させる）、`foe`＝相手デッキ、`unit`＝クリア報酬キャラ、`gems`＝報酬💎。現在6レッスン（前衛=donut／遠距離=icewiz／ワープ=ghost／範囲=cannon／生産=bakery／進化=pancake）。残り（daifuku/macaron）は💎購入（Phase 3のガチャで対応予定）。
+- **順番制**：`guideStageUnlocked(id)`＝先頭は常に可、以降は前をクリア（`guideCleared`）で解禁。
+- **フロー**：`openGuide`→`renderGuide`（`#guide` 画面）→ レッスンタップ→`startGuideStage`（`#guideTipModal` でヒント）→`beginGuideStage`＝**本デッキを `_guideDeckBackup` に退避**して `myDeck` をレッスンデッキに一時差し替え（保存はしない＝端末/クラウドの本デッキは不変）→`startGame`。
+- **決着**：`endGame` の `guideMode` 分岐→`guideFinish(won)`＝勝てば初回のみ `guideDone` 記録＋`unlockUnit`＋💎付与＋トースト。**通常の対戦報酬（コイン/ジェム）も併せて付与**。over画面は専用ボタン（`#overGuideBtns`＝🔁もう一度=`guideRetry`／🎓指南へ戻る）。`goHome` でも途中離脱時にデッキ復元。
+- **入口**：ホームメニュー「🎓 戦術指南」＋ホームの💎表示クリック。
+
 ## オンライン人数（presence・実装済み）
 
 - 起動時に `pvpPresenceJoin()`＝**匿名サインイン**して `presence/<uid>={status,ts}`（`onDisconnect().remove()`）。`presence` を購読し `presenceCounts(obj)`（純粋関数・test.js 73）で集計→「🟢 オンラインN人・マッチ待ちW人・対戦中M人」をホーム/PVPロビーに表示（`renderPresence`）。マッチ待ち=`status:'matching'` の数。
@@ -266,6 +288,8 @@
 
 ## 次の候補タスク（未着手・要相談）
 
+- **経済Phase 3（ジェムショップ）**：残りキャラ（daifuku/macaron 等）を💎で**直接購入**する画面＋**💎ガチャ**（ランダム解禁・全解禁後は重複をXP/ジェムに変換）。現状 `buyUnit(key)` は実装済みなので、UI（購入/ガチャ画面）を足すだけ。ユーザー要望「指南でカード入手→その後ガチャ」の後半。
+- 戦術指南のレッスン追加・数値/順番の調整（`GUIDE_STAGES`）。
 - PVP **F2**（Firebase+WebRTCで実接続）→ **F3**（自動マッチング）。
 - 各キャラの固有強化（X2以外の派手な効果）の追加。
 - flock の効果検証・他キャラへの相乗効果。
