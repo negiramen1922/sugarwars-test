@@ -84,7 +84,7 @@ code += `
   startTutorial, tutNext, endTutorial, get tutorial(){ return tutorial; },
   endBattle, endGame, nextRound, resolveOverlaps,
   setupCanvas, CW_get:()=>CW, CH_get:()=>CH,
-  PVP_MSG, createLoopbackPair, makeCpuFoeController, makeRemoteFoeController,
+  PVP_MSG, createLoopbackPair, makeCpuFoeController, makeRemoteFoeController, makeGuideFoeController,
   serializeWorld, applySnapshot, makePvpHost, makePvpGuest,
   PVP_PROTO, pvpMakeOffer, pvpMakeStepOffers, pvpInjectOrDefer, resetPvpEnhPending, applyPvpSpecial, reapplyEnhancements, X2_OFFER_CAP, X2_BOARD_CAP, picksFor,
   get pvpEnh(){ return pvpEnh; }, set pvpEnh(v){ pvpEnh = v; },
@@ -2727,6 +2727,13 @@ console.log('\n=== 93) PVE戦術指南：順番制＋クリアで解禁＋ジェ
     const c1=API.GUIDE_STAGES.find(s=>s.id==='charge1'), c2=API.GUIDE_STAGES.find(s=>s.id==='charge2');
     check('大福charge1は体験型（unit無し・easyFoe・winRounds:1）', c1 && c1.unit===undefined && c1.easyFoe===true && c1.winRounds===1 && c1.forceUnit==='daifuku');
     check('大福charge2でdaifuku解禁・相手はチョコ/弓/ゼリー', c2 && c2.unit==='daifuku' && JSON.stringify(c2.foe)===JSON.stringify(['choco','shoe','slime']));
+  // 指南の敵コントローラは指定編成を確実に出す（貪欲AIと違い弓兵等も必ず登場）
+  {
+    const ctl=API.makeGuideFoeController(['cookie','shoe']);
+    const picks=ctl.picks([], 4);
+    check('指南敵は編成を順番に出す（cookie,shoe,cookie,shoe）', JSON.stringify(picks)===JSON.stringify(['cookie','shoe','cookie','shoe']), picks);
+    check('指南敵の picks に弓兵が必ず含まれる', picks.includes('shoe'));
+  }
     check('charge2はcharge1クリアまでロック', API.guideStageUnlocked('charge2')===false);
     check('charge1は最初から挑戦可', API.guideStageUnlocked('charge1')===true);
   }

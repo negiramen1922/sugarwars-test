@@ -773,7 +773,7 @@ const UNITS = [
   {key:'ginger', name:'ジンジャーソルジャー', icon:'🍪', role:'fodder', tier:0, count:1, atk:10, hp:25, speed:112, range:22, cd:0.55, tag:'召喚', short:'ベーカリーが焼く足の速い小さな兵士', text:'ジンジャーベーカリーが焼き上げる小さな兵士。脆いが足が速く、数で押し寄せる。', summonOnly:true},
   {key:'popcorn_mini', name:'小型ポップコーン', icon:'🍿', role:'fodder', tier:1, count:1, atk:0, hp:24, speed:132, range:22, cd:1.0, tag:'自爆', short:'TNTの爆発から飛び出してもう一度自爆する小型', text:'ポップコーンTNTの爆発から飛び出す小型。すぐに自爆する（さらに分裂はしない）。', suicide:true, blast:60, blastR:48, fuse:0.4, summonOnly:true, spriteScale:0.62},
   {key:'shoe',  name:'シュークリームアーチャー', icon:'🧁', role:'back', tier:3, count:4, atk:14, hp:44, speed:55, range:150, cd:1.0, tag:'後衛', short:'弓を放つシュークリーム', text:'後方から弓を放つシュークリームのアーチャー。矢の雨で近づく前に溶かしちゃう！', ranged:true},
-  {key:'ghost', name:'わたあめゴースト', icon:'☁️', role:'back', tier:3.5, count:3, atk:16, hp:44, speed:95, range:28, cd:0.43, tag:'強襲', short:'敵陣の後ろへワープして後衛を急襲するわたあめ', text:'3体で出る奇襲役。戦闘開始から少し経つと消えて、敵陣の最後尾あたりへワープ。出現直後はすり抜け(無敵)で後衛を最優先に叩く（脆い）。', warper:true, warpDelay:1.5, target:'back'},
+  {key:'ghost', name:'わたあめゴースト', icon:'☁️', role:'back', tier:3.5, count:3, atk:16, hp:44, speed:95, range:28, cd:0.43, tag:'強襲', short:'敵の後衛を奇襲するおばけ', text:'敵の後衛にワープして奇襲するおばけ。背後をとって挟み撃ちにしよう。うらめしや！！', warper:true, warpDelay:1.5, target:'back'},
   {key:'cannon',name:'キャンディキャノン', icon:'🎆', role:'back', tier:4, count:1, atk:0, hp:140, speed:0, range:9999, cd:3.8, tag:'迫撃', short:'最後尾から全域へ撃ち込む花火の迫撃砲', text:'最後尾から動かず、ステージ全域へ範囲迫撃。遅いが密集地点で大爆発。', artillery:true, mortar:60, splash:35, shotSpeed:230, arcH:80, spriteScale:1.25},
   {key:'icewiz', name:'アイスクリームウィザード', icon:'🍦', role:'back', tier:3.3, count:1, atk:20, hp:70, speed:60, range:190, cd:1.2, tag:'氷の魔導士', short:'小さな氷弾を撃ち、当てた敵を鈍足にする後衛魔導士', text:'後方から小さな範囲の氷弾を撃つ魔導士。爆風は小さいが、当たった敵を一定時間鈍足（足を約35%遅く・約1.5秒）にして足止めする。射程が長い。', ranged:true, splash:32, slowHit:0.35, slowDur:1.5, beta:true},
   {key:'macaron', name:'シェルマカロン', icon:'🟣', role:'tank', tier:1, count:2, atk:18, hp:100, speed:70, range:28, cd:0.9, tag:'殻スピン', short:'殻にこもって突進＋反射で暴れ、スタン後に通常戦闘する2体', text:'2体で出る暴れん坊。開幕は殻にこもって近くの敵へ突進し、壁にぶつかると反射して約4秒あばれ回る（スピン中は被ダメージ80%カットでとても硬い）。そのあと約2秒スタン（気絶中は無防備で普通にダメージを受ける）し、以降は普通に殴り合う。', shell:true, beta:true},
@@ -912,7 +912,7 @@ SPECIALS['buff_daifuku'] = {
 /* わたあめゴースト固有強化「分身」：攻撃を受けると、おとりの分身を1体出す（分身は1撃で消える）。 */
 SPECIALS['clone_ghost'] = {
   key:'clone_ghost', name:'分身', icon:'☁️', upgrade:true, ghostClone:true, target:'ghost', evoSprite:'ghost_buff_blue',
-  text:'わたあめゴーストが攻撃を受けると、おとりの分身を1体出す（分身は1撃で消える・各ゴースト1回ずつ）。以後ずっと有効。',
+  text:'わたあめゴーストが攻撃を受けた際に、おとりの分身を1体出す（分身は1撃で消える・各ゴースト1回ずつ）。',
 };
 /* キャンディキャノン固有強化「クラスター花火弾」：着弾すると小爆発がいくつも周囲に飛び散る。 */
 SPECIALS['cluster_cannon'] = {
@@ -1410,7 +1410,7 @@ const UNIT_ABILITIES = {
   pancake:[{name:'巨大進化', info:'戦闘開始から約10秒で3段に巨大進化。HPが大幅UPし、着地のジャンプ衝撃波で周囲を範囲攻撃する。'}],
   donut:[{name:'吸引', info:'正面の敵を吸い寄せて足止めする鈍足タンク。とても重いので、群れに押し込まれても崩れない。'}],
   bakery:[{name:'兵士生産', info:'動かない生産工場。約2秒ごとにジンジャーソルジャーを作り出す（1体につき最大7体まで）。'}],
-  ghost:[{name:'ワープ奇襲', info:'開幕に少し待ってから敵の後方へワープする。ワープ直後は無敵で狙われない＝弓兵や魔導士を直接たたける。'}],
+  ghost:[{name:'ふわっとワープ', info:'ふわっと消えて敵の後衛の位置にさっと出現して後衛を奇襲する'}],
   cannon:[{name:'全域迫撃', info:'動かず全域へ誘導迫撃を撃つ。手前の敵を優先し、着弾すると範囲で爆発する。'}],
   icewiz:[{name:'氷弾スロー', info:'小範囲の氷弾を撃ち、当たった敵を一定時間鈍足にする（味方が押し勝ちやすくなる）。'}],
   macaron:[{name:'殻スピン', info:'開幕は殻に閉じこもり、壁で反射しながら約4秒暴れる（被ダメを大幅カット）→約2秒スタン→以降は通常戦闘。'}],
@@ -3578,6 +3578,16 @@ function makeCpuFoeController(){
     picks(loadout, n){ return aiPicks(loadout, n); },
   };
 }
+// 敵コントローラ：戦術指南用。foeデッキを【順番に】出す（貪欲AIだと弱い後衛=弓兵などが出ないため、
+// レッスンで狙った編成を確実に相手に出させる）。deckを round-robin で1体ずつ召喚。
+function makeGuideFoeController(deck){
+  const d=(deck&&deck.length)?deck.slice():['cookie']; let i=0;
+  return {
+    type:'guide',
+    deck(){ return d.slice(); },
+    picks(loadout, n){ const out=[]; for(let k=0;k<n;k++){ out.push(d[i%d.length]); i++; } return out; },
+  };
+}
 // 敵コントローラ：リモート版（PVP用）。相手プレイヤーから届いたデッキ／選択を供給する。
 // F1では「供給済みの値を返すだけ」の器。F2で transport から非同期に埋める。
 function makeRemoteFoeController(){
@@ -4325,9 +4335,13 @@ const GUIDE_STAGES = [
   { id:'ranged', title:'遠くから削る',     theme:'遠距離', unit:'icewiz', coins:100,
     tip:'遠距離ユニットは近づかれる前に相手を削れる。アイスクリームウィザードは氷弾で当てた敵を鈍足にして、味方が押し勝ちやすくなる。前衛の後ろに置こう。',
     deck:['icewiz','shoe','choco','cookie'], foe:['cookie','slime','soda'] },
-  { id:'warp',   title:'後衛を直接たたく', theme:'ワープ / 裏取り', unit:'ghost', coins:100,
-    tip:'わたあめゴーストは開幕に敵の後ろへワープして、弓兵や魔導士を直接たたく。正面のタンクを無視して「痛い所」を突けるのが強み。',
-    deck:['ghost','choco','shoe','cookie'], foe:['choco','shoe','icewiz'] },
+  { id:'warp1',  title:'後衛に回り込む①', theme:'ワープ / 裏取り（体験）', arc:'ghost', coins:50,
+    easyFoe:true, winRounds:1, forceUnit:'ghost',
+    tip:'相手はクッキーの壁と弓兵（シュークリーム）。わたあめゴーストは正面を無視して敵の後ろへワープ！ 前衛に正面を任せて、ゴーストで後ろの弓兵を挟み撃ちにしよう。まずは1ライフ取ればクリア！',
+    deck:['ghost','choco','cookie'], foe:['cookie','shoe'] },
+  { id:'warp2',  title:'後衛を狩る②',     theme:'裏取り（実戦）', unit:'ghost', arc:'ghost', coins:100,
+    tip:'相手は弓兵＋キャンディキャノン＋ゼリー。動かないキャノンや弓兵はゴーストの奇襲の的！ 前衛で正面を支えつつ、ゴーストで後衛を崩そう。勝てばわたあめゴーストが仲間になる。',
+    deck:['ghost','choco','shoe','cookie'], foe:['shoe','cannon','slime'] },
   { id:'aoe',    title:'群れを一掃する',   theme:'範囲攻撃', unit:'cannon', coins:100,
     tip:'数で押す群れには範囲攻撃。キャンディキャノンは動かない代わりに全域へ爆撃して、固まった敵をまとめて溶かす。前衛で守ってあげよう。',
     deck:['cannon','choco','shoe','cookie'], foe:['cookie','slime','bomb'] },
@@ -4453,11 +4467,12 @@ function beginGuideStageBattle(){
   myDeck = myDeck.slice(0, CONFIG.deckSize);
   guideMode=true;
   cpuDeckMode='manual'; cpuDeck = s.foe.slice();
+  foeCtl = makeGuideFoeController(s.foe);   // レッスンは指定編成を順番に確実に出す（弓兵等も必ず登場）
   hideResultBanner(); rosterMode='you';
   startGame();
 }
 // レッスンの後片付け（本来のデッキに戻す）。
-function guideRestoreDeck(){ if(_guideDeckBackup){ myDeck=_guideDeckBackup; _guideDeckBackup=null; } guideForceUnit=null; cpuDeckMode='auto'; cpuDeck=[]; }
+function guideRestoreDeck(){ if(_guideDeckBackup){ myDeck=_guideDeckBackup; _guideDeckBackup=null; } guideForceUnit=null; cpuDeckMode='auto'; cpuDeck=[]; foeCtl=makeCpuFoeController(); }
 // デッキ編成をやめて指南メニューへ（本来のデッキに戻す）。
 function guideCancelDeck(){ guideStageId=null; guideRestoreDeck(); openGuide(); }
 // レッスン決着の処理（endGameから呼ぶ）。勝てば解禁＋ジェム（初回のみ）。
