@@ -372,7 +372,7 @@
     <!-- PVE 戦術指南（ステージ制レッスン） -->
     <section id="guide" class="center hidden">
       <p class="big" style="font-size:clamp(22px,5vw,34px)">🎓 戦術指南</p>
-      <p class="stage-sub" id="guideSub">レッスンをクリアすると、仲間（キャラ）と💎ジェムがもらえます。</p>
+      <p class="stage-sub" id="guideSub">レッスンをクリアすると仲間（キャラ）と💎ジェムがもらえます。全キャラがここで解禁できます（💎で先に解禁も可）。</p>
       <div id="guideGems" style="font-size:14px;font-weight:700;color:var(--steel);margin:2px 0 8px">💎 0</div>
       <button class="btn btn-ghost" onclick="goHome()" style="margin-bottom:8px">← ホームへ戻る</button>
       <div id="guideList" style="max-width:420px;margin:8px auto;text-align:left"></div>
@@ -4276,6 +4276,12 @@ const GUIDE_STAGES = [
   { id:'evolve', title:'進化で大逆転',     theme:'進化 / 長期戦', unit:'pancake', gems:80,
     tip:'パンケーキキングは約10秒で巨大進化し、着地の衝撃波で周囲をなぎ払う。序盤を耐えれば大逆転できる。硬い前衛で時間を稼ごう。',
     deck:['pancake','choco','shoe','cookie'], foe:['choco','donut','shoe'] },
+  { id:'charge',  title:'一点突破のエース', theme:'突撃 / 近接', unit:'daifuku', gems:80,
+    tip:'大福サムライは居合チャージから抜刀タックルで敵を薙ぎ払う近接エース。前衛の後ろに置いて、敵の塊へ飛び込ませると一気に刺さる。',
+    deck:['daifuku','choco','shoe','cookie'], foe:['choco','shoe','slime'] },
+  { id:'shell',   title:'開幕で場を荒らす', theme:'かく乱 / 殻スピン', unit:'macaron', gems:80,
+    tip:'シェルマカロンは開幕、殻に閉じこもって壁で反射しながら暴れ回る（そのあいだ被ダメも激減）。相手の陣形を序盤から崩すのが得意。前衛と組ませよう。',
+    deck:['macaron','choco','shoe','cookie'], foe:['cookie','slime','bomb'] },
 ];
 const GUIDE_BY_ID = Object.fromEntries(GUIDE_STAGES.map(s=>[s.id,s]));
 function guideCleared(id){ return !!(myProfile.guideDone && myProfile.guideDone.indexOf(id)>=0); }

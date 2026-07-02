@@ -2716,6 +2716,14 @@ console.log('\n=== 93) PVE戦術指南：順番制＋クリアで解禁＋ジェ
   prof.units=[]; prof.gems=0; prof.guideDone=[];
   const stages=API.GUIDE_STAGES;
   check('レッスンが複数ある', stages.length>=3, stages.length);
+  // 全キャラ（非スターターの実プレイ可能ユニット）がどれかのレッスンで解禁できる
+  {
+    const lessonUnits = new Set(stages.map(s=>s.unit));
+    const starters = new Set(API.STARTER_UNITS);
+    const nonStarterDeckable = API.UNITS.filter(u=>!u.summonOnly && !starters.has(u.key)).map(u=>u.key);
+    const missing = nonStarterDeckable.filter(k=>!lessonUnits.has(k));
+    check('全ての非スターターキャラがレッスンで解禁できる', missing.length===0, missing);
+  }
   check('先頭レッスンは最初から挑戦可', API.guideStageUnlocked(stages[0].id)===true);
   check('2番目は最初はロック', API.guideStageUnlocked(stages[1].id)===false);
   check('各レッスンに解禁キャラとジェムがある', stages.every(s=>s.unit && s.gems>0 && Array.isArray(s.deck) && Array.isArray(s.foe)));

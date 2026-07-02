@@ -253,7 +253,7 @@
 
 ユーザー要望の「PVEの戦術指南でカードを入手→その後ガチャ」の前半。各レッスン＝1テーマを実戦で学び、**勝利で仲間（キャラ）解禁＋💎ジェム（初回のみ）**。順番にクリアして進む。テスト：test.js 93。
 
-- **データ**：`GUIDE_STAGES`（`{id,title,theme,tip,deck,foe,unit,gems}`）。`deck`＝レッスン用おすすめデッキ（学ぶキャラを含めて体験させる）、`foe`＝相手デッキ、`unit`＝クリア報酬キャラ、`gems`＝報酬💎。現在6レッスン（前衛=donut／遠距離=icewiz／ワープ=ghost／範囲=cannon／生産=bakery／進化=pancake）。残り（daifuku/macaron）は💎購入（Phase 3のガチャで対応予定）。
+- **データ**：`GUIDE_STAGES`（`{id,title,theme,tip,deck,foe,unit,gems}`）。`deck`＝レッスン用おすすめデッキ（学ぶキャラを含めて体験させる）、`foe`＝相手デッキ、`unit`＝クリア報酬キャラ、`gems`＝報酬💎。**現在8レッスンで、非スターターの全キャラ（donut/icewiz/ghost/cannon/bakery/pancake/daifuku/macaron）をレッスンで無料解禁できる**＝誰でもPVEを進めれば全員そろう（対人も公平）。💎は「レッスンを待たずに先に解禁する近道（`buyUnit`）」として任意利用。test.js 93 が「全非スターターキャラがレッスンで解禁できる」ことを保証（新キャラを足したらレッスンも追加する）。
 - **順番制**：`guideStageUnlocked(id)`＝先頭は常に可、以降は前をクリア（`guideCleared`）で解禁。
 - **フロー**：`openGuide`→`renderGuide`（`#guide` 画面）→ レッスンタップ→`startGuideStage`（`#guideTipModal` でヒント）→`beginGuideStage`＝**本デッキを `_guideDeckBackup` に退避**して `myDeck` をレッスンデッキに一時差し替え（保存はしない＝端末/クラウドの本デッキは不変）→`startGame`。
 - **決着**：`endGame` の `guideMode` 分岐→`guideFinish(won)`＝勝てば初回のみ `guideDone` 記録＋`unlockUnit`＋💎付与＋トースト。**通常の対戦報酬（コイン/ジェム）も併せて付与**。over画面は専用ボタン（`#overGuideBtns`＝🔁もう一度=`guideRetry`／🎓指南へ戻る）。`goHome` でも途中離脱時にデッキ復元。
@@ -288,7 +288,7 @@
 
 ## 次の候補タスク（未着手・要相談）
 
-- **経済Phase 3（ジェムショップ）**：残りキャラ（daifuku/macaron 等）を💎で**直接購入**する画面＋**💎ガチャ**（ランダム解禁・全解禁後は重複をXP/ジェムに変換）。現状 `buyUnit(key)` は実装済みなので、UI（購入/ガチャ画面）を足すだけ。ユーザー要望「指南でカード入手→その後ガチャ」の後半。
+- **経済Phase 3（ジェムショップ）**：全キャラはレッスンで無料解禁できるので、💎の用途は「**近道**」。UI（`buyUnit` を呼ぶ「先に解禁」ボタン＝まだ到達していないレッスンのキャラを💎で先取り／または💎ガチャで見た目やランダム先取り）を足すだけ。要相談：ガチャの中身をキャラ先取りにするか見た目にするか。
 - 戦術指南のレッスン追加・数値/順番の調整（`GUIDE_STAGES`）。
 - PVP **F2**（Firebase+WebRTCで実接続）→ **F3**（自動マッチング）。
 - 各キャラの固有強化（X2以外の派手な効果）の追加。
