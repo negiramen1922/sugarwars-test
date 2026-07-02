@@ -364,6 +364,8 @@ API.evolvePancake(wpk, pk);
 check('進化でmaxHp大幅増(>=1.8倍)', pk.maxHp >= pre * 1.8, { pre, post: pk.maxHp });
 check('進化で全回復(hp==maxHp)', pk.hp === pk.maxHp);
 check('進化フラグon', pk.evolved === true);
+check('パンケーキの基礎移動速度(50×SPEED_MUL)', Math.abs(pf.speed - 50*0.62) < 0.01, pf.speed);
+check('進化後の移動速度が上がる(60×SPEED_MUL)', Math.abs(pk.speed - 60*0.62) < 0.01 && pk.speed > pf.speed, pk.speed);
 
 // 進化後：ジャンプ→着地で衝撃波が敵に範囲ダメージ
 let wj = API.createWorld(W, H); API.world = wj;

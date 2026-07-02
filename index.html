@@ -767,7 +767,7 @@ const UNITS = [
   {key:'bomb',  name:'ポップコーンTNT',   icon:'🍿', role:'fodder', tier:-2.2, count:2, atk:0,  hp:55,  speed:128, range:22, cd:1.0,  tag:'自爆', short:'敵を爆破するクレイジーなポップコーン', text:'敵に近づいて爆破するクレイジーなポップコーン。熱々すぎて誰にも止められない！アチチ！', suicide:true, blast:100, blastR:60, fuse:0.5},
   {key:'soda',  name:'ランニングソーダ',   icon:'🥤', role:'fodder', tier:-2, count:2, atk:0,  hp:50,  speed:150, range:22, cd:1.0,  tag:'自爆+沼', short:'走る、爆ぜる、沼る', text:'走って爆発して、その場にシュワシュワのソーダを残してくる。触るとベタベタしてそうだ', suicide:true, blast:10, blastR:50, fuse:0.45, puddle:true, puddleR:40, puddleLife:5.5, puddleDps:5, puddleSlow:0.5},
   {key:'choco', name:'チョコレートナイト', icon:'🍫', role:'tank',   tier:2, count:2, atk:20, hp:200, speed:64,  range:30, cd:0.95, tag:'前衛', short:'チョコレートの鎧をまとった騎士', text:'チョコレートの鎧をまとった騎士。こいつらが大勢集まったらまるで動く壁だ誰も突破できない。', spriteScale:0.6},
-  {key:'pancake', name:'パンケーキキング', icon:'🥞', role:'tank', tier:2.5, count:1, atk:22, hp:150, speed:58, range:30, cd:1.0, tag:'進化', short:'約10秒で巨大進化し、着地の衝撃波で暴れる王様', text:'最初は1枚のパンケーキ（やや脆い前衛）。戦闘開始から約10秒で3段に進化し、HPが大幅アップ＋ジャンプ着地の衝撃波で周囲を範囲攻撃するようになる。', evolve:true, evolveAt:10, evoHpMul:3.5, evoScale:1.3, shockR:88, shockDmg:52, jumpDur:0.55, jumpPeak:30, evoCd:1.8},
+  {key:'pancake', name:'パンケーキキング', icon:'🥞', role:'tank', tier:2.5, count:1, atk:22, hp:150, speed:50, range:30, cd:1.0, tag:'進化', short:'時間経過で進化するパンケーキ', text:'時間経過で進化するパンケーキ。いっぱい食べたくてもまずは成長を待とう', evolve:true, evolveAt:10, evoHpMul:3.5, evoScale:1.3, evoSpeed:60, shockR:88, shockDmg:52, jumpDur:0.55, jumpPeak:30, evoCd:1.8},
   {key:'donut', name:'バキュームドーナッツ', icon:'🍩', role:'tank', tier:1.5, count:1, atk:6, hp:430, speed:50, range:32, cd:1.1, tag:'吸引タンク', short:'敵を吸い寄せる超硬タンク。味方の範囲攻撃と好相性', text:'眼の前へ敵を吸い寄せる超大型タンク。攻撃は弱いが非常に硬く、大勢の攻撃を受け止める（味方の範囲攻撃と好相性）。', vacuum:true, pullR:155, pullForce:150, vacOn:2.4, vacOff:1.6, heavy:true, spriteScale:1.0},
   {key:'bakery', name:'ジンジャーベーカリー', icon:'🏠', role:'back', tier:3.2, count:1, atk:0, hp:230, speed:0, range:0, cd:1, tag:'生産工場', short:'後方からジンジャーを作り続ける後方支援', text:'動かない工場。焼き立てのジンジャーを後方から作り続ける工場。焼き立てのジンジャーはいかが！？', spawner:true, spawnKey:'ginger', spawnCd:2.0, spawnCount:3, spawnCap:30, spriteScale:1.1},
   {key:'ginger', name:'ジンジャーソルジャー', icon:'🍪', role:'fodder', tier:0, count:1, atk:10, hp:25, speed:112, range:22, cd:0.55, tag:'召喚', short:'ベーカリーが焼く足の速い小さな兵士', text:'ジンジャーベーカリーが焼き上げる小さな兵士。脆いが足が速く、数で押し寄せる。', summonOnly:true},
@@ -931,8 +931,8 @@ SPECIALS['wall_donut'] = {
 };
 /* パンケーキキング固有強化「はや焼きパンケーキ」：巨大化(進化)までの時間が25%短くなる。 */
 SPECIALS['fast_pancake'] = {
-  key:'fast_pancake', name:'はや焼きパンケーキ', icon:'🥞', upgrade:true, pancakeFast:true, target:'pancake', evoSprite:'pancake_fast_blue',
-  text:'パンケーキキングが巨大化（進化）するまでの時間が25%短くなる。早く3段に育つ（以後ずっと有効）。',
+  key:'fast_pancake', name:'はや焼き', icon:'🥞', upgrade:true, pancakeFast:true, target:'pancake', evoSprite:'pancake_fast_blue',
+  text:'三段パンケーキになるまでの時間が短縮される。早く食べたいせっかちなあなたに！',
 };
 /* シュークリームアーチャー固有強化「特盛りシュークリーム」：攻撃力とHPがシンプルにアップ。 */
 SPECIALS['buff_shoe'] = {
@@ -1407,7 +1407,7 @@ const UNIT_ABILITIES = {
   daifuku:[{name:'居合－竹串', info:'敵が遠くにいるときに力をため強い踏み込みで鋭い切込みを行う。'}],
   bomb:[{name:'自爆', info:'敵に近づくと内圧を高め膨張し、ドカーン！！と大爆発'}],
   soda:[{name:'シュワシュワ沼', info:'爆発後その場にソーダの沼を残す。これを踏んだ敵は持続ダメージと鈍化を付与される。'}],
-  pancake:[{name:'巨大進化', info:'戦闘開始から約10秒で3段に巨大進化。HPが大幅UPし、着地のジャンプ衝撃波で周囲を範囲攻撃する。'}],
+  pancake:[{name:'トリプルパンケーキ', info:'時間経過で3段のパンケーキに進化する。進化すると大ダメージの範囲攻撃になる。'}],
   donut:[{name:'吸引', info:'正面の敵を吸い寄せて足止めする鈍足タンク。とても重いので、群れに押し込まれても崩れない。'}],
   bakery:[{name:'焼き立てジンジャー', info:'2秒ごとにジンジャーソルジャーを焼き上げ戦場に送り出す'}],
   ghost:[{name:'ふわっとワープ', info:'ふわっと消えて敵の後衛の位置にさっと出現して後衛を奇襲する'}],
@@ -1533,7 +1533,7 @@ function makeFighters(key, side, W, H, slot){
       macaronBuff:false,
       suicide:!!u.suicide, armed:false, fuseT:0, fuse:u.fuse||0.5,
       puddle:!!u.puddle, puddleR:u.puddleR||0, puddleLife:u.puddleLife||0, puddleDps:u.puddleDps||0, puddleSlow:u.puddleSlow||0, slowMul:1,
-      evolve:!!u.evolve, evolved:false, evolveAt:u.evolveAt||10, evoHpMul:u.evoHpMul||2, evoScale:u.evoScale||1.4,
+      evolve:!!u.evolve, evolved:false, evolveAt:u.evolveAt||10, evoHpMul:u.evoHpMul||2, evoScale:u.evoScale||1.4, evoSpeed:u.evoSpeed||0,
       shockR:u.shockR||80, shockDmg:u.shockDmg||45, jumpDur:u.jumpDur||0.5, jumpPeak:u.jumpPeak||26, jumpT:0, jumpH:0, evoCd:u.evoCd||2.2,
       heal:u.heal||0, healR:u.healR||0, wall:u.wall||0, wallR:u.wallR||0,
       berserk:u.berserk||0, raged:false, targetRule:u.target||'near',
@@ -2542,6 +2542,7 @@ function evolvePancake(world, u){
   u.r=Math.min(15, Math.round(u.r*1.25));   // 進化後の当たり判定も全体の小型化に合わせて縮小
   u.spriteScale=(u.spriteScale||1)*u.evoScale;
   u.cd=u.evoCd; u.cool=u.cd*0.4;
+  if(u.evoSpeed){ u.speed=u.evoSpeed*SPEED_MUL; u.baseSpeed=u.speed; }   // 進化後は少し速く動ける（他と同じくSPEED_MUL換算）
   u.name='パンケーキキング(3段)';
   world.shake=Math.max(world.shake,9);
   burst(world,u.x,u.y,'#ffd9a8',30,200);
@@ -4356,9 +4357,13 @@ const GUIDE_STAGES = [
   { id:'produce2',title:'数で押し返す②', theme:'生産（実戦）', unit:'bakery', arc:'bakery', coins:100,
     tip:'相手はチョコレートナイト＋弓兵（シュークリーム）＋ポップコーン。ベーカリーで数を絶やさず、前衛で守りながら押し返そう！勝てばジンジャーベーカリーが仲間になる。',
     deck:['bakery','choco','shoe','cookie'], foe:['choco','shoe','bomb'] },
-  { id:'evolve', title:'進化で大逆転',     theme:'進化 / 長期戦', unit:'pancake', coins:100,
-    tip:'パンケーキキングは約10秒で巨大進化し、着地の衝撃波で周囲をなぎ払う。序盤を耐えれば大逆転できる。硬い前衛で時間を稼ごう。',
-    deck:['pancake','choco','shoe','cookie'], foe:['choco','donut','shoe'] },
+  { id:'evolve1',title:'進化まで耐える①', theme:'進化 / 時間稼ぎ（体験）', arc:'pancake', coins:50,
+    easyFoe:true, winRounds:1, forceUnit:'pancake',
+    tip:'パンケーキは進化まで少し時間がかかる。パンケーキとチョコレートナイトで前を固め、進化までしっかり時間を稼ごう。進化すれば大ダメージの範囲攻撃で大逆転！ まずは1ライフ取ればクリア！',
+    deck:['pancake','choco','cookie'], foe:['cookie','choco'] },
+  { id:'evolve2',title:'進化で大逆転②', theme:'進化 / 長期戦（実戦）', unit:'pancake', arc:'pancake', coins:100,
+    tip:'相手はポップコーン＋ゼリー＋弓兵（シュークリーム）。序盤を前衛で耐えてパンケーキを進化させ、着地の衝撃波でまとめて薙ぎ払おう！勝てばパンケーキキングが仲間になる。',
+    deck:['pancake','choco','shoe','cookie'], foe:['bomb','slime','shoe'] },
   { id:'charge1', title:'居合で群れを薙ぐ①', theme:'範囲 / 居合（体験）', arc:'daifuku', coins:50,
     easyFoe:true, winRounds:1, forceUnit:'daifuku',
     tip:'相手はクッキーの大群。大福サムライの居合は「ためて放つ範囲攻撃」！ 群れの前で構えて、まとめて薙ぎ払おう。まずは相手から1ライフ取ればクリア！',
