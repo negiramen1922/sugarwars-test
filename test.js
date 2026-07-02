@@ -74,7 +74,7 @@ code += `
   setGuideStage:(id)=>{ guideMode=true; guideStageId=id; }, getGuideMode:()=>guideMode,
   get MASTERY_WIN_XP(){ return MASTERY_WIN_XP; }, get MASTERY_LOSE_XP(){ return MASTERY_LOSE_XP; }, get MASTERY_XP_PER_LEVEL(){ return MASTERY_XP_PER_LEVEL; },
   mmPickWaiter, pvpResumeIsRecent, pvpReconnRemain, eloExpected, eloDelta, myTrophies, presenceCounts,
-  enhDisplay, specialCardIcon,
+  enhDisplay, specialCardIcon, abilitiesHTML, get UNIT_ABILITIES(){ return UNIT_ABILITIES; },
   pvpDecideIAmHost, pvpMatchupType, unitDamageType, unitAtkText, mostUsedUnit,
   get myProfileRef(){ return myProfile; },
   burst, partCap, get LOW_FX(){ return LOW_FX; }, set LOW_FX(v){ LOW_FX=v; },
@@ -2748,6 +2748,24 @@ console.log('\n=== 93) PVE戦術指南：順番制＋クリアで解禁＋ジェ
   check('負けでは解禁されない', API.unitUnlocked(stages[1].unit)===false);
   check('負けではguideDoneに入らない', API.guideCleared(stages[1].id)===false);
   prof.units=[]; prof.gems=0; prof.guideDone=[]; API.setMyDeck([]);
+}
+
+console.log('\n=== 94) クッキー調整＋キャラ詳細の「能力」欄 ===');
+{
+  const c=API.UNIT_BY_KEY.cookie;
+  check('クッキーは固有ギミック(flock)を持たない', !c.flock);
+  check('クッキーの攻撃間隔cd=0.35', c.cd===0.35, c.cd);
+  check('クッキーのshort更新', c.short==='数で押すクッキーの群れ。', c.short);
+  check('クッキーのtext更新', /やっぱりクッキーはいっぱい/.test(c.text), c.text);
+  check('強化party_cookieは維持', !!API.SPECIALS.party_cookie && API.SPECIALS.party_cookie.target==='cookie');
+  check('強化説明文を更新', /パリピ/.test(API.SPECIALS.party_cookie.text), API.SPECIALS.party_cookie.text);
+  // 能力欄：能力のあるキャラはHTMLが出る／無いキャラ(cookie)は空
+  const ab=API.UNIT_ABILITIES;
+  check('能力データにbomb/自爆がある', ab.bomb && ab.bomb[0] && /自爆/.test(ab.bomb[0].name));
+  check('cookieは能力なし（gimmick撤廃）', !ab.cookie);
+  check('abilitiesHTML: 能力ありは能力名を含む', /居合チャージ/.test(API.abilitiesHTML(API.UNIT_BY_KEY.daifuku)) && /能力/.test(API.abilitiesHTML(API.UNIT_BY_KEY.daifuku)));
+  check('abilitiesHTML: 能力なし(cookie)は空', API.abilitiesHTML(c)==='');
+  check('abilitiesHTML: ℹ️詳細トグルの要素を含む', /ab-desc/.test(API.abilitiesHTML(API.UNIT_BY_KEY.bomb)) && /toggleAbilityInfo/.test(API.abilitiesHTML(API.UNIT_BY_KEY.bomb)));
 }
 
 Promise.resolve().then(() => {
