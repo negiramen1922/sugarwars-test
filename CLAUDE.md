@@ -79,6 +79,7 @@
 - **戦闘エンジン**：`createWorld` / `stepWorld(world,dt)`（phase=muster|battle|outro。毎フレームshuffleで左右バイアス除去）/ `nearestEnemy`（**無敵中`invuln>0`の敵は標的にしない**＝ワープ直後のゴーストにサムライ等が吊られない）/ `applyHit`（無敵中は無効。ノックバックは重量耐性＋上限＋無効時間。吸引中/起爆中は無反動）/ `killUnit`（爆発・スライム分裂・炭酸沼発生を一本化。爆発AoEも無敵中は当たらない）。
 - **専用挙動**：`chargerStep`(大福) / `artilleryStep`(キャノン) / `vacuumStep`(ドーナッツ) / `spawnerStep`(ベーカリー：`spawnerId` で個体ごとに独立した召喚枠) / `evolvePancake`・`evolvedStep`(パンケーキ進化＋ジャンプ衝撃波) / ワープ(ゴースト) / `shellStep`(マカロン：殻スピン→スタン→通常／true返却でその場処理) / 氷弾のヒット時スローは `u.chillT`/`chillAmt`、炭酸沼は `world.puddles` を `stepWorld` で毎フレーム処理（DoT＋`slowMul`減速）。
 - **ドラフト/演出**：`beginDraft` / `nextPick` / `renderPickOffer` / `pickCardAnimated`（裏表フリップ）→ `pickCard` / `revealFoePick` / `aiPicks`（貪欲スコア）/ `lockAndFight`。
+- **カード選択の制限時間（放置対策）**：`PICK_TIME_LIMIT`(30秒)。カード提示のたびに `startPickTimer(autoPickLeftmost)` を起動し（`#pickTimer` に残り秒表示・残5秒で赤）、時間切れで `autoPickLeftmost()`＝**一番左（先頭）のカードを自動選択**。選択開始/開戦/待機で `stopPickTimer()`。**チュートリアル中は起動しない**（案内を邪魔しないため）。PVEは `renderPickOffer`、PVPは親=`pvpHostShowOffer`／子=`pvpGuestShowStep` にそれぞれ仕込む。PVPの親は、子がフリーズしてSTEPPICKを送れない場合に備え `pvpHostDraftStep` の待機に **+5秒の猶予つき代理タイムアウト**（`eOffer[0]`＝子に見せた一番左を代理選択。子が生きていれば子自身も同じ左端を送るので結果一致）。**ヘッドレス(test)は `setInterval` 不在を検知してタイマー自体を動かさない**（自動選択でテストが乱れない）。
 - **隊列**：`arrangeFormation`（tierでグループ化し後方アンカーで整列）/ `centerMergedSlimes`。
 - **X2**：`doubleUnitsOnBoard` / `applyX2Replay` / `eligibleX2Specials` / `cloneFighter`。
 - **決着**：`beginOutro` / `outroStep`（溶けて砂糖に）。
@@ -231,6 +232,7 @@
 
 - 起動時に `pvpPresenceJoin()`＝**匿名サインイン**して `presence/<uid>={status,ts}`（`onDisconnect().remove()`）。`presence` を購読し `presenceCounts(obj)`（純粋関数・test.js 73）で集計→「🟢 オンラインN人・マッチ待ちW人・対戦中M人」をホーム/PVPロビーに表示（`renderPresence`）。マッチ待ち=`status:'matching'` の数。
 - 状態遷移 `pvpPresenceSet`：起動/退出='home'、ランダムマッチ='matching'、対戦開始(`pvpStartAsHost`/`pvpGuestEnterPlay`)='battling'。
+- **バックグラウンド放置は数えない**：`pvpInitVisibility()` が `visibilitychange` を監視し、タブを隠して `PRESENCE_AWAY_MS`(45秒)経つと `pvpSetAway(true)`＝presenceに `status:'away'` を書く。復帰で即 `away` 解除。`presenceCounts` は `status:'away'` を**オンライン/対戦中どちらにも数えない**（＝ブラウザを裏で開いているだけの人を除外）。`pvpPresenceSet` は論理状態(`pvpCurStatus`)を保持しつつ、away中は生の書込 `pvpPresenceWrite('away')` に切替える。テスト：test.js 73（away除外）。
 - 匿名は「未ログイン扱い」（`updateAuthUI` は `!isAnonymous` で判定）＝ログイン誘導は残す。`leaderboardSubmit` は対戦経験者(`wins+losses>0`)のみ＝匿名の空エントリでランキングを埋めない。
 - **要設定**：RTDBルールに `presence`（read:auth!=null・$uidのみwrite）＋匿名認証有効化。`FIREBASE_SETUP.md` 参照。
 
@@ -241,11 +243,17 @@
 - **プロフィール**（`myProfile`）：対戦相手に見せる名前＋お菓子アイコン。`#authModal` のプロフィール欄で設定（`saveProfile`/`renderAvatarGrid`）。未ログインでも端末(localStorage `sw_profile`)に保存。`displayProfile()`＝空欄を既定（ゲスト名/先頭アイコン）で補完。ランダムマッチ（次段）で使用。
 - `buildProfile()`/`applyProfile()`＝保存データの整形（純粋関数・不正/召喚専用キーは除外・最大`deckSize`枚）。test.js 68。
 - `saveDeckLocal()`/`loadDeckLocal()`＝未ログインでも端末(localStorage `sw_deck`)にデッキ保存。`persistDeck()` を `toggleDeck`/`removeDeckSlot`（自分デッキ時）でフック。
-- `authInit()`＝起動時に `onAuthStateChanged` 監視開始。ログイン時 `onSignedIn` がクラウド読込→適用（無ければ端末内容をアップ）。`scheduleCloudSave()` でデバウンス保存。
+- `authInit()`＝起動時に `onAuthStateChanged` 監視開始。ログイン時 `onSignedIn` がクラウド読込→適用（無ければ端末内容をアップ）。`scheduleCloudSave()` でデバウンス保存。**クラウド保存は本ログイン(`isRealUser()`＝非匿名)のみ**＝ゲスト(匿名)は端末(localStorage)だけに保存し、ログイン/連携で本アカウントのuidに移ったときにクラウド同期する（匿名uidのゴミノードを作らない）。
+- **ログイン時の同期（データ消失防止・重要）**：`onSignedIn` は `_syncedUid` で同一uidの多重処理を防ぎ（タブ復帰などで二重にならない）、`profileHasProgress()`/`profilesConflict()`（純粋関数・test.js 91）で分岐：
+  - クラウドに記録なし → 端末（ゲスト）の内容をアップロード（`seedNameFromAuth`＝名前が空ならGoogle表示名を初期値に）。
+  - 端末に記録なし/実質同一 → クラウドを復元。
+  - **両方に記録があり食い違う** → `showSyncConflict()` で確認ダイアログ（`#syncModal`）「☁ クラウドを呼び出す／📱 この端末で上書き」を出し、`syncUseCloud`/`syncUseLocal` で選んだ方に統一。**「ログインしたらトロフィー/勝利数が勝手にリセット」される旧バグ（デッキ空を新規と誤判定して端末の空データで上書きしていた）を修正**。
+  - `saveProfileLocal()`/`loadProfileLocal()` は **トロフィー/best/勝敗/usage/skins も端末保存**（旧はname/avatar/masteryのみ＝ゲスト戦績がリロードで消えていた）。
 - Googleは `signInWithPopup`、失敗時（モバイルWebView等）は `signInWithRedirect` に自動フォールバック。
 - **アカウント連携（ゲスト→本登録）**：匿名(`isAnonymous`)中にログインすると `linkWithPopup`/`linkWithCredential` でuidを保持したまま昇格＝**ゲストのトロフィー/デッキを引き継ぐ**。`auth/credential-already-in-use`（既存アカウント）の時は通常 `signInWithPopup` に切替（その分は引き継がれない）。
+- **メール＋Googleの2アカウント化を防ぐ**：`auth/account-exists-with-different-credential`（同じメールが別プロバイダで登録済み）を `handleGoogleEmailClash()` で捕捉＝Google認証情報を `_pendingGoogleCred` に退避し「そのメールでログインしてください」と案内→`authEmailLogin` 成功時に `linkWithCredential` で**同一アカウントにGoogleを連携**。ただし完全解消には**コンソール設定「メールアドレスにつき1アカウント」が必須**（`FIREBASE_SETUP.md` A-2章）。
 - UIは `#authModal`（メニューの「👤 ログイン」から `openAuth`）。未設定/未ログインでも従来どおり動作。
-- **要ユーザー作業**：コンソールでGoogle/メール認証を有効化・承認済みドメイン登録・RTDBルールに `users/$uid`（`auth.uid===$uid`）追加。手順は `FIREBASE_SETUP.md`「ログインとクラウド保存」。
+- **要ユーザー作業**：コンソールでGoogle/メール認証を有効化・**「メールアドレスにつき1アカウント」に設定**・承認済みドメイン登録・RTDBルールに `users/$uid`（`auth.uid===$uid`）追加。手順は `FIREBASE_SETUP.md`「ログインとクラウド保存」。
 
 ## 利用状況の計測（GA4＝Firebase Analytics・実装済み・`<script>`「track()」）
 

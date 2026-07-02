@@ -520,6 +520,7 @@
               <div class="offer-head">
                 <span class="stage-title">ドラフト</span>
                 <span class="pick-status">ピック <b id="pickStep">1</b> / <b id="pickTotal">3</b></span>
+                <span class="pick-status hidden" id="pickTimer" style="margin-left:auto;font-family:'Space Mono',monospace;font-weight:700;color:var(--brass)">⏱ 30</span>
               </div>
               <div id="comebackBanner" class="comeback-banner hidden"><b>逆転ボーナス！</b> 前回負けたので、今回はピックを多めに選べる。</div>
               <div class="offer three" id="offer"></div>
@@ -623,6 +624,17 @@
       </div>
       <p id="authMsg" style="font-size:13px;color:var(--brass);min-height:18px;margin:10px 0 0;text-align:center"></p>
       <div style="text-align:center;margin-top:8px"><button class="btn btn-ghost" onclick="closeAuth()">閉じる</button></div>
+    </div>
+  </div>
+  <!-- 記録の同期確認：端末とクラウドの記録が食い違うときにどちらを使うか選ぶ（背景クリックでは閉じない＝必ず選択） -->
+  <div id="syncModal" class="modal-overlay hidden">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <h3>記録の同期</h3>
+      <p style="font-size:13px;color:var(--muted);margin:0 0 12px;text-align:center">この端末とクラウドで記録が違います。<br>どちらの記録を使いますか？</p>
+      <div id="syncCompare" style="display:flex;gap:10px;margin-bottom:14px"></div>
+      <button class="btn btn-primary" style="width:100%;margin-bottom:8px" onclick="syncUseCloud()">☁ クラウドの記録を呼び出す</button>
+      <button class="btn btn-ghost" style="width:100%" onclick="syncUseLocal()">📱 この端末の記録で上書きする</button>
+      <p style="font-size:11px;color:var(--muted);text-align:center;margin:10px 0 0">※ 選んだ方に統一されます</p>
     </div>
   </div>
   <!-- VSカットイン（マッチ後・対戦前の演出）：上=相手(赤)/下=自分(青)、間に斜めライン -->
@@ -2089,6 +2101,7 @@ function renderLoadoutMini(){
 }
 function nextPick(){
   if(state.pickStep >= state.pickTotal){
+    stopPickTimer();
     $('offer').innerHTML='';
     hideOfferCards();   // カードだけ隠して「編成完了」ヒントは残す
     $('pickStep').textContent = state.pickTotal;
@@ -2113,6 +2126,22 @@ function nextPick(){
     $('draftHint').textContent = '逆転ボーナス！ 先に1枚多く選べる（相手は待機中）';
   }
 }
+// --- カード選択の制限時間（放置対策）：制限時間内に選ばなければ一番左のカードを自動選択 ---
+const PICK_TIME_LIMIT = 30;   // 秒。PVP/PVE共通のカード選択の持ち時間
+let _pickTimer=null, _pickTimeLeft=0, _pickTimerCb=null;
+function renderPickTimerUI(){ const el=$('pickTimer'); if(!el) return; el.classList.remove('hidden'); el.textContent='⏱ '+Math.max(0,_pickTimeLeft); el.style.color = _pickTimeLeft<=5 ? 'var(--rust)' : 'var(--brass)'; }
+function startPickTimer(onExpire){
+  stopPickTimer();
+  if(typeof setInterval!=='function') return;   // ヘッドレス（テスト）ではタイマーを動かさない
+  _pickTimeLeft=PICK_TIME_LIMIT; _pickTimerCb=onExpire; renderPickTimerUI();
+  _pickTimer=setInterval(()=>{ _pickTimeLeft--; renderPickTimerUI();
+    if(_pickTimeLeft<=0){ const cb=_pickTimerCb; stopPickTimer(); if(cb) try{ cb(); }catch(e){} }
+  }, 1000);
+}
+function stopPickTimer(){ if(_pickTimer && typeof clearInterval==='function'){ clearInterval(_pickTimer); } _pickTimer=null; _pickTimerCb=null; const el=$('pickTimer'); if(el) el.classList.add('hidden'); }
+// 一番左（先頭）のカードを自動選択（制限時間切れ時）。表示中のカードのクリック処理をそのまま使う。
+function autoPickLeftmost(){ const wrap=$('offer'); const first=wrap && wrap.firstElementChild; if(first && first.click) first.click(); }
+
 function renderPickOffer(){
   showOfferCards();
   const wrap=$('offer'); wrap.innerHTML='';
@@ -2141,10 +2170,12 @@ function renderPickOffer(){
     wrap.appendChild(el);
   });
   $('draftHint').textContent = '3枚から1枚えらぼう';
+  if(!tutorial) startPickTimer(autoPickLeftmost);   // チュートリアル中は自動選択しない（案内を邪魔しない）
 }
 let picking=false;
 function pickCardAnimated(el, key){
   if(picking) return; picking=true;
+  stopPickTimer();   // 選択が始まったら制限時間を止める
   if(tutorial) hideTut();   // チュートリアル：ピックしたらヒントを消す（選択後に案内を出す）
   if(el){
     el.classList.add('spin','picked');
@@ -2321,6 +2352,7 @@ function aiPicks(loadout, n){
 
 function lockAndFight(){
   if(!world || world.phase==='battle') return;   // 自動開戦と多重呼び出しの保護（既に戦闘中なら無視）
+  stopPickTimer();   // 開戦したらカード選択タイマーを止める（保険）
   if(pvpMode) pvpTrace('host 開戦 r'+state.round);
   SFX.play('battleStart');   // 出撃ラッパ（試合開始の合図）
   // 残っている敵ピックを公開（敵の枚数が多い場合など）
@@ -3852,8 +3884,9 @@ function displayProfile(){ return { name: (myProfile.name||'').trim() || default
 // --- デッキ／プロフィールのローカル保存（ログイン有無に関わらず端末に残す） ---
 function saveDeckLocal(){ try{ localStorage.setItem('sw_deck', JSON.stringify(myDeck)); }catch(e){} }
 function loadDeckLocal(){ try{ const s=localStorage.getItem('sw_deck'); if(s){ const a=JSON.parse(s); if(Array.isArray(a)) applyProfile({deck:a}); } }catch(e){} }
-function saveProfileLocal(){ try{ localStorage.setItem('sw_profile', JSON.stringify({name:myProfile.name,avatar:myProfile.avatar,mastery:myProfile.mastery||{}})); }catch(e){} }
-function loadProfileLocal(){ try{ const s=localStorage.getItem('sw_profile'); if(s){ const o=JSON.parse(s); applyProfile({name:o.name,avatar:o.avatar,mastery:o.mastery}); } }catch(e){} }
+// トロフィー・戦績・使用回数・スキンも端末に保存（ゲスト＝匿名でもリロードで消えないように。ログイン時のクラウドとの突き合わせにも使う）
+function saveProfileLocal(){ try{ localStorage.setItem('sw_profile', JSON.stringify({name:myProfile.name,avatar:myProfile.avatar,mastery:myProfile.mastery||{},trophies:myProfile.trophies,best:myProfile.best,wins:myProfile.wins,losses:myProfile.losses,usage:myProfile.usage||{},skins:myProfile.skins||{}})); }catch(e){} }
+function loadProfileLocal(){ try{ const s=localStorage.getItem('sw_profile'); if(s){ const o=JSON.parse(s); applyProfile(o); } }catch(e){} }
 // 編成変更時に呼ぶ：ローカル保存＋（ログイン中なら）クラウドへデバウンス保存
 function persistDeck(){ saveDeckLocal(); scheduleCloudSave(); }
 
@@ -3888,15 +3921,25 @@ function authInit(){
   }).catch(function(err){
     const c=err&&err.code;
     if(c==='auth/credential-already-in-use'){ const cred=googleCredFromErr(err); if(cred) a.signInWithCredential(cred).then(authGoogleDone).catch(function(e2){ authMsg(authErrMsg(e2)); }); }
+    else if(c==='auth/account-exists-with-different-credential'){ handleGoogleEmailClash(a, err); }   // 同じメールがメール/パスワードで登録済み→連携を案内
     else if(c) authMsg(authErrMsg(err));
   }); }catch(e){}
   a.onAuthStateChanged(function(user){
     authUser=user||null; updateAuthUI();
     if(authUser){ onSignedIn(authUser); pvpPresenceStart(authUser.uid); }   // ログイン/匿名のuidが確定→presence参加
-    else if(!_anonTried){ _anonTried=true; try{ a.signInAnonymously().catch(function(){}); }catch(e){} }   // 未ログイン→presence用に匿名化（戻りのonAuthStateChangedで参加）
+    else { _syncedUid=''; if(!_anonTried){ _anonTried=true; try{ a.signInAnonymously().catch(function(){}); }catch(e){} } }   // 未ログイン→クラウド同期状態をリセットしてから匿名化（presence用）
   });
 }
 let _anonTried=false;
+let _pendingGoogleCred=null;   // メール/パスワードの既存アカウントに後からリンクするGoogle認証情報
+// 「同じメールが別プロバイダ(メール/パスワード)で登録済み」→ そのメールでログイン後にGoogleを連携する案内
+function handleGoogleEmailClash(a, err){
+  try{ _pendingGoogleCred = googleCredFromErr(err);
+       const email = (err&&err.email) || (err&&err.customData&&err.customData.email) || '';
+       if(email && $('authEmail')) $('authEmail').value = email;
+  }catch(e){}
+  authMsg('このメールは「メール/パスワード」で登録済みです。下でパスワードを入力して「ログイン」すると、同じアカウントにGoogleを連携できます。');
+}
 function googleCredFromErr(err){
   try{ if(err && err.credential) return err.credential;
        if(firebase.auth.GoogleAuthProvider.credentialFromError) return firebase.auth.GoogleAuthProvider.credentialFromError(err); }catch(e){}
@@ -3918,6 +3961,8 @@ function authGoogle(){
        const cred=googleCredFromErr(err);
        if(cred){ authMsg('既存アカウントでログインします（このゲスト分は引き継がれません）'); a.signInWithCredential(cred).then(authGoogleDone).catch(function(e2){ authMsg(authErrMsg(e2)); }); return; }
      }
+     // 同じメールがメール/パスワードで登録済み → そのメールでログイン後にGoogleを連携する案内（2アカウント化を防ぐ）
+     if(c==='auth/account-exists-with-different-credential'){ handleGoogleEmailClash(a, err); return; }
      // ポップアップが使えない/結果が戻ってこない（GitHub Pages等）→ リダイレクト方式で再試行
      if(c==='auth/popup-blocked'||c==='auth/popup-closed-by-user'||c==='auth/cancelled-popup-request'||c==='auth/operation-not-supported-in-this-environment'||c==='auth/web-storage-unsupported'){
        authMsg('別画面でログインします…');
@@ -3948,7 +3993,12 @@ function authEmailSignup(){
 function authEmailLogin(){
   const a=getAuth(); if(!a){ authMsg('Firebaseが未設定です'); return; }
   const em=($('authEmail').value||'').trim(), pw=$('authPass').value||'';
-  a.signInWithEmailAndPassword(em, pw).then(function(){ authMsg('ログインしました'); }).catch(function(err){ authMsg(authErrMsg(err)); });
+  a.signInWithEmailAndPassword(em, pw).then(function(res){
+    // Googleログイン時に「別プロバイダで登録済み」だった場合、この同一アカウントにGoogleを連携（2アカウント化を回避）
+    if(_pendingGoogleCred && res && res.user){ const cred=_pendingGoogleCred; _pendingGoogleCred=null;
+      res.user.linkWithCredential(cred).then(function(){ authMsg('ログインしてGoogleを連携しました ☁'); }).catch(function(){ authMsg('ログインしました'); });
+    } else authMsg('ログインしました');
+  }).catch(function(err){ authMsg(authErrMsg(err)); });
 }
 function authReset(){
   const a=getAuth(); if(!a){ authMsg('Firebaseが未設定です'); return; }
@@ -3956,7 +4006,7 @@ function authReset(){
   if(!em){ authMsg('メールアドレスを入力してください'); return; }
   a.sendPasswordResetEmail(em).then(function(){ authMsg('再設定メールを送信しました'); }).catch(function(err){ authMsg(authErrMsg(err)); });
 }
-function authLogout(){ const a=getAuth(); if(a){ a.signOut(); } authMsg('ログアウトしました'); }
+function authLogout(){ _syncedUid=''; _pendingGoogleCred=null; const a=getAuth(); if(a){ a.signOut(); } authMsg('ログアウトしました'); }
 // Firebaseのエラーコードを日本語に
 function authErrMsg(err){
   const c=err&&err.code||'';
@@ -3971,26 +4021,82 @@ function authErrMsg(err){
 }
 
 // --- クラウド保存／読込（RTDB users/<uid>/profile） ---
+let _syncedUid='';   // クラウド同期を実行済みのuid（onAuthStateChangedの多重発火で二重処理・確認ダイアログ二重表示を防ぐ）
+function isRealUser(){ return !!(authUser && !authUser.isAnonymous); }   // 匿名(ゲスト)は「未ログイン扱い」＝クラウド保存の対象外
+// プロフィールに「引き継ぐ価値のある記録」があるか（純粋関数・テスト対象）
+function profileHasProgress(p){
+  if(!p || typeof p!=='object') return false;
+  if(Array.isArray(p.deck) && p.deck.length) return true;
+  if((p.wins||0)+(p.losses||0) > 0) return true;
+  if(typeof p.trophies==='number' && isFinite(p.trophies) && p.trophies!==TROPHY_START) return true;
+  if(typeof p.best==='number' && isFinite(p.best) && p.best>TROPHY_START) return true;
+  if(p.mastery && typeof p.mastery==='object' && Object.keys(p.mastery).length) return true;
+  return false;
+}
+// 端末とクラウドの記録が「食い違う」か＝どちらも記録ありで主要な戦績が違う（純粋関数・テスト対象）
+function profilesConflict(local, cloud){
+  if(!profileHasProgress(local) || !profileHasProgress(cloud)) return false;
+  const lt=(typeof local.trophies==='number'?local.trophies:TROPHY_START), ct=(typeof cloud.trophies==='number'?cloud.trophies:TROPHY_START);
+  if(lt!==ct) return true;
+  if((local.wins||0)!==(cloud.wins||0)) return true;
+  if((local.losses||0)!==(cloud.losses||0)) return true;
+  return false;
+}
+// 新規アカウントでプロフィール名が空なら、Googleの表示名を初期値に使う（ゲスト名のまま残るのを防ぐ）
+function seedNameFromAuth(user){
+  try{ if((!myProfile.name || !myProfile.name.trim()) && user && user.displayName){ myProfile.name = String(user.displayName).slice(0,12); saveProfileLocal(); } }catch(e){}
+}
+function afterCloudSync(){
+  if($('roster') && !$('roster').classList.contains('hidden')) try{ renderRoster(); }catch(e){}
+  renderHomeTrophies(); renderProfileChip(); leaderboardSubmit(); updateAuthUI();   // トロフィー/プロフィール表示更新＋ランキングへ登録
+}
 function onSignedIn(user){
+  if(!user || user.isAnonymous) return;   // ゲスト（匿名）は端末保存のみ。ログイン/連携で本アカウントのuidに切り替わったときだけクラウド同期する
   const db=ensureFirebase(); if(!db) return;
+  if(_syncedUid===user.uid) return;   // 同一uidの再発火では再同期しない（タブ復帰などでの二重処理・確認ダイアログ二重表示を防ぐ）
+  _syncedUid=user.uid;
   db.ref('users/'+user.uid+'/profile').get().then(function(snap){
-    const cloud=snap.val();
-    if(cloud && Array.isArray(cloud.deck) && cloud.deck.length){
-      applyProfile(cloud); saveDeckLocal();
-      if($('roster') && !$('roster').classList.contains('hidden')) try{ renderRoster(); }catch(e){}
-      authMsg('クラウドから復元しました ☁');
+    const cloud=snap.val(), local=buildProfile();
+    if(!profileHasProgress(cloud)){
+      // クラウドに記録なし＝新規アカウント → この端末（ゲスト）の内容をアップロードして引き継ぐ
+      seedNameFromAuth(user); cloudSaveNow();
+      authMsg('この端末の内容をクラウドに保存しました ☁'); afterCloudSync();
+    } else if(profilesConflict(local, cloud)){
+      // 端末とクラウド両方に記録があり食い違う → ユーザーに確認（上書き or クラウド復元）
+      showSyncConflict(cloud);
     } else {
-      cloudSaveNow();   // 新規アカウント：この端末の内容をアップロード
-      authMsg('この端末の内容をクラウドに保存しました ☁');
+      // 食い違いなし（端末が空/実質同一）→ クラウドを復元
+      applyProfile(cloud); saveDeckLocal(); saveProfileLocal();
+      authMsg('クラウドから復元しました ☁'); afterCloudSync();
     }
-    renderHomeTrophies(); renderProfileChip(); leaderboardSubmit();   // トロフィー/プロフィール表示更新＋ランキングへ登録
   }).catch(function(e){ console.warn('cloud load失敗',e); authMsg('クラウド読込に失敗しました'); });
 }
-function scheduleCloudSave(){ if(!authUser) return; try{ clearTimeout(_cloudSaveT); }catch(e){} _cloudSaveT=setTimeout(cloudSaveNow, 800); }
+function scheduleCloudSave(){ if(!isRealUser()) return; try{ clearTimeout(_cloudSaveT); }catch(e){} _cloudSaveT=setTimeout(cloudSaveNow, 800); }
 function cloudSaveNow(){
-  if(!authUser) return; const db=ensureFirebase(); if(!db) return;
+  if(!isRealUser()) return; const db=ensureFirebase(); if(!db) return;
   try{ db.ref('users/'+authUser.uid+'/profile').set(buildProfile()); }catch(e){ console.warn('cloud save失敗',e); }
 }
+// 同期の食い違い確認：クラウド or 端末どちらの記録を使うかユーザーに選ばせる
+let _syncCloudPending=null;
+function showSyncConflict(cloud){
+  _syncCloudPending = cloud;
+  const local=buildProfile();
+  const box=$('syncCompare');
+  if(box){
+    const card=(title,p,accent)=>{
+      const w=(p.wins||0), l=(p.losses||0), tr=(typeof p.trophies==='number'?p.trophies:TROPHY_START);
+      return '<div style="flex:1;border:1px solid '+(accent||'var(--line)')+';border-radius:10px;padding:10px;text-align:center">'
+        +'<div style="font-size:12px;color:var(--muted);margin-bottom:6px">'+title+'</div>'
+        +'<div style="font-family:\'Space Mono\',monospace;font-weight:700;color:var(--accent2);font-size:16px">🏆 '+tr+'</div>'
+        +'<div style="font-size:12px;color:var(--muted);margin-top:4px">'+w+'勝 '+l+'敗</div></div>';
+    };
+    box.innerHTML = card('☁ クラウド', cloud, 'var(--brass)') + card('📱 この端末', local, 'var(--steel)');
+  }
+  const m=$('syncModal'); if(m) m.classList.remove('hidden');
+}
+function closeSyncConflict(){ const m=$('syncModal'); if(m) m.classList.add('hidden'); }
+function syncUseCloud(){ if(_syncCloudPending){ applyProfile(_syncCloudPending); saveDeckLocal(); saveProfileLocal(); } _syncCloudPending=null; closeSyncConflict(); authMsg('クラウドの記録を呼び出しました ☁'); afterCloudSync(); }
+function syncUseLocal(){ _syncCloudPending=null; cloudSaveNow(); closeSyncConflict(); authMsg('この端末の記録でクラウドを上書きしました'); afterCloudSync(); }
 
 /* ===== トロフィー（=レート）＆ランキング ===== */
 let pvpOppProfile = null;   // 対戦相手のプロフィール（名前/アイコン/トロフィー）。ハンドシェイクで受信
@@ -4084,10 +4190,12 @@ function leaderboardLoad(n, cb){
 
 /* ===== オンライン人数（presence） ===== */
 let pvpPresenceRef=null, pvpPresenceUid='', pvpPresenceCounts={online:0, battling:0, matching:0}, pvpPresenceListening=false, pvpCurStatus='home';
-// presenceオブジェクト→{online, battling}（純粋関数・テスト対象）
+let pvpAway=false, _awayTimer=null;   // タブがバックグラウンド放置のとき true＝オンライン人数に数えない
+const PRESENCE_AWAY_MS = 45000;       // タブを隠してからこの時間で「離席(away)」扱いに（短時間の切替でチラつかせない）
+// presenceオブジェクト→{online, battling, matching}（純粋関数・テスト対象）。status:'away'（バックグラウンド放置）は数えない。
 function presenceCounts(obj){
   let online=0, battling=0, matching=0;
-  for(const k in (obj||{})){ const e=obj[k]; if(!e||typeof e!=='object') continue; online++; if(e.status==='battling') battling++; else if(e.status==='matching') matching++; }
+  for(const k in (obj||{})){ const e=obj[k]; if(!e||typeof e!=='object') continue; if(e.status==='away') continue; online++; if(e.status==='battling') battling++; else if(e.status==='matching') matching++; }
   return { online:online, battling:battling, matching:matching };
 }
 // 認証状態が確定したuidで presence に参加（onAuthStateChangedから呼ぶ＝リダイレクト結果と競合しない）。
@@ -4100,7 +4208,16 @@ function pvpPresenceStart(uid){
   pvpPresenceSet(pvpCurStatus);
   if(!pvpPresenceListening){ pvpPresenceListening=true; db.ref('presence').on('value', function(snap){ pvpPresenceCounts = presenceCounts(snap.val()); renderPresence(); }); }
 }
-function pvpPresenceSet(status){ pvpCurStatus=status||'home'; if(!pvpPresenceRef) return; try{ pvpPresenceRef.set({ status:pvpCurStatus, ts:Date.now() }); }catch(e){} }
+function pvpPresenceSet(status){ pvpCurStatus=status||'home'; pvpPresenceWrite(pvpAway?'away':pvpCurStatus); }
+function pvpPresenceWrite(s){ if(!pvpPresenceRef) return; try{ pvpPresenceRef.set({ status:s, ts:Date.now() }); }catch(e){} }
+// タブの表示/非表示で「離席(away)」を切り替える。away中はオンライン人数に数えない（バックグラウンドだけ開いている状態を除外）。
+function pvpSetAway(away){ if(pvpAway===away) return; pvpAway=away; pvpPresenceWrite(away?'away':pvpCurStatus); }
+function pvpInitVisibility(){
+  try{ document.addEventListener('visibilitychange', function(){
+    if(document.hidden){ try{ clearTimeout(_awayTimer); }catch(e){} _awayTimer=setTimeout(function(){ pvpSetAway(true); }, PRESENCE_AWAY_MS); }
+    else { try{ clearTimeout(_awayTimer); }catch(e){} pvpSetAway(false); }   // 復帰したら即オンラインに戻す
+  }); }catch(e){}
+}
 function renderPresence(){
   const txt='🟢 オンライン '+pvpPresenceCounts.online+'人・マッチ待ち '+(pvpPresenceCounts.matching||0)+'人・対戦中 '+pvpPresenceCounts.battling+'人';
   ['pvpOnlineCount','homeOnline'].forEach(function(id){ const el=$(id); if(el) el.textContent=txt; });
@@ -4885,12 +5002,18 @@ function pvpHostDraftStep(){
   if(pvpStepGuestActive){   // 子が選ぶステップ：提示を送って待つ
     const wait = pvpHostObj.awaitGuestStep();
     pvpHostObj.requestGuestStep(state.round, s, state.foeLoadout, state.foePickTotal, eOffer);
-    wait.then(key=>{ pvpStepGuestPick=key; pvpTrace('host: 子の1枚受領 '+key); pvpHostTryReveal(); });
+    // 放置対策：子が制限時間内に選ばず（フリーズ等で）STEPPICKが来ない場合、親側でも一番左を代理選択して進行を止めない。
+    // 子の端末が生きていれば子自身が同じ「一番左」を送るので +5秒の猶予を持たせる（結果は一致）。
+    let settled=false; const fbOffer=(eOffer&&eOffer.slice())||null;
+    const to=(typeof setInterval==='function') ? setTimeout(()=>{ if(settled||pvpStepGuestPick!=null) return; settled=true;
+      const fb=(fbOffer&&fbOffer[0]) || (state.foeLoadout&&state.foeLoadout[0]) || 'cookie';
+      pvpStepGuestPick=fb; pvpTrace('host: 子の選択タイムアウト→一番左 '+fb); pvpHostTryReveal(); }, (PICK_TIME_LIMIT+5)*1000) : 0;
+    wait.then(key=>{ if(settled) return; settled=true; if(to) try{ clearTimeout(to); }catch(e){} pvpStepGuestPick=key; pvpTrace('host: 子の1枚受領 '+key); pvpHostTryReveal(); });
   } else {   // 子は待機（親の逆転ボーナス）。子へ「待って」を通知（返信不要）
     pvpHostObj.notifyGuestWait(state.round, s);
   }
   if(pvpStepHostActive){ pvpHostShowOffer(); }   // 親が選ぶステップ
-  else { hideOfferCards(); $('draftHint').textContent='相手が逆転ボーナスで先に選んでいます…'; }   // 親は待機（子の逆転ボーナス・カードは隠してヒントは残す）
+  else { stopPickTimer(); hideOfferCards(); $('draftHint').textContent='相手が逆転ボーナスで先に選んでいます…'; }   // 親は待機（子の逆転ボーナス・カードは隠してヒントは残す）
 }
 function pvpHostShowOffer(){
   state.offer3 = pvpStepHostOffer || pvpMakeOffer(state.loadout, 'p');   // ドラフトステップで生成した親の提示を使う
@@ -4903,10 +5026,11 @@ function pvpHostShowOffer(){
     if(!UNIT_BY_KEY[key] && !SPECIALS[key]) return;
     const card=pvpCardHTML(key);
     const el=document.createElement('div'); el.className=card.cls; el.innerHTML=card.html;
-    el.onclick=()=>{ if(pvpStepHostPick!=null) return; pvpStepHostPick=key; SFX.play(isSpecial(key)?'special':'pick'); el.classList.add('spin','picked');
+    el.onclick=()=>{ if(pvpStepHostPick!=null) return; stopPickTimer(); pvpStepHostPick=key; SFX.play(isSpecial(key)?'special':'pick'); el.classList.add('spin','picked');
       hideOfferCards(); $('draftHint').textContent='相手の選択を待っています…'; pvpTrace('host: 自分の1枚 '+key); pvpHostTryReveal(); };
     wrap.appendChild(el);
   });
+  startPickTimer(autoPickLeftmost);   // 放置対策：制限時間内に選ばなければ一番左を自動選択
 }
 function pvpHostTryReveal(){
   if(pvpStepHostActive && pvpStepHostPick==null) return;    // このステップでアクティブな側がそろうまで待つ
@@ -4954,6 +5078,7 @@ const PVP_GUEST_HOOKS = {
 };
 // 子：相手(親)が逆転ボーナスで先に選ぶ間の待機表示（このステップは選ばない）。
 function pvpGuestShowWait(m){
+  stopPickTimer();
   hideResultBanner();
   $('battlePanel').classList.add('hidden'); hideOfferCards();   // カードは隠してヒント(待機)は残す
   $('comebackBanner').classList.add('hidden');
@@ -4974,10 +5099,11 @@ function pvpGuestShowStep(m, sendPick){
     if(!UNIT_BY_KEY[key] && !SPECIALS[key]) return;
     const card=pvpCardHTML(key);
     const el=document.createElement('div'); el.className=card.cls; el.innerHTML=card.html;
-    el.onclick=()=>{ if(pvpGuestPicking) return; pvpGuestPicking=true; SFX.play(isSpecial(key)?'special':'pick'); el.classList.add('spin','picked');
+    el.onclick=()=>{ if(pvpGuestPicking) return; stopPickTimer(); pvpGuestPicking=true; SFX.play(isSpecial(key)?'special':'pick'); el.classList.add('spin','picked');
       hideOfferCards(); $('draftHint').textContent='相手の選択を待っています…'; pvpTrace('guest STEPPICK 送信 '+key); sendPick(key); };
     wrap.appendChild(el);
   });
+  startPickTimer(autoPickLeftmost);   // 放置対策：制限時間内に選ばなければ一番左を自動選択
   pvpTrace('guest STEP提示 r'+m.round+' s'+m.step+' ('+offer.length+'枚)');
 }
 // 子：自端末だけで n 枚を選び切り、最後にまとめて PICKS で送る（1枚ごとの往復をなくし堅牢化）。
@@ -5105,6 +5231,7 @@ function pvpGuestOnGameover(m){
 
 resetState(); loadDeckLocal(); loadProfileLocal(); renderScore(); renderHomeTrophies(); renderProfileChip(); renderNewsDot(); show('home');   // 端末に保存したデッキ／プロフィール／トロフィーを復元＋お知らせ新着ドット
 try{ authInit(); }catch(e){}   // ログイン状態の監視を開始（未設定なら何もしない）
+try{ pvpInitVisibility(); }catch(e){}   // タブのバックグラウンド放置をオンライン人数から除外
 try{ getAnalytics(); }catch(e){}   // GA4を起動時に初期化（タグ検出＋page_view/セッションの自動計測。未設定なら何もしない）
 try{ pvpTryResumeOnLoad(); }catch(e){}   // リログ（再読み込み）で対戦が切れていたら通知
 // オンライン人数のpresence参加は authInit の onAuthStateChanged 内で行う（リダイレクトログインと競合しないように）
