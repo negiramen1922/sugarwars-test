@@ -25,25 +25,25 @@
 
 | key | 名前 | tier | count | atk | hp | speed | 特徴 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| daifuku | 大福サムライ | -1 | 1 | 22 | 160 | 60 | 居合チャージ→抜刀タックル（`chargerStep`）。突撃は範囲薙ぎ払い（reach≈40・dashDamage90） |
-| cookie | クッキーアーミー | 0 | 5 | 14 | 50 | 115 | flock=同種が多いほど攻撃UP。強化「クッキーパーティー」中は `u.party` でサングラス立ち絵(`cookie_party_*`)に切替 |
+| daifuku | 大福サムライ | -1.5 | 1 | 22 | 160 | 60 | 居合－竹串（`chargerStep`）＝遠いと力をため強い踏み込みで斬込み。突撃は範囲薙ぎ払い（dashDamage90/dashRange26）。強化「ちょんまげ大福」(`buff_daifuku`)＝居合の範囲(+50%)・威力(+80%)メイン＋HP/攻撃(+30%)・巨大化なし |
+| cookie | クッキーアーミー | -0.5 | 5 | 14 | 50 | 115 | 固有ギミックなし＝素で手数が多い前衛（cd0.35）。強化「クッキーパーティー」(`applyCookieParty`)＝近くの味方クッキー数で段階的に攻撃＆速度UP（`u.party`でサングラス立ち絵`cookie_party_*`）。※旧flockは撤廃 |
 | slime | ゼリースライム | 0.5 | 3 | 12 | 55 | 90 | 強化カードで融合／倒れると分裂 |
-| bomb | ポップコーンTNT | -2.2 | 2 | 0 | 55 | 128 | 自爆（導火0.5s・HP無関係・死亡時も爆発・blast100/blastR60） |
+| bomb | ポップコーンTNT | -3 | 2 | 0 | 55 | 128 | 自爆（導火0.5s・HP無関係・死亡時も爆発・blast100/blastR60） |
 | soda | ランニングソーダ | -2 | 2 | 0 | 50 | 150 | 自爆＋炭酸沼（blast10/blastR50・沼puddleR60/5dps・移動低下） |
-| choco | チョコレートナイト | 2 | 2 | 21 | 200 | 66 | 超硬タンク前衛（ビター装甲でHP300/atk29） |
-| pancake | パンケーキキング | 2.5 | 1 | 22 | 150 | 58 | 約10秒で進化→HP3.5倍＋ジャンプ衝撃波(shockDmg52/shockR88/1.8秒ごと) |
-| donut | バキュームドーナッツ | 1.5 | 1 | 6 | 430 | 50 | 正面の敵を吸引する鈍足タンク（`vacuumStep`）。`heavy`で群れに押し負けない |
-| bakery | ジンジャーベーカリー | 3.2 | 1 | 0 | 230 | 0 | 不動の生産工場。2秒ごとに `BAKERY_SPAWN_PATTERN`(3→1→1)でginger生産（個体ごと最大7） |
+| choco | チョコレートナイト | 0 | 2 | 20 | 200 | 66 | 超硬タンク前衛（ビター装甲でHP280/atk30） |
+| pancake | パンケーキキング | 1 | 1 | 22 | 150 | 50 | 約10秒で進化→HP3.5倍(525)＋移動50→`evoSpeed`60＋ジャンプ衝撃波(shockDmg52/shockR88/evoCd1.8) |
+| donut | バキュームドーナッツ | -1 | 1 | 6 | 430 | 50 | 正面の敵を吸い寄せる鈍足タンク（`vacuumStep`）。`heavy`＋`kbResist`＝殴られても後退しない高ノックバック耐性（`applyHit`のKBを無効）で群れに押し込まれない。強化「鉄壁ドーナッツ」(`applyDonutWall`)＝HP+90%(`DONUT_HP`0.9→817)＋巨大化。※CPUの評価(`aiPicks`)はHPを`AI_HP_SOFT`(200)超で`AI_HP_FRAC`(0.3)倍に逓減＝超硬タンクをHPだけで最優先しない |
+| bakery | ジンジャーベーカリー | 2 | 1 | 0 | 230 | 0 | 不動の生産工場。2秒ごとに `BAKERY_SPAWN_PATTERN`(3→1→1)でginger生産（個体ごと最大`spawnCap`=30） |
 | ginger | ジンジャーソルジャー | 0 | 1 | 10 | 25 | 112 | ベーカリー召喚専用（`summonOnly`） |
-| shoe | シュークリームアーチャー | 3 | 4 | 14 | 44 | 64 | 後衛射手（4人・射程150） |
+| shoe | シュークリームアーチャー | 1.5 | 4 | 14 | 44 | 64 | 後衛射手（4人・射程150） |
 | ghost | わたあめゴースト | 3.5 | 3 | 16 | 44 | 95 | 開幕少し待って敵後方へワープ（warpDelay1.5・無敵中は狙われない） |
-| cannon | キャンディキャノン | 4 | 1 | 0 | 140 | 0 | 不動の全域誘導AoE迫撃（手前の敵を優先・爆発範囲 `splash`=35） |
-| icewiz | アイスクリームウィザード | 3.3 | 1 | 20 | 70 | 60 | 後衛魔導士。小範囲の氷弾（`ranged`＋`splash`=32・`range`=190）を撃ち、命中した敵に時限鈍足（`slowHit`=0.35＝35%/`slowDur`=1.5秒）を付与。鈍足は `u.chillT`/`chillAmt` で管理し `slowMul` に反映 |
-| macaron | シェルマカロン | 1 | 2 | 18 | 100 | 70 | 殻スピン（`shell`／`shellStep`）。開幕は殻で突進し壁で反射しながら約4秒(`SHELL_SPIN_DUR`)暴れる→約2秒(`SHELL_STUN_DUR`)スタン→以降は通常戦闘。スピン中は体当たり(`atk`)＋被ダメ80%カット(`SHELL_DR`／`u.inShell`)、スタン(気絶)中は無防備でカットなし。`u.shellPhase`(spin/stun/normal)で挙動・立ち絵を切替 |
+| cannon | キャンディキャノン | 3 | 1 | 0 | 140 | 0 | 不動の全域誘導AoE迫撃（手前の敵を優先・`mortar`=90/`cd`=4.2・爆発範囲 `splash`=35）。強化「ぱちぱちキャンディ」=着弾で小爆発を撒く |
+| icewiz | アイスクリームウィザード | 2.5 | 1 | 20 | 70 | 60 | 後衛魔導士（`cd`=1.0）。小範囲の氷弾（`ranged`＋`splash`=32・`range`=190）を撃ち、範囲内の敵に近い順で多段減衰ダメージ（`ICEWIZ_DECAY`=[1,0.65,0.35]＝atk20で20/13/7）＋鈍化（`slowHit`=0.5＝50%/`slowDur`=0.5秒）を付与。鈍化は `u.chillT`/`chillAmt` で管理し `slowMul` に反映。強化「ブリザード」(`applyIcewizBuff`)＝氷弾の範囲(`ICEWIZ_SPLASH_MUL`1.8)・攻撃力(`ICEWIZ_ATK`30)・鈍化時間(`ICEWIZ_SLOW_DUR`1.0秒)を強化（鈍化量は0.5据え置き） |
+| macaron | シェルマカロン | -2.5 | 2 | 12 | 100 | 70 | 殻スピン（`shell`／`shellStep`）。強化「マカロンアーマー」=HP100→180(`MACARON_HP`0.8)。開幕は殻で突進し壁で反射しながら約4秒(`SHELL_SPIN_DUR`)暴れる→約2秒(`SHELL_STUN_DUR`)スタン→以降は通常戦闘。スピン中は体当たり(`atk`)＋被ダメ80%カット(`SHELL_DR`／`u.inShell`)、スタン(気絶)中は無防備でカットなし。`u.shellPhase`(spin/stun/normal)で挙動・立ち絵を切替 |
 
-隊列 `arrangeFormation` は **tier が小さいほど前列、大きいほど後方**。
+隊列 `arrangeFormation` は **tier が小さいほど前列、大きいほど後方**。現在の並び（前→後）＝bomb(-3)→macaron(-2.5)→soda(-2)→daifuku(-1.5)→donut(-1)→cookie(-0.5)→choco(0)→slime(0.5)→pancake(1)→shoe(1.5)→bakery(2)→icewiz(2.5)→cannon(3)→ghost(3.5)。tierは隊列のグループ化と描画にのみ使用（スコア/経済には非使用）。
 
-新キャラは `UNITS` に `beta:true` を付けると、編成カードに「β」バッジ・キャラ詳細に「ベータ実装＝バランス調整中」の注記が出る（現在 icewiz / macaron）。
+新キャラは `UNITS` に `beta:true` を付けると、編成カードに「β」バッジ・キャラ詳細に「ベータ実装＝バランス調整中」の注記が出る（現在βキャラなし）。
 
 ## 主要定数（`CONFIG` とトップレベル定数）
 
@@ -88,13 +88,13 @@
 
 - 陣営で出し分けるキャラ：**スライム**（`slime_blue/red` ＋ `_big`）と**ソーダ**（`soda_blue`=味方/`soda_red`=敵）ほか多数（cookie/choco/shoe/daifuku/ghost/donut/bakery/ginger/cannon/**icewiz**＝`*_blue`味方/`*_red`敵）。`spriteFor()`/`iconHTML()` で解決。
 - パンケーキは陣営色つき。進化前 `pancake_blue/red`／はや焼き強化(進化前・王冠5トゲ)`pancake_fast_blue/red`(`u.fastEvo`)／進化後(3段)`pancake_evo_blue/red`(`u.evolved`)を切替（進化後が最優先）。旧 `pancake`/`pancake_evo` はフォールバック。
-- シェルマカロンは通常 `macaron_blue/red`／殻スピン・スタン中 `macaron_spin_blue/red` を `u.shellPhase` で切替（スピン中は描画を回転＋スタン中は★演出）。強化(ビッグシェル/`u.macaronBuff`)は `macaron_buff_*`／`macaron_spin_buff_*`。
-- 強化で立ち絵が変わるキャラ：**チョコ**（`choco_buff_*`＝ビター装甲、`u.chocoBuff`）・**シュー**（`shoe_buff_*`＝特盛り、`u.shoeBuff`）・**ソーダ**（`soda_buff_*`＝炭酸沼強化、`u.fizz`）・**ベーカリー**（`bakery_buff_*`＝ラストベイク、`u.bakeryBuff`）・**ポップコーン**（`bomb_buff_*`＝おかわり、`u.spawnMini`）・**大福**（`daifuku_buff_*`＝特大大福、`u.daifukuBuff`）・**ゴースト**（`ghost_buff_*`＝分身、`u.cloneOn`／おとり分身は通常絵）・**キャノン**（`cannon_buff_*`＝クラスター花火弾、`u.cluster`）・**ドーナッツ**（`donut_buff_*`＝鉄壁、`u.donutWall`）・**アイス**（`icewiz_buff_*`＝ブリザード、`u.icewizBuff`）・**マカロン**（`macaron_buff_*`/`macaron_spin_buff_*`＝ビッグシェル）。いずれも陣営色つき。`spriteFor()` で解決。
+- シェルマカロンは通常 `macaron_blue/red`／殻スピン・スタン中 `macaron_spin_blue/red` を `u.shellPhase` で切替（スピン中は描画を回転＋スタン中は★演出）。強化(マカロンアーマー/`u.macaronBuff`)は `macaron_buff_*`／`macaron_spin_buff_*`。
+- 強化で立ち絵が変わるキャラ：**チョコ**（`choco_buff_*`＝ビター装甲、`u.chocoBuff`）・**シュー**（`shoe_buff_*`＝特盛り、`u.shoeBuff`）・**ソーダ**（`soda_buff_*`＝炭酸沼強化、`u.fizz`）・**ベーカリー**（`bakery_buff_*`＝ラストベイク、`u.bakeryBuff`）・**ポップコーン**（`bomb_buff_*`＝おかわり、`u.spawnMini`）・**大福**（`daifuku_buff_*`＝ちょんまげ大福、`u.daifukuBuff`）・**ゴースト**（`ghost_buff_*`＝分身、`u.cloneOn`／おとり分身は通常絵）・**キャノン**（`cannon_buff_*`＝クラスター花火弾、`u.cluster`）・**ドーナッツ**（`donut_buff_*`＝鉄壁、`u.donutWall`）・**アイス**（`icewiz_buff_*`＝ブリザード、`u.icewizBuff`）・**マカロン**（`macaron_buff_*`/`macaron_spin_buff_*`＝マカロンアーマー）。いずれも陣営色つき。`spriteFor()` で解決。
 - 立ち絵が無いキャラは絵文字フォールバック。
 - **アニメ付きキャラ**：UNITに `anim`（味方=青フレーム配列）＋`animRed`（敵=赤フレーム配列・省略時は`anim`流用）＋`animFps`を持たせると、`spriteFor()` が `u.side` と `world.t` で `animFps` 枚/秒でフレームを切り替える（例 `mangel`＝マシュマロエンジェル・青赤各3フレーム）。**静止立ち絵の陣営色出し分けにも流用可**（例 `kumagumi`＝クマグミ・`anim:['kumagumi_blue']`/`animRed:['kumagumi_red']`＝1枚アニメ）。開発中は `test:true` を付けるとロスター/ドラフト/CPUデッキ/X2生成から除外され通常プレイに出ない。**アニメ動作テスト**＝設定メニュー「🧪 アニメテスト」→`startAnimTest(key)`：1カード分ずつ(3体vs3体)を上=敵赤/下=味方青で**その場に整列（動かない）**で出し、`animTestLoop` が `world.t` だけ進めて**アニメだけをじっくり確認**。上部のバー（`#animTestBar`＝`test:true`キャラ一覧）で**確認するキャラを選べる**（`stopAnimTest`で戻る）。テスト：test.js 90。
 - **強化カードの絵**：`SPECIALS` に `evoSprite`（例 `buff_choco`→`choco_buff_blue`／`fast_pancake`→`pancake_evo`／`up_slime`→`slime_blue_big`）を持つ強化は、ドラフトのカード絵を**進化後/強化後の立ち絵**で出す（`specialCardIcon()`）。無ければ対象キャラのベース絵→絵文字にフォールバック。**ライバルの選択カード**（`showFoePickCard`）はユニット＝敵色の立ち絵(`iconHTML(u,'e')`)／強化＝`specialCardIcon()`（強化後の絵）で表示。プロフィールの「よく使うキャラ」は `unitSpriteImg()` で**立ち絵**表示。
 - **ヘッダーのアクション（`.topbar-actions`）**：右上に「コミュニティに参加！(Discord・他より横長)」→「お知らせ📢(`#newsBtn`)」→「設定⚙」の順。お知らせは**新着があると赤ドット**（`renderNewsDot`/`#newsDot`）＝最新 `NEWS[0].ver` を `localStorage('sw_news_seen')` と比較（`newsUnseen`）、`openNews` で既読化（`markNewsSeen`）。起動時に `renderNewsDot()`。
-- **キャラ詳細（`showDetail`）**：**「ステータス」「熟練度」の2タブ**（`switchDetailTab`）。ステータスタブ＝ダメージタイプのバッジ（`unitDamageType()`＝近距離/遠距離×単体/範囲・自爆/生産）＋ステータスグリッド（召喚数/攻撃/HP/移動速度/攻撃速度=`cd`秒/回/射程＝`fmtSpeed`不動・`fmtRange`全域）＋説明＋`enhDisplay()`（進化＝自動／固有強化＝強化後HP/攻撃を定数から再計算＋進化後の立ち絵）。熟練度タブ＝`masteryDetailHTML()`。攻撃力は `unitAtkText()` で**殴り攻撃0でも実ダメージを表示**（自爆=💥blast／迫撃=💥mortar・ラベルは「爆発ダメージ」）。`enhDisplay()` はスライムに**融合後ステータス**（`FUSE` から再計算）、ベーカリーに**召喚するジンジャーの性能**も併記。モーダルは `.modal-card` に `max-height:calc(100vh-40px);overflow-y:auto` で**縦長でもスクロール**（全モーダル共通）。テスト：test.js 85・87。
+- **キャラ詳細（`showDetail`）**：**「ステータス」「熟練度」の2タブ**（`switchDetailTab`）。ステータスタブ＝ダメージタイプのバッジ（`unitDamageType()`＝近距離/遠距離×単体/範囲・自爆/生産）＋ステータスグリッド（召喚数/攻撃/HP/移動速度/攻撃速度=`cd`秒/回/射程＝`fmtSpeed`不動・`fmtRange`全域）＋説明＋**能力欄 `abilitiesHTML()`**（`UNIT_ABILITIES`＝key→[{name,info}]。固有ギミックを**能力名＋ℹ️で詳細開閉**(`toggleAbilityInfo`)。能力の無いキャラは非表示。1キャラずつ調整していく）＋`enhDisplay()`（進化＝自動／固有強化＝強化後HP/攻撃を定数から再計算＋進化後の立ち絵）。熟練度タブ＝`masteryDetailHTML()`。攻撃力は `unitAtkText()` で**殴り攻撃0でも実ダメージを表示**（自爆=💥blast／迫撃=💥mortar・ラベルは「爆発ダメージ」）。`enhDisplay()` はスライムに**融合後ステータス**（`FUSE` から再計算）、ベーカリーに**召喚するジンジャーの性能**も併記。モーダルは `.modal-card` に `max-height:calc(100vh-40px);overflow-y:auto` で**縦長でもスクロール**（全モーダル共通）。テスト：test.js 85・87。
 
 ### スプライト加工の手順（同梱の `sprite_proc.py` を使用）
 
@@ -229,6 +229,44 @@
 - **要設定**：RTDBルールに `leaderboard`（read:true・$uidのみwrite）。`FIREBASE_SETUP.md` C章参照。
 - CPU対戦はトロフィー非変動（PVPのみ）。
 
+## 経済（通貨🍬シュガーコイン＋カードパック＋見た目コレクション・実装済み・`<script>`「13.5) 経済」）
+
+**通貨は🍬シュガーコイン1種のみ**（旧「ジェム」は廃止し統合）。パック購入・キャラ解禁・レッスン報酬・対戦報酬すべてこの1通貨。
+
+**最優先の原則：経済は「見た目」だけに効かせる＝ユニット性能・強化カードは一切解禁しない（対戦は常にフェア）**。人が少なくても課金・レベル差で格差が広がらないための割り切り。テスト：test.js 90・91。
+
+- **通貨（🍬シュガーコイン＝`myProfile.coins`）**：課金ではなく**対戦報酬**で配る（子ども向けに安全）。`grantBattleReward(won)` を決着時に呼ぶ＝**CPU/PVP両方**（`endGame`＋子の `pvpGuestOnGameover`。チュートリアルは除外）。報酬額は純粋関数 `battleCoinReward(won, firstWinToday)`＝`COIN_PLAY`(10・参加)＋`COIN_WIN`(15・勝利)＋`COIN_DAILY_WIN`(50・その日の初勝利=`myProfile.dailyWinKey` で1日1回)。ホーム＆ショップに残高表示（`renderHomeCoins`/`renderShopCoins`）。
+- **カードパック**：`PACK_COST`(120コイン)で `buyPack()`→`openPackOnce(Math.random())`。中身は**レア度なし＝全アイテム同確率**（`packPool()`＝フレーム＋称号＋ネームカラーの**見た目3種のみ**）。抽選は純粋関数 `rollPack(pool, r)`（0..1）。**★アイコン(アバター)/スキンはガチャに出さない**＝それらは**キャラの熟練度でのみ解禁**（熟練度報酬をガチャで進めさせない＝対戦を常にフェアに）。
+- **初入手 vs 重複**：`alreadyHave(item)`（`ownsCollected`）で判定。初入手→`myProfile.collected[id]` に加算して**解禁**。**重複→そのアイテムのテーマキャラ(`unit`)の熟練度XPに変換**（`addMasteryXp`・`PACK_DUP_XP`=25／重複で熟練度が早く進む助け）。
+- **見た目3種（絵素材不要・CSS/テキスト）**：`FRAMES`（アイコン装飾枠＝box-shadow）／`TITLES`（名前横の称号テキスト）／`NAME_COLORS`（名前の色・グラデ）。各行に `unit`（テーマ表示用）。装備は `myProfile.frame/title/nameColor`＋`equipFrame/equipTitle/equipNameColor`（トグル・所持のみ）。表示は**自分のプロフィールチップ**（`renderProfileChip`＝`avatarHTML(...,frame)`＋`applyNameColor`＋`#profileChipTitle`）とプロフィール編集プレビューに反映（相手の見た目共有はスキン同様に未対応＝自分だけ）。
+- **アイコン/スキンは熟練度のみで解禁**（ガチャ非排出）：`avatarUnlocked`/`skinUnlocked` は熟練度Lvで判定（`ownsCollected` fallbackは残すが、パックがそれらを配らないので実質使わない）。フレーム/称号/ネームカラーを増やすときは各配列（`FRAMES`/`TITLES`/`NAME_COLORS`）に1行足すだけでパックプール・コレクション画面（`renderCollection`）に自動反映。アイコン/スキンを増やすときは `SPRITE_DATA` 注入＋`SPECIAL_AVATARS`/`SPECIAL_SKINS`（熟練度ロードマップに反映）。
+- **保存**：`coins`/`collected`/`frame`/`title`/`nameColor`/`dailyWinKey` を `saveProfileLocal`（端末）＋`buildProfile`/`applyProfile`（クラウド）に統合。マージは coins=大きい方・collected=個数の大きい方（進捗が消えない割り切り）。
+- **UI**：ホームメニュー「🎁 ショップ＆コレクション」＋ホームのコイン表示（クリックでショップ）→ `#shopModal`（`openShop`/`closeShop`/`renderShop`）。
+
+## キャラ解禁（スターター＋🍬シュガーコイン・実装済み・`<script>`「13.6) キャラ解禁」）
+
+**方針（①=全モード解禁制を採用）**：スターターを実用的な数にし、コインは無料で貯まる（指南クリア＋対戦報酬）ので、初心者でもすぐ4枚デッキを組めて、いつかは全員そろう＝格差を最小化。将来は課金でのコイン購入も想定。テスト：test.js 92。
+
+- **スターター**：`STARTER_UNITS`＝`cookie/slime/bomb/choco/shoe`（前衛/タンク×2/自爆/遠距離の5体）は最初から使える。※ソーダは自爆がbombと被るため外し、戦術指南の「沼レッスン」で解禁する。
+- **解禁状態**：`myProfile.units`（解禁済みキャラのkey配列）。`unitUnlocked(key)`＝召喚専用は非対象／スターター／units に入っていれば真。`lockedUnits()`＝まだロックのkey一覧。
+- **通貨は🍬シュガーコインのみ**（`myProfile.coins`／`myCoins()`）。対戦報酬 `grantBattleReward` は `battleCoinReward`＝`COIN_PLAY`(10)＋`COIN_WIN`(15)＋`COIN_DAILY_WIN`(50・初勝利)を付与。※旧`gems`/`myGems`/`GEM_*`/`battleGemReward`は廃止。
+- **解禁手段**：戦術指南クリア（下記）＋`buyUnit(key)`（🍬で直接購入・`unitUnlockCost`=一律500）。`unlockUnit(key)` が units に追加。
+- **編成のゲート**：`toggleDeck` は自分の編成（`rosterMode==='you'`）で未解禁キャラを拒否（トースト）。`renderRoster` はロックキャラに🔒＋🍬コストのオーバーレイ（`.rlocked`/`.rlock`）。CPUデッキ編成はゲートしない。
+- **既存救済**：`migrateUnlocks()`＝今のデッキに入っている非スターターは解禁済み扱い（起動時＋クラウド復元後に呼ぶ）＝新システムでデッキが壊れない。
+- **保存**：`units`/`guideDone` を `saveProfileLocal`＋`buildProfile`/`applyProfile` に統合（和集合マージ）。コインは経済側で保存。
+
+## PVE 戦術指南（ステージ制レッスン・実装済み・`<script>`「13.7) PVE 戦術指南」）
+
+ユーザー要望の「PVEの戦術指南でカードを入手→その後ガチャ」の前半。各レッスン＝1テーマを実戦で学び、**勝利で仲間（キャラ）解禁＋🍬シュガーコイン（初回のみ）**。キャラ（アーク）は自由選択・アーク内のみ順番制。テスト：test.js 93。
+
+- **データ**：`GUIDE_STAGES`（`{id,title,theme,tip,deck,foe,unit?,coins}`）。`deck`＝レッスン用おすすめデッキ（学ぶキャラを含めて体験させる）、`foe`＝相手デッキ、`unit`＝クリア報酬キャラ（**省略可**＝体験型レッスン。コインのみ）、`coins`＝報酬🍬（**統一ルール：キャラ解禁レッスン=100／体験(それ以前)=50**。test.js 93で担保）。**アーク方式**：複数レッスンで1キャラを解禁できる（`unit`は最終レッスンだけに付け、途中は`unit`省略でコインのみ＝「近道(`buyUnit`)」の価値を出す）。**現在16レッスン**：非スターターの全キャラ（donut/icewiz）＋ソーダ（`soda1`→`soda2`）＋大福（`charge1`→`charge2`）＋ゴースト（`warp1`→`warp2`）＋キャノン（`aoe1`→`aoe2`）＋ベーカリー（`produce1`→`produce2`）＋パンケーキ（`evolve1`→`evolve2`）＋マカロン（`shell1`→`shell2`）を無料解禁できる＝誰でもPVEを進めれば全員そろう（対人も公平）。🍬は「レッスンを待たずに先に解禁する近道」として任意利用。test.js 93 が「全非スターターキャラがレッスンで解禁できる」ことを保証（新キャラを足したらレッスンも追加する）。
+- **アークごとに自由選択＋アーク内は順番制**：`stageArc(s)`＝`arc`明示→`unit`→`id` でアーク（キャラ）を判定。`guideStageUnlocked(id)`＝各アークの先頭レッスンは常に挑戦可（好きなキャラから選べる）、アーク内のレッスン2以降は同アークの前レッスンを `guideCleared` していれば解禁。単発アーク（1レッスン）は常に選べる。
+- **メニューは2階層**（`guideView` = `arcs`/`arc`）：`openGuide`→`renderGuide` が**キャラ一覧**（`guideArcs()`＝アーク単位・進捗 `cleared/total`）を表示→キャラを選ぶと `openGuideArc(a)` で**そのキャラのレッスンを縦に並べて**表示（`arcStages(a)`／上から順番）。`arcUnit(a)`＝アーク代表キャラ。`guideBackToArcs()` で戻る。
+- **フロー**：レッスンタップ→`startGuideStage`（`#guideTipModal` でヒント）→**デッキ編成**`guideOpenDeckBuilder`（`rosterMode='guide'`＝学ぶキャラ `forceUnit`（`stage.forceUnit`→`unit`）を先頭に**強制**・外せない／残りは**解禁済みキャラ**から選ぶ／`stage.deck` の解禁済みをプレフィル／`rosterSub` に**相手のデッキ**をアイコン表示＝対策を組める）→「レッスン開始」`beginGuideStageBattle`＝`myDeck`をその編成にして `startGame`。**相手は `makeGuideFoeController(stage.foe)`＝デッキを round-robin で確実に出す**（貪欲AIだと弓兵など弱い後衛が出ないため／`guideRestoreDeck` で `makeCpuFoeController` に戻す）。**本デッキは `_guideDeckBackup` に退避**（保存しない＝本デッキ不変）。`guideCancelDeck`/`goHome` で復元。
+- **レッスン1系の易化フラグ（任意・per-stage）**：`easyFoe:true`＝そのレッスンはCPUが強化/X2を取らない（`guideEasyFoe()` が `foeMatchEnhance` を無効化）。`winRounds:N`＝相手から N ライフ取った時点でクリア（`endBattle`／`endGame` で判定。例：soda1 は `easyFoe`+`winRounds:1`）。
+- **決着**：`endGame` の `guideMode` 分岐→`guideWon`（`winRounds`指定は「規定ライフ取ればクリア」／通常は `foeLives<=0`）→`guideFinish(guideWon)`。**報酬は初回クリアのみ**＝`guideFinish` が初回だけ `guideDone` 記録＋`unlockUnit`（`unit`があれば）＋stage💎付与、さらに `endGame` が初回のみ `grantBattleReward`（🍬シュガーコイン）を付与（再挑戦・敗北は無報酬）。over画面は `#overGuideBtns`＝（同アークに次があれば）**▶次のレッスンへ**（`guideNextLesson`/`guideGoNext`＝次レッスンの編成へ直行）/🎓指南へ戻る/🏠ホームへ。
+- **入口**：ホームメニュー「🎓 戦術指南」。
+
 ## オンライン人数（presence・実装済み）
 
 - 起動時に `pvpPresenceJoin()`＝**匿名サインイン**して `presence/<uid>={status,ts}`（`onDisconnect().remove()`）。`presence` を購読し `presenceCounts(obj)`（純粋関数・test.js 73）で集計→「🟢 オンラインN人・マッチ待ちW人・対戦中M人」をホーム/PVPロビーに表示（`renderPresence`）。マッチ待ち=`status:'matching'` の数。
@@ -266,6 +304,8 @@
 
 ## 次の候補タスク（未着手・要相談）
 
+- **経済Phase 3（コインショップ）**：全キャラはレッスンで無料解禁できるので、🍬の用途は「**近道**」。UI（`buyUnit` を呼ぶ「先に解禁」ボタン＝まだ到達していないレッスンのキャラを🍬で先取り）を足すだけ。
+- 戦術指南のレッスン追加・数値/順番の調整（`GUIDE_STAGES`）。
 - PVP **F2**（Firebase+WebRTCで実接続）→ **F3**（自動マッチング）。
 - 各キャラの固有強化（X2以外の派手な効果）の追加。
 - flock の効果検証・他キャラへの相乗効果。
