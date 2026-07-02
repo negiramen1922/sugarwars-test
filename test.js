@@ -2731,6 +2731,7 @@ console.log('\n=== 93) PVE戦術指南：順番制＋クリアで解禁＋ジェ
     check('charge1は最初から挑戦可', API.guideStageUnlocked('charge1')===true);
   }
   check('各レッスンにコイン報酬とデッキ/相手がある（解禁キャラは任意＝体験型レッスンあり）', stages.every(s=>s.coins>0 && Array.isArray(s.deck) && Array.isArray(s.foe) && (s.unit===undefined || !!API.UNIT_BY_KEY[s.unit])));
+  check('報酬統一：キャラ解禁レッスン=100／体験(それ以前)=50', stages.every(s=> s.unit ? s.coins===100 : s.coins===50), stages.map(s=>[s.id,s.coins]));
   check('ソーダはレッスン(soda2)で解禁できる＝スターターから外れても入手可', stages.some(s=>s.unit==='soda'));
   check('体験型レッスン(soda1)はキャラ報酬なし', !!API.GUIDE_STAGES.find(s=>s.id==='soda1') && API.GUIDE_STAGES.find(s=>s.id==='soda1').unit===undefined);
   // frontアークを勝利クリア
