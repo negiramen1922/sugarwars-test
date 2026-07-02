@@ -241,7 +241,7 @@
 
 **方針（①=全モード解禁制を採用）**：スターターを実用的な数にし、ジェムは無料で貯まる（指南クリア＋対戦報酬）ので、初心者でもすぐ4枚デッキを組めて、いつかは全員そろう＝格差を最小化。将来は課金でのジェム購入も想定。テスト：test.js 92。
 
-- **スターター**：`STARTER_UNITS`＝`cookie/slime/bomb/soda/choco/shoe`（群れ/分裂/自爆×2/タンク/遠距離の6体）は最初から使える。
+- **スターター**：`STARTER_UNITS`＝`cookie/slime/bomb/choco/shoe`（前衛/タンク×2/自爆/遠距離の5体）は最初から使える。※ソーダは自爆がbombと被るため外し、戦術指南の「沼レッスン」で解禁する。
 - **解禁状態**：`myProfile.units`（解禁済みキャラのkey配列）。`unitUnlocked(key)`＝召喚専用は非対象／スターター／units に入っていれば真。`lockedUnits()`＝まだロックのkey一覧。
 - **💎ジェム**：`myProfile.gems`。`myGems()`。対戦報酬 `battleGemReward(won,first)`＝`GEM_WIN`(10・勝利)＋`GEM_DAILY`(30・その日の初勝利)を `grantBattleReward` で付与（CPU/PVP両方）。
 - **解禁手段**：戦術指南クリア（下記）＋`buyUnit(key)`（💎で直接購入・`unitUnlockCost`=一律300）。`unlockUnit(key)` が units に追加。
@@ -253,7 +253,7 @@
 
 ユーザー要望の「PVEの戦術指南でカードを入手→その後ガチャ」の前半。各レッスン＝1テーマを実戦で学び、**勝利で仲間（キャラ）解禁＋💎ジェム（初回のみ）**。順番にクリアして進む。テスト：test.js 93。
 
-- **データ**：`GUIDE_STAGES`（`{id,title,theme,tip,deck,foe,unit,gems}`）。`deck`＝レッスン用おすすめデッキ（学ぶキャラを含めて体験させる）、`foe`＝相手デッキ、`unit`＝クリア報酬キャラ、`gems`＝報酬💎。**現在8レッスンで、非スターターの全キャラ（donut/icewiz/ghost/cannon/bakery/pancake/daifuku/macaron）をレッスンで無料解禁できる**＝誰でもPVEを進めれば全員そろう（対人も公平）。💎は「レッスンを待たずに先に解禁する近道（`buyUnit`）」として任意利用。test.js 93 が「全非スターターキャラがレッスンで解禁できる」ことを保証（新キャラを足したらレッスンも追加する）。
+- **データ**：`GUIDE_STAGES`（`{id,title,theme,tip,deck,foe,unit?,gems}`）。`deck`＝レッスン用おすすめデッキ（学ぶキャラを含めて体験させる）、`foe`＝相手デッキ、`unit`＝クリア報酬キャラ（**省略可**＝体験型レッスン。gemsのみ）、`gems`＝報酬💎。**アーク方式**：複数レッスンで1キャラを解禁できる（`unit`は最終レッスンだけに付け、途中は`unit`省略で💎のみ＝「近道(`buyUnit`)」の価値を出す）。**現在10レッスン**：非スターターの全キャラ（donut/icewiz/ghost/cannon/bakery/pancake/daifuku/macaron）＋ソーダ（`soda1`体験→`soda2`実戦で解禁）を無料解禁できる＝誰でもPVEを進めれば全員そろう（対人も公平）。💎は「レッスンを待たずに先に解禁する近道」として任意利用。test.js 93 が「全非スターターキャラがレッスンで解禁できる」ことを保証（新キャラを足したらレッスンも追加する）。
 - **順番制**：`guideStageUnlocked(id)`＝先頭は常に可、以降は前をクリア（`guideCleared`）で解禁。
 - **フロー**：`openGuide`→`renderGuide`（`#guide` 画面）→ レッスンタップ→`startGuideStage`（`#guideTipModal` でヒント）→`beginGuideStage`＝**本デッキを `_guideDeckBackup` に退避**して `myDeck` をレッスンデッキに一時差し替え（保存はしない＝端末/クラウドの本デッキは不変）→`startGame`。
 - **決着**：`endGame` の `guideMode` 分岐→`guideFinish(won)`＝勝てば初回のみ `guideDone` 記録＋`unlockUnit`＋💎付与＋トースト。**通常の対戦報酬（コイン/ジェム）も併せて付与**。over画面は専用ボタン（`#overGuideBtns`＝🔁もう一度=`guideRetry`／🎓指南へ戻る）。`goHome` でも途中離脱時にデッキ復元。

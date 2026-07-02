@@ -3954,7 +3954,7 @@ function grantBattleReward(won){
    ★方針（①=全モード解禁制）：スターターを実用的な数にし、ジェムは無料で貯まる（指南クリア＋対戦報酬）ので、
      初心者でもすぐ4枚デッキが組めて、いつかは全員そろう＝格差を最小化する。将来は課金でのジェム購入も想定。
    ============================================================ */
-const STARTER_UNITS = ['cookie','slime','bomb','soda','choco','shoe'];   // 最初から使える実用的なスターター6体（群れ/分裂/自爆×2/タンク/遠距離）
+const STARTER_UNITS = ['cookie','slime','bomb','choco','shoe'];   // 最初から使える実用的なスターター5体（前衛/タンク×2/自爆/遠距離）。ソーダは戦術指南（沼レッスン）で解禁
 const GEM_WIN = 10;     // 対戦に勝つともらえる💎
 const GEM_DAILY = 30;   // その日の初勝利ボーナス💎
 function unitUnlockCost(key){ return 300; }   // キャラ解禁に必要な💎（今は一律・後で調整可）
@@ -4298,6 +4298,12 @@ const GUIDE_STAGES = [
   { id:'front',  title:'前線で受け止める', theme:'タンク / 前衛', unit:'donut',  gems:80,
     tip:'硬い前衛が前で受けると、後ろの弓兵や自爆が生き残って火力を出せる。バキュームドーナッツは敵を吸い寄せて足止めする鈍足タンク。前に置いて壁にしよう。',
     deck:['donut','shoe','bomb','cookie'], foe:['cookie','soda','bomb'] },
+  { id:'soda1',  title:'沼で群れを溶かす①', theme:'デバフ / 沼（体験）', gems:40,
+    tip:'相手は大量のクッキー。こちらは弓兵（シュークリーム）とランニングソーダ。ソーダを選んで敵の足元に沼を作ろう！沼を踏んだ群れは鈍化＋持続ダメージでまとめて溶ける。弓兵は後ろから削り役。',
+    deck:['soda','shoe'], foe:['cookie'] },
+  { id:'soda2',  title:'沼で群れを溶かす②', theme:'デバフ / 沼（実戦）', unit:'soda', gems:80,
+    tip:'今度はソーダ入りデッキで実戦。相手はクッキーとゼリーの群れ。ソーダの沼で足を止めて、弓兵で削り切ろう！勝てばランニングソーダが仲間になる。',
+    deck:['soda','shoe','choco','cookie'], foe:['cookie','slime'] },
   { id:'ranged', title:'遠くから削る',     theme:'遠距離', unit:'icewiz', gems:80,
     tip:'遠距離ユニットは近づかれる前に相手を削れる。アイスクリームウィザードは氷弾で当てた敵を鈍足にして、味方が押し勝ちやすくなる。前衛の後ろに置こう。',
     deck:['icewiz','shoe','choco','cookie'], foe:['cookie','slime','soda'] },
@@ -4334,8 +4340,10 @@ function renderGuide(){
     const status = done ? '<span style="color:var(--green);font-weight:700">✅ クリア</span>'
                  : open ? '<span style="color:var(--accent2);font-weight:700">▶ 挑戦できる</span>'
                         : '<span style="color:var(--muted)">🔒 前のレッスンをクリア</span>';
-    const rewardUnlocked = done || unitUnlocked(s.unit);
-    const reward = '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">ごほうび：'+iconHTML(u,'p')+'<b>'+(u?u.name:s.unit)+'</b>'+(rewardUnlocked?'（解禁済み）':'')+' ・ 💎'+s.gems+'</div>';
+    let reward;
+    if(u){ const rewardUnlocked = done || unitUnlocked(s.unit);
+      reward = '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">ごほうび：'+iconHTML(u,'p')+'<b>'+u.name+'</b>'+(rewardUnlocked?'（解禁済み）':'')+' ・ 💎'+s.gems+'</div>'; }
+    else { reward = '<div style="font-size:12px;color:var(--muted)">ごほうび：💎'+s.gems+'（あそび方を学ぶレッスン）</div>'; }
     const clickable = open && !done ? ' style="cursor:pointer"' : (open&&done?' style="cursor:pointer"':'');
     const onclick = open ? ' onclick="startGuideStage(\''+s.id+'\')"' : '';
     return '<div class="guide-card'+(open?'':' locked')+'"'+onclick+clickable+'>'
@@ -4355,7 +4363,8 @@ function startGuideStage(id){
   $('guideTipText').textContent=s.tip;
   $('guideTipReward').innerHTML = guideCleared(id)
     ? '（クリア済み。もう一度挑戦できます）'
-    : 'クリアで <b>'+(u?u.name:s.unit)+'</b> が仲間になり、💎'+s.gems+' がもらえます！';
+    : (u ? 'クリアで <b>'+u.name+'</b> が仲間になり、💎'+s.gems+' がもらえます！'
+         : 'クリアで 💎'+s.gems+' がもらえます！');
   $('guideTipStart').onclick=function(){ closeGuideTip(); beginGuideStage(id); };
   $('guideTipModal').classList.remove('hidden');
 }
@@ -4384,12 +4393,16 @@ function guideFinish(won){
     if(firstClear){
       if(!Array.isArray(myProfile.guideDone)) myProfile.guideDone=[];
       myProfile.guideDone.push(id);
-      const newlyUnlocked = unlockUnit(s.unit);
       myProfile.gems = myGems()+s.gems;
       saveProfileLocal(); scheduleCloudSave();
-      const u=UNIT_BY_KEY[s.unit];
-      line = '🎉 '+(u?u.name:s.unit)+' が仲間になった！　💎 +'+s.gems;
-      toast('🎉 '+(u?u.name:s.unit)+' を解禁！ 編成でデッキに入れられます');
+      const u = s.unit ? UNIT_BY_KEY[s.unit] : null;
+      if(u){ unlockUnit(s.unit);
+        line = '🎉 '+u.name+' が仲間になった！　💎 +'+s.gems;
+        toast('🎉 '+u.name+' を解禁！ 編成でデッキに入れられます');
+      } else {
+        line = 'レッスンクリア！　💎 +'+s.gems;
+        toast('レッスンクリア！ 💎 +'+s.gems);
+      }
     } else {
       line = '（クリア済みのレッスン）';
     }

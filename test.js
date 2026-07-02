@@ -2728,7 +2728,9 @@ console.log('\n=== 93) PVE戦術指南：順番制＋クリアで解禁＋ジェ
   }
   check('先頭レッスンは最初から挑戦可', API.guideStageUnlocked(stages[0].id)===true);
   check('2番目は最初はロック', API.guideStageUnlocked(stages[1].id)===false);
-  check('各レッスンに解禁キャラとジェムがある', stages.every(s=>s.unit && s.gems>0 && Array.isArray(s.deck) && Array.isArray(s.foe)));
+  check('各レッスンにジェム報酬とデッキ/相手がある（解禁キャラは任意＝体験型レッスンあり）', stages.every(s=>s.gems>0 && Array.isArray(s.deck) && Array.isArray(s.foe) && (s.unit===undefined || !!API.UNIT_BY_KEY[s.unit])));
+  check('ソーダはレッスン(soda2)で解禁できる＝スターターから外れても入手可', stages.some(s=>s.unit==='soda'));
+  check('体験型レッスン(soda1)はキャラ報酬なし', !!API.GUIDE_STAGES.find(s=>s.id==='soda1') && API.GUIDE_STAGES.find(s=>s.id==='soda1').unit===undefined);
   // 先頭レッスンを勝利クリア
   const s0=stages[0], g0=API.myGems();
   API.setGuideStage(s0.id);
