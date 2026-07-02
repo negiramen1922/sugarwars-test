@@ -377,6 +377,11 @@
     <section id="ranking" class="center hidden">
       <p class="big" style="font-size:clamp(22px,5vw,34px)">🏆 ランキング</p>
       <p class="stage-sub" id="rankingMine">あなた：🏆 1000</p>
+      <!-- 未ログイン時のみ表示：ランキングに載るにはログインが必要 -->
+      <div id="rankingLoginHint" class="hidden" style="max-width:360px;margin:6px auto 4px;padding:10px 12px;border:1px dashed var(--brass);border-radius:10px;background:rgba(242,181,10,.10);color:var(--brass);font-size:13px;line-height:1.6">
+        ランキングに乗るにはログインしてください
+        <div style="margin-top:8px"><button class="btn btn-primary" style="padding:6px 14px;font-size:13px" onclick="openAuth()">👤 ログイン</button></div>
+      </div>
       <button class="btn btn-ghost" onclick="goHome()" style="margin-bottom:8px">← ホームへ戻る</button>
       <div id="rankingList" style="max-width:380px;margin:8px auto;text-align:left;max-height:55vh;overflow:auto"></div>
     </section>
@@ -4159,6 +4164,7 @@ function renderProfileChip(){ const dp=displayProfile(); const ic=$('profileChip
 function openRanking(){
   try{ SFX.play('button'); }catch(e){} closeMenu();
   if($('rankingMine')){ const dp=displayProfile(); $('rankingMine').innerHTML='<span style="display:inline-flex;align-items:center;gap:6px;justify-content:center;flex-wrap:wrap">あなた：'+avatarHTML(dp.avatar||'',26)+' 🏆 '+myTrophies()+'（'+(myProfile.wins||0)+'勝 '+(myProfile.losses||0)+'敗）</span>'; }   // 自分のアイコンも表示（数値は自前データで安全）
+  if($('rankingLoginHint')) $('rankingLoginHint').classList.toggle('hidden', isRealUser());   // 未ログイン(ゲスト)のときだけ「ログインしてください」を表示
   const list=$('rankingList'); if(list) list.innerHTML='<div style="color:var(--muted);text-align:center">読み込み中…</div>';
   show('ranking');
   if(!firebaseConfigured()){ if(list) list.innerHTML='<div style="color:var(--muted);text-align:center">オンライン未設定です</div>'; return; }
