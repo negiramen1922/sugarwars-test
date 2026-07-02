@@ -230,10 +230,10 @@
 **最優先の原則：経済は「見た目」だけに効かせる＝ユニット性能・強化カードは一切解禁しない（対戦は常にフェア）**。人が少なくても課金・レベル差で格差が広がらないための割り切り。テスト：test.js 90・91。
 
 - **通貨（🍬キャンディコイン＝`myProfile.coins`）**：課金ではなく**対戦報酬**で配る（子ども向けに安全）。`grantBattleReward(won)` を決着時に呼ぶ＝**CPU/PVP両方**（`endGame`＋子の `pvpGuestOnGameover`。チュートリアルは除外）。報酬額は純粋関数 `battleCoinReward(won, firstWinToday)`＝`COIN_PLAY`(10・参加)＋`COIN_WIN`(15・勝利)＋`COIN_DAILY_WIN`(50・その日の初勝利=`myProfile.dailyWinKey` で1日1回)。ホーム＆ショップに残高表示（`renderHomeCoins`/`renderShopCoins`）。
-- **カードパック**：`PACK_COST`(120コイン)で `buyPack()`→`openPackOnce(Math.random())`。中身は**レア度なし＝全アイテム同確率**（`packPool()`＝フレーム＋称号＋ネームカラー＋**非freeアバター**＋スキン。freeアバターは出さない）。抽選は純粋関数 `rollPack(pool, r)`（0..1）。
-- **初入手 vs 重複**：`alreadyHave(item)`（collected所持 or アバター/スキンは熟練度解禁済みも所持扱い）で判定。初入手→`myProfile.collected[id]` に加算して**解禁**（`ownsCollected`）。**重複→コインに少し還元**（`PACK_DUP_COINS`=30）。**★ガチャは熟練度XPを一切付けない**（熟練度は対戦でのみ貯まる＝ガチャで進められない＝対戦を常にフェアに保つ）。
+- **カードパック**：`PACK_COST`(120コイン)で `buyPack()`→`openPackOnce(Math.random())`。中身は**レア度なし＝全アイテム同確率**（`packPool()`＝フレーム＋称号＋ネームカラーの**見た目3種のみ**）。抽選は純粋関数 `rollPack(pool, r)`（0..1）。**★アイコン(アバター)/スキンはガチャに出さない**＝それらは**キャラの熟練度でのみ解禁**（熟練度報酬をガチャで進めさせない＝対戦を常にフェアに）。
+- **初入手 vs 重複**：`alreadyHave(item)`（`ownsCollected`）で判定。初入手→`myProfile.collected[id]` に加算して**解禁**。**重複→そのアイテムのテーマキャラ(`unit`)の熟練度XPに変換**（`addMasteryXp`・`PACK_DUP_XP`=25／重複で熟練度が早く進む助け）。
 - **見た目3種（絵素材不要・CSS/テキスト）**：`FRAMES`（アイコン装飾枠＝box-shadow）／`TITLES`（名前横の称号テキスト）／`NAME_COLORS`（名前の色・グラデ）。各行に `unit`（テーマ表示用）。装備は `myProfile.frame/title/nameColor`＋`equipFrame/equipTitle/equipNameColor`（トグル・所持のみ）。表示は**自分のプロフィールチップ**（`renderProfileChip`＝`avatarHTML(...,frame)`＋`applyNameColor`＋`#profileChipTitle`）とプロフィール編集プレビューに反映（相手の見た目共有はスキン同様に未対応＝自分だけ）。
-- **アバター/スキンもパックで当たる**：`avatarUnlocked`/`skinUnlocked` を「熟練度Lv **または** collected所持」に拡張＝パックで初入手しても既存UI（プロフィールのアイコングリッド／キャラ詳細の熟練度タブの装備）でそのまま使える。新規見た目を足すときは各配列（`FRAMES`/`TITLES`/`NAME_COLORS` は1行、アバター/スキンは `SPRITE_DATA` 注入＋`SPECIAL_AVATARS`/`SPECIAL_SKINS`）に追加するだけでパックプール・コレクション画面（`renderCollection`）に自動反映。
+- **アイコン/スキンは熟練度のみで解禁**（ガチャ非排出）：`avatarUnlocked`/`skinUnlocked` は熟練度Lvで判定（`ownsCollected` fallbackは残すが、パックがそれらを配らないので実質使わない）。フレーム/称号/ネームカラーを増やすときは各配列（`FRAMES`/`TITLES`/`NAME_COLORS`）に1行足すだけでパックプール・コレクション画面（`renderCollection`）に自動反映。アイコン/スキンを増やすときは `SPRITE_DATA` 注入＋`SPECIAL_AVATARS`/`SPECIAL_SKINS`（熟練度ロードマップに反映）。
 - **保存**：`coins`/`collected`/`frame`/`title`/`nameColor`/`dailyWinKey` を `saveProfileLocal`（端末）＋`buildProfile`/`applyProfile`（クラウド）に統合。マージは coins=大きい方・collected=個数の大きい方（進捗が消えない割り切り）。
 - **UI**：ホームメニュー「🎁 ショップ＆コレクション」＋ホームのコイン表示（クリックでショップ）→ `#shopModal`（`openShop`/`closeShop`/`renderShop`）。
 

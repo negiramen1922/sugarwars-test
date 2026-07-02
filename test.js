@@ -68,7 +68,7 @@ code += `
   battleCoinReward, grantBattleReward, myCoins,
   equipFrame, equipTitle, equipNameColor, equippedFrame, equippedTitle, equippedNameColor,
   get FRAMES(){ return FRAMES; }, get TITLES(){ return TITLES; }, get NAME_COLORS(){ return NAME_COLORS; },
-  get PACK_COST(){ return PACK_COST; }, get COIN_PLAY(){ return COIN_PLAY; }, get COIN_WIN(){ return COIN_WIN; }, get COIN_DAILY_WIN(){ return COIN_DAILY_WIN; }, get PACK_DUP_COINS(){ return PACK_DUP_COINS; },
+  get PACK_COST(){ return PACK_COST; }, get COIN_PLAY(){ return COIN_PLAY; }, get COIN_WIN(){ return COIN_WIN; }, get COIN_DAILY_WIN(){ return COIN_DAILY_WIN; }, get PACK_DUP_XP(){ return PACK_DUP_XP; },
   get STARTER_UNITS(){ return STARTER_UNITS; }, unitUnlocked, unlockUnit, buyUnit, lockedUnits, migrateUnlocks, myGems, unitUnlockCost,
   battleGemReward, get GEM_WIN(){ return GEM_WIN; }, get GEM_DAILY(){ return GEM_DAILY; },
   get GUIDE_STAGES(){ return GUIDE_STAGES; }, guideCleared, guideStageUnlocked, guideFinish,
@@ -2585,8 +2585,8 @@ console.log('\n=== 90) 経済：カードパック＋通貨（見た目だけ＝
   check('プールにフレーム', ids.includes('frame_gold'));
   check('プールに称号', ids.includes('title_king'));
   check('プールにネームカラー', ids.includes('nc_gold'));
-  check('プールに非freeアバター', ids.includes('ava_daifuku'));
-  check('freeアバターは出ない', !ids.includes('ava_cookie_free'));
+  check('アイコン(アバター)はガチャに出ない', !ids.includes('ava_daifuku') && !ids.includes('ava_cookie_free'));
+  check('スキンはガチャに出ない', !ids.some(id=>API.SPECIAL_SKINS.some(s=>s.id===id)));
   // rollPack：範囲とクランプ
   check('rollPack(0)=先頭', API.rollPack(pool,0)===pool[0]);
   check('rollPack(0.999)=末尾', API.rollPack(pool,0.999)===pool[pool.length-1]);
@@ -2598,24 +2598,18 @@ console.log('\n=== 90) 経済：カードパック＋通貨（見た目だけ＝
   check('初回：frame_gold入手・dupなし', res1.item.id==='frame_gold' && res1.dup===false, res1);
   check('初回：collected=1', prof.collected['frame_gold']===1);
   check('初回：熟練度XPは入らない', API.masteryXp('pancake')===0);
-  // 重複：dup・コインに還元（★熟練度XPは付かない）
+  // 重複：dup・テーマキャラ(frame_gold=pancake)の熟練度XPに変換
   prof.coins=0; prof.mastery={};
   const res2=API.openPackOnce(r);
   check('重複：dup=true', res2.dup===true);
   check('重複：collected=2', prof.collected['frame_gold']===2);
-  check('重複：コインに還元(+PACK_DUP_COINS)', res2.coins===API.PACK_DUP_COINS && API.myCoins()===API.PACK_DUP_COINS, {coins:res2.coins, my:API.myCoins()});
-  check('重複でも熟練度XPは入らない（ガチャは熟練度を進めない）', API.masteryXp('pancake')===0, API.masteryXp('pancake'));
-  // アバターは熟練度解禁でも「所持扱い」→重複扱い（XPは付かない）
-  prof.collected={}; prof.mastery={ daifuku: API.masteryXpForLevel(3) };
-  check('ava_daifukuは熟練度Lv3で解禁済み', API.avatarUnlocked('ava_daifuku')===true);
-  const ai=ids.indexOf('ava_daifuku'), ar=(ai+0.5)/pool.length, before=API.masteryXp('daifuku');
-  const res3=API.openPackOnce(ar);
-  check('熟練度解禁済みアバターは重複扱い', res3.item.id==='ava_daifuku' && res3.dup===true, res3);
-  check('重複でもdaifukuの熟練度は増えない', API.masteryXp('daifuku')===before, API.masteryXp('daifuku'));
-  // collected経由でアバター解禁（熟練度0でも可）＝パックで初入手して使えるように
-  prof.mastery={}; prof.collected={ ava_donut:1 };
-  check('collected所持でアバター解禁', API.avatarUnlocked('ava_donut')===true);
-  check('未所持/低熟練度アバターは未解禁', API.avatarUnlocked('ava_choco')===false);
+  check('重複：テーマキャラ(pancake)に+PACK_DUP_XP', res2.xp===API.PACK_DUP_XP && API.masteryXp('pancake')===API.PACK_DUP_XP, {xp:res2.xp, my:API.masteryXp('pancake')});
+  check('重複でコインは増えない（重複報酬は熟練度XP）', API.myCoins()===0, API.myCoins());
+  // avatarUnlockedは熟練度Lvで判定（アイコンはガチャ非排出＝collectedには基本入らないが、fallbackは維持）
+  prof.mastery={}; prof.collected={};
+  check('低熟練度アバターは未解禁', API.avatarUnlocked('ava_choco')===false);
+  prof.mastery={ choco: API.masteryXpForLevel(3) };
+  check('熟練度Lv3でアバター解禁', API.avatarUnlocked('ava_choco')===true);
   // 装備トグル（所持のみ）
   prof.collected={ frame_gold:1, title_king:1, nc_gold:1 }; prof.frame=''; prof.title=''; prof.nameColor='';
   API.equipFrame('frame_gold'); check('フレーム装備', API.equippedFrame()==='frame_gold');

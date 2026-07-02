@@ -706,7 +706,7 @@
       <div id="packResult" style="min-height:0;text-align:center;margin:6px 0"></div>
       <p style="font-size:11.5px;color:var(--muted);text-align:center;margin:4px 0 2px">見た目だけのごほうびです（対戦バランスには影響しません）。同じものが出たら、そのキャラの<b>熟練度XP</b>になります。</p>
       <div id="collectionGrid" style="max-height:46vh;overflow-y:auto;margin-top:6px"></div>
-      <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px">アイコン／スキンもパックから当たります。装備はプロフィール（👤）とキャラ詳細の「熟練度」から。</p>
+      <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px">アイコン／スキンはパックには出ません（キャラの熟練度でのみ解禁＝キャラ詳細の「熟練度」から）。</p>
       <div style="text-align:center;margin-top:12px"><button class="btn btn-ghost" onclick="closeShop()">閉じる</button></div>
     </div>
   </div>
@@ -3855,15 +3855,16 @@ function skinUnlocked(id){ const s=SPECIAL_SKIN_BY_ID[id]; return !!s && (master
    13.5) 経済（通貨キャンディコイン＋カードパック＋見た目コレクション）
    ★最優先の原則：経済は「見た目」だけに効かせる。ユニット性能・強化カードは一切解禁しない＝対戦は常にフェア。
      - 通貨は課金ではなく【対戦報酬＋デイリー初勝利】で配る（子ども向けに安全）。CPU戦でも貯まる（人が少なくても進む）。
-     - パックの中身：フレーム／称号／ネームカラー（絵素材不要のCSS装飾）＋既存のアバター/スキンも当たる。レア度なし＝全部同確率。
-     - 重複＝コインに少し還元するだけ（★熟練度XPは付けない＝熟練度は対戦でのみ貯まる／ガチャで進めない＝対戦をフェアに保つ）。
-   調整したい数値はこのブロック先頭の定数（PACK_COST／COIN_各種／PACK_DUP_COINS）と各コレクション配列。
+     - パックの中身：フレーム／称号／ネームカラー（絵素材不要のCSS装飾）だけ。レア度なし＝全部同確率。
+       ★アイコン(アバター)/スキンは【熟練度でのみ解禁】＝ガチャには出さない（熟練度報酬をガチャで進めさせない）。
+     - 重複＝そのアイテムのテーマキャラ(unit)の熟練度XPに変換（重複で熟練度が早く進む助け）。
+   調整したい数値はこのブロック先頭の定数（PACK_COST／COIN_各種／PACK_DUP_XP）と各コレクション配列。
    ============================================================ */
 const PACK_COST      = 120;   // カードパック1回の価格（コイン）
 const COIN_PLAY      = 10;    // 対戦を終えるともらえる参加報酬
 const COIN_WIN       = 15;    // 勝ったときの追加ボーナス
 const COIN_DAILY_WIN = 50;    // その日の初勝利ボーナス（1日1回）
-const PACK_DUP_COINS = 30;    // パックで重複が出たときに還元されるコイン（★熟練度XPは付けない＝熟練度は対戦だけで貯まる）
+const PACK_DUP_XP    = 25;    // パックで重複が出たとき、テーマキャラに入る熟練度XP（重複で熟練度が早く進む助けになる）
 
 // アバターの装飾フレーム（CSSで描画＝絵素材不要）。ring=アイコン画像に足すbox-shadow。unit=テーマ（重複時のXP先）。
 const FRAMES = [
@@ -3896,14 +3897,13 @@ const NAME_COLORS = [
 ];
 const NAME_COLOR_BY_ID = Object.fromEntries(NAME_COLORS.map(c=>[c.id,c]));
 
-// パックの排出プール（レア度なし＝全アイテム同確率）。type: frame|title|color|ava|skin
+// パックの排出プール（レア度なし＝全アイテム同確率）。type: frame|title|color
+// ★アイコン(アバター)/スキンは【熟練度でのみ解禁】＝ガチャには出さない（熟練度報酬をガチャで進めさせない）。
 function packPool(){
   const pool=[];
   FRAMES.forEach(f=>pool.push({ type:'frame', id:f.id, unit:f.unit, name:f.name }));
   TITLES.forEach(t=>pool.push({ type:'title', id:t.id, unit:t.unit, name:t.name }));
   NAME_COLORS.forEach(c=>pool.push({ type:'color', id:c.id, unit:c.unit, name:c.name }));
-  SPECIAL_AVATARS.forEach(a=>{ if(!a.free) pool.push({ type:'ava', id:a.id, unit:a.unit, name:a.name }); });   // 無料アイコンはパックに出さない
-  SPECIAL_SKINS.forEach(s=>pool.push({ type:'skin', id:s.id, unit:s.unit, name:s.name }));
   return pool;
 }
 // 0..1 の乱数からプールの1つを選ぶ（純粋関数・テスト対象）
@@ -3926,16 +3926,16 @@ function addMasteryXp(unit, xp){
   const after=masteryLevel(unit);
   if(after>before){ SPECIAL_AVATARS.forEach(function(s){ if(s.unit===unit && before<s.lvl && after>=s.lvl) toast('🎉 熟練度Lv'+s.lvl+'到達！ アイコン「'+s.name+'」を解禁'); }); }
 }
-// パックを1回開ける（乱数r／myProfileを更新して結果 {item,dup,coins} を返す）。テスト対象。
-// ★重複はコインに還元するだけ＝キャラの熟練度XPは付けない（熟練度は対戦でのみ貯まる＝対戦をフェアに保つ）。
+// パックを1回開ける（乱数r／myProfileを更新して結果 {item,dup,xp} を返す）。テスト対象。
+// 重複はテーマキャラの熟練度XPに変換（熟練度が早く進む助け）。※プールは見た目(frame/title/color)のみ＝アイコン/スキンは出ない。
 function openPackOnce(r){
   const pool=packPool(); const item=rollPack(pool, r); if(!item) return null;
   const had=alreadyHave(item);
   if(!myProfile.collected) myProfile.collected={};
   myProfile.collected[item.id]=(myProfile.collected[item.id]||0)+1;
-  let dup=false, coins=0;
-  if(had){ dup=true; coins=PACK_DUP_COINS; myProfile.coins=myCoins()+coins; }
-  return { item, dup, coins };
+  let dup=false, xp=0;
+  if(had){ dup=true; xp=PACK_DUP_XP; addMasteryXp(item.unit, xp); }
+  return { item, dup, xp };
 }
 // 装備中の（所持済み・有効な）フレーム/称号/ネームカラーid。未所持や不正は空＝なし。
 function equippedFrame(){ const id=myProfile.frame; return (id && FRAME_BY_ID[id] && ownsCollected(id))?id:''; }
@@ -4285,7 +4285,7 @@ function buyPack(){
   const pr=$('packResult');
   if(pr && res){ const it=res.item; const kind={frame:'フレーム',title:'称号',color:'ネームカラー',ava:'アイコン',skin:'スキン'}[it.type]||'アイテム';
     let body;
-    if(res.dup){ body='<div style="font-weight:700;color:var(--steel)">重複！ 「'+it.name+'」→ 🍬 +'+res.coins+' コインに還元</div>'; }
+    if(res.dup){ const u=UNIT_BY_KEY[it.unit]; body='<div style="font-weight:700;color:var(--steel)">重複！ 「'+it.name+'」→ '+(u?u.name:it.unit)+'の熟練度 +'+res.xp+'XP</div>'; }
     else body='<div style="font-weight:800;color:var(--green)">🎉 NEW！ '+kind+'「'+it.name+'」を入手！</div>';
     pr.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px;background:var(--panel-2);border-radius:12px">'+packItemVisual(it,48)+body+'</div>';
   }
