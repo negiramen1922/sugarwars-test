@@ -862,6 +862,12 @@ const UNITS = [
   {key:'mangel', name:'マシュマロエンジェル', icon:'👼', role:'support', tier:0, count:3, atk:8, hp:55, speed:88, range:24, cd:0.7, tag:'守護天使', short:'空を舞い、味方の被弾を肩代わりする支援（3体）', text:'ふわふわ空を飛ぶ天使のマシュマロ。空の上なので近接攻撃は当たらないが、近くの味方が受けるダメージを身代わりで引き受け、自分から先に溶けてしまう健気な支援役。', anim:['mangel_1','mangel_2','mangel_3'], animRed:['mangel_red_1','mangel_red_2','mangel_red_3'], animFps:5, fly:true, guardian:true, test:true, beta:true},
   // クマグミ（開発テスト中・静止立ち絵）。青/赤の陣営色を anim(1枚) の仕組みで出し分け。挙動/バランスは今後。
   {key:'kumagumi', name:'クマグミ', icon:'🐻', role:'fodder', tier:0, count:3, atk:12, hp:60, speed:100, range:24, cd:0.5, tag:'仲間化', short:'倒した敵を自軍のクマグミに変える（3体）', text:'倒した敵を自分の仲間（クマグミ）に変えてしまう、もちもちのクマのグミ。倒すほど軍勢がどんどん増えていく雪だるま式のこわいやつ。', anim:['kumagumi_blue'], animRed:['kumagumi_red'], animFps:1, recruit:true, test:true, beta:true},
+  // プリン（開発テスト中・スプライト無し＝絵文字）。スプーンをブーメランのように投げ、往復で経路上の敵を薙ぐ。1枚=1体。
+  {key:'purin', name:'ブーメランプリン', icon:'🍮', role:'back', tier:1.5, count:1, atk:16, hp:80, speed:70, range:150, cd:1.6, tag:'ブーメラン', short:'スプーンを投げて往復で敵を薙ぐプリン（1体）', text:'銀のスプーンをブーメランのように投げて戦うプリン。行きと帰りで直線上の敵を2回薙ぎ払う。まとまった敵の列に強い。', boomerang:true, boomDist:150, boomSp:300, boomR:15, test:true, beta:true},
+  // ショートケーキ（開発テスト中・スプライト無し＝絵文字）。開幕に自分の位置へイチゴタレットを設置する。1枚=1体。
+  {key:'shortcake', name:'ショートケーキ', icon:'🍰', role:'back', tier:2, count:1, atk:10, hp:110, speed:0, range:26, cd:1.0, tag:'設置', short:'開幕に自分の位置へイチゴタレットを置く（1体）', text:'開幕と同時に、自分の足元へイチゴタレットを設置する動かないケーキ。タレットが後方からイチゴを撃ち続けてくれる。', deployTurret:true, turretKey:'strawturret', test:true, beta:true},
+  // イチゴタレット（ショートケーキ専用の召喚物・動かない後衛射手）。summonOnly でロスター/ドラフト/CPU/X2/ピッカーから除外。
+  {key:'strawturret', name:'イチゴタレット', icon:'🍓', role:'back', tier:2, count:1, atk:14, hp:70, speed:0, range:170, cd:1.1, tag:'タレット', short:'イチゴを撃ち続ける固定砲台', text:'ショートケーキが設置する固定砲台。動かないが後方からイチゴを撃ち続ける。', ranged:true, summonOnly:true},
 ];
 const UNIT_BY_KEY = Object.fromEntries(UNITS.map(u=>[u.key,u]));
 
@@ -1279,8 +1285,8 @@ function startGame(){
    自分と相手CPUのデッキを自由に選び、CPU戦の盤面で実際に動かして挙動を確認するための隠し操作。設定メニューのボタンから呼ぶ。
    相手は選んだ編成を round-robin で確実に出す（貪欲AIだと弱い後衛が出ないため）。
    本来のデッキは _guideDeckBackup に退避（保存しない）＝ホームに戻れば元通り。 */
-let testYouDeck = ['kumagumi','mangel','cookie','shoe'];   // 直近の選択を保持（再オープン時に復元）
-let testFoeDeck = ['kumagumi','cookie','shoe','bomb'];
+let testYouDeck = ['purin','shortcake','kumagumi','mangel'];   // 直近の選択を保持（再オープン時に復元）
+let testFoeDeck = ['cookie','shoe','choco','bomb'];
 function testPickableUnits(){ return UNITS.filter(u=>!u.summonOnly); }   // 召喚専用以外はすべて（test:trueのβキャラも選べる）
 function startTestBattle(){ closeMenu(); openTestBattlePicker(); }
 function openTestBattlePicker(){ renderTestBattleDecks(); $('testBattleModal').classList.remove('hidden'); }
@@ -1557,6 +1563,8 @@ const UNIT_ABILITIES = {
   icewiz:[{name:'アイスバレット', info:'氷の弾をうちあたった敵に鈍化を付与する。'}],
   macaron:[{name:'スピン', info:'マカロンの殻にこもり敵めがけてスピンアタック！この間はダメージを大幅に軽減する'}],
   kumagumi:[{name:'仲間化', info:'クマグミが倒した敵は、その場で自軍のクマグミに変わって一緒に戦ってくれる。倒すほど軍勢が雪だるま式に増えていく（増えた分はそのバトル限りで、次のラウンドには持ち越さない）。'}],
+  purin:[{name:'ブーメランスプーン', info:'スプーンをブーメランのように投げる。行き（外側へ飛ぶ）と帰り（手元に戻る）の両方で、直線上の敵をまとめて薙ぎ払う。まとまった敵の列に強い。'}],
+  shortcake:[{name:'イチゴタレット設置', info:'開幕と同時に、自分の足元へイチゴタレットを1基設置する。タレットは動かないが、後方からイチゴを撃ち続けて敵を削る（設置ぶんはそのバトル限り）。'}],
   mangel:[{name:'浮遊', info:'空を飛んでいるので近接攻撃では狙われない。倒せるのは遠距離・迫撃・爆発だけ。'},{name:'身代わりの翼', info:'近くの味方が受けるダメージの一部を自分のHPで肩代わりする。味方を守りながら自分から先に溶けていく健気な支援。'}],
 };
 // キャラ詳細の「能力」セクションHTML（能力が無いキャラは空文字＝非表示）。
@@ -1669,6 +1677,8 @@ function makeFighters(key, side, W, H, slot){
     arr.push({
       side, key, name:u.name, icon:u.icon, slot, role:u.role, tier:u.tier||0, spriteScale:u.spriteScale||1,
       fly:!!u.fly, guardian:!!u.guardian, recruit:!!u.recruit,   // 浮遊(近接無敵)／守護天使／仲間化(クマグミ＝倒した敵を自軍化)
+      boomerang:!!u.boomerang, boomDist:u.boomDist||150, boomSp:u.boomSp||300, boomR:u.boomR||15,   // プリン：スプーンをブーメラン投げ
+      deployTurret:!!u.deployTurret, turretKey:u.turretKey||'', turretDone:false,   // ショートケーキ：開幕にタレット設置
       x:xMin+Math.random()*(xMax-xMin), y:yMin+Math.random()*(yMax-yMin),
       vx:0, vy:0, r, baseR:r, hp, maxHp:hp, baseMaxHp:hp, atk, baseAtk:atk,
       speed:u.speed*SPEED_MUL, baseSpeed:u.speed*SPEED_MUL, range:u.range, cd:u.cd, cool:Math.random()*u.cd,
@@ -2680,6 +2690,49 @@ function recruitKuma(world, side, x, y){
   world.rings.push({x:k.x, y:k.y, r:3, max:k.r+18, life:0.4, color:col});
   popDmg(world, k.x, k.y-k.r-8, 'なかま！', '#ffd36b');
 }
+// プリン（ブーメラン）：スプーンを敵の方向へ投げる。行き（out）→折り返し→帰り（owner へ戻る）で経路上の敵を薙ぐ。
+function throwBoomerang(world, u, tgt){
+  const dx=tgt.x-u.x, dy=tgt.y-u.y, d=Math.hypot(dx,dy)||1;
+  world.shots.push({ boom:true, x:u.x, y:u.y, ox:u.x, oy:u.y, dx:dx/d, dy:dy/d,
+    sp:u.boomSp||300, maxDist:u.boomDist||u.range||150, travel:0, out:true,
+    side:u.side, owner:u, atk:u.atk, hitR:u.boomR||15, hit:new Set(), spin:0, sprite:'spoon' });
+}
+// ブーメラン1フレーム分：往路は方向へ直進し maxDist で折り返す。復路はオーナーの現在位置（死亡時は発射点）へ戻り、手元で消える。
+// 経路上の敵に当たる（1パス=行き/帰りにつき同じ敵は1回まで。折り返しで hit をリセットして帰りも当てる）。
+function stepBoomerang(world, s, dt){
+  s.spin=(s.spin||0)+dt*20;
+  const owner=s.owner;
+  if(s.out){
+    const step=s.sp*dt;
+    s.x+=s.dx*step; s.y+=s.dy*step; s.travel+=step;
+    if(s.travel>=s.maxDist){ s.out=false; s.hit=new Set(); }   // 折り返し（帰りは再ヒット可）
+  } else {
+    const tx=(owner && owner.hp>0)?owner.x:s.ox, ty=(owner && owner.hp>0)?owner.y:s.oy;
+    const dx=tx-s.x, dy=ty-s.y, d=Math.hypot(dx,dy)||1, step=s.sp*dt;
+    const catchR=(owner && owner.hp>0)?owner.r+4:8;
+    if(d<=step+catchR){ s.done=true; }   // 手元に戻ったら終了
+    else { s.x+=dx/d*step; s.y+=dy/d*step; }
+  }
+  // 経路上の敵に当たる（無敵はすり抜け）
+  for(const o of world.units){
+    if(o.side===s.side || o.hp<=0 || (o.invuln||0)>0 || s.hit.has(o)) continue;
+    const rr=s.hitR+o.r;
+    if((o.x-s.x)**2+(o.y-s.y)**2 < rr*rr){ s.hit.add(o); applyHit(world, owner, o, s.atk); }
+  }
+}
+// ショートケーキ：開幕（初回フレーム）に自分の足元へイチゴタレットを1基設置する。タレットは summonOnly＝軍には持ち越さない。
+function deployTurret(world, u){
+  u.turretDone=true;
+  const key=u.turretKey||'strawturret';
+  if(!UNIT_BY_KEY[key]) return;
+  const t=makeFighters(key, u.side, world.W, world.H)[0];
+  t.x=u.x; t.y=u.y; t.appear=0; clampToStage(t, world.W, world.H);
+  world.units.push(t);
+  const col=u.side==='p'?'#9fdcff':'#ffb39a';
+  burst(world, t.x, t.y, col, 14, 130);
+  world.rings.push({x:t.x, y:t.y, r:3, max:t.r+22, life:0.45, color:'#ff6f9c'});
+  popDmg(world, t.x, t.y-t.r-8, '設置！', '#ff9ec2');
+}
 function killUnit(world, t){
   if(t._dead) return; t._dead=true; t.hp=0;
   t.dying=true; t.dieT=0; t.dieDir=(Math.random()<0.5?-1:1);   // 立ち絵を横に倒してから消す演出
@@ -3137,6 +3190,7 @@ function stepWorld(world, dt){
         u.cool=u.cd;
       }
     }
+    if(u.deployTurret && !u.turretDone){ deployTurret(world, u); }   // ショートケーキ：開幕（初回フレーム）に自分の位置へタレット設置
     const tgt=nearestEnemy(u,world);
     if(u.warper && !u.warped){                    // 開幕：少し待ってから消えて敵キャノンの座標へワープ
       const wd=u.warpDelay||1.0;
@@ -3194,7 +3248,8 @@ function stepWorld(world, dt){
       if(dist<=u.range && u.cool<=0){
         u.cool=u.cd;
         u.atkAnim=ATK_ANIM; u.atkDx=(tgt.x-u.x)/(dist||1); u.atkDy=(tgt.y-u.y)/(dist||1);   // 攻撃モーション（前方への突き）
-        if(u.ranged){ const dtot=Math.hypot(tgt.x-u.x,tgt.y-u.y)||1; const ice=!!u.slowHit;
+        if(u.boomerang){ throwBoomerang(world,u,tgt); SFX.play('atk_'+u.key); }   // プリン：スプーンをブーメラン投げ（往復ヒット）
+        else if(u.ranged){ const dtot=Math.hypot(tgt.x-u.x,tgt.y-u.y)||1; const ice=!!u.slowHit;
           world.shots.push({x:u.x,y:u.y,sx:u.x,sy:u.y,tx:tgt.x,ty:tgt.y,total:dtot,target:tgt,owner:u,side:u.side,atk:u.atk,splash:u.splash,sp:ice?300:340,color:ice?'#8fd8ff':(u.splash?'#b98cff':'#ffe08a'),sprite:ice?'ice':'arrow',arcH:ice?34:SHOE_ARC,chill:u.slowHit||0,chillDur:u.slowDur||0});
           SFX.play(ice?'atk_icewiz':'atk_'+u.key); }   // 氷弾＝アイスウィザード／矢＝シュー等
         else { u.knockx-=(tgt.x-u.x)/(dist||1)*0.9; u.knocky-=(tgt.y-u.y)/(dist||1)*0.9; applyHit(world,u,tgt,u.atk); SFX.play('atk_'+u.key); }   // 近接：キャラ別の攻撃音（cookie/choco/slime/ghost/pancake等）
@@ -3202,6 +3257,7 @@ function stepWorld(world, dt){
     }
   }
   for(const s of world.shots){
+    if(s.boom){ stepBoomerang(world, s, dt); continue; }   // プリンのブーメラン（往復・経路ヒット）は専用処理
     if(s.homing && s.target && s.target.hp>0){
       const jump=Math.hypot(s.target.x-s.tx, s.target.y-s.ty);
       if(jump>HOMING_TELEPORT){ s.target=null; }   // 標的がワープ（瞬間移動）したら追尾解除＝今の着弾点へそのまま飛ぶ（急旋回を防ぐ）
@@ -3398,6 +3454,11 @@ function render(){
   }}
   for(const r of world.rings){ ctx.beginPath(); ctx.arc(r.x,r.y,Math.max(0,r.r),0,6.28); ctx.strokeStyle=r.color; ctx.globalAlpha=Math.max(0,r.life*2.5); ctx.lineWidth=3; ctx.stroke(); ctx.globalAlpha=1; }
   for(const s of world.shots){
+    if(s.boom){   // プリンのスプーン：くるくる回しながら飛ばす（影付き）
+      ctx.beginPath(); ctx.ellipse(s.x,s.y+6,6,2.2,0,0,6.28); ctx.fillStyle='rgba(0,0,0,.22)'; ctx.fill();
+      ctx.save(); ctx.translate(s.x,s.y); ctx.rotate(s.spin||0); ctx.font='17px serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('🥄',0,0); ctx.restore();
+      continue;
+    }
     let hy=0;
     if(s.total){ const cur=Math.hypot(s.tx-s.x,s.ty-s.y); const prog=Math.max(0,Math.min(1,1-cur/s.total)); hy=Math.sin(prog*Math.PI)*(s.arcH||0); }
     const ball=s.sprite==='ball' ? SPRITES['ball_'+(s.side==='p'?'blue':'red')] : null;   // 砲弾は陣営色
