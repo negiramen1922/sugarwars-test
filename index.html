@@ -568,8 +568,8 @@
       </div>
       <!-- 戦術指南のレッスン後 -->
       <div id="overGuideBtns" class="hidden" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-        <button id="overGuideRetry" class="btn btn-ghost" onclick="guideRetry()">🔁 もう一度</button>
         <button class="btn btn-primary" onclick="openGuide()">🎓 指南へ戻る</button>
+        <button class="btn btn-ghost" onclick="goHome()">🏠 ホームへ</button>
       </div>
       <!-- プライベート部屋：接続を保ったまま同じ相手と再戦 -->
       <div id="overRematch" class="hidden">
@@ -1276,7 +1276,8 @@ function hideDeckNote(){ const n=$('deckNote'); if(n) n.classList.add('hidden');
 function toggleDeck(key){
   if(UNIT_BY_KEY[key] && UNIT_BY_KEY[key].summonOnly) return;   // 召喚専用はデッキに入れない
   // 自分のデッキ編成では、未解禁キャラはデッキに入れられない（CPUデッキ編成では制限しない）
-  if(rosterMode==='you' && !unitUnlocked(key)){
+  if(rosterMode==='guide' && key===guideForceUnit){ toast('このレッスンで学ぶキャラなので外せません'); return; }   // 強制ユニットはトグル不可
+  if((rosterMode==='you'||rosterMode==='guide') && !unitUnlocked(key) && !(rosterMode==='guide'&&key===guideForceUnit)){
     const u=UNIT_BY_KEY[key];
     toast('🔒 '+((u&&u.name)||'このキャラ')+'はまだ仲間になっていません。戦術指南のクリアや💎ジェムで解禁できます。');
     return;
@@ -1288,23 +1289,27 @@ function toggleDeck(key){
   if(rosterMode==='you') persistDeck();   // 自分のデッキはローカル＋クラウドへ保存
   renderRoster();
 }
-function removeDeckSlot(idx){ activeDeck().splice(idx,1); if(rosterMode==='you') persistDeck(); renderRoster(); }
+function removeDeckSlot(idx){ if(rosterMode==='guide' && activeDeck()[idx]===guideForceUnit){ toast('このレッスンで学ぶキャラなので外せません'); return; } activeDeck().splice(idx,1); if(rosterMode==='you') persistDeck(); renderRoster(); }
 function renderRoster(){
-  const deck=activeDeck(), cpu=(rosterMode==='cpu');
+  const deck=activeDeck(), cpu=(rosterMode==='cpu'), guide=(rosterMode==='guide');
+  const fu = guide ? (UNIT_BY_KEY[guideForceUnit]) : null;
   // 見出し・説明・ボタンをモードで切り替え
-  if($('rosterTitle')) $('rosterTitle').textContent = cpu ? 'CPUのデッキを選ぶ' : '編成 — バトルで使うデッキ';
-  if($('rosterSub')) $('rosterSub').textContent = cpu ? '下のキャラをタップしてCPUのデッキ4枚を作ろう。スロットをタップで外せます。' : '下のキャラをタップして4枚のデッキを作ろう。スロットをタップで外せます。';
-  if($('rosterStartBtn')) $('rosterStartBtn').classList.toggle('hidden', !cpu);
-  if($('rosterBackBtn')) $('rosterBackBtn').textContent = cpu ? '← もどる' : '← ホームへ戻る';
-  if($('rosterBackBtn')) $('rosterBackBtn').onclick = cpu ? goCpuMode : goHome;
+  if($('rosterTitle')) $('rosterTitle').textContent = guide ? 'レッスンのデッキを組む' : cpu ? 'CPUのデッキを選ぶ' : '編成 — バトルで使うデッキ';
+  if($('rosterSub')) $('rosterSub').textContent = guide ? ((fu?fu.name:'学ぶキャラ')+'は必ず入ります。あと数枚を選んで「レッスン開始」！') : cpu ? '下のキャラをタップしてCPUのデッキ4枚を作ろう。スロットをタップで外せます。' : '下のキャラをタップして4枚のデッキを作ろう。スロットをタップで外せます。';
+  const startBtn=$('rosterStartBtn');
+  if(startBtn){ startBtn.classList.toggle('hidden', !(cpu||guide));
+    if(guide){ startBtn.textContent='レッスン開始 ⚔'; startBtn.onclick=beginGuideStageBattle; }
+    else if(cpu){ startBtn.textContent='このデッキで対戦 ⚔'; startBtn.onclick=startRosterCpu; } }
+  if($('rosterBackBtn')){ $('rosterBackBtn').textContent = guide ? '← 指南へ戻る' : cpu ? '← もどる' : '← ホームへ戻る';
+    $('rosterBackBtn').onclick = guide ? guideCancelDeck : cpu ? goCpuMode : goHome; }
   // 上部：4つの編成スロット（現在のデッキ）
   const slots=$('deckSlots'); slots.innerHTML='';
   for(let i=0;i<CONFIG.deckSize;i++){
     const key=deck[i]; const el=document.createElement('div');
-    if(key){ const u=UNIT_BY_KEY[key];
+    if(key){ const u=UNIT_BY_KEY[key]; const isForce=(guide && key===guideForceUnit);
       el.className='deck-slot filled';
-      el.innerHTML=`<div class="ds-x">✕</div>${iconHTML(u, cpu?'e':'p')}<div class="ds-name">${u.name}</div>`;
-      el.onclick=()=>removeDeckSlot(i);
+      el.innerHTML=`<div class="ds-x">${isForce?'🔒':'✕'}</div>${iconHTML(u, cpu?'e':'p')}<div class="ds-name">${u.name}</div>`;
+      el.onclick=isForce?null:(()=>removeDeckSlot(i));
     } else {
       el.className='deck-slot';
       el.innerHTML=`<span class="ds-empty">＋</span>`;
@@ -1319,7 +1324,7 @@ function renderRoster(){
   const wrap=$('rosterGrid'); wrap.innerHTML='';
   UNITS.filter(u=>!u.summonOnly).forEach(u=>{
     const order = deck.indexOf(u.key);
-    const locked = !cpu && !unitUnlocked(u.key);   // 自分の編成でのみロック表示（CPUデッキ編成は全キャラ可）
+    const locked = !cpu && !unitUnlocked(u.key) && !(guide && u.key===guideForceUnit);   // 自分/レッスンの編成でロック表示（CPUは全可・レッスンの学ぶキャラは例外）
     const el=document.createElement('div'); el.className='card rcard'+(order>=0?' picked':'')+(locked?' rlocked':'');
     const lockOverlay = locked ? `<div class="rlock">🔒<span class="rlock-cost">💎${unitUnlockCost(u.key)}</span></div>` : '';
     el.innerHTML=`${order>=0?`<div class="picknum">${order+1}</div>`:''}${u.beta?`<div class="beta-badge" title="ベータ実装・バランス調整中">β</div>`:''}
@@ -1827,6 +1832,7 @@ function applyFlagBuffs(world, side){
 }
 // プレイヤーが強化/X2カードを取った瞬間に、CPUも1つ強化して同時に公開する（敵味方同時＝同数を保つ）
 function foeMatchEnhance(){
+  if(guideEasyFoe()) return;   // レッスン1（easyFoe）ではCPUは強化/X2を取らない
   if(!world || buffCountFor('e')>=buffCountFor('p')) return;
   const cands=foeEnhanceCandidates();
   if(!cands.length) return;   // 取れる候補が無ければ開戦時(lockAndFight)に追いつく
@@ -3437,6 +3443,10 @@ function endBattle(result){
     if(state.youLives<=0||state.foeLives<=0){ pvpHostObj.sendGameover({ youWon: state.youLives<=0 }); }
   }
   if(tutorial){ setTimeout(()=>tutAfterBattle(result), 1200); return; }   // チュートリアル：自動で次へ進めず、ふきだしで案内
+  // レッスンで winRounds 指定があれば「相手から規定ライフ取った時点」でクリア（例：レッスン1は1ライフでクリア）。
+  if(guideMode){ const st=GUIDE_BY_ID[guideStageId];
+    if(st && st.winRounds && result==='win' && (CONFIG.startLives - state.foeLives) >= st.winRounds){ setTimeout(endGame,1400); return; }
+  }
   // 最後のライフを削り切ったときだけ決着画面へ。それ以外は勝敗表示のあと自動で次ラウンドへ。
   if(state.youLives<=0||state.foeLives<=0) setTimeout(endGame,1400);
   else setTimeout(nextRound,1800);
@@ -3451,11 +3461,15 @@ function endGame(){
   if(privateRoom){ pvpPresenceSet('connecting'); }   // 接続は保持・対戦間は待機表示にしない（マッチ待ちにも数えない）
   else { pvpPresenceSet('home'); if(wasPvp) foeCtl=makeCpuFoeController(); }   // 後始末（「もう一度」はCPU対戦に戻す）
   const won=state.foeLives<=0;
-  if(guideMode){   // 戦術指南のレッスン決着：勝てば解禁＋ジェム（初回のみ）＋通常報酬も付与
-    const gLine=guideFinish(won);
-    const rw=grantBattleReward(won); const cl='🍬 +'+rw.gain+(rw.gems?'　💎 +'+rw.gems:'');
-    $('overTitle').textContent=won?'クリア！':'もう一歩…'; $('overTitle').style.color=won?'var(--green)':'var(--rust)';
-    $('overText').textContent=(gLine?gLine+'　':'')+cl;
+  if(guideMode){   // 戦術指南のレッスン決着：初回クリアのみ 解禁＋ジェム＋コインを付与（再挑戦・敗北は報酬なし）
+    const st=GUIDE_BY_ID[guideStageId];
+    const guideWon = (st && st.winRounds) ? ((CONFIG.startLives - state.foeLives) >= st.winRounds) : (state.foeLives<=0);   // winRounds指定は「規定ライフ取ればクリア」
+    const wasCleared = guideCleared(guideStageId);
+    const gLine=guideFinish(guideWon);   // 初回クリアのみ stage.gems＋キャラ解禁
+    let cl='';
+    if(guideWon && !wasCleared){ const rw=grantBattleReward(true); cl='　🍬 +'+rw.gain+(rw.gems?'　💎 +'+rw.gems:''); }   // 通常報酬（コイン/ジェム）も初回クリアのみ
+    $('overTitle').textContent=guideWon?'クリア！':'もう一歩…'; $('overTitle').style.color=guideWon?'var(--green)':'var(--rust)';
+    $('overText').textContent=(gLine||'')+cl;
     $('overDefaultBtns').classList.add('hidden'); $('overRematch').classList.add('hidden'); $('overGuideBtns').classList.remove('hidden');
     renderHomeCoins(); renderHomeGems();
     show('over'); return;
@@ -4299,7 +4313,8 @@ const GUIDE_STAGES = [
     tip:'硬い前衛が前で受けると、後ろの弓兵や自爆が生き残って火力を出せる。バキュームドーナッツは敵を吸い寄せて足止めする鈍足タンク。前に置いて壁にしよう。',
     deck:['donut','shoe','bomb','cookie'], foe:['cookie','soda','bomb'] },
   { id:'soda1',  title:'沼で群れを溶かす①', theme:'デバフ / 沼（体験）', arc:'soda', gems:40,
-    tip:'相手は大量のクッキー。こちらは弓兵（シュークリーム）とランニングソーダ。ソーダを選んで敵の足元に沼を作ろう！沼を踏んだ群れは鈍化＋持続ダメージでまとめて溶ける。弓兵は後ろから削り役。',
+    easyFoe:true, winRounds:1, forceUnit:'soda',
+    tip:'相手は大量のクッキー。こちらは弓兵（シュークリーム）とランニングソーダ。ソーダを選んで敵の足元に沼を作ろう！沼を踏んだ群れは鈍化＋持続ダメージでまとめて溶ける。まずは相手から1ライフ取ればクリア！',
     deck:['soda','shoe'], foe:['cookie'] },
   { id:'soda2',  title:'沼で群れを溶かす②', theme:'デバフ / 沼（実戦）', unit:'soda', arc:'soda', gems:80,
     tip:'今度はソーダ入りデッキで実戦。相手はクッキーとゼリーの群れ。ソーダの沼で足を止めて、弓兵で削り切ろう！勝てばランニングソーダが仲間になる。',
@@ -4340,58 +4355,100 @@ function guideStageUnlocked(id){
   if(idx<=0) return true;                          // アークの先頭＝いつでも挑戦できる
   return guideCleared(arcStages[idx-1].id);        // アーク内の前のレッスンをクリアしていれば可
 }
-let guideMode=false, guideStageId=null, _guideDeckBackup=null;
-function openGuide(){ try{ SFX.play('button'); }catch(e){} const mm=$('menuModal'); if(mm) mm.classList.add('hidden'); renderGuide(); show('guide'); }
+let guideMode=false, guideStageId=null, _guideDeckBackup=null, guideForceUnit=null;
+let guideView='arcs', guideCurArc=null;   // 指南メニュー：arcs=キャラ一覧／arc=そのキャラのレッスン一覧
+// レッスン1（easyFoe指定）中か＝CPUは強化/X2を取らない
+function guideEasyFoe(){ if(!guideMode||!guideStageId) return false; const s=GUIDE_BY_ID[guideStageId]; return !!(s&&s.easyFoe); }
+// アーク（キャラ）の一覧（GUIDE_STAGES順・重複排除）
+function guideArcs(){ const seen={}, arcs=[]; GUIDE_STAGES.forEach(function(s){ const a=stageArc(s); if(!seen[a]){ seen[a]=1; arcs.push(a); } }); return arcs; }
+function arcStages(a){ return GUIDE_STAGES.filter(s=>stageArc(s)===a); }
+// アークの代表キャラkey（解禁するキャラ＝unit持ちの最後のレッスン、無ければforceUnit/arc）
+function arcUnit(a){ const ss=arcStages(a); for(let i=ss.length-1;i>=0;i--){ if(ss[i].unit) return ss[i].unit; } return ss[0].forceUnit || a; }
+function openGuide(){ try{ SFX.play('button'); }catch(e){} const mm=$('menuModal'); if(mm) mm.classList.add('hidden'); guideView='arcs'; guideCurArc=null; renderGuide(); show('guide'); }
+function openGuideArc(a){ try{ SFX.play('button'); }catch(e){} guideView='arc'; guideCurArc=a; renderGuide(); }
+function guideBackToArcs(){ try{ SFX.play('button'); }catch(e){} guideView='arcs'; guideCurArc=null; renderGuide(); }
 function renderGuide(){
   const g=$('guideGems'); if(g) g.textContent='💎 '+myGems();
-  const box=$('guideList'); if(!box) return;
-  box.innerHTML = GUIDE_STAGES.map(function(s, i){
-    const u=UNIT_BY_KEY[s.unit]; const done=guideCleared(s.id), open=guideStageUnlocked(s.id);
-    const status = done ? '<span style="color:var(--green);font-weight:700">✅ クリア</span>'
-                 : open ? '<span style="color:var(--accent2);font-weight:700">▶ 挑戦できる</span>'
-                        : '<span style="color:var(--muted)">🔒 このキャラの前のレッスンをクリア</span>';
-    let reward;
-    if(u){ const rewardUnlocked = done || unitUnlocked(s.unit);
-      reward = '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">ごほうび：'+iconHTML(u,'p')+'<b>'+u.name+'</b>'+(rewardUnlocked?'（解禁済み）':'')+' ・ 💎'+s.gems+'</div>'; }
-    else { reward = '<div style="font-size:12px;color:var(--muted)">ごほうび：💎'+s.gems+'（あそび方を学ぶレッスン）</div>'; }
-    const clickable = open && !done ? ' style="cursor:pointer"' : (open&&done?' style="cursor:pointer"':'');
-    const onclick = open ? ' onclick="startGuideStage(\''+s.id+'\')"' : '';
-    return '<div class="guide-card'+(open?'':' locked')+'"'+onclick+clickable+'>'
-      + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
-      + '<div style="font-weight:800;font-size:14px">'+s.title+'</div>'+status+'</div>'
-      + '<div style="font-size:11.5px;color:var(--steel);font-weight:700;margin:2px 0 4px">'+s.theme+'</div>'
-      + reward + '</div>';
+  const sub=$('guideSub'); const box=$('guideList'); if(!box) return;
+  if(guideView==='arc' && guideCurArc){
+    // --- 選んだキャラのレッスンを縦に並べる（上から順にクリア）---
+    const a=guideCurArc, ss=arcStages(a), uk=arcUnit(a), u=UNIT_BY_KEY[uk];
+    if(sub) sub.textContent = (u?u.name:'このキャラ')+'のレッスン。上から順にクリアしよう！';
+    let html = '<div style="margin-bottom:8px"><button class="btn btn-ghost" onclick="guideBackToArcs()">← キャラ一覧へ</button></div>'
+      + '<div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:10px">'+(u?iconHTML(u,'p'):'')+'<b style="font-size:16px">'+(u?u.name:a)+'</b></div>';
+    html += ss.map(function(s,i){
+      const done=guideCleared(s.id), open=guideStageUnlocked(s.id);
+      const status = done ? '<span style="color:var(--green);font-weight:700">✅ クリア</span>'
+                   : open ? '<span style="color:var(--accent2);font-weight:700">▶ 挑戦</span>'
+                          : '<span style="color:var(--muted)">🔒 前をクリア</span>';
+      const rew = s.unit ? ('💎'+s.gems+' ＋ '+(UNIT_BY_KEY[s.unit]?UNIT_BY_KEY[s.unit].name:s.unit)+'解禁') : ('💎'+s.gems+'（あそび方を学ぶ）');
+      const onclick = open ? ' onclick="startGuideStage(\''+s.id+'\')" style="cursor:pointer"' : '';
+      return '<div class="guide-card'+(open?'':' locked')+'"'+onclick+'>'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
+        + '<div style="font-weight:800;font-size:14px">'+(i+1)+'. '+s.title+'</div>'+status+'</div>'
+        + '<div style="font-size:11.5px;color:var(--steel);font-weight:700;margin:2px 0 3px">'+s.theme+'</div>'
+        + '<div style="font-size:12px;color:var(--muted)">ごほうび：'+rew+'</div></div>';
+    }).join('');
+    box.innerHTML = html;
+    return;
+  }
+  // --- キャラ一覧（どのキャラのレッスンがあるか）---
+  if(sub) sub.textContent='好きなキャラから挑戦OK！ キャラを選ぶとレッスンが出ます。全キャラここで解禁できます（💎で先に解禁も可）。';
+  box.innerHTML = guideArcs().map(function(a){
+    const ss=arcStages(a), uk=arcUnit(a), u=UNIT_BY_KEY[uk];
+    const total=ss.length, cleared=ss.filter(s=>guideCleared(s.id)).length, allDone=cleared>=total;
+    const badge = allDone ? '<span style="color:var(--green);font-weight:700">✅ 全クリア</span>'
+                : (unitUnlocked(uk) ? '<span style="color:var(--steel);font-weight:700">解禁済み</span>' : '<span style="color:var(--accent2);font-weight:700">'+cleared+'/'+total+'</span>');
+    return '<div class="guide-card" onclick="openGuideArc(\''+a+'\')" style="cursor:pointer;display:flex;align-items:center;gap:10px">'
+      + (u?iconHTML(u,'p'):'')
+      + '<div style="flex:1"><div style="font-weight:800;font-size:14px">'+(u?u.name:a)+'</div>'
+      + '<div style="font-size:11.5px;color:var(--muted)">レッスン'+total+'本</div></div>'
+      + badge + '<span style="color:var(--muted);font-size:18px">›</span></div>';
   }).join('');
 }
-// レッスンを開始：おすすめデッキに一時差し替え→ヒント→バトル。元のデッキは _guideDeckBackup に退避（保存はしない＝リロードで元に戻る）。
+// レッスンを選ぶ→ヒント→（デッキ編成へ）。
 function startGuideStage(id){
   const s=GUIDE_BY_ID[id]; if(!s) return;
-  if(!guideStageUnlocked(id)){ toast('前のレッスンをクリアしてね'); return; }
-  const u=UNIT_BY_KEY[s.unit];
+  if(!guideStageUnlocked(id)){ toast('このキャラの前のレッスンをクリアしてね'); return; }
+  const rewU = s.unit?UNIT_BY_KEY[s.unit]:null;
   $('guideTipTitle').textContent='レッスン：'+s.title;
   $('guideTipTheme').textContent=s.theme;
   $('guideTipText').textContent=s.tip;
   $('guideTipReward').innerHTML = guideCleared(id)
-    ? '（クリア済み。もう一度挑戦できます）'
-    : (u ? 'クリアで <b>'+u.name+'</b> が仲間になり、💎'+s.gems+' がもらえます！'
-         : 'クリアで 💎'+s.gems+' がもらえます！');
-  $('guideTipStart').onclick=function(){ closeGuideTip(); beginGuideStage(id); };
+    ? '（クリア済み。もう一度挑戦できます／報酬は初回のみ）'
+    : (rewU ? 'クリアで <b>'+rewU.name+'</b> が仲間になり、💎'+s.gems+' がもらえます！'
+            : 'クリアで 💎'+s.gems+' がもらえます！');
+  $('guideTipStart').textContent='デッキを組む ›';
+  $('guideTipStart').onclick=function(){ closeGuideTip(); guideOpenDeckBuilder(id); };
   $('guideTipModal').classList.remove('hidden');
 }
 function closeGuideTip(e){ if(e && e.target!==e.currentTarget) return; const m=$('guideTipModal'); if(m) m.classList.add('hidden'); }
-function beginGuideStage(id){
+// レッスン用デッキ編成：学ぶキャラ（forceUnit）は必ず入る。残りは解禁済みキャラから選ぶ。
+function guideOpenDeckBuilder(id){
   const s=GUIDE_BY_ID[id]; if(!s) return;
-  guideMode=true; guideStageId=id;
-  _guideDeckBackup = myDeck.slice();
-  myDeck = s.deck.slice();   // レッスン用デッキ（persistしない＝端末/クラウドの本デッキは不変）
+  guideStageId=id;
+  guideForceUnit = s.forceUnit || s.unit || null;
+  if(_guideDeckBackup===null) _guideDeckBackup = myDeck.slice();   // 本来のデッキを退避（1回だけ・保存しない）
+  const pre=[]; if(guideForceUnit) pre.push(guideForceUnit);       // 学ぶキャラを先頭に強制
+  (s.deck||[]).forEach(function(k){ if(pre.length>=CONFIG.deckSize) return; if(k===guideForceUnit) return;
+    if(UNIT_BY_KEY[k] && !UNIT_BY_KEY[k].summonOnly && unitUnlocked(k) && pre.indexOf(k)<0) pre.push(k); });   // おすすめデッキのうち解禁済みをプレフィル
+  myDeck = pre.slice(0, CONFIG.deckSize);
+  rosterMode='guide'; hideDeckNote(); renderRoster(); show('roster');
+}
+// 「レッスン開始」＝いま組んだデッキで対戦（学ぶキャラは必ず含む）。
+function beginGuideStageBattle(){
+  const s=GUIDE_BY_ID[guideStageId]; if(!s) return;
+  if(guideForceUnit && myDeck.indexOf(guideForceUnit)<0) myDeck.unshift(guideForceUnit);
+  myDeck = myDeck.slice(0, CONFIG.deckSize);
+  guideMode=true;
   cpuDeckMode='manual'; cpuDeck = s.foe.slice();
   hideResultBanner(); rosterMode='you';
   startGame();
 }
 // レッスンの後片付け（本来のデッキに戻す）。
-function guideRestoreDeck(){ if(_guideDeckBackup){ myDeck=_guideDeckBackup; _guideDeckBackup=null; } cpuDeckMode='auto'; cpuDeck=[]; }
-// レッスンでの「もう一度」＝同じレッスンをやり直す。
-function guideRetry(){ const id=guideStageId; guideMode=false; guideStageId=null; guideRestoreDeck(); if(id) beginGuideStage(id); }
+function guideRestoreDeck(){ if(_guideDeckBackup){ myDeck=_guideDeckBackup; _guideDeckBackup=null; } guideForceUnit=null; cpuDeckMode='auto'; cpuDeck=[]; }
+// デッキ編成をやめて指南メニューへ（本来のデッキに戻す）。
+function guideCancelDeck(){ guideStageId=null; guideRestoreDeck(); openGuide(); }
 // レッスン決着の処理（endGameから呼ぶ）。勝てば解禁＋ジェム（初回のみ）。
 function guideFinish(won){
   const id=guideStageId, s=GUIDE_BY_ID[id];
