@@ -187,6 +187,24 @@
   .menu-btn .mb-arrow{font-size:24px;color:var(--muted);flex:0 0 auto}
   .menu-btn.disabled{cursor:not-allowed;opacity:.5;filter:grayscale(.4)}
   .menu-btn.disabled:hover{border-color:var(--line);filter:grayscale(.4)}
+  /* ホーム：クラロワ風（中央に大きくバトル＋下部に横並びナビ） */
+  .home-battle{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;
+    width:min(90%,340px);margin:12px auto 2px;padding:24px 20px;border-radius:22px;color:#2a1606;
+    background:linear-gradient(180deg,#ffd873,#f5a623);border:2px solid #ffe9a8;
+    box-shadow:0 8px 0 #b9770f,0 12px 22px rgba(0,0,0,.35);transition:transform .08s ease, filter .15s ease}
+  .home-battle:hover{filter:brightness(1.05)}
+  .home-battle:active{transform:translateY(4px);box-shadow:0 4px 0 #b9770f,0 6px 12px rgba(0,0,0,.35)}
+  .home-battle .hb-ico{font-size:38px;line-height:1}
+  .home-battle .hb-label{font-family:"Oswald",sans-serif;text-transform:uppercase;letter-spacing:.06em;font-size:clamp(28px,7vw,38px);font-weight:700;line-height:1}
+  .home-battle .hb-sub{font-size:12px;font-weight:700;opacity:.82}
+  .home-nav{display:flex;gap:10px;width:100%;max-width:460px;margin:12px auto 0}
+  .home-nav .hn-btn{flex:1 1 0;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;
+    background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:14px;
+    padding:12px 4px;color:var(--ink);box-shadow:var(--shadow);transition:transform .08s ease, border-color .15s ease, filter .15s ease}
+  .home-nav .hn-btn:hover{border-color:var(--brass);filter:brightness(1.06)}
+  .home-nav .hn-btn:active{transform:translateY(1px)}
+  .home-nav .hn-btn .hn-ico{font-size:25px;line-height:1}
+  .home-nav .hn-btn .hn-txt{font-family:"Oswald",sans-serif;letter-spacing:.03em;font-size:13px;font-weight:600;white-space:nowrap}
   .badge-soon{font-family:"Space Mono",monospace;font-size:11px;color:#1c1408;background:var(--brass);border-radius:999px;padding:3px 9px;flex:0 0 auto}
   /* 編成スロット（バトルで使う4枚デッキ） */
   /* 編成画面：上部（デッキ4枠）は固定し、下のキャラ一覧だけスクロール */
@@ -371,33 +389,17 @@
       </div>
       <div id="homeOnline" style="font-size:12px;color:var(--green);margin:0 0 6px">🟢 オンライン –人・対戦中 –人</div>
       <p>お菓子の兵士を集めて軍を編成し、リアルタイム自動戦闘で王国の覇権を争うカードドラフト＆オートバトラー。</p>
-      <div class="menu-list">
-        <button class="menu-btn" onclick="goBattleMenu()">
-          <span class="mb-ico">⚔</span>
-          <span class="mb-txt"><b>バトル</b><small>AI と対戦して勝ち進む</small></span>
-          <span class="mb-arrow">›</span>
-        </button>
-        <button class="menu-btn" onclick="openRanking()">
-          <span class="mb-ico">🏆</span>
-          <span class="mb-txt"><b>ランキング</b><small>トロフィー上位プレイヤー</small></span>
-          <span class="mb-arrow">›</span>
-        </button>
-        <button class="menu-btn" onclick="goRoster()">
-          <span class="mb-ico">📋</span>
-          <span class="mb-txt"><b>編成（キャラリスト）</b><small>登場キャラと性能を見る</small></span>
-          <span class="mb-arrow">›</span>
-        </button>
-        <button class="menu-btn" onclick="openGuide()">
-          <span class="mb-ico">🎓</span>
-          <span class="mb-txt"><b>戦術指南</b><small>レッスンをクリアして仲間（キャラ）を解禁</small></span>
-          <span class="mb-arrow">›</span>
-        </button>
-        <button class="menu-btn" onclick="openShop()">
-          <span class="mb-ico">🎁</span>
-          <span class="mb-txt"><b>ショップ＆コレクション</b><small>シュガーコインでパックを開けて見た目を集める</small></span>
-          <span class="mb-arrow">›</span>
-        </button>
-      </div>
+      <button class="home-battle" onclick="goBattleMenu()">
+        <span class="hb-ico">⚔</span>
+        <span class="hb-label">バトル</span>
+        <span class="hb-sub">AI と対戦して勝ち進む</span>
+      </button>
+      <nav class="home-nav">
+        <button class="hn-btn" onclick="openShop()"><span class="hn-ico">🎁</span><span class="hn-txt">ショップ</span></button>
+        <button class="hn-btn" onclick="goRoster()"><span class="hn-ico">📋</span><span class="hn-txt">キャラ</span></button>
+        <button class="hn-btn" onclick="openGuide()"><span class="hn-ico">🎓</span><span class="hn-txt">戦術指南</span></button>
+        <button class="hn-btn" onclick="openRanking()"><span class="hn-ico">🏆</span><span class="hn-txt">ランキング</span></button>
+      </nav>
     </section>
 
     <!-- PVE 戦術指南（ステージ制レッスン） -->
