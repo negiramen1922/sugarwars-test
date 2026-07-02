@@ -2722,6 +2722,14 @@ console.log('\n=== 93) PVE戦術指南：順番制＋クリアで解禁＋ジェ
   check('別アーク先頭も最初から挑戦可（ranged）', API.guideStageUnlocked('ranged')===true);
   // アーク内は順番制：soda2はsoda1クリアまでロック
   check('アーク内2番目は最初ロック（soda2）', API.guideStageUnlocked('soda2')===false);
+  // 大福アークも2部構成：charge1=体験(easyFoe+winRounds:1・unit無し)、charge2=daifuku解禁
+  {
+    const c1=API.GUIDE_STAGES.find(s=>s.id==='charge1'), c2=API.GUIDE_STAGES.find(s=>s.id==='charge2');
+    check('大福charge1は体験型（unit無し・easyFoe・winRounds:1）', c1 && c1.unit===undefined && c1.easyFoe===true && c1.winRounds===1 && c1.forceUnit==='daifuku');
+    check('大福charge2でdaifuku解禁・相手はチョコ/弓/ゼリー', c2 && c2.unit==='daifuku' && JSON.stringify(c2.foe)===JSON.stringify(['choco','shoe','slime']));
+    check('charge2はcharge1クリアまでロック', API.guideStageUnlocked('charge2')===false);
+    check('charge1は最初から挑戦可', API.guideStageUnlocked('charge1')===true);
+  }
   check('各レッスンにコイン報酬とデッキ/相手がある（解禁キャラは任意＝体験型レッスンあり）', stages.every(s=>s.coins>0 && Array.isArray(s.deck) && Array.isArray(s.foe) && (s.unit===undefined || !!API.UNIT_BY_KEY[s.unit])));
   check('ソーダはレッスン(soda2)で解禁できる＝スターターから外れても入手可', stages.some(s=>s.unit==='soda'));
   check('体験型レッスン(soda1)はキャラ報酬なし', !!API.GUIDE_STAGES.find(s=>s.id==='soda1') && API.GUIDE_STAGES.find(s=>s.id==='soda1').unit===undefined);
