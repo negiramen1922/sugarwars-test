@@ -769,7 +769,7 @@ const UNITS = [
   {key:'choco', name:'チョコレートナイト', icon:'🍫', role:'tank',   tier:2, count:2, atk:20, hp:200, speed:64,  range:30, cd:0.95, tag:'前衛', short:'チョコレートの鎧をまとった騎士', text:'チョコレートの鎧をまとった騎士。こいつらが大勢集まったらまるで動く壁だ誰も突破できない。', spriteScale:0.6},
   {key:'pancake', name:'パンケーキキング', icon:'🥞', role:'tank', tier:2.5, count:1, atk:22, hp:150, speed:58, range:30, cd:1.0, tag:'進化', short:'約10秒で巨大進化し、着地の衝撃波で暴れる王様', text:'最初は1枚のパンケーキ（やや脆い前衛）。戦闘開始から約10秒で3段に進化し、HPが大幅アップ＋ジャンプ着地の衝撃波で周囲を範囲攻撃するようになる。', evolve:true, evolveAt:10, evoHpMul:3.5, evoScale:1.3, shockR:88, shockDmg:52, jumpDur:0.55, jumpPeak:30, evoCd:1.8},
   {key:'donut', name:'バキュームドーナッツ', icon:'🍩', role:'tank', tier:1.5, count:1, atk:6, hp:430, speed:50, range:32, cd:1.1, tag:'吸引タンク', short:'敵を吸い寄せる超硬タンク。味方の範囲攻撃と好相性', text:'眼の前へ敵を吸い寄せる超大型タンク。攻撃は弱いが非常に硬く、大勢の攻撃を受け止める（味方の範囲攻撃と好相性）。', vacuum:true, pullR:155, pullForce:150, vacOn:2.4, vacOff:1.6, heavy:true, spriteScale:1.0},
-  {key:'bakery', name:'ジンジャーベーカリー', icon:'🏠', role:'back', tier:3.2, count:1, atk:0, hp:230, speed:0, range:0, cd:1, tag:'生産工場', short:'動かず2秒ごとにジンジャーを焼き続ける生産工場', text:'動かない生産工場。生きている間、約2秒ごとにジンジャーソルジャーを3体まとめて焼いて送り出す（最大30体まで）。倒すと供給が止まる。', spawner:true, spawnKey:'ginger', spawnCd:2.0, spawnCount:3, spawnCap:30, spriteScale:1.1},
+  {key:'bakery', name:'ジンジャーベーカリー', icon:'🏠', role:'back', tier:3.2, count:1, atk:0, hp:230, speed:0, range:0, cd:1, tag:'生産工場', short:'後方からジンジャーを作り続ける後方支援', text:'動かない工場。焼き立てのジンジャーを後方から作り続ける工場。焼き立てのジンジャーはいかが！？', spawner:true, spawnKey:'ginger', spawnCd:2.0, spawnCount:3, spawnCap:30, spriteScale:1.1},
   {key:'ginger', name:'ジンジャーソルジャー', icon:'🍪', role:'fodder', tier:0, count:1, atk:10, hp:25, speed:112, range:22, cd:0.55, tag:'召喚', short:'ベーカリーが焼く足の速い小さな兵士', text:'ジンジャーベーカリーが焼き上げる小さな兵士。脆いが足が速く、数で押し寄せる。', summonOnly:true},
   {key:'popcorn_mini', name:'小型ポップコーン', icon:'🍿', role:'fodder', tier:1, count:1, atk:0, hp:24, speed:132, range:22, cd:1.0, tag:'自爆', short:'TNTの爆発から飛び出してもう一度自爆する小型', text:'ポップコーンTNTの爆発から飛び出す小型。すぐに自爆する（さらに分裂はしない）。', suicide:true, blast:60, blastR:48, fuse:0.4, summonOnly:true, spriteScale:0.62},
   {key:'shoe',  name:'シュークリームアーチャー', icon:'🧁', role:'back', tier:3, count:4, atk:14, hp:44, speed:55, range:150, cd:1.0, tag:'後衛', short:'弓を放つシュークリーム', text:'後方から弓を放つシュークリームのアーチャー。矢の雨で近づく前に溶かしちゃう！', ranged:true},
@@ -942,7 +942,7 @@ SPECIALS['buff_shoe'] = {
 /* ジンジャーベーカリー固有強化「ラストベイク」：HPがアップし、倒れるとき最後にジンジャーをまとめて焼く。 */
 SPECIALS['last_bake'] = {
   key:'last_bake', name:'ラストベイク', icon:'🏠', upgrade:true, bakeryBuff:true, target:'bakery', evoSprite:'bakery_buff_blue',
-  text:'ジンジャーベーカリーのHPがアップし、倒れるときに最後のひと焼きでジンジャーをまとめて送り出す（以後ずっと有効）。',
+  text:'ベーカリーの耐久が上がり、倒れたときにジンジャーソルジャーが5体出てくるように。',
 };
 /* アイスクリームウィザード固有強化「ブリザード」：氷弾の爆風が大きく広がり、鈍足も強化（範囲制圧）。 */
 SPECIALS['buff_icewiz'] = {
@@ -1409,7 +1409,7 @@ const UNIT_ABILITIES = {
   soda:[{name:'シュワシュワ沼', info:'爆発後その場にソーダの沼を残す。これを踏んだ敵は持続ダメージと鈍化を付与される。'}],
   pancake:[{name:'巨大進化', info:'戦闘開始から約10秒で3段に巨大進化。HPが大幅UPし、着地のジャンプ衝撃波で周囲を範囲攻撃する。'}],
   donut:[{name:'吸引', info:'正面の敵を吸い寄せて足止めする鈍足タンク。とても重いので、群れに押し込まれても崩れない。'}],
-  bakery:[{name:'兵士生産', info:'動かない生産工場。約2秒ごとにジンジャーソルジャーを作り出す（1体につき最大7体まで）。'}],
+  bakery:[{name:'焼き立てジンジャー', info:'2秒ごとにジンジャーソルジャーを焼き上げ戦場に送り出す'}],
   ghost:[{name:'ふわっとワープ', info:'ふわっと消えて敵の後衛の位置にさっと出現して後衛を奇襲する'}],
   cannon:[{name:'迫撃', info:'ステージ全域を覆う射程の迫撃が敵を襲う'}],
   icewiz:[{name:'氷弾スロー', info:'小範囲の氷弾を撃ち、当たった敵を一定時間鈍足にする（味方が押し勝ちやすくなる）。'}],
@@ -4349,9 +4349,13 @@ const GUIDE_STAGES = [
   { id:'aoe2',   title:'群れを一掃する②', theme:'範囲攻撃（実戦）', unit:'cannon', arc:'cannon', coins:100,
     tip:'相手はクッキー＋ゼリー＋ポップコーンの群れ。キャノンの範囲迫撃で数を削り、前衛で守り切ろう！勝てばキャンディキャノンが仲間になる。',
     deck:['cannon','choco','shoe','cookie'], foe:['cookie','slime','bomb'] },
-  { id:'produce',title:'数で押し返す',     theme:'生産', unit:'bakery', coins:100,
-    tip:'ジンジャーベーカリーは戦場で兵士を作り続ける生産工場。時間が経つほど数で有利になる。前衛で守りながら軍をふくらませよう。',
-    deck:['bakery','choco','shoe','bomb'], foe:['choco','shoe','slime'] },
+  { id:'produce1',title:'数で押し返す①', theme:'生産（体験）', arc:'bakery', coins:50,
+    easyFoe:true, winRounds:1, forceUnit:'bakery',
+    tip:'相手は硬いチョコレートナイト。ジンジャーベーカリーは焼き立てのジンジャーを作り続ける！ 数で囲んで押し切ろう。前衛でベーカリーを守るのも忘れずに。まずは1ライフ取ればクリア！',
+    deck:['bakery','choco','cookie'], foe:['choco'] },
+  { id:'produce2',title:'数で押し返す②', theme:'生産（実戦）', unit:'bakery', arc:'bakery', coins:100,
+    tip:'相手はチョコレートナイト＋弓兵（シュークリーム）＋ポップコーン。ベーカリーで数を絶やさず、前衛で守りながら押し返そう！勝てばジンジャーベーカリーが仲間になる。',
+    deck:['bakery','choco','shoe','cookie'], foe:['choco','shoe','bomb'] },
   { id:'evolve', title:'進化で大逆転',     theme:'進化 / 長期戦', unit:'pancake', coins:100,
     tip:'パンケーキキングは約10秒で巨大進化し、着地の衝撃波で周囲をなぎ払う。序盤を耐えれば大逆転できる。硬い前衛で時間を稼ごう。',
     deck:['pancake','choco','shoe','cookie'], foe:['choco','donut','shoe'] },
