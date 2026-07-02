@@ -62,8 +62,8 @@ code += `
   get SODA_BUFF_BLAST(){ return SODA_BUFF_BLAST; }, get SODA_BUFF_DPS(){ return SODA_BUFF_DPS; }, get PUDDLE_DPS_CAP(){ return PUDDLE_DPS_CAP; },
   get DAIFUKU_HP(){ return DAIFUKU_HP; }, get DAIFUKU_ATK(){ return DAIFUKU_ATK; }, get DAIFUKU_DASH(){ return DAIFUKU_DASH; }, get DAIFUKU_REACH(){ return DAIFUKU_REACH; },
   get ICEWIZ_ATK(){ return ICEWIZ_ATK; }, get ICEWIZ_SLOW(){ return ICEWIZ_SLOW; }, get ICEWIZ_SLOW_DUR(){ return ICEWIZ_SLOW_DUR; }, get ICEWIZ_DECAY(){ return ICEWIZ_DECAY; },
-  growKuma, guardSoak,
-  get KUMA_MAX(){ return KUMA_MAX; }, get KUMA_ATK_STEP(){ return KUMA_ATK_STEP; }, get KUMA_SPD_STEP(){ return KUMA_SPD_STEP; },
+  recruitKuma, guardSoak,
+  get KUMA_BOARD_CAP(){ return KUMA_BOARD_CAP; },
   get MANGEL_R(){ return MANGEL_R; }, get MANGEL_SOAK(){ return MANGEL_SOAK; },
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck, needFullDeckForPvp,
   buildProfile, applyProfile, displayProfile, get myProfile(){ return myProfile; },
@@ -2910,37 +2910,39 @@ console.log('\n=== 97) ランキング: filterActiveEntries（放置アカウン
   check('空配列でも壊れない', API.filterActiveEntries(null, now, win).length === 0);
 }
 
-console.log('\n=== 98) クマグミ: キル成長（弱スタート・大化け） ===');
+console.log('\n=== 98) クマグミ: 倒した敵を自軍のクマグミに仲間化 ===');
 {
   const wd = API.createWorld(W, H); API.world = wd;
   const kuma = API.makeFighters('kumagumi', 'p', W, H, 'army')[0]; kuma.appear = 1; kuma.x = 100; kuma.y = 300;
   wd.units.push(kuma);
-  const baseAtk = kuma.baseAtk, baseSpd = kuma.baseSpeed;
-  check('初期スタックは0', kuma.kumaKills === 0);
-  check('killGrowフラグを持つ', kuma.killGrow === true);
-  // 敵をおいて、クマグミの攻撃で倒す→成長するはず
-  for (let s = 1; s <= API.KUMA_MAX; s++) {
-    const foe = API.makeFighters('cookie', 'e', W, H, 'army')[0]; foe.appear = 1; foe.x = kuma.x; foe.y = kuma.y; foe.hp = 1;
-    wd.units.push(foe);
-    API.applyHit(wd, kuma, foe, 9999);   // 一撃で倒す
-    check('キル' + s + 'で攻撃が伸びる', kuma.atk === Math.round(baseAtk * (1 + API.KUMA_ATK_STEP * s)), { atk: kuma.atk, s });
-    check('キル' + s + 'で速度が伸びる', Math.abs(kuma.speed - baseSpd * (1 + API.KUMA_SPD_STEP * s)) < 1e-6);
-    check('スタックが' + s, kuma.kumaKills === s);
-  }
-  // 上限を超えて倒しても頭打ち
-  const extra = API.makeFighters('cookie', 'e', W, H, 'army')[0]; extra.appear = 1; extra.x = kuma.x; extra.y = kuma.y; extra.hp = 1;
-  wd.units.push(extra);
-  const cappedAtk = kuma.atk, cappedKills = kuma.kumaKills;
-  API.applyHit(wd, kuma, extra, 9999);
-  check('上限KUMA_MAXで頭打ち（スタック増えない）', kuma.kumaKills === cappedKills && kuma.kumaKills === API.KUMA_MAX);
-  check('上限で攻撃も頭打ち', kuma.atk === cappedAtk);
-  check('最大で攻撃が約2倍', kuma.atk === Math.round(baseAtk * (1 + API.KUMA_ATK_STEP * API.KUMA_MAX)) && API.KUMA_ATK_STEP * API.KUMA_MAX === 1.0);
-  // cookie など通常キャラは成長しない
+  check('recruitフラグを持つ', kuma.recruit === true);
+  const kumaP = () => wd.units.filter(u => u.side === 'p' && u.key === 'kumagumi' && u.hp > 0).length;
+  check('最初の自軍クマグミは1体', kumaP() === 1);
+  // 敵を1体おいて、クマグミの攻撃で倒す→自軍クマグミが1体増えるはず
+  const foe = API.makeFighters('cookie', 'e', W, H, 'army')[0]; foe.appear = 1; foe.x = kuma.x; foe.y = kuma.y; foe.hp = 1;
+  wd.units.push(foe);
+  API.applyHit(wd, kuma, foe, 9999);   // 一撃で倒す
+  check('倒した敵が自軍クマグミになって増える', kumaP() === 2, { now: kumaP() });
+  check('倒された敵は死亡している', foe.hp <= 0 && foe._dead === true);
+  // 増えたクマグミも仲間化能力を持つ（雪だるま式）
+  const spawned = wd.units.find(u => u.side === 'p' && u.key === 'kumagumi' && u !== kuma);
+  check('増えたクマグミも仲間化できる（recruit継承）', spawned && spawned.recruit === true);
+  check('仲間化ユニットも自軍(p)側', spawned && spawned.side === 'p');
+  // 通常キャラ(cookie)が倒しても仲間化しない
   const ck = API.makeFighters('cookie', 'p', W, H, 'army')[0]; ck.appear = 1; ck.x = 200; ck.y = 300; wd.units.push(ck);
   const tgt2 = API.makeFighters('cookie', 'e', W, H, 'army')[0]; tgt2.appear = 1; tgt2.x = 200; tgt2.y = 300; tgt2.hp = 1; wd.units.push(tgt2);
-  const ckAtk = ck.atk;
+  const kp0 = kumaP();
   API.applyHit(wd, ck, tgt2, 9999);
-  check('killGrowでないキャラは成長しない', ck.atk === ckAtk && (ck.kumaKills || 0) === 0);
+  check('recruitでないキャラが倒しても増えない', kumaP() === kp0);
+  // 盤面上限で頭打ち（KUMA_BOARD_CAP を超えては増やさない）
+  const wd2 = API.createWorld(W, H); API.world = wd2;
+  const k2 = API.makeFighters('kumagumi', 'p', W, H, 'army')[0]; k2.appear = 1; k2.x = 100; k2.y = 300; wd2.units.push(k2);
+  for (let i = 0; i < API.KUMA_BOARD_CAP + 5; i++) { const f = API.makeFighters('cookie', 'p', W, H, 'army')[0]; f.appear = 1; wd2.units.push(f); }
+  const enemy2 = API.makeFighters('cookie', 'e', W, H, 'army')[0]; enemy2.appear = 1; enemy2.x = 100; enemy2.y = 300; enemy2.hp = 1; wd2.units.push(enemy2);
+  const alive0 = wd2.units.filter(u => u.side === 'p' && u.hp > 0).length;
+  API.applyHit(wd2, k2, enemy2, 9999);
+  const alive1 = wd2.units.filter(u => u.side === 'p' && u.hp > 0).length;
+  check('盤面上限を超えたら仲間化しない', alive0 >= API.KUMA_BOARD_CAP && alive1 === alive0);
 }
 
 console.log('\n=== 99) マシュマロエンジェル: 浮遊（近接では狙えない）＋肩代わり ===');

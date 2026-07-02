@@ -236,6 +236,13 @@
   .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px}
   .modal-card{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:16px;max-width:420px;width:100%;padding:22px;box-shadow:var(--shadow);max-height:calc(100vh - 40px);overflow-y:auto;overscroll-behavior:contain}
   .modal-card .md-art{text-align:center} .modal-card .md-art img{width:72px;height:72px;image-rendering:pixelated}
+  .tbgrid{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-height:30vh;overflow-y:auto;padding:4px;background:rgba(0,0,0,.18);border-radius:10px}
+  .tbchip{display:flex;flex-direction:column;align-items:center;gap:2px;width:62px;padding:6px 2px;border-radius:10px;cursor:pointer;color:#fff;background:#1b1f2a;border:2px solid #333}
+  .tbchip.on-you{background:#25445c;border-color:#4ea3c9}
+  .tbchip.on-foe{background:#54302a;border-color:#d2603a}
+  .tbchip .tbic{width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden}
+  .tbchip .tbic img{width:34px;height:34px;object-fit:contain;image-rendering:pixelated}
+  .tbchip .tbnm{font-size:9px;line-height:1.15;text-align:center}
   .modal-card h3{font-family:"Oswald",sans-serif;text-transform:uppercase;letter-spacing:.04em;text-align:center;margin:8px 0 2px;font-size:20px}
   .modal-card .md-tag{text-align:center;color:var(--brass);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
   .modal-card .md-stats{display:flex;gap:18px;justify-content:center;font-family:"Space Mono",monospace;font-size:14px;margin:12px 0}
@@ -767,6 +774,21 @@
       <div style="text-align:center;margin-top:12px"><button class="btn btn-ghost" onclick="closeShop()">閉じる</button></div>
     </div>
   </div>
+  <!-- 【開発用】テスト対戦：自分と相手CPUのデッキを自由に選ぶ -->
+  <div id="testBattleModal" class="modal-overlay hidden" onclick="closeTestBattle(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <h3>⚔️ テスト対戦（開発用）</h3>
+      <div style="font-size:12px;color:var(--muted);text-align:center;margin-bottom:8px">自分と相手CPUのデッキを自由に選べます（各最大4体・<b style="color:#ffd36b">β</b>キャラも選択可）</div>
+      <div style="font-weight:700;font-size:13px;margin:4px 0 2px">🔵 自分のデッキ（<span id="tbYouCount">0</span>/4）</div>
+      <div id="tbYouGrid" class="tbgrid"></div>
+      <div style="font-weight:700;font-size:13px;margin:10px 0 2px">🔴 相手CPUのデッキ（<span id="tbFoeCount">0</span>/4）</div>
+      <div id="tbFoeGrid" class="tbgrid"></div>
+      <div style="text-align:center;margin-top:12px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="closeTestBattle()">閉じる</button>
+        <button class="btn btn-primary" id="tbStartBtn" onclick="beginTestBattle()">対戦開始 ⚔</button>
+      </div>
+    </div>
+  </div>
   <p class="footnote hidden">プロトタイプ — ユニットやルールは <code>UNITS</code> と <code>CONFIG</code> を編集して調整できます。</p>
 </div>
 
@@ -839,7 +861,7 @@ const UNITS = [
   // anim=立ち絵のフレーム配列（spriteForが world.t で animFps 枚/秒で切替）。挙動/バランスは今後。
   {key:'mangel', name:'マシュマロエンジェル', icon:'👼', role:'support', tier:0, count:3, atk:8, hp:55, speed:88, range:24, cd:0.7, tag:'守護天使', short:'空を舞い、味方の被弾を肩代わりする支援（3体）', text:'ふわふわ空を飛ぶ天使のマシュマロ。空の上なので近接攻撃は当たらないが、近くの味方が受けるダメージを身代わりで引き受け、自分から先に溶けてしまう健気な支援役。', anim:['mangel_1','mangel_2','mangel_3'], animRed:['mangel_red_1','mangel_red_2','mangel_red_3'], animFps:5, fly:true, guardian:true, test:true, beta:true},
   // クマグミ（開発テスト中・静止立ち絵）。青/赤の陣営色を anim(1枚) の仕組みで出し分け。挙動/バランスは今後。
-  {key:'kumagumi', name:'クマグミ', icon:'🐻', role:'fodder', tier:0, count:3, atk:10, hp:50, speed:100, range:24, cd:0.5, tag:'キル成長', short:'倒すほど強くなる弱スタートの前衛（3体）', text:'最初は非力なクマのグミだが、敵を1体倒すごとに攻撃力と素早さが段階的にアップ。育てば前衛エース級に大化けする、ハイリスク・ハイリターンな肉食系。', anim:['kumagumi_blue'], animRed:['kumagumi_red'], animFps:1, killGrow:true, test:true, beta:true},
+  {key:'kumagumi', name:'クマグミ', icon:'🐻', role:'fodder', tier:0, count:3, atk:12, hp:60, speed:100, range:24, cd:0.5, tag:'仲間化', short:'倒した敵を自軍のクマグミに変える（3体）', text:'倒した敵を自分の仲間（クマグミ）に変えてしまう、もちもちのクマのグミ。倒すほど軍勢がどんどん増えていく雪だるま式のこわいやつ。', anim:['kumagumi_blue'], animRed:['kumagumi_red'], animFps:1, recruit:true, test:true, beta:true},
 ];
 const UNIT_BY_KEY = Object.fromEntries(UNITS.map(u=>[u.key,u]));
 
@@ -951,11 +973,8 @@ const SHELL_RAM_CD = 0.3;        // 体当たりの再ヒット間隔（秒・DP
 const MACARON_MIN = 1;           // 盤面にこの数以上マカロンがいると「ビッグシェル」カードが出る
 const MACARON_HP = 0.8;          // マカロンアーマー：HP上昇率（+80%・base100→180）
 const FOE_MACARON_CHANCE = 0.4;  // 敵（ライバル）がビッグシェルを使う確率
-/* ★クマグミ（敵を倒すと段階的に強くなる＝弱スタート・大化け）。in-battleのみ（毎戦リセット・パンケーキ進化と同じ扱い）。 */
-const KUMA_MAX = 5;           // キルスタック上限（この数で最大強化）
-const KUMA_ATK_STEP = 0.20;   // 1キルごとの攻撃上昇率（+20%×5＝最大2.0倍）
-const KUMA_SPD_STEP = 0.05;   // 1キルごとの移動速度上昇率（+5%×5＝最大+25%）
-const KUMA_SCALE_STEP = 0.05; // 1キルごとの見た目拡大率（大化け演出・+5%×5＝最大+25%）
+/* ★クマグミ（倒した敵を自軍のクマグミに仲間化＝数で雪だるま式に増える）。in-battleのみ（毎戦リセット・召喚兵と同じ battlefield 限定で軍には持ち越さない）。 */
+const KUMA_BOARD_CAP = X2_BOARD_CAP;   // 仲間化で増やせる同陣営の盤面上限（増えすぎ防止・X2と共通=120）
 /* ★マシュマロエンジェル（浮遊＝近接では狙われない／周囲の味方の被ダメを肩代わり＝身代わりで先に落ちる支援）。 */
 const MANGEL_R = 88;          // 守護範囲(px)：この円内の味方の被ダメを肩代わり
 const MANGEL_SOAK = 0.40;     // 肩代わり率（味方の被ダメの40%をエンジェルが自分のHPで受ける＝先に落ちる）
@@ -1256,18 +1275,47 @@ function startGame(){
   beginDraft();
 }
 
-/* 【開発用】テスト対戦：通常プレイには出さない test:true のユニット（クマグミ/マシュマロエンジェル等）を、
-   CPU戦の盤面で実際に動かして挙動を確認するための隠し操作。設定メニューのボタンから呼ぶ。
-   自分・相手とも固定のテスト編成を round-robin で確実に出す（弓兵で天使を落とせる/前衛でクマグミがキルを稼げる編成）。
+/* 【開発用】テスト対戦：通常プレイには出さない test:true のユニット（クマグミ/マシュマロエンジェル等）も含めて、
+   自分と相手CPUのデッキを自由に選び、CPU戦の盤面で実際に動かして挙動を確認するための隠し操作。設定メニューのボタンから呼ぶ。
+   相手は選んだ編成を round-robin で確実に出す（貪欲AIだと弱い後衛が出ないため）。
    本来のデッキは _guideDeckBackup に退避（保存しない）＝ホームに戻れば元通り。 */
-const TEST_BATTLE_DECK = ['kumagumi','mangel','cookie','shoe'];
-function startTestBattle(){
-  closeMenu();
+let testYouDeck = ['kumagumi','mangel','cookie','shoe'];   // 直近の選択を保持（再オープン時に復元）
+let testFoeDeck = ['kumagumi','cookie','shoe','bomb'];
+function testPickableUnits(){ return UNITS.filter(u=>!u.summonOnly); }   // 召喚専用以外はすべて（test:trueのβキャラも選べる）
+function startTestBattle(){ closeMenu(); openTestBattlePicker(); }
+function openTestBattlePicker(){ renderTestBattleDecks(); $('testBattleModal').classList.remove('hidden'); }
+function closeTestBattle(e){ if(e && e.target!==e.currentTarget) return; $('testBattleModal').classList.add('hidden'); }
+function toggleTestUnit(key, sideKey){
+  const arr = sideKey==='you' ? testYouDeck : testFoeDeck;
+  const i = arr.indexOf(key);
+  if(i>=0) arr.splice(i,1);
+  else { if(arr.length>=CONFIG.deckSize){ if(typeof toast==='function') toast('デッキは最大'+CONFIG.deckSize+'体まで'); return; } arr.push(key); }
+  renderTestBattleDecks();
+}
+function renderTestBattleDecks(){
+  const list = testPickableUnits();
+  const grid = (arr, sideKey)=> list.map(u=>{
+    const on = arr.includes(u.key);
+    const cls = 'tbchip'+(on ? (sideKey==='you'?' on-you':' on-foe') : '');
+    return '<button class="'+cls+'" onclick="toggleTestUnit(\''+u.key+'\',\''+sideKey+'\')">'
+      + '<span class="tbic">'+iconHTML(u, sideKey==='you'?'p':'e')+'</span>'
+      + '<span class="tbnm">'+u.name+(u.test?' <b style="color:#ffd36b">β</b>':'')+'</span></button>';
+  }).join('');
+  $('tbYouGrid').innerHTML = grid(testYouDeck,'you');
+  $('tbFoeGrid').innerHTML = grid(testFoeDeck,'foe');
+  $('tbYouCount').textContent = testYouDeck.length;
+  $('tbFoeCount').textContent = testFoeDeck.length;
+  const ok = testYouDeck.length>=1 && testFoeDeck.length>=1;
+  const btn = $('tbStartBtn'); if(btn){ btn.disabled = !ok; btn.style.opacity = ok?'1':'0.5'; }
+}
+function beginTestBattle(){
+  if(!testYouDeck.length || !testFoeDeck.length) return;
+  $('testBattleModal').classList.add('hidden');
   if(_guideDeckBackup===null) _guideDeckBackup = myDeck.slice();   // 本来のデッキを退避（1回だけ・保存しない）
-  myDeck = TEST_BATTLE_DECK.slice();
+  myDeck = testYouDeck.slice();
   cpuDeckMode='auto'; cpuDeck=[];
   tutorial=false; guideMode=false; guideStageId=null;
-  foeCtl = makeGuideFoeController(TEST_BATTLE_DECK.slice());   // 相手も同じ編成を確実に出す（round-robin）
+  foeCtl = makeGuideFoeController(testFoeDeck.slice());   // 相手は選んだ編成を確実に出す（round-robin）
   SFX.play('button');
   startGame();
 }
@@ -1508,7 +1556,7 @@ const UNIT_ABILITIES = {
   cannon:[{name:'迫撃', info:'ステージ全域を覆う射程の迫撃が敵を襲う'}],
   icewiz:[{name:'アイスバレット', info:'氷の弾をうちあたった敵に鈍化を付与する。'}],
   macaron:[{name:'スピン', info:'マカロンの殻にこもり敵めがけてスピンアタック！この間はダメージを大幅に軽減する'}],
-  kumagumi:[{name:'キル成長', info:'最初は非力だが、敵を1体倒すごとに攻撃力と素早さが段階的にアップ（最大5段階で攻撃2倍・速さ+25%）。育てば前衛エース級に大化けする。倒せないと弱いままのハイリスク・ハイリターン。'}],
+  kumagumi:[{name:'仲間化', info:'クマグミが倒した敵は、その場で自軍のクマグミに変わって一緒に戦ってくれる。倒すほど軍勢が雪だるま式に増えていく（増えた分はそのバトル限りで、次のラウンドには持ち越さない）。'}],
   mangel:[{name:'浮遊', info:'空を飛んでいるので近接攻撃では狙われない。倒せるのは遠距離・迫撃・爆発だけ。'},{name:'身代わりの翼', info:'近くの味方が受けるダメージの一部を自分のHPで肩代わりする。味方を守りながら自分から先に溶けていく健気な支援。'}],
 };
 // キャラ詳細の「能力」セクションHTML（能力が無いキャラは空文字＝非表示）。
@@ -1619,8 +1667,8 @@ function makeFighters(key, side, W, H, slot){
   for(let c=0;c<u.count;c++){
     const hp=u.hp, atk=u.atk, r=Math.max(5,Math.min(11,5+hp*0.028));   // 当たり判定を小さめに（密集して陣地に食い込みにくく）
     arr.push({
-      side, key, name:u.name, icon:u.icon, slot, role:u.role, tier:u.tier||0, spriteScale:u.spriteScale||1, baseScale:u.spriteScale||1,
-      fly:!!u.fly, guardian:!!u.guardian, killGrow:!!u.killGrow, kumaKills:0,   // 浮遊(近接無敵)／守護天使／キル成長(クマグミ)
+      side, key, name:u.name, icon:u.icon, slot, role:u.role, tier:u.tier||0, spriteScale:u.spriteScale||1,
+      fly:!!u.fly, guardian:!!u.guardian, recruit:!!u.recruit,   // 浮遊(近接無敵)／守護天使／仲間化(クマグミ＝倒した敵を自軍化)
       x:xMin+Math.random()*(xMax-xMin), y:yMin+Math.random()*(yMax-yMin),
       vx:0, vy:0, r, baseR:r, hp, maxHp:hp, baseMaxHp:hp, atk, baseAtk:atk,
       speed:u.speed*SPEED_MUL, baseSpeed:u.speed*SPEED_MUL, range:u.range, cd:u.cd, cool:Math.random()*u.cd,
@@ -2595,7 +2643,7 @@ function applyHit(world, atk, tgt, dmg){
     tgt.kbImmune = 0.26;                         // この間は追加ノックバックを受けない（連続ヒットで吹っ飛ばない）
   }
   popDmg(world, tgt.x, tgt.y-tgt.r-4, real, '#ffd9c2');
-  if(tgt.hp<=0){ killUnit(world, tgt); if(atk && atk.killGrow && atk.hp>0 && !atk._dead) growKuma(world, atk); }   // クマグミ：近接で敵を倒すと段階強化
+  if(tgt.hp<=0){ const rx=tgt.x, ry=tgt.y, rs=(atk?atk.side:tgt.side); const rec=(atk && atk.recruit && atk.hp>0 && !atk._dead); killUnit(world, tgt); if(rec) recruitKuma(world, rs, rx, ry); }   // クマグミ：倒した敵を自軍のクマグミに仲間化（座標はkillUnit前に控える）
 }
 // 直接HPを引く範囲ダメージ（爆発・衝撃波など applyHit を通さない経路）にも殻ダメージカットを効かせる。
 function shellCut(o, dmg){ return (o && o.inShell) ? Math.max(1, Math.round(dmg*(1-SHELL_DR))) : dmg; }
@@ -2617,19 +2665,20 @@ function guardSoak(world, tgt, real){
   if(g.hp<=0) killUnit(world, g);
   return pass;
 }
-// クマグミ（キル成長）：敵を1体倒すごとに攻撃力・移動速度・見た目が段階的に伸びる（上限KUMA_MAX）。基準値から再計算で冪等。
-function growKuma(world, u){
-  if((u.kumaKills||0) >= KUMA_MAX) return;
-  u.kumaKills++;
-  const s=u.kumaKills;
-  u.atk   = Math.round(u.baseAtk*(1+KUMA_ATK_STEP*s));
-  u.speed = u.baseSpeed*(1+KUMA_SPD_STEP*s);
-  u.spriteScale = (u.baseScale||1)*(1+KUMA_SCALE_STEP*s);
-  u.r = Math.min(13, Math.round(u.baseR*(1+KUMA_SCALE_STEP*s)));   // 当たり判定も少しだけ大きく（大化け感）
-  u.flash=0.2;
-  world.rings.push({x:u.x,y:u.y,r:3,max:u.r+16,life:0.34,color:'#ffd36b'});
-  burst(world,u.x,u.y,'#ffd36b',10,120);
-  popDmg(world, u.x, u.y-u.r-8, s>=KUMA_MAX?'MAX!':'強化+'+s, s>=KUMA_MAX?'#ffb24d':'#ffe6a0');
+// クマグミ（仲間化）：クマグミが倒した敵を、その場で自軍のクマグミ1体に変える（雪だるま式に増える）。
+// 召喚兵と同じく battlefield 限定＝state.youArmy には積まないので次ラウンドには持ち越さない。盤面上限で頭打ち。
+function recruitKuma(world, side, x, y){
+  const mine = world.units.reduce((n,u)=> n + ((u.side===side && u.hp>0)?1:0), 0);
+  if(mine >= KUMA_BOARD_CAP) return;   // 増えすぎ防止
+  const k = makeFighters('kumagumi', side, world.W, world.H)[0];   // count=3だが仲間化は1体ずつ
+  k.x = Math.max(k.r, Math.min(world.W-k.r, x+(Math.random()-0.5)*10));
+  k.y = Math.max(k.r, Math.min(world.H-k.r, y+(Math.random()-0.5)*10));
+  k.appear = 0;
+  world.units.push(k);
+  const col = side==='p' ? '#9fdcff' : '#ffb39a';
+  burst(world, k.x, k.y, col, 12, 130);
+  world.rings.push({x:k.x, y:k.y, r:3, max:k.r+18, life:0.4, color:col});
+  popDmg(world, k.x, k.y-k.r-8, 'なかま！', '#ffd36b');
 }
 function killUnit(world, t){
   if(t._dead) return; t._dead=true; t.hp=0;
