@@ -763,7 +763,7 @@ function vacPullFactor(o){ const f=VAC_PULL_FACTOR[unitWeight(o)]; return (f==nu
 const UNITS = [
   {key:'daifuku',name:'大福サムライ',   icon:'🍡', role:'fodder', tier:-1, count:1, atk:22, hp:160, speed:60, range:30, cd:0.9, tag:'前衛', short:'居合チャージから抜刀タックル！突撃は範囲、通常は単体の侍', text:'納刀→チャージ→抜刀タックルで突撃。突撃ヒットは前方の複数の敵をまとめて薙ぎ払う範囲攻撃、通常攻撃は単体。近ければ徒歩で斬り、離れると再び居合チャージ。', charger:true, cleave:true, dashDamage:90, dashSpeed:300, chargeTime:0.8, dashMax:0.5, dashFar:72, dashRange:26},
   {key:'cookie', name:'クッキーアーミー',     icon:'🍪', role:'fodder', tier:0, count:5, atk:14, hp:50,  speed:115, range:24, cd:0.35, tag:'モブ', short:'数で押すクッキーの群れ。', text:'数で押すクッキーの群れ。やっぱりクッキーはいっぱいいたほうがいい！！'},
-  {key:'slime', name:'ゼリースライム',   icon:'🔵', role:'fodder', tier:0.5, count:3, atk:12, hp:55, speed:90, range:24, cd:0.6, tag:'モブ', short:'「融合」で巨大化、倒れても3体に分裂するゼリー', text:'3体で出るスライム。強化カード「融合」で1体の巨大スライムに合体できる（倒れると3体に分裂）。', slime:true},
+  {key:'slime', name:'ゼリースライム',   icon:'🔵', role:'fodder', tier:0.5, count:3, atk:8, hp:80, speed:90, range:24, cd:0.6, tag:'モブ', short:'ぷるんぷるんなゼリーのスライム', text:'ぷるんぷるんなゼリーのスライム。一つ目で不気味だけどかわいいやつ。お皿にのせてぷるぷるしてかわいがってあげてね！', slime:true},
   {key:'bomb',  name:'ポップコーンTNT',   icon:'🍿', role:'fodder', tier:-2.2, count:2, atk:0,  hp:55,  speed:128, range:22, cd:1.0,  tag:'自爆', short:'敵に近づいて自爆するクレイジーなポップコーン', text:'純粋な爆発力が持ち味。敵が射程に入ると起爆モードに移行し、短い導火の後に周囲へ特大爆発（残りHPに関係なく起爆）。倒されたときも爆発する。', suicide:true, blast:100, blastR:60, fuse:0.5},
   {key:'soda',  name:'ランニングソーダ',   icon:'🥤', role:'fodder', tier:-2, count:2, atk:0,  hp:50,  speed:150, range:22, cd:1.0,  tag:'自爆+沼', short:'走って自爆し、長く残る炭酸沼で敵を溶かすソーダ', text:'本命は炭酸沼。敵陣へ走り込んで小さく自爆し、その場に広く長く残る炭酸沼を作る。沼の上の敵に強い持続ダメージと移動速度低下を与える（爆発自体は控えめ）。倒されたときも爆発する。', suicide:true, blast:10, blastR:50, fuse:0.45, puddle:true, puddleR:60, puddleLife:5.5, puddleDps:5, puddleSlow:0.5},
   {key:'choco', name:'チョコレートナイト', icon:'🍫', role:'tank',   tier:2, count:2, atk:20, hp:200, speed:64,  range:30, cd:0.95, tag:'前衛', short:'チョコレートの鎧をまとった騎士', text:'チョコレートの鎧をまとった騎士。こいつらが大勢集まったらまるで動く壁だ誰も突破できない。', spriteScale:0.6},
@@ -784,8 +784,8 @@ const UNIT_BY_KEY = Object.fromEntries(UNITS.map(u=>[u.key,u]));
    今後ここに第2弾・第3弾を足していける。 */
 const SPECIALS = {
   up_slime: {
-    key:'up_slime', name:'スライム融合', icon:'🔄', upgrade:true, evoSprite:'slime_blue_big',
-    text:'今いるスライムを3体ずつ巨大スライムに合体（余りはそのまま）。硬く強く、倒れると3体に分裂。',
+    key:'up_slime', name:'融合ゼラチン', icon:'🔄', upgrade:true, evoSprite:'slime_blue_big',
+    text:'近くにゼリーがいるとくっついちゃう！！最大3体がまとまって巨大なスライムになる。巨大状態で倒されると元の3体にもどる。',
   },
 };
 /* ★X2強化カードの調整値（ここをいじればバランス調整できる） */
@@ -1440,7 +1440,7 @@ function enhDisplay(u){
   if(u.key==='slime'){
     const shp=Math.round(u.hp*3*FUSE.hpMul), satk=Math.round(u.atk*FUSE.atkMul);
     out.push({ kind:'強化', name:SPECIALS.up_slime.name, sprite:'slime_blue_big', stats:{hp:shp, atk:satk},
-      text:'今いるスライムを3体ずつ巨大スライムに合体（余りはそのまま）。硬く強くなり（3体合体でHP約'+shp+'・攻撃約'+satk+'）、倒れると3体に分裂してまた戦う。' });
+      text:'近くにゼリーがいるとくっついちゃう！！最大3体がまとまって巨大なスライムになる（3体合体でHP約'+shp+'・攻撃約'+satk+'）。巨大状態で倒されると元の3体にもどる。' });
   }
   // ベーカリーは自分では攻撃しないので、召喚するジンジャーソルジャーの性能も併記する。
   if(u.key==='bakery'){
