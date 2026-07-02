@@ -568,7 +568,8 @@
       </div>
       <!-- 戦術指南のレッスン後 -->
       <div id="overGuideBtns" class="hidden" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-        <button class="btn btn-primary" onclick="openGuide()">🎓 指南へ戻る</button>
+        <button id="overGuideNext" class="btn btn-primary hidden" onclick="guideGoNext()">▶ 次のレッスンへ</button>
+        <button class="btn btn-ghost" onclick="openGuide()">🎓 指南へ戻る</button>
         <button class="btn btn-ghost" onclick="goHome()">🏠 ホームへ</button>
       </div>
       <!-- プライベート部屋：接続を保ったまま同じ相手と再戦 -->
@@ -1295,7 +1296,13 @@ function renderRoster(){
   const fu = guide ? (UNIT_BY_KEY[guideForceUnit]) : null;
   // 見出し・説明・ボタンをモードで切り替え
   if($('rosterTitle')) $('rosterTitle').textContent = guide ? 'レッスンのデッキを組む' : cpu ? 'CPUのデッキを選ぶ' : '編成 — バトルで使うデッキ';
-  if($('rosterSub')) $('rosterSub').textContent = guide ? ((fu?fu.name:'学ぶキャラ')+'は必ず入ります。あと数枚を選んで「レッスン開始」！') : cpu ? '下のキャラをタップしてCPUのデッキ4枚を作ろう。スロットをタップで外せます。' : '下のキャラをタップして4枚のデッキを作ろう。スロットをタップで外せます。';
+  if($('rosterSub')){
+    if(guide){ const st=GUIDE_BY_ID[guideStageId];
+      const foeIcons=(st&&st.foe||[]).map(function(k){ const e=UNIT_BY_KEY[k]; return e?iconHTML(e,'e'):''; }).join('');
+      $('rosterSub').innerHTML=(fu?fu.name:'学ぶキャラ')+'は必ず入ります。あと数枚を選んで「レッスン開始」！'
+        + '<div style="margin-top:6px;display:flex;align-items:center;gap:4px;justify-content:center;flex-wrap:wrap"><span style="font-size:12px;color:var(--rust);font-weight:700">相手のデッキ：</span>'+foeIcons+'</div>'; }
+    else $('rosterSub').textContent = cpu ? '下のキャラをタップしてCPUのデッキ4枚を作ろう。スロットをタップで外せます。' : '下のキャラをタップして4枚のデッキを作ろう。スロットをタップで外せます。';
+  }
   const startBtn=$('rosterStartBtn');
   if(startBtn){ startBtn.classList.toggle('hidden', !(cpu||guide));
     if(guide){ startBtn.textContent='レッスン開始 ⚔'; startBtn.onclick=beginGuideStageBattle; }
@@ -3462,14 +3469,16 @@ function endGame(){
   else { pvpPresenceSet('home'); if(wasPvp) foeCtl=makeCpuFoeController(); }   // 後始末（「もう一度」はCPU対戦に戻す）
   const won=state.foeLives<=0;
   if(guideMode){   // 戦術指南のレッスン決着：初回クリアのみ 解禁＋ジェム＋コインを付与（再挑戦・敗北は報酬なし）
-    const st=GUIDE_BY_ID[guideStageId];
+    const clearedId=guideStageId, st=GUIDE_BY_ID[clearedId];
     const guideWon = (st && st.winRounds) ? ((CONFIG.startLives - state.foeLives) >= st.winRounds) : (state.foeLives<=0);   // winRounds指定は「規定ライフ取ればクリア」
-    const wasCleared = guideCleared(guideStageId);
-    const gLine=guideFinish(guideWon);   // 初回クリアのみ stage.gems＋キャラ解禁
+    const wasCleared = guideCleared(clearedId);
+    const gLine=guideFinish(guideWon);   // 初回クリアのみ stage.gems＋キャラ解禁（guideStageIdはここでnullになる）
     let cl='';
     if(guideWon && !wasCleared){ const rw=grantBattleReward(true); cl='　🍬 +'+rw.gain+(rw.gems?'　💎 +'+rw.gems:''); }   // 通常報酬（コイン/ジェム）も初回クリアのみ
     $('overTitle').textContent=guideWon?'クリア！':'もう一歩…'; $('overTitle').style.color=guideWon?'var(--green)':'var(--rust)';
     $('overText').textContent=(gLine||'')+cl;
+    guideNextId = guideWon ? guideNextLesson(clearedId) : null;   // 同アークの次レッスンがあれば「次のレッスンへ」を出す
+    const nextBtn=$('overGuideNext'); if(nextBtn) nextBtn.classList.toggle('hidden', !guideNextId);
     $('overDefaultBtns').classList.add('hidden'); $('overRematch').classList.add('hidden'); $('overGuideBtns').classList.remove('hidden');
     renderHomeCoins(); renderHomeGems();
     show('over'); return;
@@ -4355,8 +4364,12 @@ function guideStageUnlocked(id){
   if(idx<=0) return true;                          // アークの先頭＝いつでも挑戦できる
   return guideCleared(arcStages[idx-1].id);        // アーク内の前のレッスンをクリアしていれば可
 }
-let guideMode=false, guideStageId=null, _guideDeckBackup=null, guideForceUnit=null;
+let guideMode=false, guideStageId=null, _guideDeckBackup=null, guideForceUnit=null, guideNextId=null;
 let guideView='arcs', guideCurArc=null;   // 指南メニュー：arcs=キャラ一覧／arc=そのキャラのレッスン一覧
+// 同じアークの「次のレッスン」id（今クリアしたレッスンの次・解禁済みなら）。無ければnull。
+function guideNextLesson(id){ const s=GUIDE_BY_ID[id]; if(!s) return null; const ss=arcStages(stageArc(s)); const idx=ss.findIndex(x=>x.id===id); const nx=ss[idx+1]; return (nx && guideStageUnlocked(nx.id)) ? nx.id : null; }
+// over画面の「次のレッスンへ」＝次レッスンのデッキ編成へ直行。
+function guideGoNext(){ if(guideNextId){ const id=guideNextId; guideNextId=null; guideOpenDeckBuilder(id); } }
 // レッスン1（easyFoe指定）中か＝CPUは強化/X2を取らない
 function guideEasyFoe(){ if(!guideMode||!guideStageId) return false; const s=GUIDE_BY_ID[guideStageId]; return !!(s&&s.easyFoe); }
 // アーク（キャラ）の一覧（GUIDE_STAGES順・重複排除）
