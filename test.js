@@ -2726,31 +2726,39 @@ console.log('\n=== 93) PVE戦術指南：順番制＋クリアで解禁＋ジェ
     const missing = nonStarterDeckable.filter(k=>!lessonUnits.has(k));
     check('全ての非スターターキャラがレッスンで解禁できる', missing.length===0, missing);
   }
-  check('先頭レッスンは最初から挑戦可', API.guideStageUnlocked(stages[0].id)===true);
-  check('2番目は最初はロック', API.guideStageUnlocked(stages[1].id)===false);
+  // キャラ（アーク）は自由選択＝各アークの先頭レッスンは最初から挑戦できる
+  check('アーク先頭は最初から挑戦可（front）', API.guideStageUnlocked('front')===true);
+  check('別アーク先頭も最初から挑戦可（soda1）', API.guideStageUnlocked('soda1')===true);
+  check('別アーク先頭も最初から挑戦可（ranged）', API.guideStageUnlocked('ranged')===true);
+  // アーク内は順番制：soda2はsoda1クリアまでロック
+  check('アーク内2番目は最初ロック（soda2）', API.guideStageUnlocked('soda2')===false);
   check('各レッスンにジェム報酬とデッキ/相手がある（解禁キャラは任意＝体験型レッスンあり）', stages.every(s=>s.gems>0 && Array.isArray(s.deck) && Array.isArray(s.foe) && (s.unit===undefined || !!API.UNIT_BY_KEY[s.unit])));
   check('ソーダはレッスン(soda2)で解禁できる＝スターターから外れても入手可', stages.some(s=>s.unit==='soda'));
   check('体験型レッスン(soda1)はキャラ報酬なし', !!API.GUIDE_STAGES.find(s=>s.id==='soda1') && API.GUIDE_STAGES.find(s=>s.id==='soda1').unit===undefined);
-  // 先頭レッスンを勝利クリア
-  const s0=stages[0], g0=API.myGems();
-  API.setGuideStage(s0.id);
+  // frontアークを勝利クリア
+  const front=API.GUIDE_STAGES.find(s=>s.id==='front'), g0=API.myGems();
+  API.setGuideStage('front');
   const line=API.guideFinish(true);
-  check('クリアで報酬キャラ解禁', API.unitUnlocked(s0.unit)===true);
-  check('クリアで💎付与', API.myGems()===g0+s0.gems, API.myGems());
-  check('guideDoneに記録', API.guideCleared(s0.id)===true);
-  check('クリアで次のレッスンが解禁', API.guideStageUnlocked(stages[1].id)===true);
+  check('クリアで報酬キャラ解禁(donut)', API.unitUnlocked('donut')===true);
+  check('クリアで💎付与', API.myGems()===g0+front.gems, API.myGems());
+  check('guideDoneに記録', API.guideCleared('front')===true);
+  check('別アークのsoda2はfrontクリアでは解禁されない', API.guideStageUnlocked('soda2')===false);
   check('guideMode解除', API.getGuideMode()===false);
   check('結果テキストに解禁メッセージ', /仲間/.test(line), line);
+  // アーク内順番：soda1クリアでsoda2が解禁
+  API.setGuideStage('soda1'); const sline=API.guideFinish(true);
+  check('体験型soda1クリアはキャラ解禁なし・💎のみ', API.unitUnlocked('soda')===false && /クリア/.test(sline), sline);
+  check('soda1クリアでsoda2が解禁', API.guideStageUnlocked('soda2')===true);
   // 2回目クリアはジェム二重取りしない
   const g1=API.myGems();
-  API.setGuideStage(s0.id); API.guideFinish(true);
+  API.setGuideStage('front'); API.guideFinish(true);
   check('クリア済みは💎二重取りしない', API.myGems()===g1, API.myGems());
   // 負けたら解禁しない
   prof.units=[]; prof.guideDone=[];
-  API.setGuideStage(stages[1].id);
-  const lline=API.guideFinish(false);
-  check('負けでは解禁されない', API.unitUnlocked(stages[1].unit)===false);
-  check('負けではguideDoneに入らない', API.guideCleared(stages[1].id)===false);
+  API.setGuideStage('ranged');
+  API.guideFinish(false);
+  check('負けでは解禁されない(icewiz)', API.unitUnlocked('icewiz')===false);
+  check('負けではguideDoneに入らない', API.guideCleared('ranged')===false);
   prof.units=[]; prof.gems=0; prof.guideDone=[]; API.setMyDeck([]);
 }
 

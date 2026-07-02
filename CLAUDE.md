@@ -254,7 +254,7 @@
 ユーザー要望の「PVEの戦術指南でカードを入手→その後ガチャ」の前半。各レッスン＝1テーマを実戦で学び、**勝利で仲間（キャラ）解禁＋💎ジェム（初回のみ）**。順番にクリアして進む。テスト：test.js 93。
 
 - **データ**：`GUIDE_STAGES`（`{id,title,theme,tip,deck,foe,unit?,gems}`）。`deck`＝レッスン用おすすめデッキ（学ぶキャラを含めて体験させる）、`foe`＝相手デッキ、`unit`＝クリア報酬キャラ（**省略可**＝体験型レッスン。gemsのみ）、`gems`＝報酬💎。**アーク方式**：複数レッスンで1キャラを解禁できる（`unit`は最終レッスンだけに付け、途中は`unit`省略で💎のみ＝「近道(`buyUnit`)」の価値を出す）。**現在10レッスン**：非スターターの全キャラ（donut/icewiz/ghost/cannon/bakery/pancake/daifuku/macaron）＋ソーダ（`soda1`体験→`soda2`実戦で解禁）を無料解禁できる＝誰でもPVEを進めれば全員そろう（対人も公平）。💎は「レッスンを待たずに先に解禁する近道」として任意利用。test.js 93 が「全非スターターキャラがレッスンで解禁できる」ことを保証（新キャラを足したらレッスンも追加する）。
-- **順番制**：`guideStageUnlocked(id)`＝先頭は常に可、以降は前をクリア（`guideCleared`）で解禁。
+- **アークごとに自由選択＋アーク内は順番制**：`stageArc(s)`＝`arc`明示→`unit`→`id` でアーク（キャラ）を判定。`guideStageUnlocked(id)`＝各アークの先頭レッスンは常に挑戦可（好きなキャラから選べる）、アーク内のレッスン2以降は同アークの前レッスンを `guideCleared` していれば解禁。単発アーク（1レッスン）は常に選べる。
 - **フロー**：`openGuide`→`renderGuide`（`#guide` 画面）→ レッスンタップ→`startGuideStage`（`#guideTipModal` でヒント）→`beginGuideStage`＝**本デッキを `_guideDeckBackup` に退避**して `myDeck` をレッスンデッキに一時差し替え（保存はしない＝端末/クラウドの本デッキは不変）→`startGame`。
 - **決着**：`endGame` の `guideMode` 分岐→`guideFinish(won)`＝勝てば初回のみ `guideDone` 記録＋`unlockUnit`＋💎付与＋トースト。**通常の対戦報酬（コイン/ジェム）も併せて付与**。over画面は専用ボタン（`#overGuideBtns`＝🔁もう一度=`guideRetry`／🎓指南へ戻る）。`goHome` でも途中離脱時にデッキ復元。
 - **入口**：ホームメニュー「🎓 戦術指南」＋ホームの💎表示クリック。

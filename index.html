@@ -380,7 +380,7 @@
     <!-- PVE 戦術指南（ステージ制レッスン） -->
     <section id="guide" class="center hidden">
       <p class="big" style="font-size:clamp(22px,5vw,34px)">🎓 戦術指南</p>
-      <p class="stage-sub" id="guideSub">レッスンをクリアすると仲間（キャラ）と💎ジェムがもらえます。全キャラがここで解禁できます（💎で先に解禁も可）。</p>
+      <p class="stage-sub" id="guideSub">好きなキャラから挑戦OK！ クリアで仲間（キャラ）と💎ジェムがもらえます。全キャラここで解禁できます（💎で先に解禁も可）。</p>
       <div id="guideGems" style="font-size:14px;font-weight:700;color:var(--steel);margin:2px 0 8px">💎 0</div>
       <button class="btn btn-ghost" onclick="goHome()" style="margin-bottom:8px">← ホームへ戻る</button>
       <div id="guideList" style="max-width:420px;margin:8px auto;text-align:left"></div>
@@ -4298,10 +4298,10 @@ const GUIDE_STAGES = [
   { id:'front',  title:'前線で受け止める', theme:'タンク / 前衛', unit:'donut',  gems:80,
     tip:'硬い前衛が前で受けると、後ろの弓兵や自爆が生き残って火力を出せる。バキュームドーナッツは敵を吸い寄せて足止めする鈍足タンク。前に置いて壁にしよう。',
     deck:['donut','shoe','bomb','cookie'], foe:['cookie','soda','bomb'] },
-  { id:'soda1',  title:'沼で群れを溶かす①', theme:'デバフ / 沼（体験）', gems:40,
+  { id:'soda1',  title:'沼で群れを溶かす①', theme:'デバフ / 沼（体験）', arc:'soda', gems:40,
     tip:'相手は大量のクッキー。こちらは弓兵（シュークリーム）とランニングソーダ。ソーダを選んで敵の足元に沼を作ろう！沼を踏んだ群れは鈍化＋持続ダメージでまとめて溶ける。弓兵は後ろから削り役。',
     deck:['soda','shoe'], foe:['cookie'] },
-  { id:'soda2',  title:'沼で群れを溶かす②', theme:'デバフ / 沼（実戦）', unit:'soda', gems:80,
+  { id:'soda2',  title:'沼で群れを溶かす②', theme:'デバフ / 沼（実戦）', unit:'soda', arc:'soda', gems:80,
     tip:'今度はソーダ入りデッキで実戦。相手はクッキーとゼリーの群れ。ソーダの沼で足を止めて、弓兵で削り切ろう！勝てばランニングソーダが仲間になる。',
     deck:['soda','shoe','choco','cookie'], foe:['cookie','slime'] },
   { id:'ranged', title:'遠くから削る',     theme:'遠距離', unit:'icewiz', gems:80,
@@ -4328,8 +4328,18 @@ const GUIDE_STAGES = [
 ];
 const GUIDE_BY_ID = Object.fromEntries(GUIDE_STAGES.map(s=>[s.id,s]));
 function guideCleared(id){ return !!(myProfile.guideDone && myProfile.guideDone.indexOf(id)>=0); }
-// レッスンが挑戦可能か（順番制：先頭は常に可、以降は前のをクリアで解禁）
-function guideStageUnlocked(id){ const i=GUIDE_STAGES.findIndex(s=>s.id===id); if(i<=0) return true; return guideCleared(GUIDE_STAGES[i-1].id); }
+// レッスンが属するアーク（キャラ）のキー。arc明示 → 無ければunit → それも無ければid（＝単発アーク）。
+function stageArc(s){ return s.arc || s.unit || s.id; }
+// レッスンが挑戦可能か。アーク（キャラ）はどれでも自由に選べる＝各アークの先頭は常に可。
+// ただしアーク内のレッスン1→2→3は前のレッスンをクリアしていないと不可。
+function guideStageUnlocked(id){
+  const s=GUIDE_BY_ID[id]; if(!s) return false;
+  const arc=stageArc(s);
+  const arcStages=GUIDE_STAGES.filter(x=>stageArc(x)===arc);   // 同じアークのレッスン（GUIDE_STAGES順）
+  const idx=arcStages.findIndex(x=>x.id===id);
+  if(idx<=0) return true;                          // アークの先頭＝いつでも挑戦できる
+  return guideCleared(arcStages[idx-1].id);        // アーク内の前のレッスンをクリアしていれば可
+}
 let guideMode=false, guideStageId=null, _guideDeckBackup=null;
 function openGuide(){ try{ SFX.play('button'); }catch(e){} const mm=$('menuModal'); if(mm) mm.classList.add('hidden'); renderGuide(); show('guide'); }
 function renderGuide(){
@@ -4339,7 +4349,7 @@ function renderGuide(){
     const u=UNIT_BY_KEY[s.unit]; const done=guideCleared(s.id), open=guideStageUnlocked(s.id);
     const status = done ? '<span style="color:var(--green);font-weight:700">✅ クリア</span>'
                  : open ? '<span style="color:var(--accent2);font-weight:700">▶ 挑戦できる</span>'
-                        : '<span style="color:var(--muted)">🔒 前のレッスンをクリア</span>';
+                        : '<span style="color:var(--muted)">🔒 このキャラの前のレッスンをクリア</span>';
     let reward;
     if(u){ const rewardUnlocked = done || unitUnlocked(s.unit);
       reward = '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">ごほうび：'+iconHTML(u,'p')+'<b>'+u.name+'</b>'+(rewardUnlocked?'（解禁済み）':'')+' ・ 💎'+s.gems+'</div>'; }
@@ -4348,7 +4358,7 @@ function renderGuide(){
     const onclick = open ? ' onclick="startGuideStage(\''+s.id+'\')"' : '';
     return '<div class="guide-card'+(open?'':' locked')+'"'+onclick+clickable+'>'
       + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
-      + '<div style="font-weight:800;font-size:14px">レッスン'+(i+1)+'：'+s.title+'</div>'+status+'</div>'
+      + '<div style="font-weight:800;font-size:14px">'+s.title+'</div>'+status+'</div>'
       + '<div style="font-size:11.5px;color:var(--steel);font-weight:700;margin:2px 0 4px">'+s.theme+'</div>'
       + reward + '</div>';
   }).join('');
