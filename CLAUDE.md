@@ -244,6 +244,7 @@
 - `buildProfile()`/`applyProfile()`＝保存データの整形（純粋関数・不正/召喚専用キーは除外・最大`deckSize`枚）。test.js 68。
 - `saveDeckLocal()`/`loadDeckLocal()`＝未ログインでも端末(localStorage `sw_deck`)にデッキ保存。`persistDeck()` を `toggleDeck`/`removeDeckSlot`（自分デッキ時）でフック。
 - `authInit()`＝起動時に `onAuthStateChanged` 監視開始。ログイン時 `onSignedIn` がクラウド読込→適用（無ければ端末内容をアップ）。`scheduleCloudSave()` でデバウンス保存。**クラウド保存は本ログイン(`isRealUser()`＝非匿名)のみ**＝ゲスト(匿名)は端末(localStorage)だけに保存し、ログイン/連携で本アカウントのuidに移ったときにクラウド同期する（匿名uidのゴミノードを作らない）。
+- **保存の保留ガード（データ消失防止・重要）**：`_cloudSyncReady` が `true` になるまで `scheduleCloudSave()` は保存しない。ログイン直後は `onSignedIn` の**クラウド読込→反映が完了してから** `true` にする（新規=アップロード後／復元=applyProfile後／食い違い=ユーザーが選んでから／読込失敗=再開）。**ログイン直後にデッキ編集や対戦決着の保存が先に走って、初期値(1000/0)でクラウドを上書きしてしまう競合を防ぐ**（＝「ログインしたら急にトロフィー1000・勝敗0にリセット。熟練度だけ残る」旧不具合の残り経路を封じる）。
 - **ログイン時の同期（データ消失防止・重要）**：`onSignedIn` は `_syncedUid` で同一uidの多重処理を防ぎ（タブ復帰などで二重にならない）、`profileHasProgress()`/`profilesConflict()`（純粋関数・test.js 91）で分岐：
   - クラウドに記録なし → 端末（ゲスト）の内容をアップロード（`seedNameFromAuth`＝名前が空ならGoogle表示名を初期値に）。
   - 端末に記録なし/実質同一 → クラウドを復元。
