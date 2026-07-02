@@ -61,6 +61,7 @@ code += `
   applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff, applyIcewizBuff, applyMacaronBuff, buffCountFor,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck, needFullDeckForPvp,
   buildProfile, applyProfile, displayProfile, get myProfile(){ return myProfile; },
+  profileHasProgress, profilesConflict,
   masteryXp, masteryLevel, avatarUnlocked, awardMasteryXp,
   masteryXpForLevel, skinUnlocked, activeSkinBase, equipSkin, get SPECIAL_SKINS(){ return SPECIAL_SKINS; },
   get MASTERY_WIN_XP(){ return MASTERY_WIN_XP; }, get MASTERY_LOSE_XP(){ return MASTERY_LOSE_XP; }, get MASTERY_XP_PER_LEVEL(){ return MASTERY_XP_PER_LEVEL; },
@@ -2198,6 +2199,11 @@ console.log('\n=== 73) オンライン人数: presence集計 ===');
   check('対戦中はstatus=battlingの数', r.battling === 2, r);
   check('マッチ待ちはstatus=matchingの数', r.matching === 2, r);
   check('壊れたエントリは無視', API.presenceCounts({ x: null, y: { status: 'home' } }).online === 1);
+  // バックグラウンド放置(away)はオンライン人数に数えない
+  const obj2 = { a: { status: 'home' }, b: { status: 'away' }, c: { status: 'battling' }, d: { status: 'away' } };
+  const r2 = API.presenceCounts(obj2);
+  check('away はオンラインに数えない', r2.online === 2, r2);
+  check('away は対戦中にも数えない', r2.battling === 1, r2);
 }
 
 console.log('\n=== 74) PVPはデッキ4枚必須（4枚未満はブロック） ===');
@@ -2600,6 +2606,28 @@ console.log('\n=== 90) アニメ付きキャラ（マシュマロエンジェル
   check('クマグミ 敵=赤スプライト', API.spriteFor(ke) === API.SPRITES['kumagumi_red'], true);
   // テスト用キャラは2体以上（選択できる）
   check('テスト用キャラが2体以上（アニメテストで選択可）', API.UNITS.filter(u => u.test).length >= 2, API.UNITS.filter(u => u.test).map(u => u.key));
+}
+
+console.log('\n=== 91) ログイン同期: profileHasProgress / profilesConflict（クラウド突き合わせ） ===');
+{
+  const T = 1000;   // TROPHY_START
+  // profileHasProgress：記録の有無判定
+  check('空プロフィールは記録なし', API.profileHasProgress({}) === false);
+  check('nullは記録なし', API.profileHasProgress(null) === false);
+  check('初期トロフィーのみは記録なし', API.profileHasProgress({ trophies: T, wins: 0, losses: 0 }) === false);
+  check('デッキありは記録あり', API.profileHasProgress({ deck: ['cookie'] }) === true);
+  check('勝敗ありは記録あり', API.profileHasProgress({ wins: 1 }) === true);
+  check('トロフィーが初期と違えば記録あり', API.profileHasProgress({ trophies: 1200 }) === true);
+  check('bestが初期超なら記録あり', API.profileHasProgress({ best: 1100 }) === true);
+  check('熟練度ありは記録あり', API.profileHasProgress({ mastery: { cookie: 10 } }) === true);
+  // profilesConflict：両方に記録があり主要戦績が食い違うときだけ true
+  const cloudA = { deck: ['cookie'], trophies: 1300, wins: 5, losses: 2 };
+  const localA = { deck: ['choco'], trophies: 1100, wins: 3, losses: 4 };
+  check('両方に記録＋戦績が違う→衝突', API.profilesConflict(localA, cloudA) === true);
+  check('同じ戦績なら衝突しない', API.profilesConflict({ trophies: 1300, wins: 5, losses: 2 }, cloudA) === false);
+  check('端末に記録なし→衝突しない（クラウド復元でよい）', API.profilesConflict({}, cloudA) === false);
+  check('クラウドに記録なし→衝突しない（端末アップロードでよい）', API.profilesConflict(localA, {}) === false);
+  check('トロフィーだけ違っても衝突', API.profilesConflict({ trophies: 1200, wins: 5, losses: 2 }, cloudA) === true);
 }
 
 Promise.resolve().then(() => {
