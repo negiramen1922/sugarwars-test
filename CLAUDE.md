@@ -225,11 +225,13 @@
 - **要設定**：RTDBルールに `leaderboard`（read:true・$uidのみwrite）。`FIREBASE_SETUP.md` C章参照。
 - CPU対戦はトロフィー非変動（PVPのみ）。
 
-## 経済（通貨キャンディコイン＋カードパック＋見た目コレクション・実装済み・`<script>`「13.5) 経済」）
+## 経済（通貨🍬シュガーコイン＋カードパック＋見た目コレクション・実装済み・`<script>`「13.5) 経済」）
+
+**通貨は🍬シュガーコイン1種のみ**（旧「ジェム」は廃止し統合）。パック購入・キャラ解禁・レッスン報酬・対戦報酬すべてこの1通貨。
 
 **最優先の原則：経済は「見た目」だけに効かせる＝ユニット性能・強化カードは一切解禁しない（対戦は常にフェア）**。人が少なくても課金・レベル差で格差が広がらないための割り切り。テスト：test.js 90・91。
 
-- **通貨（🍬キャンディコイン＝`myProfile.coins`）**：課金ではなく**対戦報酬**で配る（子ども向けに安全）。`grantBattleReward(won)` を決着時に呼ぶ＝**CPU/PVP両方**（`endGame`＋子の `pvpGuestOnGameover`。チュートリアルは除外）。報酬額は純粋関数 `battleCoinReward(won, firstWinToday)`＝`COIN_PLAY`(10・参加)＋`COIN_WIN`(15・勝利)＋`COIN_DAILY_WIN`(50・その日の初勝利=`myProfile.dailyWinKey` で1日1回)。ホーム＆ショップに残高表示（`renderHomeCoins`/`renderShopCoins`）。
+- **通貨（🍬シュガーコイン＝`myProfile.coins`）**：課金ではなく**対戦報酬**で配る（子ども向けに安全）。`grantBattleReward(won)` を決着時に呼ぶ＝**CPU/PVP両方**（`endGame`＋子の `pvpGuestOnGameover`。チュートリアルは除外）。報酬額は純粋関数 `battleCoinReward(won, firstWinToday)`＝`COIN_PLAY`(10・参加)＋`COIN_WIN`(15・勝利)＋`COIN_DAILY_WIN`(50・その日の初勝利=`myProfile.dailyWinKey` で1日1回)。ホーム＆ショップに残高表示（`renderHomeCoins`/`renderShopCoins`）。
 - **カードパック**：`PACK_COST`(120コイン)で `buyPack()`→`openPackOnce(Math.random())`。中身は**レア度なし＝全アイテム同確率**（`packPool()`＝フレーム＋称号＋ネームカラーの**見た目3種のみ**）。抽選は純粋関数 `rollPack(pool, r)`（0..1）。**★アイコン(アバター)/スキンはガチャに出さない**＝それらは**キャラの熟練度でのみ解禁**（熟練度報酬をガチャで進めさせない＝対戦を常にフェアに）。
 - **初入手 vs 重複**：`alreadyHave(item)`（`ownsCollected`）で判定。初入手→`myProfile.collected[id]` に加算して**解禁**。**重複→そのアイテムのテーマキャラ(`unit`)の熟練度XPに変換**（`addMasteryXp`・`PACK_DUP_XP`=25／重複で熟練度が早く進む助け）。
 - **見た目3種（絵素材不要・CSS/テキスト）**：`FRAMES`（アイコン装飾枠＝box-shadow）／`TITLES`（名前横の称号テキスト）／`NAME_COLORS`（名前の色・グラデ）。各行に `unit`（テーマ表示用）。装備は `myProfile.frame/title/nameColor`＋`equipFrame/equipTitle/equipNameColor`（トグル・所持のみ）。表示は**自分のプロフィールチップ**（`renderProfileChip`＝`avatarHTML(...,frame)`＋`applyNameColor`＋`#profileChipTitle`）とプロフィール編集プレビューに反映（相手の見た目共有はスキン同様に未対応＝自分だけ）。
@@ -237,29 +239,29 @@
 - **保存**：`coins`/`collected`/`frame`/`title`/`nameColor`/`dailyWinKey` を `saveProfileLocal`（端末）＋`buildProfile`/`applyProfile`（クラウド）に統合。マージは coins=大きい方・collected=個数の大きい方（進捗が消えない割り切り）。
 - **UI**：ホームメニュー「🎁 ショップ＆コレクション」＋ホームのコイン表示（クリックでショップ）→ `#shopModal`（`openShop`/`closeShop`/`renderShop`）。
 
-## キャラ解禁（スターター＋💎ジェム・実装済み・`<script>`「13.6) キャラ解禁」）
+## キャラ解禁（スターター＋🍬シュガーコイン・実装済み・`<script>`「13.6) キャラ解禁」）
 
-**方針（①=全モード解禁制を採用）**：スターターを実用的な数にし、ジェムは無料で貯まる（指南クリア＋対戦報酬）ので、初心者でもすぐ4枚デッキを組めて、いつかは全員そろう＝格差を最小化。将来は課金でのジェム購入も想定。テスト：test.js 92。
+**方針（①=全モード解禁制を採用）**：スターターを実用的な数にし、コインは無料で貯まる（指南クリア＋対戦報酬）ので、初心者でもすぐ4枚デッキを組めて、いつかは全員そろう＝格差を最小化。将来は課金でのコイン購入も想定。テスト：test.js 92。
 
 - **スターター**：`STARTER_UNITS`＝`cookie/slime/bomb/choco/shoe`（前衛/タンク×2/自爆/遠距離の5体）は最初から使える。※ソーダは自爆がbombと被るため外し、戦術指南の「沼レッスン」で解禁する。
 - **解禁状態**：`myProfile.units`（解禁済みキャラのkey配列）。`unitUnlocked(key)`＝召喚専用は非対象／スターター／units に入っていれば真。`lockedUnits()`＝まだロックのkey一覧。
-- **💎ジェム**：`myProfile.gems`。`myGems()`。対戦報酬 `battleGemReward(won,first)`＝`GEM_WIN`(10・勝利)＋`GEM_DAILY`(30・その日の初勝利)を `grantBattleReward` で付与（CPU/PVP両方）。
-- **解禁手段**：戦術指南クリア（下記）＋`buyUnit(key)`（💎で直接購入・`unitUnlockCost`=一律300）。`unlockUnit(key)` が units に追加。
-- **編成のゲート**：`toggleDeck` は自分の編成（`rosterMode==='you'`）で未解禁キャラを拒否（トースト）。`renderRoster` はロックキャラに🔒＋💎コストのオーバーレイ（`.rlocked`/`.rlock`）。CPUデッキ編成はゲートしない。
+- **通貨は🍬シュガーコインのみ**（`myProfile.coins`／`myCoins()`）。対戦報酬 `grantBattleReward` は `battleCoinReward`＝`COIN_PLAY`(10)＋`COIN_WIN`(15)＋`COIN_DAILY_WIN`(50・初勝利)を付与。※旧`gems`/`myGems`/`GEM_*`/`battleGemReward`は廃止。
+- **解禁手段**：戦術指南クリア（下記）＋`buyUnit(key)`（🍬で直接購入・`unitUnlockCost`=一律500）。`unlockUnit(key)` が units に追加。
+- **編成のゲート**：`toggleDeck` は自分の編成（`rosterMode==='you'`）で未解禁キャラを拒否（トースト）。`renderRoster` はロックキャラに🔒＋🍬コストのオーバーレイ（`.rlocked`/`.rlock`）。CPUデッキ編成はゲートしない。
 - **既存救済**：`migrateUnlocks()`＝今のデッキに入っている非スターターは解禁済み扱い（起動時＋クラウド復元後に呼ぶ）＝新システムでデッキが壊れない。
-- **保存**：`gems`/`units`/`guideDone` を `saveProfileLocal`＋`buildProfile`/`applyProfile` に統合。マージは gems=大きい方・units/guideDone=和集合。
+- **保存**：`units`/`guideDone` を `saveProfileLocal`＋`buildProfile`/`applyProfile` に統合（和集合マージ）。コインは経済側で保存。
 
 ## PVE 戦術指南（ステージ制レッスン・実装済み・`<script>`「13.7) PVE 戦術指南」）
 
-ユーザー要望の「PVEの戦術指南でカードを入手→その後ガチャ」の前半。各レッスン＝1テーマを実戦で学び、**勝利で仲間（キャラ）解禁＋💎ジェム（初回のみ）**。キャラ（アーク）は自由選択・アーク内のみ順番制。テスト：test.js 93。
+ユーザー要望の「PVEの戦術指南でカードを入手→その後ガチャ」の前半。各レッスン＝1テーマを実戦で学び、**勝利で仲間（キャラ）解禁＋🍬シュガーコイン（初回のみ）**。キャラ（アーク）は自由選択・アーク内のみ順番制。テスト：test.js 93。
 
-- **データ**：`GUIDE_STAGES`（`{id,title,theme,tip,deck,foe,unit?,gems}`）。`deck`＝レッスン用おすすめデッキ（学ぶキャラを含めて体験させる）、`foe`＝相手デッキ、`unit`＝クリア報酬キャラ（**省略可**＝体験型レッスン。gemsのみ）、`gems`＝報酬💎。**アーク方式**：複数レッスンで1キャラを解禁できる（`unit`は最終レッスンだけに付け、途中は`unit`省略で💎のみ＝「近道(`buyUnit`)」の価値を出す）。**現在10レッスン**：非スターターの全キャラ（donut/icewiz/ghost/cannon/bakery/pancake/daifuku/macaron）＋ソーダ（`soda1`体験→`soda2`実戦で解禁）を無料解禁できる＝誰でもPVEを進めれば全員そろう（対人も公平）。💎は「レッスンを待たずに先に解禁する近道」として任意利用。test.js 93 が「全非スターターキャラがレッスンで解禁できる」ことを保証（新キャラを足したらレッスンも追加する）。
+- **データ**：`GUIDE_STAGES`（`{id,title,theme,tip,deck,foe,unit?,coins}`）。`deck`＝レッスン用おすすめデッキ（学ぶキャラを含めて体験させる）、`foe`＝相手デッキ、`unit`＝クリア報酬キャラ（**省略可**＝体験型レッスン。コインのみ）、`coins`＝報酬🍬。**アーク方式**：複数レッスンで1キャラを解禁できる（`unit`は最終レッスンだけに付け、途中は`unit`省略でコインのみ＝「近道(`buyUnit`)」の価値を出す）。**現在10レッスン**：非スターターの全キャラ（donut/icewiz/ghost/cannon/bakery/pancake/daifuku/macaron）＋ソーダ（`soda1`体験→`soda2`実戦で解禁）を無料解禁できる＝誰でもPVEを進めれば全員そろう（対人も公平）。🍬は「レッスンを待たずに先に解禁する近道」として任意利用。test.js 93 が「全非スターターキャラがレッスンで解禁できる」ことを保証（新キャラを足したらレッスンも追加する）。
 - **アークごとに自由選択＋アーク内は順番制**：`stageArc(s)`＝`arc`明示→`unit`→`id` でアーク（キャラ）を判定。`guideStageUnlocked(id)`＝各アークの先頭レッスンは常に挑戦可（好きなキャラから選べる）、アーク内のレッスン2以降は同アークの前レッスンを `guideCleared` していれば解禁。単発アーク（1レッスン）は常に選べる。
 - **メニューは2階層**（`guideView` = `arcs`/`arc`）：`openGuide`→`renderGuide` が**キャラ一覧**（`guideArcs()`＝アーク単位・進捗 `cleared/total`）を表示→キャラを選ぶと `openGuideArc(a)` で**そのキャラのレッスンを縦に並べて**表示（`arcStages(a)`／上から順番）。`arcUnit(a)`＝アーク代表キャラ。`guideBackToArcs()` で戻る。
 - **フロー**：レッスンタップ→`startGuideStage`（`#guideTipModal` でヒント）→**デッキ編成**`guideOpenDeckBuilder`（`rosterMode='guide'`＝学ぶキャラ `forceUnit`（`stage.forceUnit`→`unit`）を先頭に**強制**・外せない／残りは**解禁済みキャラ**から選ぶ／`stage.deck` の解禁済みをプレフィル／`rosterSub` に**相手のデッキ**をアイコン表示＝対策を組める）→「レッスン開始」`beginGuideStageBattle`＝`myDeck`をその編成にして `startGame`。**本デッキは `_guideDeckBackup` に退避**（保存しない＝本デッキ不変）。`guideCancelDeck`/`goHome` で復元。
 - **レッスン1系の易化フラグ（任意・per-stage）**：`easyFoe:true`＝そのレッスンはCPUが強化/X2を取らない（`guideEasyFoe()` が `foeMatchEnhance` を無効化）。`winRounds:N`＝相手から N ライフ取った時点でクリア（`endBattle`／`endGame` で判定。例：soda1 は `easyFoe`+`winRounds:1`）。
-- **決着**：`endGame` の `guideMode` 分岐→`guideWon`（`winRounds`指定は「規定ライフ取ればクリア」／通常は `foeLives<=0`）→`guideFinish(guideWon)`。**報酬は初回クリアのみ**＝`guideFinish` が初回だけ `guideDone` 記録＋`unlockUnit`（`unit`があれば）＋stage💎付与、さらに `endGame` が初回のみ `grantBattleReward`（コイン/ジェム）を付与（再挑戦・敗北は無報酬）。over画面は `#overGuideBtns`＝（同アークに次があれば）**▶次のレッスンへ**（`guideNextLesson`/`guideGoNext`＝次レッスンの編成へ直行）/🎓指南へ戻る/🏠ホームへ。
-- **入口**：ホームメニュー「🎓 戦術指南」＋ホームの💎表示クリック。
+- **決着**：`endGame` の `guideMode` 分岐→`guideWon`（`winRounds`指定は「規定ライフ取ればクリア」／通常は `foeLives<=0`）→`guideFinish(guideWon)`。**報酬は初回クリアのみ**＝`guideFinish` が初回だけ `guideDone` 記録＋`unlockUnit`（`unit`があれば）＋stage💎付与、さらに `endGame` が初回のみ `grantBattleReward`（🍬シュガーコイン）を付与（再挑戦・敗北は無報酬）。over画面は `#overGuideBtns`＝（同アークに次があれば）**▶次のレッスンへ**（`guideNextLesson`/`guideGoNext`＝次レッスンの編成へ直行）/🎓指南へ戻る/🏠ホームへ。
+- **入口**：ホームメニュー「🎓 戦術指南」。
 
 ## オンライン人数（presence・実装済み）
 
@@ -290,7 +292,7 @@
 
 ## 次の候補タスク（未着手・要相談）
 
-- **経済Phase 3（ジェムショップ）**：全キャラはレッスンで無料解禁できるので、💎の用途は「**近道**」。UI（`buyUnit` を呼ぶ「先に解禁」ボタン＝まだ到達していないレッスンのキャラを💎で先取り／または💎ガチャで見た目やランダム先取り）を足すだけ。要相談：ガチャの中身をキャラ先取りにするか見た目にするか。
+- **経済Phase 3（コインショップ）**：全キャラはレッスンで無料解禁できるので、🍬の用途は「**近道**」。UI（`buyUnit` を呼ぶ「先に解禁」ボタン＝まだ到達していないレッスンのキャラを🍬で先取り）を足すだけ。
 - 戦術指南のレッスン追加・数値/順番の調整（`GUIDE_STAGES`）。
 - PVP **F2**（Firebase+WebRTCで実接続）→ **F3**（自動マッチング）。
 - 各キャラの固有強化（X2以外の派手な効果）の追加。

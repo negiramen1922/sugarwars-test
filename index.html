@@ -343,8 +343,7 @@
       <p class="big home-title">Sugar <span class="clash">Wars</span></p>
       <div id="homeTrophies" style="font-size:18px;font-weight:700;color:var(--brass);margin:2px 0 2px;cursor:pointer" onclick="openRanking()" title="ランキングを見る">🏆 1000</div>
       <div style="display:flex;gap:14px;justify-content:center;margin:0 0 2px">
-        <span id="homeCoins" style="font-size:14px;font-weight:700;color:var(--accent2);cursor:pointer" onclick="openShop()" title="ショップを開く">🍬 0</span>
-        <span id="homeGems" style="font-size:14px;font-weight:700;color:var(--steel);cursor:pointer" onclick="openGuide()" title="戦術指南でキャラを解禁">💎 0</span>
+        <span id="homeCoins" style="font-size:14px;font-weight:700;color:var(--accent2);cursor:pointer" onclick="openShop()" title="ショップを開く">🍬 0 シュガーコイン</span>
       </div>
       <div id="homeOnline" style="font-size:12px;color:var(--green);margin:0 0 6px">🟢 オンライン –人・対戦中 –人</div>
       <p>お菓子の兵士を集めて軍を編成し、リアルタイム自動戦闘で王国の覇権を争うカードドラフト＆オートバトラー。</p>
@@ -371,7 +370,7 @@
         </button>
         <button class="menu-btn" onclick="openShop()">
           <span class="mb-ico">🎁</span>
-          <span class="mb-txt"><b>ショップ＆コレクション</b><small>コインでパックを開けて見た目を集める</small></span>
+          <span class="mb-txt"><b>ショップ＆コレクション</b><small>シュガーコインでパックを開けて見た目を集める</small></span>
           <span class="mb-arrow">›</span>
         </button>
       </div>
@@ -380,8 +379,8 @@
     <!-- PVE 戦術指南（ステージ制レッスン） -->
     <section id="guide" class="center hidden">
       <p class="big" style="font-size:clamp(22px,5vw,34px)">🎓 戦術指南</p>
-      <p class="stage-sub" id="guideSub">好きなキャラから挑戦OK！ クリアで仲間（キャラ）と💎ジェムがもらえます。全キャラここで解禁できます（💎で先に解禁も可）。</p>
-      <div id="guideGems" style="font-size:14px;font-weight:700;color:var(--steel);margin:2px 0 8px">💎 0</div>
+      <p class="stage-sub" id="guideSub">好きなキャラから挑戦OK！ クリアで仲間（キャラ）と🍬シュガーコインがもらえます。全キャラここで解禁できます（🍬で先に解禁も可）。</p>
+      <div id="guideGems" style="font-size:14px;font-weight:700;color:var(--accent2);margin:2px 0 8px">🍬 0 シュガーコイン</div>
       <button class="btn btn-ghost" onclick="goHome()" style="margin-bottom:8px">← ホームへ戻る</button>
       <div id="guideList" style="max-width:420px;margin:8px auto;text-align:left"></div>
     </section>
@@ -699,7 +698,7 @@
   <div id="shopModal" class="modal-overlay hidden" onclick="closeShop(event)">
     <div class="modal-card" onclick="event.stopPropagation()">
       <h3>🎁 ショップ＆コレクション</h3>
-      <div style="text-align:center;font-size:16px;margin:2px 0 8px" id="shopCoins">🍬 <b>0</b> コイン</div>
+      <div style="text-align:center;font-size:16px;margin:2px 0 8px" id="shopCoins">🍬 <b>0</b> シュガーコイン</div>
       <div style="text-align:center;margin-bottom:6px">
         <button class="btn btn-primary" id="buyPackBtn" onclick="buyPack()">パックを開ける（🍬<span id="packCostLabel">120</span>）</button>
       </div>
@@ -1280,7 +1279,7 @@ function toggleDeck(key){
   if(rosterMode==='guide' && key===guideForceUnit){ toast('このレッスンで学ぶキャラなので外せません'); return; }   // 強制ユニットはトグル不可
   if((rosterMode==='you'||rosterMode==='guide') && !unitUnlocked(key) && !(rosterMode==='guide'&&key===guideForceUnit)){
     const u=UNIT_BY_KEY[key];
-    toast('🔒 '+((u&&u.name)||'このキャラ')+'はまだ仲間になっていません。戦術指南のクリアや💎ジェムで解禁できます。');
+    toast('🔒 '+((u&&u.name)||'このキャラ')+'はまだ仲間になっていません。戦術指南のクリアや🍬シュガーコインで解禁できます。');
     return;
   }
   const deck=activeDeck();
@@ -1333,7 +1332,7 @@ function renderRoster(){
     const order = deck.indexOf(u.key);
     const locked = !cpu && !unitUnlocked(u.key) && !(guide && u.key===guideForceUnit);   // 自分/レッスンの編成でロック表示（CPUは全可・レッスンの学ぶキャラは例外）
     const el=document.createElement('div'); el.className='card rcard'+(order>=0?' picked':'')+(locked?' rlocked':'');
-    const lockOverlay = locked ? `<div class="rlock">🔒<span class="rlock-cost">💎${unitUnlockCost(u.key)}</span></div>` : '';
+    const lockOverlay = locked ? `<div class="rlock">🔒<span class="rlock-cost">🍬${unitUnlockCost(u.key)}</span></div>` : '';
     el.innerHTML=`${order>=0?`<div class="picknum">${order+1}</div>`:''}${u.beta?`<div class="beta-badge" title="ベータ実装・バランス調整中">β</div>`:''}
       <div class="icon">${iconHTML(u, cpu?'e':'p')}${u.count>1?`<span class="count">×${u.count}</span>`:''}</div>
       <div class="cname">${u.name}</div>
@@ -3472,15 +3471,15 @@ function endGame(){
     const clearedId=guideStageId, st=GUIDE_BY_ID[clearedId];
     const guideWon = (st && st.winRounds) ? ((CONFIG.startLives - state.foeLives) >= st.winRounds) : (state.foeLives<=0);   // winRounds指定は「規定ライフ取ればクリア」
     const wasCleared = guideCleared(clearedId);
-    const gLine=guideFinish(guideWon);   // 初回クリアのみ stage.gems＋キャラ解禁（guideStageIdはここでnullになる）
+    const gLine=guideFinish(guideWon);   // 初回クリアのみ stage.coins＋キャラ解禁（guideStageIdはここでnullになる）
     let cl='';
-    if(guideWon && !wasCleared){ const rw=grantBattleReward(true); cl='　🍬 +'+rw.gain+(rw.gems?'　💎 +'+rw.gems:''); }   // 通常報酬（コイン/ジェム）も初回クリアのみ
+    if(guideWon && !wasCleared){ const rw=grantBattleReward(true); cl='　🍬 +'+rw.gain; }   // 通常報酬（シュガーコイン）も初回クリアのみ
     $('overTitle').textContent=guideWon?'クリア！':'もう一歩…'; $('overTitle').style.color=guideWon?'var(--green)':'var(--rust)';
     $('overText').textContent=(gLine||'')+cl;
     guideNextId = guideWon ? guideNextLesson(clearedId) : null;   // 同アークの次レッスンがあれば「次のレッスンへ」を出す
     const nextBtn=$('overGuideNext'); if(nextBtn) nextBtn.classList.toggle('hidden', !guideNextId);
     $('overDefaultBtns').classList.add('hidden'); $('overRematch').classList.add('hidden'); $('overGuideBtns').classList.remove('hidden');
-    renderHomeCoins(); renderHomeGems();
+    renderHomeCoins();
     show('over'); return;
   }
   if(wasPvp) awardMasteryXp(won);   // 熟練度XPはPVPのみ（CPU戦は除外）・勝ち多め/負け少なめ
@@ -3489,7 +3488,7 @@ function endGame(){
   $('overTitle').textContent=won?'勝利！':'敗北…';
   $('overTitle').style.color=won?'var(--green)':'var(--rust)';
   const base=won?`${state.round} ラウンドで決着。${state.youArmy.length} 体の軍を率いて勝利しました。`:`${state.round} ラウンドで力尽きました。デッキの相性を見直してみましょう。`;
-  const rw=grantBattleReward(won); const coinLine='🍬 +'+rw.gain+(rw.gems?'　💎 +'+rw.gems:'')+(rw.first?'（デイリー初勝利ボーナス込み！）':''); renderHomeCoins(); renderHomeGems();   // 対戦報酬（CPU/PVP共通・チュートリアル除外）
+  const rw=grantBattleReward(won); const coinLine='🍬 +'+rw.gain+(rw.first?'（デイリー初勝利ボーナス込み！）':''); renderHomeCoins();   // 対戦報酬（CPU/PVP共通・チュートリアル除外）
   $('overText').textContent = base + (trophyLine?('　'+trophyLine):'') + '　'+coinLine;
   pvpSetupOverButtons(privateRoom);
   show('over');
@@ -3807,7 +3806,7 @@ function genRoomCode(){ const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; fo
    ============================================================ */
 let authUser=null;            // ログイン中のユーザー（未ログインはnull）
 let _cloudSaveT=0;            // クラウド保存のデバウンス用タイマ
-let myProfile={ name:'', avatar:'', trophies:1000, best:1000, wins:0, losses:0, mastery:{}, usage:{}, skins:{}, coins:0, collected:{}, frame:'', title:'', nameColor:'', dailyWinKey:'', gems:0, units:[], guideDone:[] };   // 名前＋アイコン＋トロフィー(=レート)＋最高トロフィー＋戦績＋熟練度(key→XP)＋使用回数(key→回)＋装備スキン(unit→skinId)＋通貨(coins)＋所持コレクション(collected: id→個数)＋装備中フレーム/称号/ネームカラー＋デイリー初勝利の付与日(dailyWinKey)＋💎ジェム(gems)＋解禁済みキャラ(units)＋クリア済みPVEレッスン(guideDone)
+let myProfile={ name:'', avatar:'', trophies:1000, best:1000, wins:0, losses:0, mastery:{}, usage:{}, skins:{}, coins:0, collected:{}, frame:'', title:'', nameColor:'', dailyWinKey:'', units:[], guideDone:[] };   // 名前＋アイコン＋トロフィー(=レート)＋最高＋戦績＋熟練度(key→XP)＋使用回数＋装備スキン＋通貨シュガーコイン(coins)＋所持コレクション(collected)＋装備中フレーム/称号/ネームカラー＋デイリー初勝利日(dailyWinKey)＋解禁済みキャラ(units)＋クリア済みレッスン(guideDone)
 /* 熟練度（キャラ経験値）で解禁する特別アバターアイコン。XPは【PVP対戦のみ】、勝ち=多め/負け=少なめで加算。
    ★重要：解禁は見た目（アイコン/スキン）だけにする。強化カード等ゲーム性能は熟練度で解禁しない＝対戦は常にフェア。 */
 const MASTERY_WIN_XP = 10;      // PVPで勝ったとき、デッキ各キャラに入る熟練度XP
@@ -3852,7 +3851,7 @@ function avatarUnlocked(id){ const s=SPECIAL_AVATAR_BY_ID[id]; if(!s) return tru
 function skinUnlocked(id){ const s=SPECIAL_SKIN_BY_ID[id]; return !!s && (masteryLevel(s.unit) >= s.lvl || ownsCollected(id)); }   // 熟練度Lv 或いは カードパックで入手済み
 
 /* ============================================================
-   13.5) 経済（通貨キャンディコイン＋カードパック＋見た目コレクション）
+   13.5) 経済（通貨🍬シュガーコイン＋カードパック＋見た目コレクション）
    ★最優先の原則：経済は「見た目」だけに効かせる。ユニット性能・強化カードは一切解禁しない＝対戦は常にフェア。
      - 通貨は課金ではなく【対戦報酬＋デイリー初勝利】で配る（子ども向けに安全）。CPU戦でも貯まる（人が少なくても進む）。
      - パックの中身：フレーム／称号／ネームカラー（絵素材不要のCSS装飾）だけ。レア度なし＝全部同確率。
@@ -3957,40 +3956,33 @@ function equipNameColor(id){ if(id && !ownsCollected(id)) return; myProfile.name
 // 通貨まわり
 function myCoins(){ return (myProfile && typeof myProfile.coins==='number')?myProfile.coins:0; }
 function todayKey(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
-// 対戦報酬のコイン計算（純粋関数・テスト対象）
+// 対戦報酬のシュガーコイン計算（純粋関数・テスト対象）
 function battleCoinReward(won, firstWinToday){ return COIN_PLAY + (won?COIN_WIN:0) + ((won&&firstWinToday)?COIN_DAILY_WIN:0); }
-// 対戦報酬の💎ジェム計算（純粋関数・テスト対象）。勝利＋その日の初勝利ボーナス。
-function battleGemReward(won, firstWinToday){ return (won?GEM_WIN:0) + ((won&&firstWinToday)?GEM_DAILY:0); }
-// 対戦決着時にコイン＋ジェムを付与（勝敗＋デイリー初勝利を反映）。CPU/PVP両方で呼ぶ（チュートリアルは除外）。結果 {gain,gems,first,won} を返す。
+// 対戦決着時にシュガーコインを付与（勝敗＋デイリー初勝利を反映）。CPU/PVP両方で呼ぶ（チュートリアルは除外）。結果 {gain,first,won} を返す。
 function grantBattleReward(won){
   const first = !!won && myProfile.dailyWinKey!==todayKey();
   const gain = battleCoinReward(!!won, first);
-  const gems = battleGemReward(!!won, first);
   myProfile.coins = myCoins()+gain;
-  myProfile.gems = myGems()+gems;
   if(first) myProfile.dailyWinKey=todayKey();
   saveProfileLocal(); scheduleCloudSave();
-  return { gain, gems, first, won:!!won };
+  return { gain, first, won:!!won };
 }
 
 /* ============================================================
-   13.6) キャラ解禁（スターター＋💎ジェムで解禁）＋ 💎ジェム通貨
-   ★方針（①=全モード解禁制）：スターターを実用的な数にし、ジェムは無料で貯まる（指南クリア＋対戦報酬）ので、
-     初心者でもすぐ4枚デッキが組めて、いつかは全員そろう＝格差を最小化する。将来は課金でのジェム購入も想定。
+   13.6) キャラ解禁（スターター＋🍬シュガーコインで解禁）
+   ★方針（①=全モード解禁制）：スターターを実用的な数にし、コインは無料で貯まる（指南クリア＋対戦報酬）ので、
+     初心者でもすぐ4枚デッキが組めて、いつかは全員そろう＝格差を最小化する。将来は課金でのコイン購入も想定。
    ============================================================ */
 const STARTER_UNITS = ['cookie','slime','bomb','choco','shoe'];   // 最初から使える実用的なスターター5体（前衛/タンク×2/自爆/遠距離）。ソーダは戦術指南（沼レッスン）で解禁
-const GEM_WIN = 10;     // 対戦に勝つともらえる💎
-const GEM_DAILY = 30;   // その日の初勝利ボーナス💎
-function unitUnlockCost(key){ return 300; }   // キャラ解禁に必要な💎（今は一律・後で調整可）
-function myGems(){ return (myProfile && typeof myProfile.gems==='number')?myProfile.gems:0; }
+function unitUnlockCost(key){ return 500; }   // キャラ解禁に必要なシュガーコイン（今は一律・後で調整可）
 // キャラが解禁済みか（召喚専用は非対象＝デッキに入らない／スターター／解禁リスト）
 function unitUnlocked(key){ const u=UNIT_BY_KEY[key]; if(!u||u.summonOnly) return false; if(STARTER_UNITS.indexOf(key)>=0) return true; return !!(myProfile.units && myProfile.units.indexOf(key)>=0); }
 // まだロックされている（デッキに入れられる）ユニットのkey一覧
 function lockedUnits(){ return UNITS.filter(u=>!u.summonOnly && !unitUnlocked(u.key)).map(u=>u.key); }
 // キャラを解禁（重複は無視）。解禁したらtrueを返す。
 function unlockUnit(key){ const u=UNIT_BY_KEY[key]; if(!u||u.summonOnly) return false; if(unitUnlocked(key)) return false; if(!Array.isArray(myProfile.units)) myProfile.units=[]; myProfile.units.push(key); saveProfileLocal(); scheduleCloudSave(); return true; }
-// 💎ジェムでキャラを購入解禁。成功でtrue（未解禁かつ残高が足りるとき）。
-function buyUnit(key){ if(unitUnlocked(key)) return false; const cost=unitUnlockCost(key); if(myGems()<cost) return false; myProfile.gems=myGems()-cost; unlockUnit(key); saveProfileLocal(); scheduleCloudSave(); return true; }
+// 🍬シュガーコインでキャラを購入解禁。成功でtrue（未解禁かつ残高が足りるとき）。
+function buyUnit(key){ if(unitUnlocked(key)) return false; const cost=unitUnlockCost(key); if(myCoins()<cost) return false; myProfile.coins=myCoins()-cost; unlockUnit(key); saveProfileLocal(); scheduleCloudSave(); return true; }
 // 既存プレイヤー救済：今のデッキに入っているキャラは解禁済み扱いにする（新解禁システムでデッキが壊れないように）。
 function migrateUnlocks(){ if(!Array.isArray(myProfile.units)) myProfile.units=[]; (myDeck||[]).forEach(function(k){ if(UNIT_BY_KEY[k] && !UNIT_BY_KEY[k].summonOnly && STARTER_UNITS.indexOf(k)<0 && myProfile.units.indexOf(k)<0) myProfile.units.push(k); }); }
 // 指定ユニットに「装備中かつ解禁済み」のスキンの立ち絵接頭辞(base)を返す。無ければ null。
@@ -4055,13 +4047,13 @@ function displayProfile(){ return { name: (myProfile.name||'').trim() || default
 // --- デッキ／プロフィールのローカル保存（ログイン有無に関わらず端末に残す） ---
 function saveDeckLocal(){ try{ localStorage.setItem('sw_deck', JSON.stringify(myDeck)); }catch(e){} }
 function loadDeckLocal(){ try{ const s=localStorage.getItem('sw_deck'); if(s){ const a=JSON.parse(s); if(Array.isArray(a)) applyProfile({deck:a}); } }catch(e){} }
-function saveProfileLocal(){ try{ localStorage.setItem('sw_profile', JSON.stringify({name:myProfile.name,avatar:myProfile.avatar,mastery:myProfile.mastery||{},coins:myProfile.coins||0,collected:myProfile.collected||{},frame:myProfile.frame||'',title:myProfile.title||'',nameColor:myProfile.nameColor||'',dailyWinKey:myProfile.dailyWinKey||'',gems:myProfile.gems||0,units:myProfile.units||[],guideDone:myProfile.guideDone||[]})); }catch(e){} }
-function loadProfileLocal(){ try{ const s=localStorage.getItem('sw_profile'); if(s){ const o=JSON.parse(s); applyProfile({name:o.name,avatar:o.avatar,mastery:o.mastery,coins:o.coins,collected:o.collected,frame:o.frame,title:o.title,nameColor:o.nameColor,dailyWinKey:o.dailyWinKey,gems:o.gems,units:o.units,guideDone:o.guideDone}); } }catch(e){} }
+function saveProfileLocal(){ try{ localStorage.setItem('sw_profile', JSON.stringify({name:myProfile.name,avatar:myProfile.avatar,mastery:myProfile.mastery||{},coins:myProfile.coins||0,collected:myProfile.collected||{},frame:myProfile.frame||'',title:myProfile.title||'',nameColor:myProfile.nameColor||'',dailyWinKey:myProfile.dailyWinKey||'',units:myProfile.units||[],guideDone:myProfile.guideDone||[]})); }catch(e){} }
+function loadProfileLocal(){ try{ const s=localStorage.getItem('sw_profile'); if(s){ const o=JSON.parse(s); applyProfile({name:o.name,avatar:o.avatar,mastery:o.mastery,coins:o.coins,collected:o.collected,frame:o.frame,title:o.title,nameColor:o.nameColor,dailyWinKey:o.dailyWinKey,units:o.units,guideDone:o.guideDone}); } }catch(e){} }
 // 編成変更時に呼ぶ：ローカル保存＋（ログイン中なら）クラウドへデバウンス保存
 function persistDeck(){ saveDeckLocal(); scheduleCloudSave(); }
 
 // --- 保存プロフィールの整形（純粋関数・テスト対象） ---
-function buildProfile(){ return { deck: myDeck.slice(0, CONFIG.deckSize), name: myProfile.name||'', avatar: myProfile.avatar||'', trophies: myTrophies(), best: Math.max(myProfile.best||0, myTrophies()), wins: myProfile.wins||0, losses: myProfile.losses||0, mastery: myProfile.mastery||{}, usage: myProfile.usage||{}, skins: myProfile.skins||{}, coins: myCoins(), collected: myProfile.collected||{}, frame: myProfile.frame||'', title: myProfile.title||'', nameColor: myProfile.nameColor||'', dailyWinKey: myProfile.dailyWinKey||'', gems: myGems(), units: myProfile.units||[], guideDone: myProfile.guideDone||[], tutorialDone: tutSeen(), updatedAt: Date.now() }; }
+function buildProfile(){ return { deck: myDeck.slice(0, CONFIG.deckSize), name: myProfile.name||'', avatar: myProfile.avatar||'', trophies: myTrophies(), best: Math.max(myProfile.best||0, myTrophies()), wins: myProfile.wins||0, losses: myProfile.losses||0, mastery: myProfile.mastery||{}, usage: myProfile.usage||{}, skins: myProfile.skins||{}, coins: myCoins(), collected: myProfile.collected||{}, frame: myProfile.frame||'', title: myProfile.title||'', nameColor: myProfile.nameColor||'', dailyWinKey: myProfile.dailyWinKey||'', units: myProfile.units||[], guideDone: myProfile.guideDone||[], tutorialDone: tutSeen(), updatedAt: Date.now() }; }
 // クラウド/ローカルから読んだプロフィールをゲーム状態へ反映（不正キーは除外）
 function applyProfile(p){
   if(!p) return;
@@ -4082,7 +4074,6 @@ function applyProfile(p){
   if(typeof p.title==='string') myProfile.title = p.title;         // 装備称号
   if(typeof p.nameColor==='string') myProfile.nameColor = p.nameColor;   // 装備ネームカラー
   if(typeof p.dailyWinKey==='string' && p.dailyWinKey) myProfile.dailyWinKey = p.dailyWinKey;   // デイリー初勝利の付与日
-  if(typeof p.gems==='number' && isFinite(p.gems)) myProfile.gems = Math.max(myProfile.gems||0, Math.max(0,Math.round(p.gems)));   // 💎は大きい方（端末とクラウドのマージ）
   if(Array.isArray(p.units)){ if(!Array.isArray(myProfile.units)) myProfile.units=[]; p.units.forEach(function(k){ if(UNIT_BY_KEY[k] && !UNIT_BY_KEY[k].summonOnly && STARTER_UNITS.indexOf(k)<0 && myProfile.units.indexOf(k)<0) myProfile.units.push(k); }); }   // 解禁済みキャラは和集合（進捗が消えない）
   if(Array.isArray(p.guideDone)){ if(!Array.isArray(myProfile.guideDone)) myProfile.guideDone=[]; p.guideDone.forEach(function(id){ if(typeof id==='string' && myProfile.guideDone.indexOf(id)<0) myProfile.guideDone.push(id); }); }   // クリア済みレッスンは和集合
   if(typeof p.wins==='number') myProfile.wins = Math.max(0, Math.round(p.wins));
@@ -4257,14 +4248,13 @@ function leaderboardSubmit(){
 }
 // ホームのトロフィー表示を更新
 function renderHomeTrophies(){ const el=$('homeTrophies'); if(el) el.textContent='🏆 '+myTrophies(); }
-function renderHomeCoins(){ const el=$('homeCoins'); if(el) el.textContent='🍬 '+myCoins(); }
-function renderHomeGems(){ const el=$('homeGems'); if(el) el.textContent='💎 '+myGems(); }
+function renderHomeCoins(){ const el=$('homeCoins'); if(el) el.textContent='🍬 '+myCoins()+' シュガーコイン'; }
 
 /* ===== ショップ＆コレクション（見た目だけ・対戦バランス不変） ===== */
 function openShop(){ try{ SFX.play('button'); }catch(e){} const mm=$('menuModal'); if(mm) mm.classList.add('hidden'); renderShop(); const m=$('shopModal'); if(m) m.classList.remove('hidden'); }
 function closeShop(e){ if(e && e.target!==e.currentTarget) return; const m=$('shopModal'); if(m) m.classList.add('hidden'); }
 function renderShop(){ const cl=$('packCostLabel'); if(cl) cl.textContent=PACK_COST; renderShopCoins(); const pr=$('packResult'); if(pr) pr.innerHTML=''; renderCollection(); }
-function renderShopCoins(){ const el=$('shopCoins'); if(el) el.innerHTML='🍬 <b>'+myCoins()+'</b> コイン'; const btn=$('buyPackBtn'); if(btn){ btn.disabled=myCoins()<PACK_COST; btn.style.opacity=btn.disabled?'.5':'1'; } renderHomeCoins(); }
+function renderShopCoins(){ const el=$('shopCoins'); if(el) el.innerHTML='🍬 <b>'+myCoins()+'</b> シュガーコイン'; const btn=$('buyPackBtn'); if(btn){ btn.disabled=myCoins()<PACK_COST; btn.style.opacity=btn.disabled?'.5':'1'; } renderHomeCoins(); }
 // アイテムの小さな見た目プレビュー（コレクション/開封結果用）。
 function packItemVisual(it, size){ size=size||40;
   if(it.type==='ava')  return avatarHTML(it.id, size);
@@ -4314,40 +4304,40 @@ function renderCollection(){
 
 /* ============================================================
    13.7) PVE 戦術指南（ステージ制レッスン）
-   各レッスン＝1テーマを実戦で学ぶ→勝利で仲間（キャラ）解禁＋💎ジェム（初回のみ）。順番にクリアして進む。
+   各レッスン＝1テーマを実戦で学ぶ→勝利で仲間（キャラ）解禁＋🍬シュガーコイン（初回のみ）。順番にクリアして進む。
    deck＝そのレッスン用のおすすめデッキ（学ぶ相手キャラを含めて体験させる）／foe＝相手のデッキ。
    数値・順番は GUIDE_STAGES を編集すれば調整できる。
    ============================================================ */
 const GUIDE_STAGES = [
-  { id:'front',  title:'前線で受け止める', theme:'タンク / 前衛', unit:'donut',  gems:80,
+  { id:'front',  title:'前線で受け止める', theme:'タンク / 前衛', unit:'donut',  coins:80,
     tip:'硬い前衛が前で受けると、後ろの弓兵や自爆が生き残って火力を出せる。バキュームドーナッツは敵を吸い寄せて足止めする鈍足タンク。前に置いて壁にしよう。',
     deck:['donut','shoe','bomb','cookie'], foe:['cookie','soda','bomb'] },
-  { id:'soda1',  title:'沼で群れを溶かす①', theme:'デバフ / 沼（体験）', arc:'soda', gems:40,
+  { id:'soda1',  title:'沼で群れを溶かす①', theme:'デバフ / 沼（体験）', arc:'soda', coins:40,
     easyFoe:true, winRounds:1, forceUnit:'soda',
     tip:'相手は大量のクッキー。こちらは弓兵（シュークリーム）とランニングソーダ。ソーダを選んで敵の足元に沼を作ろう！沼を踏んだ群れは鈍化＋持続ダメージでまとめて溶ける。まずは相手から1ライフ取ればクリア！',
     deck:['soda','shoe'], foe:['cookie'] },
-  { id:'soda2',  title:'沼で群れを溶かす②', theme:'デバフ / 沼（実戦）', unit:'soda', arc:'soda', gems:80,
+  { id:'soda2',  title:'沼で群れを溶かす②', theme:'デバフ / 沼（実戦）', unit:'soda', arc:'soda', coins:80,
     tip:'今度はソーダ入りデッキで実戦。相手はクッキーとゼリーの群れ。ソーダの沼で足を止めて、弓兵で削り切ろう！勝てばランニングソーダが仲間になる。',
     deck:['soda','shoe','choco','cookie'], foe:['cookie','slime'] },
-  { id:'ranged', title:'遠くから削る',     theme:'遠距離', unit:'icewiz', gems:80,
+  { id:'ranged', title:'遠くから削る',     theme:'遠距離', unit:'icewiz', coins:80,
     tip:'遠距離ユニットは近づかれる前に相手を削れる。アイスクリームウィザードは氷弾で当てた敵を鈍足にして、味方が押し勝ちやすくなる。前衛の後ろに置こう。',
     deck:['icewiz','shoe','choco','cookie'], foe:['cookie','slime','soda'] },
-  { id:'warp',   title:'後衛を直接たたく', theme:'ワープ / 裏取り', unit:'ghost', gems:80,
+  { id:'warp',   title:'後衛を直接たたく', theme:'ワープ / 裏取り', unit:'ghost', coins:80,
     tip:'わたあめゴーストは開幕に敵の後ろへワープして、弓兵や魔導士を直接たたく。正面のタンクを無視して「痛い所」を突けるのが強み。',
     deck:['ghost','choco','shoe','cookie'], foe:['choco','shoe','icewiz'] },
-  { id:'aoe',    title:'群れを一掃する',   theme:'範囲攻撃', unit:'cannon', gems:80,
+  { id:'aoe',    title:'群れを一掃する',   theme:'範囲攻撃', unit:'cannon', coins:80,
     tip:'数で押す群れには範囲攻撃。キャンディキャノンは動かない代わりに全域へ爆撃して、固まった敵をまとめて溶かす。前衛で守ってあげよう。',
     deck:['cannon','choco','shoe','cookie'], foe:['cookie','slime','bomb'] },
-  { id:'produce',title:'数で押し返す',     theme:'生産', unit:'bakery', gems:80,
+  { id:'produce',title:'数で押し返す',     theme:'生産', unit:'bakery', coins:80,
     tip:'ジンジャーベーカリーは戦場で兵士を作り続ける生産工場。時間が経つほど数で有利になる。前衛で守りながら軍をふくらませよう。',
     deck:['bakery','choco','shoe','bomb'], foe:['choco','shoe','slime'] },
-  { id:'evolve', title:'進化で大逆転',     theme:'進化 / 長期戦', unit:'pancake', gems:80,
+  { id:'evolve', title:'進化で大逆転',     theme:'進化 / 長期戦', unit:'pancake', coins:80,
     tip:'パンケーキキングは約10秒で巨大進化し、着地の衝撃波で周囲をなぎ払う。序盤を耐えれば大逆転できる。硬い前衛で時間を稼ごう。',
     deck:['pancake','choco','shoe','cookie'], foe:['choco','donut','shoe'] },
-  { id:'charge',  title:'一点突破のエース', theme:'突撃 / 近接', unit:'daifuku', gems:80,
+  { id:'charge',  title:'一点突破のエース', theme:'突撃 / 近接', unit:'daifuku', coins:80,
     tip:'大福サムライは居合チャージから抜刀タックルで敵を薙ぎ払う近接エース。前衛の後ろに置いて、敵の塊へ飛び込ませると一気に刺さる。',
     deck:['daifuku','choco','shoe','cookie'], foe:['choco','shoe','slime'] },
-  { id:'shell',   title:'開幕で場を荒らす', theme:'かく乱 / 殻スピン', unit:'macaron', gems:80,
+  { id:'shell',   title:'開幕で場を荒らす', theme:'かく乱 / 殻スピン', unit:'macaron', coins:80,
     tip:'シェルマカロンは開幕、殻に閉じこもって壁で反射しながら暴れ回る（そのあいだ被ダメも激減）。相手の陣形を序盤から崩すのが得意。前衛と組ませよう。',
     deck:['macaron','choco','shoe','cookie'], foe:['cookie','slime','bomb'] },
 ];
@@ -4382,7 +4372,7 @@ function openGuide(){ try{ SFX.play('button'); }catch(e){} const mm=$('menuModal
 function openGuideArc(a){ try{ SFX.play('button'); }catch(e){} guideView='arc'; guideCurArc=a; renderGuide(); }
 function guideBackToArcs(){ try{ SFX.play('button'); }catch(e){} guideView='arcs'; guideCurArc=null; renderGuide(); }
 function renderGuide(){
-  const g=$('guideGems'); if(g) g.textContent='💎 '+myGems();
+  const g=$('guideGems'); if(g) g.textContent='🍬 '+myCoins()+' シュガーコイン';
   const sub=$('guideSub'); const box=$('guideList'); if(!box) return;
   if(guideView==='arc' && guideCurArc){
     // --- 選んだキャラのレッスンを縦に並べる（上から順にクリア）---
@@ -4395,7 +4385,7 @@ function renderGuide(){
       const status = done ? '<span style="color:var(--green);font-weight:700">✅ クリア</span>'
                    : open ? '<span style="color:var(--accent2);font-weight:700">▶ 挑戦</span>'
                           : '<span style="color:var(--muted)">🔒 前をクリア</span>';
-      const rew = s.unit ? ('💎'+s.gems+' ＋ '+(UNIT_BY_KEY[s.unit]?UNIT_BY_KEY[s.unit].name:s.unit)+'解禁') : ('💎'+s.gems+'（あそび方を学ぶ）');
+      const rew = s.unit ? ('🍬'+s.coins+' ＋ '+(UNIT_BY_KEY[s.unit]?UNIT_BY_KEY[s.unit].name:s.unit)+'解禁') : ('🍬'+s.coins+'（あそび方を学ぶ）');
       const onclick = open ? ' onclick="startGuideStage(\''+s.id+'\')" style="cursor:pointer"' : '';
       return '<div class="guide-card'+(open?'':' locked')+'"'+onclick+'>'
         + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
@@ -4407,7 +4397,7 @@ function renderGuide(){
     return;
   }
   // --- キャラ一覧（どのキャラのレッスンがあるか）---
-  if(sub) sub.textContent='好きなキャラから挑戦OK！ キャラを選ぶとレッスンが出ます。全キャラここで解禁できます（💎で先に解禁も可）。';
+  if(sub) sub.textContent='好きなキャラから挑戦OK！ キャラを選ぶとレッスンが出ます。全キャラここで解禁できます（🍬で先に解禁も可）。';
   box.innerHTML = guideArcs().map(function(a){
     const ss=arcStages(a), uk=arcUnit(a), u=UNIT_BY_KEY[uk];
     const total=ss.length, cleared=ss.filter(s=>guideCleared(s.id)).length, allDone=cleared>=total;
@@ -4430,8 +4420,8 @@ function startGuideStage(id){
   $('guideTipText').textContent=s.tip;
   $('guideTipReward').innerHTML = guideCleared(id)
     ? '（クリア済み。もう一度挑戦できます／報酬は初回のみ）'
-    : (rewU ? 'クリアで <b>'+rewU.name+'</b> が仲間になり、💎'+s.gems+' がもらえます！'
-            : 'クリアで 💎'+s.gems+' がもらえます！');
+    : (rewU ? 'クリアで <b>'+rewU.name+'</b> が仲間になり、🍬'+s.coins+' がもらえます！'
+            : 'クリアで 🍬'+s.coins+' がもらえます！');
   $('guideTipStart').textContent='デッキを組む ›';
   $('guideTipStart').onclick=function(){ closeGuideTip(); guideOpenDeckBuilder(id); };
   $('guideTipModal').classList.remove('hidden');
@@ -4474,15 +4464,15 @@ function guideFinish(won){
     if(firstClear){
       if(!Array.isArray(myProfile.guideDone)) myProfile.guideDone=[];
       myProfile.guideDone.push(id);
-      myProfile.gems = myGems()+s.gems;
+      myProfile.coins = myCoins()+s.coins;
       saveProfileLocal(); scheduleCloudSave();
       const u = s.unit ? UNIT_BY_KEY[s.unit] : null;
       if(u){ unlockUnit(s.unit);
-        line = '🎉 '+u.name+' が仲間になった！　💎 +'+s.gems;
+        line = '🎉 '+u.name+' が仲間になった！　🍬 +'+s.coins;
         toast('🎉 '+u.name+' を解禁！ 編成でデッキに入れられます');
       } else {
-        line = 'レッスンクリア！　💎 +'+s.gems;
-        toast('レッスンクリア！ 💎 +'+s.gems);
+        line = 'レッスンクリア！　🍬 +'+s.coins;
+        toast('レッスンクリア！ 🍬 +'+s.coins);
       }
     } else {
       line = '（クリア済みのレッスン）';
@@ -4490,7 +4480,7 @@ function guideFinish(won){
   } else if(s && !won){
     line = 'もう一度挑戦してみよう。ヒントを思い出してね。';
   }
-  renderHomeGems(); renderHomeCoins();
+  renderHomeCoins();
   return line;
 }
 // 左上タイトル下のプロフィールチップ（アイコン＋名前）を更新
@@ -5527,14 +5517,14 @@ function pvpGuestOnGameover(m){
   awardMasteryXp(won);   // 子は常にPVP。熟練度XPを付与（勝ち多め/負け少なめ）
   let tro='';
   if(pvpRanked){ const d=applyTrophyResult(won, pvpOppProfile&&pvpOppProfile.trophies); renderHomeTrophies(); tro='　🏆 '+(d>=0?'+':'')+d+'（合計 '+myTrophies()+'）'; }   // ランダムマッチのみ変動
-  const rw=grantBattleReward(won); const coinLine='　🍬 +'+rw.gain+(rw.gems?'　💎 +'+rw.gems:'')+(rw.first?'（デイリー初勝利ボーナス込み！）':''); renderHomeCoins(); renderHomeGems();   // 子も対戦報酬をもらう
+  const rw=grantBattleReward(won); const coinLine='　🍬 +'+rw.gain+(rw.first?'（デイリー初勝利ボーナス込み！）':''); renderHomeCoins();   // 子も対戦報酬をもらう
   $('overTitle').textContent=won?'勝利！':'敗北…'; $('overTitle').style.color=won?'var(--green)':'var(--rust)';
   $('overText').textContent=(won?'対戦に勝利しました！🎉':'対戦に敗北しました。')+tro+coinLine;
   pvpSetupOverButtons(privateRoom);
   show('over');
 }
 
-resetState(); loadDeckLocal(); loadProfileLocal(); migrateUnlocks(); renderScore(); renderHomeTrophies(); renderHomeCoins(); renderHomeGems(); renderProfileChip(); renderNewsDot(); show('home');   // 端末に保存したデッキ／プロフィール／トロフィー／コイン／解禁を復元＋お知らせ新着ドット
+resetState(); loadDeckLocal(); loadProfileLocal(); migrateUnlocks(); renderScore(); renderHomeTrophies(); renderHomeCoins(); renderProfileChip(); renderNewsDot(); show('home');   // 端末に保存したデッキ／プロフィール／トロフィー／コイン／解禁を復元＋お知らせ新着ドット
 try{ authInit(); }catch(e){}   // ログイン状態の監視を開始（未設定なら何もしない）
 try{ getAnalytics(); }catch(e){}   // GA4を起動時に初期化（タグ検出＋page_view/セッションの自動計測。未設定なら何もしない）
 try{ pvpTryResumeOnLoad(); }catch(e){}   // リログ（再読み込み）で対戦が切れていたら通知
