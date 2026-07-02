@@ -64,6 +64,7 @@ code += `
   get ICEWIZ_ATK(){ return ICEWIZ_ATK; }, get ICEWIZ_SLOW(){ return ICEWIZ_SLOW; }, get ICEWIZ_SLOW_DUR(){ return ICEWIZ_SLOW_DUR; }, get ICEWIZ_DECAY(){ return ICEWIZ_DECAY; },
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck, needFullDeckForPvp,
   buildProfile, applyProfile, displayProfile, get myProfile(){ return myProfile; },
+  profileHasProgress, profilesConflict, filterActiveEntries,
   masteryXp, masteryLevel, avatarUnlocked, awardMasteryXp,
   masteryXpForLevel, skinUnlocked, activeSkinBase, equipSkin, get SPECIAL_SKINS(){ return SPECIAL_SKINS; },
   packPool, rollPack, openPackOnce, ownsCollected, alreadyHave, addMasteryXp,
@@ -78,6 +79,7 @@ code += `
   mmPickWaiter, pvpResumeIsRecent, pvpReconnRemain, eloExpected, eloDelta, myTrophies, presenceCounts,
   enhDisplay, specialCardIcon, abilitiesHTML, get UNIT_ABILITIES(){ return UNIT_ABILITIES; },
   pvpDecideIAmHost, pvpMatchupType, unitDamageType, unitAtkText, mostUsedUnit,
+  spriteFor, get SPRITES(){ return SPRITES; },
   get myProfileRef(){ return myProfile; },
   burst, partCap, get LOW_FX(){ return LOW_FX; }, set LOW_FX(v){ LOW_FX=v; },
   get PART_CAP_HI(){ return PART_CAP_HI; }, get PART_CAP_LO(){ return PART_CAP_LO; },
@@ -2242,6 +2244,11 @@ console.log('\n=== 73) オンライン人数: presence集計 ===');
   check('対戦中はstatus=battlingの数', r.battling === 2, r);
   check('マッチ待ちはstatus=matchingの数', r.matching === 2, r);
   check('壊れたエントリは無視', API.presenceCounts({ x: null, y: { status: 'home' } }).online === 1);
+  // バックグラウンド放置(away)はオンライン人数に数えない
+  const obj2 = { a: { status: 'home' }, b: { status: 'away' }, c: { status: 'battling' }, d: { status: 'away' } };
+  const r2 = API.presenceCounts(obj2);
+  check('away はオンラインに数えない', r2.online === 2, r2);
+  check('away は対戦中にも数えない', r2.battling === 1, r2);
 }
 
 console.log('\n=== 74) PVPはデッキ4枚必須（4枚未満はブロック） ===');
@@ -2746,7 +2753,7 @@ console.log('\n=== 93) PVE戦術指南：順番制＋クリアで解禁＋ジェ
   {
     const lessonUnits = new Set(stages.map(s=>s.unit));
     const starters = new Set(API.STARTER_UNITS);
-    const nonStarterDeckable = API.UNITS.filter(u=>!u.summonOnly && !starters.has(u.key)).map(u=>u.key);
+    const nonStarterDeckable = API.UNITS.filter(u=>!u.summonOnly && !u.test && !starters.has(u.key)).map(u=>u.key);
     const missing = nonStarterDeckable.filter(k=>!lessonUnits.has(k));
     check('全ての非スターターキャラがレッスンで解禁できる', missing.length===0, missing);
   }
@@ -2819,6 +2826,85 @@ console.log('\n=== 94) クッキー調整＋キャラ詳細の「能力」欄 ==
   check('abilitiesHTML: 能力ありは能力名を含む', /居合/.test(API.abilitiesHTML(API.UNIT_BY_KEY.daifuku)) && /能力/.test(API.abilitiesHTML(API.UNIT_BY_KEY.daifuku)));
   check('abilitiesHTML: 能力なし(cookie)は空', API.abilitiesHTML(c)==='');
   check('abilitiesHTML: ℹ️詳細トグルの要素を含む', /ab-desc/.test(API.abilitiesHTML(API.UNIT_BY_KEY.bomb)) && /toggleAbilityInfo/.test(API.abilitiesHTML(API.UNIT_BY_KEY.bomb)));
+}
+
+console.log('\n=== 95) アニメ付きキャラ（マシュマロエンジェル）：フレーム切替＋テスト除外 ===');
+{
+  const U = API.UNIT_BY_KEY.mangel;
+  check('mangel が存在する', !!U, U);
+  check('anim フレームを3枚持つ', U && U.anim && U.anim.length === 3, U && U.anim);
+  check('test:true（通常プレイから除外）', U && U.test === true);
+  // フレームがworld.tで切り替わる（animFps=5）
+  const w = API.createWorld(440, 660); API.world = w; w.phase = 'battle';
+  const f = API.makeFighters('mangel', 'p', 440, 660, 'army')[0]; w.units.push(f);
+  w.t = 0.0; const s0 = API.spriteFor(f);
+  w.t = 0.25; const s1 = API.spriteFor(f);   // floor(0.25*5)=1 → 2枚目
+  w.t = 0.45; const s2 = API.spriteFor(f);   // floor(0.45*5)=2 → 3枚目
+  check('t=0 は1枚目（青）', s0 === API.SPRITES['mangel_1'], !!s0);
+  check('t=0.25 は2枚目（青）', s1 === API.SPRITES['mangel_2'], !!s1);
+  check('t=0.45 は3枚目（青）', s2 === API.SPRITES['mangel_3'], !!s2);
+  check('フレームが実際に変化する', s0 !== s1 && s1 !== s2, [s0 === s1, s1 === s2]);
+  // 敵(side='e')は赤フレームを使う
+  check('animRed を3枚持つ', U && U.animRed && U.animRed.length === 3, U && U.animRed);
+  const fe = API.makeFighters('mangel', 'e', 440, 660, 'army')[0]; w.units.push(fe);
+  w.t = 0.0; check('敵 t=0 は赤1枚目', API.spriteFor(fe) === API.SPRITES['mangel_red_1'], true);
+  w.t = 0.25; check('敵 t=0.25 は赤2枚目', API.spriteFor(fe) === API.SPRITES['mangel_red_2'], true);
+  // ランダムCPUデッキにテストキャラは入らない
+  let poolHasTest = false;
+  for (const u of API.UNITS) { if (u.test) poolHasTest = true; }
+  check('UNITSにtestキャラは居るが、通常ロスターからは除外設計', poolHasTest === true);
+  // クマグミ（静止・陣営色を1枚アニメで出し分け）
+  const K = API.UNIT_BY_KEY.kumagumi;
+  check('kumagumi が存在し test:true', !!K && K.test === true);
+  const kp = API.makeFighters('kumagumi', 'p', 440, 660, 'army')[0]; w.units.push(kp);
+  const ke = API.makeFighters('kumagumi', 'e', 440, 660, 'army')[0]; w.units.push(ke);
+  check('クマグミ 味方=青スプライト', API.spriteFor(kp) === API.SPRITES['kumagumi_blue'], true);
+  check('クマグミ 敵=赤スプライト', API.spriteFor(ke) === API.SPRITES['kumagumi_red'], true);
+  // テスト用キャラは2体以上（選択できる）
+  check('テスト用キャラが2体以上（アニメテストで選択可）', API.UNITS.filter(u => u.test).length >= 2, API.UNITS.filter(u => u.test).map(u => u.key));
+}
+
+console.log('\n=== 96) ログイン同期: profileHasProgress / profilesConflict（クラウド突き合わせ） ===');
+{
+  const T = 1000;   // TROPHY_START
+  // profileHasProgress：記録の有無判定
+  check('空プロフィールは記録なし', API.profileHasProgress({}) === false);
+  check('nullは記録なし', API.profileHasProgress(null) === false);
+  check('初期トロフィーのみは記録なし', API.profileHasProgress({ trophies: T, wins: 0, losses: 0 }) === false);
+  check('デッキありは記録あり', API.profileHasProgress({ deck: ['cookie'] }) === true);
+  check('勝敗ありは記録あり', API.profileHasProgress({ wins: 1 }) === true);
+  check('トロフィーが初期と違えば記録あり', API.profileHasProgress({ trophies: 1200 }) === true);
+  check('bestが初期超なら記録あり', API.profileHasProgress({ best: 1100 }) === true);
+  check('熟練度ありは記録あり', API.profileHasProgress({ mastery: { cookie: 10 } }) === true);
+  // profilesConflict：両方に記録があり主要戦績が食い違うときだけ true
+  const cloudA = { deck: ['cookie'], trophies: 1300, wins: 5, losses: 2 };
+  const localA = { deck: ['choco'], trophies: 1100, wins: 3, losses: 4 };
+  check('両方に記録＋戦績が違う→衝突', API.profilesConflict(localA, cloudA) === true);
+  check('同じ戦績なら衝突しない', API.profilesConflict({ trophies: 1300, wins: 5, losses: 2 }, cloudA) === false);
+  check('端末に記録なし→衝突しない（クラウド復元でよい）', API.profilesConflict({}, cloudA) === false);
+  check('クラウドに記録なし→衝突しない（端末アップロードでよい）', API.profilesConflict(localA, {}) === false);
+  check('トロフィーだけ違っても衝突', API.profilesConflict({ trophies: 1200, wins: 5, losses: 2 }, cloudA) === true);
+}
+
+console.log('\n=== 97) ランキング: filterActiveEntries（放置アカウントを除外） ===');
+{
+  const now = 1_000_000_000_000;
+  const day = 24 * 60 * 60 * 1000;
+  const win = 30 * day;
+  const arr = [
+    { uid: 'a', trophies: 1200, ts: now - 1 * day },      // 直近 → 残る
+    { uid: 'b', trophies: 1500, ts: now - 29 * day },     // ギリ直近 → 残る
+    { uid: 'c', trophies: 1800, ts: now - 31 * day },     // 期限切れ → 除外
+    { uid: 'd', trophies: 1100 },                         // ts なし → 除外
+    { uid: 'e', trophies: 1300, ts: 'x' },                // ts 不正 → 除外
+  ];
+  const r = API.filterActiveEntries(arr, now, win);
+  check('直近30日のエントリだけ残る', r.length === 2, r.map(e => e.uid));
+  check('残るのは a と b', r.some(e => e.uid === 'a') && r.some(e => e.uid === 'b'));
+  check('期限切れ(c)は除外', !r.some(e => e.uid === 'c'));
+  check('ts無し(d)は除外', !r.some(e => e.uid === 'd'));
+  check('ts不正(e)は除外', !r.some(e => e.uid === 'e'));
+  check('空配列でも壊れない', API.filterActiveEntries(null, now, win).length === 0);
 }
 
 Promise.resolve().then(() => {

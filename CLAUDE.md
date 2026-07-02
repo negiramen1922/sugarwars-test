@@ -79,6 +79,7 @@
 - **戦闘エンジン**：`createWorld` / `stepWorld(world,dt)`（phase=muster|battle|outro。毎フレームshuffleで左右バイアス除去）/ `nearestEnemy`（**無敵中`invuln>0`の敵は標的にしない**＝ワープ直後のゴーストにサムライ等が吊られない）/ `applyHit`（無敵中は無効。ノックバックは重量耐性＋上限＋無効時間。吸引中/起爆中は無反動）/ `killUnit`（爆発・スライム分裂・炭酸沼発生を一本化。爆発AoEも無敵中は当たらない）。
 - **専用挙動**：`chargerStep`(大福) / `artilleryStep`(キャノン) / `vacuumStep`(ドーナッツ) / `spawnerStep`(ベーカリー：`spawnerId` で個体ごとに独立した召喚枠) / `evolvePancake`・`evolvedStep`(パンケーキ進化＋ジャンプ衝撃波) / ワープ(ゴースト) / `shellStep`(マカロン：殻スピン→スタン→通常／true返却でその場処理) / 氷弾のヒット時スローは `u.chillT`/`chillAmt`、炭酸沼は `world.puddles` を `stepWorld` で毎フレーム処理（DoT＋`slowMul`減速）。
 - **ドラフト/演出**：`beginDraft` / `nextPick` / `renderPickOffer` / `pickCardAnimated`（裏表フリップ）→ `pickCard` / `revealFoePick` / `aiPicks`（貪欲スコア）/ `lockAndFight`。
+- **カード選択の制限時間（放置対策）**：`PICK_TIME_LIMIT`(30秒)。カード提示のたびに `startPickTimer(autoPickLeftmost)` を起動し（`#pickTimer` に残り秒表示・残5秒で赤）、時間切れで `autoPickLeftmost()`＝**一番左（先頭）のカードを自動選択**。選択開始/開戦/待機で `stopPickTimer()`。**チュートリアル中は起動しない**（案内を邪魔しないため）。PVEは `renderPickOffer`、PVPは親=`pvpHostShowOffer`／子=`pvpGuestShowStep` にそれぞれ仕込む。PVPの親は、子がフリーズしてSTEPPICKを送れない場合に備え `pvpHostDraftStep` の待機に **+5秒の猶予つき代理タイムアウト**（`eOffer[0]`＝子に見せた一番左を代理選択。子が生きていれば子自身も同じ左端を送るので結果一致）。**ヘッドレス(test)は `setInterval` 不在を検知してタイマー自体を動かさない**（自動選択でテストが乱れない）。
 - **隊列**：`arrangeFormation`（tierでグループ化し後方アンカーで整列）/ `centerMergedSlimes`。
 - **X2**：`doubleUnitsOnBoard` / `applyX2Replay` / `eligibleX2Specials` / `cloneFighter`。
 - **決着**：`beginOutro` / `outroStep`（溶けて砂糖に）。
@@ -90,6 +91,7 @@
 - シェルマカロンは通常 `macaron_blue/red`／殻スピン・スタン中 `macaron_spin_blue/red` を `u.shellPhase` で切替（スピン中は描画を回転＋スタン中は★演出）。強化(マカロンアーマー/`u.macaronBuff`)は `macaron_buff_*`／`macaron_spin_buff_*`。
 - 強化で立ち絵が変わるキャラ：**チョコ**（`choco_buff_*`＝ビター装甲、`u.chocoBuff`）・**シュー**（`shoe_buff_*`＝特盛り、`u.shoeBuff`）・**ソーダ**（`soda_buff_*`＝炭酸沼強化、`u.fizz`）・**ベーカリー**（`bakery_buff_*`＝ラストベイク、`u.bakeryBuff`）・**ポップコーン**（`bomb_buff_*`＝おかわり、`u.spawnMini`）・**大福**（`daifuku_buff_*`＝ちょんまげ大福、`u.daifukuBuff`）・**ゴースト**（`ghost_buff_*`＝分身、`u.cloneOn`／おとり分身は通常絵）・**キャノン**（`cannon_buff_*`＝クラスター花火弾、`u.cluster`）・**ドーナッツ**（`donut_buff_*`＝鉄壁、`u.donutWall`）・**アイス**（`icewiz_buff_*`＝ブリザード、`u.icewizBuff`）・**マカロン**（`macaron_buff_*`/`macaron_spin_buff_*`＝マカロンアーマー）。いずれも陣営色つき。`spriteFor()` で解決。
 - 立ち絵が無いキャラは絵文字フォールバック。
+- **アニメ付きキャラ**：UNITに `anim`（味方=青フレーム配列）＋`animRed`（敵=赤フレーム配列・省略時は`anim`流用）＋`animFps`を持たせると、`spriteFor()` が `u.side` と `world.t` で `animFps` 枚/秒でフレームを切り替える（例 `mangel`＝マシュマロエンジェル・青赤各3フレーム）。**静止立ち絵の陣営色出し分けにも流用可**（例 `kumagumi`＝クマグミ・`anim:['kumagumi_blue']`/`animRed:['kumagumi_red']`＝1枚アニメ）。開発中は `test:true` を付けるとロスター/ドラフト/CPUデッキ/X2生成から除外され通常プレイに出ない。**アニメ動作テスト**＝設定メニュー「🧪 アニメテスト」→`startAnimTest(key)`：1カード分ずつ(3体vs3体)を上=敵赤/下=味方青で**その場に整列（動かない）**で出し、`animTestLoop` が `world.t` だけ進めて**アニメだけをじっくり確認**。上部のバー（`#animTestBar`＝`test:true`キャラ一覧）で**確認するキャラを選べる**（`stopAnimTest`で戻る）。テスト：test.js 90。
 - **強化カードの絵**：`SPECIALS` に `evoSprite`（例 `buff_choco`→`choco_buff_blue`／`fast_pancake`→`pancake_evo`／`up_slime`→`slime_blue_big`）を持つ強化は、ドラフトのカード絵を**進化後/強化後の立ち絵**で出す（`specialCardIcon()`）。無ければ対象キャラのベース絵→絵文字にフォールバック。**ライバルの選択カード**（`showFoePickCard`）はユニット＝敵色の立ち絵(`iconHTML(u,'e')`)／強化＝`specialCardIcon()`（強化後の絵）で表示。プロフィールの「よく使うキャラ」は `unitSpriteImg()` で**立ち絵**表示。
 - **ヘッダーのアクション（`.topbar-actions`）**：右上に「コミュニティに参加！(Discord・他より横長)」→「お知らせ📢(`#newsBtn`)」→「設定⚙」の順。お知らせは**新着があると赤ドット**（`renderNewsDot`/`#newsDot`）＝最新 `NEWS[0].ver` を `localStorage('sw_news_seen')` と比較（`newsUnseen`）、`openNews` で既読化（`markNewsSeen`）。起動時に `renderNewsDot()`。
 - **キャラ詳細（`showDetail`）**：**「ステータス」「熟練度」の2タブ**（`switchDetailTab`）。ステータスタブ＝ダメージタイプのバッジ（`unitDamageType()`＝近距離/遠距離×単体/範囲・自爆/生産）＋ステータスグリッド（召喚数/攻撃/HP/移動速度/攻撃速度=`cd`秒/回/射程＝`fmtSpeed`不動・`fmtRange`全域）＋説明＋**能力欄 `abilitiesHTML()`**（`UNIT_ABILITIES`＝key→[{name,info}]。固有ギミックを**能力名＋ℹ️で詳細開閉**(`toggleAbilityInfo`)。能力の無いキャラは非表示。1キャラずつ調整していく）＋`enhDisplay()`（進化＝自動／固有強化＝強化後HP/攻撃を定数から再計算＋進化後の立ち絵）。熟練度タブ＝`masteryDetailHTML()`。攻撃力は `unitAtkText()` で**殴り攻撃0でも実ダメージを表示**（自爆=💥blast／迫撃=💥mortar・ラベルは「爆発ダメージ」）。`enhDisplay()` はスライムに**融合後ステータス**（`FUSE` から再計算）、ベーカリーに**召喚するジンジャーの性能**も併記。モーダルは `.modal-card` に `max-height:calc(100vh-40px);overflow-y:auto` で**縦長でもスクロール**（全モーダル共通）。テスト：test.js 85・87。
@@ -164,6 +166,7 @@
 - **子**：`PVP_GUEST_HOOKS`＋`pvpGuestEnterPlay/ShowOffer/RenderSnapshot/OnResult/OnGameover`。
   計算せず、OFFERで選び・SNAPSHOTを `render` で描画するだけの薄いクライアント。
 - `pvpOnConnected` が接続後に親=子デッキ待ち→開始／子=デッキ送信→START待ち、に分岐。`openPvpLobby` は `needPlayerDeck()` で編成を要求。
+- **VSカットイン**：対戦開始時（`pvpStartAsHost`/`pvpGuestEnterPlay` 冒頭）に `pvpShowVsCutin()`→`showVsCutin(foe,you)`。全画面 `#vsCutin`（上=相手・赤／下=自分・青／間に斜めライン、アイコン大＋横に名前/レート縦並び）を約2秒アニメ表示（`pvpOppProfile` から相手名/アイコン/トロフィー）。`pointer-events:none`・自動で消える。
 - テスト：test.js 48（オーケストレーション往復）＋49（リモート敵が実フローを駆動）。CPU対戦は不変。
 - **要・実機確認**：2台（または同端末2タブ）での対戦通しはこのリポジトリ環境ではテスト不可。手元で確認する。
 
@@ -221,7 +224,8 @@
 - **熟練度（キャラ経験値）で解禁する特別アバター**：`myProfile.mastery`（key→XP）。XPは**PVP対戦の決着時のみ** `awardMasteryXp(won)` で付与（デッキ各キャラに 勝ち=`MASTERY_WIN_XP`(10)／負け=`MASTERY_LOSE_XP`(3)・CPU戦は非加算）。レベル＝`masteryLevel()`。**XPカーブは `masteryXpForLevel(n)`＝Lv3までは1レベル50XP（累計 Lv1=50/Lv2=100/Lv3=150）、Lv3以降は1レベルごとに必要XPが `MASTERY_RAMP_STEP`(50)ずつ増える（Lv4=250/Lv5=400/Lv6=600…＝やり込み報酬を重く）**。**アバターは全て画像アイコン（絵文字アイコンは廃止）**。`SPECIAL_AVATARS` は **無料(`free:true`,`lvl:0`)＝`ava_cookie_free`/`ava_ginger`/`ava_shoe`（最初から選べる）** ＋ **熟練度解禁(`lvl:3`)＝`ava_bomb`/`ava_choco`/`ava_cookie`/`ava_daifuku`/`ava_donut`/`ava_pancake`/`ava_macaron`**（背景つき画像64×64）。解禁は対象キャラの熟練度Lvが `lvl` 以上で `avatarUnlocked()` が真。新アバターは同じ64×64 RGBAを `SPRITE_DATA` に注入し `SPECIAL_AVATARS` に1行足すだけ（グリッド/ロードマップは自動反映・`free` はロードマップに出さない）。`avatarHTML()` は**常に画像**を返し、`validAvatarId()` で不正/旧・ユニットkey(絵文字)は `DEFAULT_AVATAR`(`ava_cookie_free`) に正規化＝**既存の絵文字ユーザーは自動でクッキーに置換**（プロフィールチップ/ランキング/対戦相手表示/選択グリッド）。ロック中は🔒＋必要Lv表示、解禁時は `toast()` 通知。熟練度は buildProfile/applyProfile とローカル保存に統合（マージは大きい方）。キャラ詳細（`showDetail`）に `masteryDetailHTML()` で**熟練度Lv/XP進捗バー＋解禁ロードマップ（アバター＋スキン）**を表示。
 - **スキン（戦闘中の立ち絵を差し替え・見た目だけ）**：`SPECIAL_SKINS`（例 `daifuku_yomogi`＝よもぎ大福・`unit:daifuku`・`lvl:5`・`base:'daifuku_yomogi'`）。立ち絵キーは `base+'_'+team` / 強化後 `base+'_buff_'+team`（4枚：青/赤×通常/強化を `SPRITE_DATA` に128px NEARESTで注入）。熟練度Lvが `lvl` 以上で `skinUnlocked()`。装備は `myProfile.skins`（unit→skinId）に保存、ロードマップの「装備する/装備中✓」ボタン＝`equipSkin(unit,id)`（トグル・その場で熟練度タブ再描画）。`spriteFor()` は `activeSkinBase(unitKey)`（装備中かつ解禁済みならbaseを返す）で**自分の軍（side='p'）だけ**差し替え（相手の見た目は不変・PVPの相手スキン共有は未対応）。新スキンは4枚を `SPRITE_DATA` に注入し `SPECIAL_SKINS` に1行＋（daifuku以外は）`spriteFor` に分岐追加。
 **方針：解禁は見た目（アイコン/スキン）だけ＝強化カード等の性能は熟練度で解禁しない（対戦を常にフェアに）**。テスト：test.js 79・88。
-- **リーダーボード**：`leaderboard/<uid>={name,avatar,trophies,wins}`（公開read・自分のみwrite）。`leaderboardSubmit`（決着/ログイン時）・`leaderboardLoad`（trophies降順・上位50）。`#ranking` 画面＝`openRanking`/`renderRankingList`。ホームに `🏆` 表示（`renderHomeTrophies`）。
+- **リーダーボード**：`leaderboard/<uid>={name,avatar,trophies,wins,ts}`（公開read・自分のみwrite）。`leaderboardSubmit`（決着/ログイン時）・`leaderboardLoad`（trophies降順・上位50）。`#ranking` 画面＝`openRanking`/`renderRankingList`。ホームに `🏆` 表示（`renderHomeTrophies`）。
+- **死んでる(放置)アカウント対策**：①`leaderboardSubmit` は**本ログイン(`isRealUser()`＝非匿名)のみ**登録＝ランダムマッチのたびに増える使い捨ての匿名ゲストでランキングを埋めない。②`leaderboardLoad` は多め(`LEADERBOARD_FETCH`=300)取得して `filterActiveEntries()`（純粋関数・test.js 92）で**最終プレイ `ts` が直近 `LEADERBOARD_ACTIVE_DAYS`(30)日以内のエントリだけ**に絞ってから上位N件を返す（ts無し/古いものは非表示）。**表示から外すだけでDBの古いエントリ自体は消えない**（他uidの削除はクライアント権限外＝Firebaseコンソール/Functionsで別途掃除）。
 - **要設定**：RTDBルールに `leaderboard`（read:true・$uidのみwrite）。`FIREBASE_SETUP.md` C章参照。
 - CPU対戦はトロフィー非変動（PVPのみ）。
 
@@ -267,6 +271,7 @@
 
 - 起動時に `pvpPresenceJoin()`＝**匿名サインイン**して `presence/<uid>={status,ts}`（`onDisconnect().remove()`）。`presence` を購読し `presenceCounts(obj)`（純粋関数・test.js 73）で集計→「🟢 オンラインN人・マッチ待ちW人・対戦中M人」をホーム/PVPロビーに表示（`renderPresence`）。マッチ待ち=`status:'matching'` の数。
 - 状態遷移 `pvpPresenceSet`：起動/退出='home'、ランダムマッチ='matching'、対戦開始(`pvpStartAsHost`/`pvpGuestEnterPlay`)='battling'。
+- **バックグラウンド放置は数えない**：`pvpInitVisibility()` が `visibilitychange` を監視し、タブを隠して `PRESENCE_AWAY_MS`(45秒)経つと `pvpSetAway(true)`＝presenceに `status:'away'` を書く。復帰で即 `away` 解除。`presenceCounts` は `status:'away'` を**オンライン/対戦中どちらにも数えない**（＝ブラウザを裏で開いているだけの人を除外）。`pvpPresenceSet` は論理状態(`pvpCurStatus`)を保持しつつ、away中は生の書込 `pvpPresenceWrite('away')` に切替える。テスト：test.js 73（away除外）。
 - 匿名は「未ログイン扱い」（`updateAuthUI` は `!isAnonymous` で判定）＝ログイン誘導は残す。`leaderboardSubmit` は対戦経験者(`wins+losses>0`)のみ＝匿名の空エントリでランキングを埋めない。
 - **要設定**：RTDBルールに `presence`（read:auth!=null・$uidのみwrite）＋匿名認証有効化。`FIREBASE_SETUP.md` 参照。
 
@@ -277,11 +282,18 @@
 - **プロフィール**（`myProfile`）：対戦相手に見せる名前＋お菓子アイコン。`#authModal` のプロフィール欄で設定（`saveProfile`/`renderAvatarGrid`）。未ログインでも端末(localStorage `sw_profile`)に保存。`displayProfile()`＝空欄を既定（ゲスト名/先頭アイコン）で補完。ランダムマッチ（次段）で使用。
 - `buildProfile()`/`applyProfile()`＝保存データの整形（純粋関数・不正/召喚専用キーは除外・最大`deckSize`枚）。test.js 68。
 - `saveDeckLocal()`/`loadDeckLocal()`＝未ログインでも端末(localStorage `sw_deck`)にデッキ保存。`persistDeck()` を `toggleDeck`/`removeDeckSlot`（自分デッキ時）でフック。
-- `authInit()`＝起動時に `onAuthStateChanged` 監視開始。ログイン時 `onSignedIn` がクラウド読込→適用（無ければ端末内容をアップ）。`scheduleCloudSave()` でデバウンス保存。
+- `authInit()`＝起動時に `onAuthStateChanged` 監視開始。ログイン時 `onSignedIn` がクラウド読込→適用（無ければ端末内容をアップ）。`scheduleCloudSave()` でデバウンス保存。**クラウド保存は本ログイン(`isRealUser()`＝非匿名)のみ**＝ゲスト(匿名)は端末(localStorage)だけに保存し、ログイン/連携で本アカウントのuidに移ったときにクラウド同期する（匿名uidのゴミノードを作らない）。
+- **保存の保留ガード（データ消失防止・重要）**：`_cloudSyncReady` が `true` になるまで `scheduleCloudSave()` は保存しない。ログイン直後は `onSignedIn` の**クラウド読込→反映が完了してから** `true` にする（新規=アップロード後／復元=applyProfile後／食い違い=ユーザーが選んでから／読込失敗=再開）。**ログイン直後にデッキ編集や対戦決着の保存が先に走って、初期値(1000/0)でクラウドを上書きしてしまう競合を防ぐ**（＝「ログインしたら急にトロフィー1000・勝敗0にリセット。熟練度だけ残る」旧不具合の残り経路を封じる）。
+- **ログイン時の同期（データ消失防止・重要）**：`onSignedIn` は `_syncedUid` で同一uidの多重処理を防ぎ（タブ復帰などで二重にならない）、`profileHasProgress()`/`profilesConflict()`（純粋関数・test.js 91）で分岐：
+  - クラウドに記録なし → 端末（ゲスト）の内容をアップロード（`seedNameFromAuth`＝名前が空ならGoogle表示名を初期値に）。
+  - 端末に記録なし/実質同一 → クラウドを復元。
+  - **両方に記録があり食い違う** → `showSyncConflict()` で確認ダイアログ（`#syncModal`）「☁ クラウドを呼び出す／📱 この端末で上書き」を出し、`syncUseCloud`/`syncUseLocal` で選んだ方に統一。**「ログインしたらトロフィー/勝利数が勝手にリセット」される旧バグ（デッキ空を新規と誤判定して端末の空データで上書きしていた）を修正**。
+  - `saveProfileLocal()`/`loadProfileLocal()` は **トロフィー/best/勝敗/usage/skins も端末保存**（旧はname/avatar/masteryのみ＝ゲスト戦績がリロードで消えていた）。
 - Googleは `signInWithPopup`、失敗時（モバイルWebView等）は `signInWithRedirect` に自動フォールバック。
 - **アカウント連携（ゲスト→本登録）**：匿名(`isAnonymous`)中にログインすると `linkWithPopup`/`linkWithCredential` でuidを保持したまま昇格＝**ゲストのトロフィー/デッキを引き継ぐ**。`auth/credential-already-in-use`（既存アカウント）の時は通常 `signInWithPopup` に切替（その分は引き継がれない）。
+- **メール＋Googleの2アカウント化を防ぐ**：`auth/account-exists-with-different-credential`（同じメールが別プロバイダで登録済み）を `handleGoogleEmailClash()` で捕捉＝Google認証情報を `_pendingGoogleCred` に退避し「そのメールでログインしてください」と案内→`authEmailLogin` 成功時に `linkWithCredential` で**同一アカウントにGoogleを連携**。ただし完全解消には**コンソール設定「メールアドレスにつき1アカウント」が必須**（`FIREBASE_SETUP.md` A-2章）。
 - UIは `#authModal`（メニューの「👤 ログイン」から `openAuth`）。未設定/未ログインでも従来どおり動作。
-- **要ユーザー作業**：コンソールでGoogle/メール認証を有効化・承認済みドメイン登録・RTDBルールに `users/$uid`（`auth.uid===$uid`）追加。手順は `FIREBASE_SETUP.md`「ログインとクラウド保存」。
+- **要ユーザー作業**：コンソールでGoogle/メール認証を有効化・**「メールアドレスにつき1アカウント」に設定**・承認済みドメイン登録・RTDBルールに `users/$uid`（`auth.uid===$uid`）追加。手順は `FIREBASE_SETUP.md`「ログインとクラウド保存」。
 
 ## 利用状況の計測（GA4＝Firebase Analytics・実装済み・`<script>`「track()」）
 
