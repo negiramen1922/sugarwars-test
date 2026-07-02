@@ -636,6 +636,7 @@
       <button class="menu-row" id="muteRow" onclick="toggleSfx()">🔊 効果音 オン / オフ</button>
       <button class="menu-row" id="lowFxRow" onclick="toggleLowFx()">⚡ 軽量モード（動作が重いとき）</button>
       <button class="menu-row" onclick="startAnimTest('mangel')">🧪 アニメテスト（開発用）</button>
+      <button class="menu-row" onclick="startTestBattle()">⚔️ テスト対戦（開発用・βキャラ確認）</button>
       <div class="menu-row" style="cursor:default">🎵 BGM音量<input type="range" id="bgmVol" min="0" max="100" oninput="onBgmVol(this.value)" style="flex:1;margin-left:8px"></div>
       <div class="menu-row" style="cursor:default">🔔 効果音音量<input type="range" id="sfxVol" min="0" max="100" oninput="onSfxVol(this.value)" style="flex:1;margin-left:8px"></div>
       <div style="text-align:center;margin-top:8px"><button class="btn btn-ghost" onclick="closeMenu()">閉じる</button></div>
@@ -836,9 +837,9 @@ const UNITS = [
   {key:'macaron', name:'シェルマカロン', icon:'🟣', role:'tank', tier:-2.5, count:2, atk:12, hp:100, speed:70, range:28, cd:0.9, tag:'殻スピン', short:'殻にこもって突撃するマカロン', text:'マカロンの殻にこもり、回転しながら敵にタックルをする暴れん坊。こいつの殻を破るのは甘くない', shell:true},
   // マシュマロエンジェル（アニメ付き・開発テスト中）。test:true でロスター/ドラフト/CPUデッキからは除外。
   // anim=立ち絵のフレーム配列（spriteForが world.t で animFps 枚/秒で切替）。挙動/バランスは今後。
-  {key:'mangel', name:'マシュマロエンジェル', icon:'👼', role:'fodder', tier:0, count:3, atk:12, hp:60, speed:90, range:24, cd:0.6, tag:'テスト', short:'アニメ動作テスト中の天使マシュマロ（3体）', text:'ふわふわ浮かぶ天使のマシュマロ（アニメ付き・動作テスト中）。挙動とバランスはこれから調整します。', anim:['mangel_1','mangel_2','mangel_3'], animRed:['mangel_red_1','mangel_red_2','mangel_red_3'], animFps:5, test:true, beta:true},
+  {key:'mangel', name:'マシュマロエンジェル', icon:'👼', role:'support', tier:0, count:3, atk:8, hp:55, speed:88, range:24, cd:0.7, tag:'守護天使', short:'空を舞い、味方の被弾を肩代わりする支援（3体）', text:'ふわふわ空を飛ぶ天使のマシュマロ。空の上なので近接攻撃は当たらないが、近くの味方が受けるダメージを身代わりで引き受け、自分から先に溶けてしまう健気な支援役。', anim:['mangel_1','mangel_2','mangel_3'], animRed:['mangel_red_1','mangel_red_2','mangel_red_3'], animFps:5, fly:true, guardian:true, test:true, beta:true},
   // クマグミ（開発テスト中・静止立ち絵）。青/赤の陣営色を anim(1枚) の仕組みで出し分け。挙動/バランスは今後。
-  {key:'kumagumi', name:'クマグミ', icon:'🐻', role:'fodder', tier:0, count:3, atk:14, hp:70, speed:95, range:24, cd:0.6, tag:'テスト', short:'動作テスト中のクマのグミ（3体）', text:'もちもちのクマのグミ（動作テスト中）。挙動とバランスはこれから調整します。', anim:['kumagumi_blue'], animRed:['kumagumi_red'], animFps:1, test:true, beta:true},
+  {key:'kumagumi', name:'クマグミ', icon:'🐻', role:'fodder', tier:0, count:3, atk:10, hp:50, speed:100, range:24, cd:0.5, tag:'キル成長', short:'倒すほど強くなる弱スタートの前衛（3体）', text:'最初は非力なクマのグミだが、敵を1体倒すごとに攻撃力と素早さが段階的にアップ。育てば前衛エース級に大化けする、ハイリスク・ハイリターンな肉食系。', anim:['kumagumi_blue'], animRed:['kumagumi_red'], animFps:1, killGrow:true, test:true, beta:true},
 ];
 const UNIT_BY_KEY = Object.fromEntries(UNITS.map(u=>[u.key,u]));
 
@@ -950,6 +951,14 @@ const SHELL_RAM_CD = 0.3;        // 体当たりの再ヒット間隔（秒・DP
 const MACARON_MIN = 1;           // 盤面にこの数以上マカロンがいると「ビッグシェル」カードが出る
 const MACARON_HP = 0.8;          // マカロンアーマー：HP上昇率（+80%・base100→180）
 const FOE_MACARON_CHANCE = 0.4;  // 敵（ライバル）がビッグシェルを使う確率
+/* ★クマグミ（敵を倒すと段階的に強くなる＝弱スタート・大化け）。in-battleのみ（毎戦リセット・パンケーキ進化と同じ扱い）。 */
+const KUMA_MAX = 5;           // キルスタック上限（この数で最大強化）
+const KUMA_ATK_STEP = 0.20;   // 1キルごとの攻撃上昇率（+20%×5＝最大2.0倍）
+const KUMA_SPD_STEP = 0.05;   // 1キルごとの移動速度上昇率（+5%×5＝最大+25%）
+const KUMA_SCALE_STEP = 0.05; // 1キルごとの見た目拡大率（大化け演出・+5%×5＝最大+25%）
+/* ★マシュマロエンジェル（浮遊＝近接では狙われない／周囲の味方の被ダメを肩代わり＝身代わりで先に落ちる支援）。 */
+const MANGEL_R = 88;          // 守護範囲(px)：この円内の味方の被ダメを肩代わり
+const MANGEL_SOAK = 0.40;     // 肩代わり率（味方の被ダメの40%をエンジェルが自分のHPで受ける＝先に落ちる）
 /* 各キャラぶんの「○○ ×2」強化カードを自動生成（召喚専用と除外キーは作らない） */
 UNITS.filter(u=>!u.summonOnly && !u.test && !X2_EXCLUDE.has(u.key)).forEach(function(u){
   SPECIALS['x2_'+u.key] = {
@@ -1247,6 +1256,22 @@ function startGame(){
   beginDraft();
 }
 
+/* 【開発用】テスト対戦：通常プレイには出さない test:true のユニット（クマグミ/マシュマロエンジェル等）を、
+   CPU戦の盤面で実際に動かして挙動を確認するための隠し操作。設定メニューのボタンから呼ぶ。
+   自分・相手とも固定のテスト編成を round-robin で確実に出す（弓兵で天使を落とせる/前衛でクマグミがキルを稼げる編成）。
+   本来のデッキは _guideDeckBackup に退避（保存しない）＝ホームに戻れば元通り。 */
+const TEST_BATTLE_DECK = ['kumagumi','mangel','cookie','shoe'];
+function startTestBattle(){
+  closeMenu();
+  if(_guideDeckBackup===null) _guideDeckBackup = myDeck.slice();   // 本来のデッキを退避（1回だけ・保存しない）
+  myDeck = TEST_BATTLE_DECK.slice();
+  cpuDeckMode='auto'; cpuDeck=[];
+  tutorial=false; guideMode=false; guideStageId=null;
+  foeCtl = makeGuideFoeController(TEST_BATTLE_DECK.slice());   // 相手も同じ編成を確実に出す（round-robin）
+  SFX.play('button');
+  startGame();
+}
+
 /* ホーム/メニュー遷移 */
 function goHome(){ SFX.play('button'); hideDeckNote(); hideResultBanner(); rosterMode='you'; if(guideMode||_guideDeckBackup){ guideMode=false; guideStageId=null; guideRestoreDeck(); }   /* 指南の途中離脱でも本来のデッキに戻す */ pvpPresenceSet('home'); show('home'); SFX.bgm('home'); }   // ホームでBGM再生
 function goBattleMenu(){ SFX.play('button'); show('battleMenu'); }
@@ -1483,6 +1508,8 @@ const UNIT_ABILITIES = {
   cannon:[{name:'迫撃', info:'ステージ全域を覆う射程の迫撃が敵を襲う'}],
   icewiz:[{name:'アイスバレット', info:'氷の弾をうちあたった敵に鈍化を付与する。'}],
   macaron:[{name:'スピン', info:'マカロンの殻にこもり敵めがけてスピンアタック！この間はダメージを大幅に軽減する'}],
+  kumagumi:[{name:'キル成長', info:'最初は非力だが、敵を1体倒すごとに攻撃力と素早さが段階的にアップ（最大5段階で攻撃2倍・速さ+25%）。育てば前衛エース級に大化けする。倒せないと弱いままのハイリスク・ハイリターン。'}],
+  mangel:[{name:'浮遊', info:'空を飛んでいるので近接攻撃では狙われない。倒せるのは遠距離・迫撃・爆発だけ。'},{name:'身代わりの翼', info:'近くの味方が受けるダメージの一部を自分のHPで肩代わりする。味方を守りながら自分から先に溶けていく健気な支援。'}],
 };
 // キャラ詳細の「能力」セクションHTML（能力が無いキャラは空文字＝非表示）。
 function abilitiesHTML(u){
@@ -1592,7 +1619,8 @@ function makeFighters(key, side, W, H, slot){
   for(let c=0;c<u.count;c++){
     const hp=u.hp, atk=u.atk, r=Math.max(5,Math.min(11,5+hp*0.028));   // 当たり判定を小さめに（密集して陣地に食い込みにくく）
     arr.push({
-      side, key, name:u.name, icon:u.icon, slot, role:u.role, tier:u.tier||0, spriteScale:u.spriteScale||1,
+      side, key, name:u.name, icon:u.icon, slot, role:u.role, tier:u.tier||0, spriteScale:u.spriteScale||1, baseScale:u.spriteScale||1,
+      fly:!!u.fly, guardian:!!u.guardian, killGrow:!!u.killGrow, kumaKills:0,   // 浮遊(近接無敵)／守護天使／キル成長(クマグミ)
       x:xMin+Math.random()*(xMax-xMin), y:yMin+Math.random()*(yMax-yMin),
       vx:0, vy:0, r, baseR:r, hp, maxHp:hp, baseMaxHp:hp, atk, baseAtk:atk,
       speed:u.speed*SPEED_MUL, baseSpeed:u.speed*SPEED_MUL, range:u.range, cd:u.cd, cool:Math.random()*u.cd,
@@ -2536,6 +2564,7 @@ function nearestEnemy(u, world){
   let best=null, bd=1e9;
   for(const o of world.units){
     if(o.side===u.side || o.hp<=0 || (o.invuln||0)>0) continue;   // 無敵中(ワープ直後のゴースト等)は標的にしない＝サムライ等が吊られない
+    if(o.fly && !(u.ranged||u.artillery)) continue;   // 浮遊ユニット(マシュマロエンジェル)は近接では狙えない＝遠距離/迫撃だけが直接ヒット
     let d=(o.x-u.x)**2+(o.y-u.y)**2;
     if(u.targetRule==='low') d = o.hp*1000 + d*0.0005;
     else if(u.targetRule==='ranged') d = (o.ranged?0:1)*1e7 + d;   // 後衛(射手・魔法)を最優先で狙う
@@ -2550,7 +2579,8 @@ function wallReduce(target, world){
 }
 function applyHit(world, atk, tgt, dmg){
   if((tgt.invuln||0) > 0){ world.dmgs.push({txt:'すり抜け',x:tgt.x,y:tgt.y-tgt.r-4,vy:-20,life:0.5,color:'#ffd9f2'}); return; }  // 無敵中は無効
-  const real = Math.max(1, Math.round((tgt.inShell ? dmg*(1-SHELL_DR) : dmg) - wallReduce(tgt, world)));   // シェルマカロンは殻スピン中だけ被ダメージ80%カット（スタン中は無防備）。整数に丸めて表示（小数の桁あふれ防止）
+  let real = Math.max(1, Math.round((tgt.inShell ? dmg*(1-SHELL_DR) : dmg) - wallReduce(tgt, world)));   // シェルマカロンは殻スピン中だけ被ダメージ80%カット（スタン中は無防備）。整数に丸めて表示（小数の桁あふれ防止）
+  real = guardSoak(world, tgt, real);   // 守護天使：範囲内の味方の被ダメを一部エンジェルが肩代わり（先に落ちる）
   tgt.hp -= real; tgt.flash = 0.18;
   // 分身：強化ゴーストが攻撃を受けたら、初回だけおとり分身を1体だす
   if(tgt.key==='ghost' && tgt.cloneOn && !tgt.cloned){ tgt.cloned=true; spawnGhostClone(world, tgt); }
@@ -2565,10 +2595,42 @@ function applyHit(world, atk, tgt, dmg){
     tgt.kbImmune = 0.26;                         // この間は追加ノックバックを受けない（連続ヒットで吹っ飛ばない）
   }
   popDmg(world, tgt.x, tgt.y-tgt.r-4, real, '#ffd9c2');
-  if(tgt.hp<=0) killUnit(world, tgt);
+  if(tgt.hp<=0){ killUnit(world, tgt); if(atk && atk.killGrow && atk.hp>0 && !atk._dead) growKuma(world, atk); }   // クマグミ：近接で敵を倒すと段階強化
 }
 // 直接HPを引く範囲ダメージ（爆発・衝撃波など applyHit を通さない経路）にも殻ダメージカットを効かせる。
 function shellCut(o, dmg){ return (o && o.inShell) ? Math.max(1, Math.round(dmg*(1-SHELL_DR))) : dmg; }
+// 守護天使（マシュマロエンジェル）：被弾した味方の近くに生存エンジェルが居れば、被ダメの一定割合をそのエンジェルが自分のHPで肩代わり（＝身代わりで先に落ちる支援）。天使同士は肩代わりしない（ループ防止）。
+function guardSoak(world, tgt, real){
+  if(world._hasGuardian===false || real<=1 || tgt.key==='mangel') return real;   // _hasGuardian===false（stepWorldがmangel不在と確認済み）なら走査省略。テストの直接呼び出しはundefinedなので走る
+  let g=null, gd=MANGEL_R*MANGEL_R;
+  for(const o of world.units){
+    if(o.key!=='mangel' || o.side!==tgt.side || o.hp<=0 || o===tgt) continue;
+    const d=(o.x-tgt.x)**2+(o.y-tgt.y)**2;
+    if(d<gd){ gd=d; g=o; }
+  }
+  if(!g) return real;
+  const soak=Math.max(1, Math.round(real*MANGEL_SOAK));   // エンジェルが肩代わりする分
+  const pass=Math.max(1, real-soak);                       // 味方に残る分（最低1）
+  g.hp-=soak; g.flash=0.18;
+  popDmg(world, g.x, g.y-g.r-4, soak, '#ffe6f6');
+  if(Math.random()<0.5) world.rings.push({x:g.x,y:g.y,r:2,max:14,life:0.24,color:'#ffd9f2'});
+  if(g.hp<=0) killUnit(world, g);
+  return pass;
+}
+// クマグミ（キル成長）：敵を1体倒すごとに攻撃力・移動速度・見た目が段階的に伸びる（上限KUMA_MAX）。基準値から再計算で冪等。
+function growKuma(world, u){
+  if((u.kumaKills||0) >= KUMA_MAX) return;
+  u.kumaKills++;
+  const s=u.kumaKills;
+  u.atk   = Math.round(u.baseAtk*(1+KUMA_ATK_STEP*s));
+  u.speed = u.baseSpeed*(1+KUMA_SPD_STEP*s);
+  u.spriteScale = (u.baseScale||1)*(1+KUMA_SCALE_STEP*s);
+  u.r = Math.min(13, Math.round(u.baseR*(1+KUMA_SCALE_STEP*s)));   // 当たり判定も少しだけ大きく（大化け感）
+  u.flash=0.2;
+  world.rings.push({x:u.x,y:u.y,r:3,max:u.r+16,life:0.34,color:'#ffd36b'});
+  burst(world,u.x,u.y,'#ffd36b',10,120);
+  popDmg(world, u.x, u.y-u.r-8, s>=KUMA_MAX?'MAX!':'強化+'+s, s>=KUMA_MAX?'#ffb24d':'#ffe6a0');
+}
 function killUnit(world, t){
   if(t._dead) return; t._dead=true; t.hp=0;
   t.dying=true; t.dieT=0; t.dieDir=(Math.random()<0.5?-1:1);   // 立ち絵を横に倒してから消す演出
@@ -3009,6 +3071,7 @@ function stepWorld(world, dt){
     world.puddles=world.puddles.filter(p=>p.life>0);
   }
   applyCookieParty(world, dt);   // クッキーパーティー：近くのクッキー密度で段階バフを毎フレーム再計算
+  world._hasGuardian = world.units.some(u=>u.key==='mangel' && u.hp>0);   // 守護天使が居ないフレームは applyHit の肩代わり走査をまるごと省く（通常プレイ＝mangel不在では毎ヒットのO(n)走査ゼロ）
   const live=shuffle(world.units.filter(u=>u.hp>0));  // 処理順をランダム化（先手バイアス防止＆乱戦の自然さ）
   for(const u of live){
     if(u.hp<=0) continue;            // 同フレームで倒された兵は行動しない（死に際の一撃を防ぐ＝公平化）
