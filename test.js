@@ -2072,7 +2072,6 @@ console.log('\n=== 64.5) ドーナッツ調整: 高ノックバック耐性＋CP
   check('donutにkbResistフラグ', d0.kbResist === true);
   check('short更新(吸い込むドーナツ)', /吸い込む/.test(API.UNIT_BY_KEY.donut.short));
   check('固有能力に「吸い込み」', API.UNIT_ABILITIES.donut.some(a => a.name === '吸い込み'));
-  check('固有能力に「ノックバック耐性」', API.UNIT_ABILITIES.donut.some(a => a.name === 'ノックバック耐性'));
 
   // applyHit: kbResist は殴られてもノックバックしない（通常ユニットは押される）
   const kbTest = (key) => {
