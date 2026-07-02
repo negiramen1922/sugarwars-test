@@ -61,6 +61,7 @@ code += `
   applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff, applyIcewizBuff, applyMacaronBuff, buffCountFor,
   get SODA_BUFF_BLAST(){ return SODA_BUFF_BLAST; }, get SODA_BUFF_DPS(){ return SODA_BUFF_DPS; }, get PUDDLE_DPS_CAP(){ return PUDDLE_DPS_CAP; },
   get DAIFUKU_HP(){ return DAIFUKU_HP; }, get DAIFUKU_ATK(){ return DAIFUKU_ATK; }, get DAIFUKU_DASH(){ return DAIFUKU_DASH; }, get DAIFUKU_REACH(){ return DAIFUKU_REACH; },
+  get ICEWIZ_ATK(){ return ICEWIZ_ATK; }, get ICEWIZ_SLOW(){ return ICEWIZ_SLOW; }, get ICEWIZ_SLOW_DUR(){ return ICEWIZ_SLOW_DUR; }, get ICEWIZ_DECAY(){ return ICEWIZ_DECAY; },
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck, needFullDeckForPvp,
   buildProfile, applyProfile, displayProfile, get myProfile(){ return myProfile; },
   masteryXp, masteryLevel, avatarUnlocked, awardMasteryXp,
@@ -2306,10 +2307,12 @@ console.log('\n=== 76) 新キャラ アイスクリームウィザード（氷�
   let wb = API.createWorld(W, H); API.world = wb;
   const c2 = API.makeFighters('icewiz', 'p', W, H, 'army')[0]; c2.appear = 1; wb.units.push(c2);
   API.makeFighters('icewiz', 'e', W, H, 'army').forEach(f => { f.appear = 1; wb.units.push(f); });
-  const baseSplash = c2.splash, baseSlow = c2.slowHit;
+  const baseSplash = c2.splash, baseAtk = c2.atk, baseSlowDur = c2.slowDur;
   API.applyIcewizBuff(wb, 'p');
   check('ブリザードで爆風が広がる', c2.splash > baseSplash, { base: baseSplash, now: c2.splash });
-  check('ブリザードでスローが強化される', c2.slowHit > baseSlow, { base: baseSlow, now: c2.slowHit });
+  check('ブリザードで攻撃力が上がる(→30)', c2.atk === API.ICEWIZ_ATK && c2.atk > baseAtk, { base: baseAtk, now: c2.atk });
+  check('ブリザードで鈍化時間が延びる(0.5→1.0)', c2.slowDur > baseSlowDur, { base: baseSlowDur, now: c2.slowDur });
+  check('鈍化量は据え置き(0.5)', c2.slowHit === 0.5, c2.slowHit);
   check('icewizBuff フラグが立つ', c2.icewizBuff === true);
   check('敵ウィザードには適用されない', wb.units.filter(u => u.side === 'e' && u.key === 'icewiz').every(u => !u.icewizBuff));
   // 冪等性
