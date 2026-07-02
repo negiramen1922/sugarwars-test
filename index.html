@@ -34,7 +34,9 @@
   .brand h1{font-family:"Oswald",sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:clamp(22px,4.5vw,34px);margin:0}
   .brand h1 .clash{color:var(--accent2)}
   .brand .tag{font-size:12px;color:var(--muted);letter-spacing:.18em;text-transform:uppercase}
-  .profile-chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--ink);background:var(--panel-2);border:1px solid var(--line);border-radius:999px;padding:3px 11px;cursor:pointer;transition:border-color .15s}
+  .profile-chip-row{margin:6px 0 2px}
+  .profile-chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--ink);background:var(--panel-2);border:1px solid var(--line);border-radius:999px;padding:4px 13px;cursor:pointer;transition:border-color .15s;white-space:nowrap;max-width:100%}
+  .profile-chip #profileChipName,.profile-chip #profileChipTitle{white-space:nowrap}
   .profile-chip:hover{border-color:var(--brass)}
   .profile-chip .pc-ico{font-size:16px;line-height:1}
   .iconbtn.gear{font-size:20px;align-self:flex-start}
@@ -359,9 +361,6 @@
           <h1>Sugar <span class="clash">Wars</span></h1>
           <span class="tag">お菓子の王国の戦争</span>
         </div>
-        <div class="profile-chip" id="profileChip" onclick="openAuth()" title="プロフィール / ログイン">
-          <span class="pc-ico" id="profileChipIco">🍬</span><span id="profileChipTitle" style="font-size:.82em;opacity:.85;margin-right:3px"></span><span id="profileChipName">ゲスト</span>
-        </div>
       </div>
       <div class="topbar-actions">
         <button class="iconbtn community" onclick="openDiscord()" title="コミュニティ Discord に参加">
@@ -370,6 +369,11 @@
         </button>
         <button id="newsBtn" class="iconbtn news" onclick="openNews()" title="お知らせ">📢<span class="news-dot" id="newsDot"></span></button>
         <button id="menuBtn" class="iconbtn gear" onclick="toggleMenu()" title="メニュー（設定）">⚙</button>
+      </div>
+    </div>
+    <div class="profile-chip-row">
+      <div class="profile-chip" id="profileChip" onclick="openAuth()" title="プロフィール / ログイン">
+        <span class="pc-ico" id="profileChipIco">🍬</span><span id="profileChipTitle" style="font-size:.82em;opacity:.85;margin-right:3px"></span><span id="profileChipName">ゲスト</span>
       </div>
     </div>
     <div class="score" id="scoreBar">
