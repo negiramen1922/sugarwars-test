@@ -25,23 +25,23 @@
 
 | key | 名前 | tier | count | atk | hp | speed | 特徴 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| daifuku | 大福サムライ | -1 | 1 | 22 | 160 | 60 | 居合－竹串（`chargerStep`）＝遠いと力をため強い踏み込みで斬込み。突撃は範囲薙ぎ払い（dashDamage90/dashRange26）。強化「ちょんまげ大福」(`buff_daifuku`)＝居合の範囲(+50%)・威力(+80%)メイン＋HP/攻撃(+30%)・巨大化なし |
-| cookie | クッキーアーミー | 0 | 5 | 14 | 50 | 115 | 固有ギミックなし＝素で手数が多い前衛（cd0.35）。強化「クッキーパーティー」(`applyCookieParty`)＝近くの味方クッキー数で段階的に攻撃＆速度UP（`u.party`でサングラス立ち絵`cookie_party_*`）。※旧flockは撤廃 |
+| daifuku | 大福サムライ | -1.5 | 1 | 22 | 160 | 60 | 居合－竹串（`chargerStep`）＝遠いと力をため強い踏み込みで斬込み。突撃は範囲薙ぎ払い（dashDamage90/dashRange26）。強化「ちょんまげ大福」(`buff_daifuku`)＝居合の範囲(+50%)・威力(+80%)メイン＋HP/攻撃(+30%)・巨大化なし |
+| cookie | クッキーアーミー | -0.5 | 5 | 14 | 50 | 115 | 固有ギミックなし＝素で手数が多い前衛（cd0.35）。強化「クッキーパーティー」(`applyCookieParty`)＝近くの味方クッキー数で段階的に攻撃＆速度UP（`u.party`でサングラス立ち絵`cookie_party_*`）。※旧flockは撤廃 |
 | slime | ゼリースライム | 0.5 | 3 | 12 | 55 | 90 | 強化カードで融合／倒れると分裂 |
-| bomb | ポップコーンTNT | -2.2 | 2 | 0 | 55 | 128 | 自爆（導火0.5s・HP無関係・死亡時も爆発・blast100/blastR60） |
+| bomb | ポップコーンTNT | -3 | 2 | 0 | 55 | 128 | 自爆（導火0.5s・HP無関係・死亡時も爆発・blast100/blastR60） |
 | soda | ランニングソーダ | -2 | 2 | 0 | 50 | 150 | 自爆＋炭酸沼（blast10/blastR50・沼puddleR60/5dps・移動低下） |
-| choco | チョコレートナイト | 2 | 2 | 20 | 200 | 66 | 超硬タンク前衛（ビター装甲でHP280/atk30） |
-| pancake | パンケーキキング | 2.5 | 1 | 22 | 150 | 50 | 約10秒で進化→HP3.5倍(525)＋移動50→`evoSpeed`60＋ジャンプ衝撃波(shockDmg52/shockR88/evoCd1.8) |
-| donut | バキュームドーナッツ | 1.5 | 1 | 6 | 430 | 50 | 正面の敵を吸い寄せる鈍足タンク（`vacuumStep`）。`heavy`＋`kbResist`＝殴られても後退しない高ノックバック耐性（`applyHit`のKBを無効）で群れに押し込まれない。強化「鉄壁ドーナッツ」(`applyDonutWall`)＝HP+90%(`DONUT_HP`0.9→817)＋巨大化。※CPUの評価(`aiPicks`)はHPを`AI_HP_SOFT`(200)超で`AI_HP_FRAC`(0.3)倍に逓減＝超硬タンクをHPだけで最優先しない |
-| bakery | ジンジャーベーカリー | 3.2 | 1 | 0 | 230 | 0 | 不動の生産工場。2秒ごとに `BAKERY_SPAWN_PATTERN`(3→1→1)でginger生産（個体ごと最大`spawnCap`=30） |
+| choco | チョコレートナイト | 0 | 2 | 20 | 200 | 66 | 超硬タンク前衛（ビター装甲でHP280/atk30） |
+| pancake | パンケーキキング | 1 | 1 | 22 | 150 | 50 | 約10秒で進化→HP3.5倍(525)＋移動50→`evoSpeed`60＋ジャンプ衝撃波(shockDmg52/shockR88/evoCd1.8) |
+| donut | バキュームドーナッツ | -1 | 1 | 6 | 430 | 50 | 正面の敵を吸い寄せる鈍足タンク（`vacuumStep`）。`heavy`＋`kbResist`＝殴られても後退しない高ノックバック耐性（`applyHit`のKBを無効）で群れに押し込まれない。強化「鉄壁ドーナッツ」(`applyDonutWall`)＝HP+90%(`DONUT_HP`0.9→817)＋巨大化。※CPUの評価(`aiPicks`)はHPを`AI_HP_SOFT`(200)超で`AI_HP_FRAC`(0.3)倍に逓減＝超硬タンクをHPだけで最優先しない |
+| bakery | ジンジャーベーカリー | 2 | 1 | 0 | 230 | 0 | 不動の生産工場。2秒ごとに `BAKERY_SPAWN_PATTERN`(3→1→1)でginger生産（個体ごと最大`spawnCap`=30） |
 | ginger | ジンジャーソルジャー | 0 | 1 | 10 | 25 | 112 | ベーカリー召喚専用（`summonOnly`） |
-| shoe | シュークリームアーチャー | 3 | 4 | 14 | 44 | 64 | 後衛射手（4人・射程150） |
+| shoe | シュークリームアーチャー | 1.5 | 4 | 14 | 44 | 64 | 後衛射手（4人・射程150） |
 | ghost | わたあめゴースト | 3.5 | 3 | 16 | 44 | 95 | 開幕少し待って敵後方へワープ（warpDelay1.5・無敵中は狙われない） |
-| cannon | キャンディキャノン | 4 | 1 | 0 | 140 | 0 | 不動の全域誘導AoE迫撃（手前の敵を優先・`mortar`=90/`cd`=4.2・爆発範囲 `splash`=35）。強化「ぱちぱちキャンディ」=着弾で小爆発を撒く |
-| icewiz | アイスクリームウィザード | 3.3 | 1 | 20 | 70 | 60 | 後衛魔導士（`cd`=1.0）。小範囲の氷弾（`ranged`＋`splash`=32・`range`=190）を撃ち、範囲内の敵に近い順で多段減衰ダメージ（`ICEWIZ_DECAY`=[1,0.65,0.35]＝atk20で20/13/7）＋鈍化（`slowHit`=0.5＝50%/`slowDur`=0.5秒）を付与。鈍化は `u.chillT`/`chillAmt` で管理し `slowMul` に反映。強化「ブリザード」(`applyIcewizBuff`)＝氷弾の範囲(`ICEWIZ_SPLASH_MUL`1.8)・攻撃力(`ICEWIZ_ATK`30)・鈍化時間(`ICEWIZ_SLOW_DUR`1.0秒)を強化（鈍化量は0.5据え置き） |
-| macaron | シェルマカロン | 1 | 2 | 12 | 100 | 70 | 殻スピン（`shell`／`shellStep`）。強化「マカロンアーマー」=HP100→180(`MACARON_HP`0.8)。開幕は殻で突進し壁で反射しながら約4秒(`SHELL_SPIN_DUR`)暴れる→約2秒(`SHELL_STUN_DUR`)スタン→以降は通常戦闘。スピン中は体当たり(`atk`)＋被ダメ80%カット(`SHELL_DR`／`u.inShell`)、スタン(気絶)中は無防備でカットなし。`u.shellPhase`(spin/stun/normal)で挙動・立ち絵を切替 |
+| cannon | キャンディキャノン | 3 | 1 | 0 | 140 | 0 | 不動の全域誘導AoE迫撃（手前の敵を優先・`mortar`=90/`cd`=4.2・爆発範囲 `splash`=35）。強化「ぱちぱちキャンディ」=着弾で小爆発を撒く |
+| icewiz | アイスクリームウィザード | 2.5 | 1 | 20 | 70 | 60 | 後衛魔導士（`cd`=1.0）。小範囲の氷弾（`ranged`＋`splash`=32・`range`=190）を撃ち、範囲内の敵に近い順で多段減衰ダメージ（`ICEWIZ_DECAY`=[1,0.65,0.35]＝atk20で20/13/7）＋鈍化（`slowHit`=0.5＝50%/`slowDur`=0.5秒）を付与。鈍化は `u.chillT`/`chillAmt` で管理し `slowMul` に反映。強化「ブリザード」(`applyIcewizBuff`)＝氷弾の範囲(`ICEWIZ_SPLASH_MUL`1.8)・攻撃力(`ICEWIZ_ATK`30)・鈍化時間(`ICEWIZ_SLOW_DUR`1.0秒)を強化（鈍化量は0.5据え置き） |
+| macaron | シェルマカロン | -2.5 | 2 | 12 | 100 | 70 | 殻スピン（`shell`／`shellStep`）。強化「マカロンアーマー」=HP100→180(`MACARON_HP`0.8)。開幕は殻で突進し壁で反射しながら約4秒(`SHELL_SPIN_DUR`)暴れる→約2秒(`SHELL_STUN_DUR`)スタン→以降は通常戦闘。スピン中は体当たり(`atk`)＋被ダメ80%カット(`SHELL_DR`／`u.inShell`)、スタン(気絶)中は無防備でカットなし。`u.shellPhase`(spin/stun/normal)で挙動・立ち絵を切替 |
 
-隊列 `arrangeFormation` は **tier が小さいほど前列、大きいほど後方**。
+隊列 `arrangeFormation` は **tier が小さいほど前列、大きいほど後方**。現在の並び（前→後）＝bomb(-3)→macaron(-2.5)→soda(-2)→daifuku(-1.5)→donut(-1)→cookie(-0.5)→choco(0)→slime(0.5)→pancake(1)→shoe(1.5)→bakery(2)→icewiz(2.5)→cannon(3)→ghost(3.5)。tierは隊列のグループ化と描画にのみ使用（スコア/経済には非使用）。
 
 新キャラは `UNITS` に `beta:true` を付けると、編成カードに「β」バッジ・キャラ詳細に「ベータ実装＝バランス調整中」の注記が出る（現在βキャラなし）。
 
