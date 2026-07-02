@@ -764,7 +764,7 @@ const UNITS = [
   {key:'daifuku',name:'大福サムライ',   icon:'🍡', role:'fodder', tier:-1, count:1, atk:22, hp:160, speed:60, range:30, cd:0.9, tag:'前衛', short:'居合チャージから抜刀タックル！突撃は範囲、通常は単体の侍', text:'納刀→チャージ→抜刀タックルで突撃。突撃ヒットは前方の複数の敵をまとめて薙ぎ払う範囲攻撃、通常攻撃は単体。近ければ徒歩で斬り、離れると再び居合チャージ。', charger:true, cleave:true, dashDamage:90, dashSpeed:300, chargeTime:0.8, dashMax:0.5, dashFar:72, dashRange:26},
   {key:'cookie', name:'クッキーアーミー',     icon:'🍪', role:'fodder', tier:0, count:5, atk:14, hp:50,  speed:115, range:24, cd:0.35, tag:'前衛', short:'数で押すクッキーの群れ。', text:'数で押すクッキーの群れ。やっぱりクッキーはいっぱいいたほうがいい！！'},
   {key:'slime', name:'ゼリースライム',   icon:'🔵', role:'fodder', tier:0.5, count:3, atk:8, hp:80, speed:90, range:24, cd:0.6, tag:'タンク', short:'ぷるんぷるんなゼリーのスライム', text:'ぷるんぷるんなゼリーのスライム。一つ目で不気味だけどかわいいやつ。お皿にのせてぷるぷるしてかわいがってあげてね！', slime:true},
-  {key:'bomb',  name:'ポップコーンTNT',   icon:'🍿', role:'fodder', tier:-2.2, count:2, atk:0,  hp:55,  speed:128, range:22, cd:1.0,  tag:'自爆', short:'敵に近づいて自爆するクレイジーなポップコーン', text:'純粋な爆発力が持ち味。敵が射程に入ると起爆モードに移行し、短い導火の後に周囲へ特大爆発（残りHPに関係なく起爆）。倒されたときも爆発する。', suicide:true, blast:100, blastR:60, fuse:0.5},
+  {key:'bomb',  name:'ポップコーンTNT',   icon:'🍿', role:'fodder', tier:-2.2, count:2, atk:0,  hp:55,  speed:128, range:22, cd:1.0,  tag:'自爆', short:'敵を爆破するクレイジーなポップコーン', text:'敵に近づいて爆破するクレイジーなポップコーン。熱々すぎて誰にも止められない！アチチ！', suicide:true, blast:100, blastR:60, fuse:0.5},
   {key:'soda',  name:'ランニングソーダ',   icon:'🥤', role:'fodder', tier:-2, count:2, atk:0,  hp:50,  speed:150, range:22, cd:1.0,  tag:'自爆+沼', short:'走って自爆し、長く残る炭酸沼で敵を溶かすソーダ', text:'本命は炭酸沼。敵陣へ走り込んで小さく自爆し、その場に広く長く残る炭酸沼を作る。沼の上の敵に強い持続ダメージと移動速度低下を与える（爆発自体は控えめ）。倒されたときも爆発する。', suicide:true, blast:10, blastR:50, fuse:0.45, puddle:true, puddleR:60, puddleLife:5.5, puddleDps:5, puddleSlow:0.5},
   {key:'choco', name:'チョコレートナイト', icon:'🍫', role:'tank',   tier:2, count:2, atk:20, hp:200, speed:64,  range:30, cd:0.95, tag:'前衛', short:'チョコレートの鎧をまとった騎士', text:'チョコレートの鎧をまとった騎士。こいつらが大勢集まったらまるで動く壁だ誰も突破できない。', spriteScale:0.6},
   {key:'pancake', name:'パンケーキキング', icon:'🥞', role:'tank', tier:2.5, count:1, atk:22, hp:150, speed:58, range:30, cd:1.0, tag:'進化', short:'約10秒で巨大進化し、着地の衝撃波で暴れる王様', text:'最初は1枚のパンケーキ（やや脆い前衛）。戦闘開始から約10秒で3段に進化し、HPが大幅アップ＋ジャンプ着地の衝撃波で周囲を範囲攻撃するようになる。', evolve:true, evolveAt:10, evoHpMul:3.5, evoScale:1.3, shockR:88, shockDmg:52, jumpDur:0.55, jumpPeak:30, evoCd:1.8},
@@ -898,7 +898,7 @@ SPECIALS['buff_choco'] = {
 /* ポップコーンTNT固有強化「おかわりポップコーン」：爆発のあと小型が1体飛び出してもう一度爆発。 */
 SPECIALS['split_bomb'] = {
   key:'split_bomb', name:'おかわりポップコーン', icon:'🍿', upgrade:true, bombSplit:true, target:'bomb', evoSprite:'bomb_buff_blue',
-  text:'ポップコーンTNTが爆発したあと、小型ポップコーンが1体飛び出してもう一度爆発する（以後ずっと有効）。',
+  text:'ドカーンと爆発したあと、ミニポップコーンが出てきてもう一度ポーンと爆発する',
 };
 /* 大福サムライ固有強化「特大大福サムライ」：HPと攻撃力（突撃威力も）が大幅アップ。 */
 SPECIALS['buff_daifuku'] = {
@@ -1390,7 +1390,7 @@ function masteryDetailHTML(key){
    ここに1行足すとキャラ詳細に自動で出る（能力が無いキャラ＝この表に無いキャラは非表示）。1キャラずつ調整していく。 */
 const UNIT_ABILITIES = {
   daifuku:[{name:'居合チャージ', info:'その場で力をため、抜刀タックルで突進する。突撃は正面を範囲で薙ぎ払う。'}],
-  bomb:[{name:'自爆', info:'導火0.5秒で自爆する（HPに関係なく起爆・倒されても爆発）。周囲の敵にまとめてダメージ。'}],
+  bomb:[{name:'自爆', info:'敵に近づくと内圧を高め膨張し、ドカーン！！と大爆発'}],
   soda:[{name:'自爆＋炭酸沼', info:'自爆して地面に炭酸沼を残す。沼に入った敵は移動が遅くなり、継続ダメージを受ける。'}],
   pancake:[{name:'巨大進化', info:'戦闘開始から約10秒で3段に巨大進化。HPが大幅UPし、着地のジャンプ衝撃波で周囲を範囲攻撃する。'}],
   donut:[{name:'吸引', info:'正面の敵を吸い寄せて足止めする鈍足タンク。とても重いので、群れに押し込まれても崩れない。'}],

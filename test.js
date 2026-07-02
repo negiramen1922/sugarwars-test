@@ -1444,7 +1444,7 @@ console.log('\n=== 30) カードの短い説明文（short）===');
   check('全ロスターに short がある', roster.every(u => typeof u.short === 'string' && u.short.length > 0), roster.filter(u => !u.short).map(u => u.key));
   check('short は十分に簡潔（30文字以内）', roster.every(u => u.short.length <= 30), roster.filter(u => u.short.length > 30).map(u => [u.key, u.short.length]));
   const bomb = API.UNIT_BY_KEY['bomb'];
-  check('ポップコーンTNTの short が想定どおり', bomb.short === '敵に近づいて自爆するクレイジーなポップコーン', bomb.short);
+  check('ポップコーンTNTの short が想定どおり', bomb.short === '敵を爆破するクレイジーなポップコーン', bomb.short);
 }
 
 console.log('\n=== 31) ラウンド自動進行（ボタン不要）＆最終ライフで決着 ===');
