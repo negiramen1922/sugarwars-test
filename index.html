@@ -3927,7 +3927,7 @@ function authInit(){
   a.onAuthStateChanged(function(user){
     authUser=user||null; updateAuthUI();
     if(authUser){ onSignedIn(authUser); pvpPresenceStart(authUser.uid); }   // ログイン/匿名のuidが確定→presence参加
-    else { _syncedUid=''; if(!_anonTried){ _anonTried=true; try{ a.signInAnonymously().catch(function(){}); }catch(e){} } }   // 未ログイン→クラウド同期状態をリセットしてから匿名化（presence用）
+    else { _syncedUid=''; _cloudSyncReady=false; if(!_anonTried){ _anonTried=true; try{ a.signInAnonymously().catch(function(){}); }catch(e){} } }   // 未ログイン→クラウド同期状態をリセットしてから匿名化（presence用）
   });
 }
 let _anonTried=false;
@@ -4006,7 +4006,7 @@ function authReset(){
   if(!em){ authMsg('メールアドレスを入力してください'); return; }
   a.sendPasswordResetEmail(em).then(function(){ authMsg('再設定メールを送信しました'); }).catch(function(err){ authMsg(authErrMsg(err)); });
 }
-function authLogout(){ _syncedUid=''; _pendingGoogleCred=null; const a=getAuth(); if(a){ a.signOut(); } authMsg('ログアウトしました'); }
+function authLogout(){ _syncedUid=''; _cloudSyncReady=false; _pendingGoogleCred=null; const a=getAuth(); if(a){ a.signOut(); } authMsg('ログアウトしました'); }
 // Firebaseのエラーコードを日本語に
 function authErrMsg(err){
   const c=err&&err.code||'';
@@ -4022,6 +4022,7 @@ function authErrMsg(err){
 
 // --- クラウド保存／読込（RTDB users/<uid>/profile） ---
 let _syncedUid='';   // クラウド同期を実行済みのuid（onAuthStateChangedの多重発火で二重処理・確認ダイアログ二重表示を防ぐ）
+let _cloudSyncReady=false;   // 初回のクラウド読込→反映が完了するまで true にしない（＝完了前の保存でクラウドを上書きさせない・データ消失防止）
 function isRealUser(){ return !!(authUser && !authUser.isAnonymous); }   // 匿名(ゲスト)は「未ログイン扱い」＝クラウド保存の対象外
 // プロフィールに「引き継ぐ価値のある記録」があるか（純粋関数・テスト対象）
 function profileHasProgress(p){
@@ -4054,24 +4055,24 @@ function onSignedIn(user){
   if(!user || user.isAnonymous) return;   // ゲスト（匿名）は端末保存のみ。ログイン/連携で本アカウントのuidに切り替わったときだけクラウド同期する
   const db=ensureFirebase(); if(!db) return;
   if(_syncedUid===user.uid) return;   // 同一uidの再発火では再同期しない（タブ復帰などでの二重処理・確認ダイアログ二重表示を防ぐ）
-  _syncedUid=user.uid;
+  _syncedUid=user.uid; _cloudSyncReady=false;   // 読込完了までクラウド保存を保留（＝完了前の保存でクラウドを上書きさせない）
   db.ref('users/'+user.uid+'/profile').get().then(function(snap){
     const cloud=snap.val(), local=buildProfile();
     if(!profileHasProgress(cloud)){
       // クラウドに記録なし＝新規アカウント → この端末（ゲスト）の内容をアップロードして引き継ぐ
-      seedNameFromAuth(user); cloudSaveNow();
+      seedNameFromAuth(user); _cloudSyncReady=true; cloudSaveNow();
       authMsg('この端末の内容をクラウドに保存しました ☁'); afterCloudSync();
     } else if(profilesConflict(local, cloud)){
-      // 端末とクラウド両方に記録があり食い違う → ユーザーに確認（上書き or クラウド復元）
+      // 端末とクラウド両方に記録があり食い違う → ユーザーに確認（上書き or クラウド復元）。選ぶまで保存は保留のまま。
       showSyncConflict(cloud);
     } else {
       // 食い違いなし（端末が空/実質同一）→ クラウドを復元
-      applyProfile(cloud); saveDeckLocal(); saveProfileLocal();
+      applyProfile(cloud); saveDeckLocal(); saveProfileLocal(); _cloudSyncReady=true;
       authMsg('クラウドから復元しました ☁'); afterCloudSync();
     }
-  }).catch(function(e){ console.warn('cloud load失敗',e); authMsg('クラウド読込に失敗しました'); });
+  }).catch(function(e){ console.warn('cloud load失敗',e); _cloudSyncReady=true; authMsg('クラウド読込に失敗しました'); });   // 読込失敗時は保存を再開（保留したままにしない）
 }
-function scheduleCloudSave(){ if(!isRealUser()) return; try{ clearTimeout(_cloudSaveT); }catch(e){} _cloudSaveT=setTimeout(cloudSaveNow, 800); }
+function scheduleCloudSave(){ if(!isRealUser() || !_cloudSyncReady) return; try{ clearTimeout(_cloudSaveT); }catch(e){} _cloudSaveT=setTimeout(cloudSaveNow, 800); }
 function cloudSaveNow(){
   if(!isRealUser()) return; const db=ensureFirebase(); if(!db) return;
   try{ db.ref('users/'+authUser.uid+'/profile').set(buildProfile()); }catch(e){ console.warn('cloud save失敗',e); }
@@ -4095,8 +4096,8 @@ function showSyncConflict(cloud){
   const m=$('syncModal'); if(m) m.classList.remove('hidden');
 }
 function closeSyncConflict(){ const m=$('syncModal'); if(m) m.classList.add('hidden'); }
-function syncUseCloud(){ if(_syncCloudPending){ applyProfile(_syncCloudPending); saveDeckLocal(); saveProfileLocal(); } _syncCloudPending=null; closeSyncConflict(); authMsg('クラウドの記録を呼び出しました ☁'); afterCloudSync(); }
-function syncUseLocal(){ _syncCloudPending=null; cloudSaveNow(); closeSyncConflict(); authMsg('この端末の記録でクラウドを上書きしました'); afterCloudSync(); }
+function syncUseCloud(){ if(_syncCloudPending){ applyProfile(_syncCloudPending); saveDeckLocal(); saveProfileLocal(); } _syncCloudPending=null; _cloudSyncReady=true; closeSyncConflict(); authMsg('クラウドの記録を呼び出しました ☁'); afterCloudSync(); }
+function syncUseLocal(){ _syncCloudPending=null; _cloudSyncReady=true; cloudSaveNow(); closeSyncConflict(); authMsg('この端末の記録でクラウドを上書きしました'); afterCloudSync(); }
 
 /* ===== トロフィー（=レート）＆ランキング ===== */
 let pvpOppProfile = null;   // 対戦相手のプロフィール（名前/アイコン/トロフィー）。ハンドシェイクで受信
