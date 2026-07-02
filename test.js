@@ -62,7 +62,7 @@ code += `
   get SODA_BUFF_BLAST(){ return SODA_BUFF_BLAST; }, get SODA_BUFF_DPS(){ return SODA_BUFF_DPS; }, get PUDDLE_DPS_CAP(){ return PUDDLE_DPS_CAP; },
   get DAIFUKU_HP(){ return DAIFUKU_HP; }, get DAIFUKU_ATK(){ return DAIFUKU_ATK; }, get DAIFUKU_DASH(){ return DAIFUKU_DASH; }, get DAIFUKU_REACH(){ return DAIFUKU_REACH; },
   get ICEWIZ_ATK(){ return ICEWIZ_ATK; }, get ICEWIZ_SLOW(){ return ICEWIZ_SLOW; }, get ICEWIZ_SLOW_DUR(){ return ICEWIZ_SLOW_DUR; }, get ICEWIZ_DECAY(){ return ICEWIZ_DECAY; },
-  recruitKuma, guardSoak, throwBoomerang, stepBoomerang, deployTurret,
+  recruitKuma, guardSoak, throwBoomerang, stepBoomerang, deployTurret, expireTurret,
   get KUMA_BOARD_CAP(){ return KUMA_BOARD_CAP; },
   get MANGEL_R(){ return MANGEL_R; }, get MANGEL_SOAK(){ return MANGEL_SOAK; },
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck, needFullDeckForPvp,
@@ -3038,31 +3038,58 @@ console.log('\n=== 101) プリン: ブーメラン（往復で経路上の敵を
   check('味方(cookie)には当たらない', ally.hp === ally.maxHp);
 }
 
-console.log('\n=== 102) ショートケーキ: 開幕にイチゴタレットを設置 ===');
+console.log('\n=== 102) ショートケーキ: 前進しつつ短命タレットを定期再設置 ===');
 {
   const wd = API.createWorld(W, H); API.world = wd;
   const cake = API.makeFighters('shortcake', 'p', W, H, 'army')[0]; cake.appear = 1; cake.x = 120; cake.y = 500;
   wd.units.push(cake);
   check('deployTurretフラグを持つ', cake.deployTurret === true);
-  const turretCount = () => wd.units.filter(u => u.key === 'strawturret' && u.side === 'p').length;
+  check('ショートケーキは前進できる(speed>0)', cake.speed > 0);
+  const turretCount = () => wd.units.filter(u => u.key === 'strawturret' && u.side === 'p' && u.hp > 0).length;
   check('設置前はタレット0基', turretCount() === 0);
+  // 設置：自分の足元
   API.deployTurret(wd, cake);
   check('設置後にタレット1基', turretCount() === 1);
-  check('turretDone が立って二重設置しない', cake.turretDone === true);
   const turret = wd.units.find(u => u.key === 'strawturret');
   check('タレットは自分の位置に置かれる', Math.abs(turret.x - cake.x) < 30 && Math.abs(turret.y - cake.y) < 30);
   check('タレットは動かない(speed 0)', turret.speed === 0);
   check('タレットは遠距離(ranged)', turret.ranged === true);
-  // 二重呼び出しでも増えない（実運用では turretDone ガードで1回のみ）
-  cake.turretDone = false; API.deployTurret(wd, cake);
-  check('もう一度設置すると2基目（ガードは呼び出し側）', turretCount() === 2);
+  check('タレットの射程は80', turret.range === 80);
+  check('タレットは寿命を持つ(turretLife>0)', turret.turretLife > 0);
+  // 寿命切れで消える
+  API.expireTurret(wd, turret);
+  wd.units = wd.units.filter(u => u.hp > 0 || (u.dying && (u.dieT || 0) < 1));   // stepWorld と同じ片付け
+  check('寿命切れでタレットが消える', turretCount() === 0);
+
+  // stepWorld で「開幕設置 → 数秒で消滅 → 足元に再設置」がループすること
+  const wd2 = API.createWorld(W, H); wd2.phase = 'battle'; wd2.intro = 0; API.world = wd2;
+  const cake2 = API.makeFighters('shortcake', 'p', W, H, 'army')[0]; cake2.appear = 1; cake2.x = 100; cake2.y = 650; wd2.units.push(cake2);
+  const enemy = API.makeFighters('choco', 'e', W, H, 'army')[0]; enemy.appear = 1; enemy.x = 220; enemy.y = 120; enemy.hp = 9999; wd2.units.push(enemy);
+  const tc = () => wd2.units.filter(u => u.key === 'strawturret' && u.hp > 0).length;
+  let sawTurret = false, sawGone = false, sawRedeploy = false, everMultiple = false;
+  for (let f = 0; f < 360; f++) {   // 約6秒（interval 4s なので設置→消滅→再設置を跨ぐ）
+    API.stepWorld(wd2, 1 / 60);
+    const n = tc();
+    if (n >= 1) sawTurret = true;
+    if (sawTurret && n === 0) sawGone = true;
+    if (sawGone && n >= 1) sawRedeploy = true;
+    if (n >= 2) everMultiple = true;
+  }
+  check('開幕にタレットが立つ', sawTurret === true);
+  check('数秒でタレットが消える', sawGone === true);
+  check('消えたあと足元に再設置される', sawRedeploy === true);
+  check('同時に2基以上は並ばない（1基ずつ）', everMultiple === false);
+  check('ショートケーキ本体は敵の方へ前進した', cake2.y < 650, { y: cake2.y });
 }
 
 console.log('\n=== 103) プリン/ショートケーキ 実戦スモーク（stepWorldで例外なく回る） ===');
 {
   const wd = API.createWorld(W, H); wd.phase = 'battle'; wd.intro = 0; API.world = wd;
-  ['purin', 'shortcake'].forEach(k => API.makeFighters(k, 'p', W, H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); }));
-  for (let i = 0; i < 6; i++) API.makeFighters('cookie', 'e', W, H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+  const purin = API.makeFighters('purin', 'p', W, H, 'army')[0]; purin.appear = 1; purin.x = 200; purin.y = 500; purin.cool = 0; wd.units.push(purin);
+  API.makeFighters('shortcake', 'p', W, H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
+  // 耐久の高い敵をプリンの射程内に置く＝確実に投げさせる＋戦闘が即終了しない（スモークの安定化）
+  const tank = API.makeFighters('choco', 'e', W, H, 'army')[0]; tank.appear = 1; tank.x = 200; tank.y = 400; tank.hp = tank.maxHp = 999999; wd.units.push(tank);
+  for (let i = 0; i < 5; i++) API.makeFighters('cookie', 'e', W, H, 'army').forEach(f => { f.appear = 1; wd.units.push(f); });
   let threw = false, turretSeen = false, boomSeen = false;
   try {
     for (let f = 0; f < 600; f++) {

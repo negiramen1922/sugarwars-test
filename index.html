@@ -865,9 +865,9 @@ const UNITS = [
   // プリン（開発テスト中・スプライト無し＝絵文字）。スプーンをブーメランのように投げ、往復で経路上の敵を薙ぐ。1枚=1体。
   {key:'purin', name:'ブーメランプリン', icon:'🍮', role:'back', tier:1.5, count:1, atk:16, hp:80, speed:70, range:150, cd:1.6, tag:'ブーメラン', short:'スプーンを投げて往復で敵を薙ぐプリン（1体）', text:'銀のスプーンをブーメランのように投げて戦うプリン。行きと帰りで直線上の敵を2回薙ぎ払う。まとまった敵の列に強い。', boomerang:true, boomDist:150, boomSp:300, boomR:15, test:true, beta:true},
   // ショートケーキ（開発テスト中・スプライト無し＝絵文字）。開幕に自分の位置へイチゴタレットを設置する。1枚=1体。
-  {key:'shortcake', name:'ショートケーキ', icon:'🍰', role:'back', tier:2, count:1, atk:10, hp:110, speed:0, range:26, cd:1.0, tag:'設置', short:'開幕に自分の位置へイチゴタレットを置く（1体）', text:'開幕と同時に、自分の足元へイチゴタレットを設置する動かないケーキ。タレットが後方からイチゴを撃ち続けてくれる。', deployTurret:true, turretKey:'strawturret', test:true, beta:true},
-  // イチゴタレット（ショートケーキ専用の召喚物・動かない後衛射手）。summonOnly でロスター/ドラフト/CPU/X2/ピッカーから除外。
-  {key:'strawturret', name:'イチゴタレット', icon:'🍓', role:'back', tier:2, count:1, atk:14, hp:70, speed:0, range:170, cd:1.1, tag:'タレット', short:'イチゴを撃ち続ける固定砲台', text:'ショートケーキが設置する固定砲台。動かないが後方からイチゴを撃ち続ける。', ranged:true, summonOnly:true},
+  {key:'shortcake', name:'ショートケーキ', icon:'🍰', role:'fodder', tier:0.5, count:1, atk:12, hp:110, speed:55, range:26, cd:1.0, tag:'設置＋前進', short:'足元にイチゴタレットを置きつつ前進して殴る（1体）', text:'足元にイチゴタレットを設置したら、自分は前進して敵を殴りに行くケーキ。タレットは数秒で溶けるが、消えるとその時の足元にまた新しいタレットを置き直す。', deployTurret:true, turretKey:'strawturret', redeployDelay:0.5, test:true, beta:true},
+  // イチゴタレット（ショートケーキ専用の召喚物・動かない短命の砲台）。summonOnly でロスター/ドラフト/CPU/X2/ピッカーから除外。turretLife 秒で消える。
+  {key:'strawturret', name:'イチゴタレット', icon:'🍓', role:'back', tier:2, count:1, atk:14, hp:70, speed:0, range:80, cd:0.9, tag:'タレット', short:'近くの敵をイチゴで撃つ短命の砲台', text:'ショートケーキが設置する砲台。動かず近くの敵をイチゴで撃つが、数秒で溶けてしまう。', ranged:true, turretLife:4.0, summonOnly:true},
 ];
 const UNIT_BY_KEY = Object.fromEntries(UNITS.map(u=>[u.key,u]));
 
@@ -1564,7 +1564,7 @@ const UNIT_ABILITIES = {
   macaron:[{name:'スピン', info:'マカロンの殻にこもり敵めがけてスピンアタック！この間はダメージを大幅に軽減する'}],
   kumagumi:[{name:'仲間化', info:'クマグミが倒した敵は、その場で自軍のクマグミに変わって一緒に戦ってくれる。倒すほど軍勢が雪だるま式に増えていく（増えた分はそのバトル限りで、次のラウンドには持ち越さない）。'}],
   purin:[{name:'ブーメランスプーン', info:'スプーンをブーメランのように投げる。行き（外側へ飛ぶ）と帰り（手元に戻る）の両方で、直線上の敵をまとめて薙ぎ払う。まとまった敵の列に強い。'}],
-  shortcake:[{name:'イチゴタレット設置', info:'開幕と同時に、自分の足元へイチゴタレットを1基設置する。タレットは動かないが、後方からイチゴを撃ち続けて敵を削る（設置ぶんはそのバトル限り）。'}],
+  shortcake:[{name:'イチゴタレット設置', info:'足元にイチゴタレット（射程80・数秒で溶ける）を置き、自分は前進して敵を殴りに行く。タレットが溶けると、その時の足元にまた新しいタレットを置き直す（設置ぶんはそのバトル限り）。'}],
   mangel:[{name:'浮遊', info:'空を飛んでいるので近接攻撃では狙われない。倒せるのは遠距離・迫撃・爆発だけ。'},{name:'身代わりの翼', info:'近くの味方が受けるダメージの一部を自分のHPで肩代わりする。味方を守りながら自分から先に溶けていく健気な支援。'}],
 };
 // キャラ詳細の「能力」セクションHTML（能力が無いキャラは空文字＝非表示）。
@@ -1678,7 +1678,7 @@ function makeFighters(key, side, W, H, slot){
       side, key, name:u.name, icon:u.icon, slot, role:u.role, tier:u.tier||0, spriteScale:u.spriteScale||1,
       fly:!!u.fly, guardian:!!u.guardian, recruit:!!u.recruit,   // 浮遊(近接無敵)／守護天使／仲間化(クマグミ＝倒した敵を自軍化)
       boomerang:!!u.boomerang, boomDist:u.boomDist||150, boomSp:u.boomSp||300, boomR:u.boomR||15,   // プリン：スプーンをブーメラン投げ
-      deployTurret:!!u.deployTurret, turretKey:u.turretKey||'', turretDone:false,   // ショートケーキ：開幕にタレット設置
+      deployTurret:!!u.deployTurret, turretKey:u.turretKey||'', redeployDelay:u.redeployDelay||0.5, turretT:0, myTurret:null, turretLife:u.turretLife||0,   // ショートケーキ：タレットが消えたら足元へ再設置／タレット側は turretLife秒で消える
       x:xMin+Math.random()*(xMax-xMin), y:yMin+Math.random()*(yMax-yMin),
       vx:0, vy:0, r, baseR:r, hp, maxHp:hp, baseMaxHp:hp, atk, baseAtk:atk,
       speed:u.speed*SPEED_MUL, baseSpeed:u.speed*SPEED_MUL, range:u.range, cd:u.cd, cool:Math.random()*u.cd,
@@ -2720,9 +2720,8 @@ function stepBoomerang(world, s, dt){
     if((o.x-s.x)**2+(o.y-s.y)**2 < rr*rr){ s.hit.add(o); applyHit(world, owner, o, s.atk); }
   }
 }
-// ショートケーキ：開幕（初回フレーム）に自分の足元へイチゴタレットを1基設置する。タレットは summonOnly＝軍には持ち越さない。
+// ショートケーキ：現在の足元へイチゴタレットを1基設置する（開幕＋タレットが消えるたびに再設置）。タレットは summonOnly＝軍には持ち越さない。
 function deployTurret(world, u){
-  u.turretDone=true;
   const key=u.turretKey||'strawturret';
   if(!UNIT_BY_KEY[key]) return;
   const t=makeFighters(key, u.side, world.W, world.H)[0];
@@ -2732,6 +2731,15 @@ function deployTurret(world, u){
   burst(world, t.x, t.y, col, 14, 130);
   world.rings.push({x:t.x, y:t.y, r:3, max:t.r+22, life:0.45, color:'#ff6f9c'});
   popDmg(world, t.x, t.y-t.r-8, '設置！', '#ff9ec2');
+  return t;
+}
+// イチゴタレットの寿命切れ：演出を出して盤面から除去（横倒しの死亡演出は使わず、ふわっと溶けて消える）。
+function expireTurret(world, u){
+  u.hp=0; u._dead=true; u.dying=false;   // hp<=0 かつ dying=false ＝ 次のフィルタで即座に片付く
+  const col=u.side==='p'?'#9fdcff':'#ffb39a';
+  burst(world, u.x, u.y, col, 10, 110);
+  world.rings.push({x:u.x, y:u.y, r:3, max:u.r+14, life:0.35, color:'#ff9ec2'});
+  popDmg(world, u.x, u.y-u.r-8, '溶けた', '#ffc0d6');
 }
 function killUnit(world, t){
   if(t._dead) return; t._dead=true; t.hp=0;
@@ -3190,7 +3198,12 @@ function stepWorld(world, dt){
         u.cool=u.cd;
       }
     }
-    if(u.deployTurret && !u.turretDone){ deployTurret(world, u); }   // ショートケーキ：開幕（初回フレーム）に自分の位置へタレット設置
+    if(u.turretLife>0){ u.turretLife-=dt; if(u.turretLife<=0){ expireTurret(world,u); continue; } }   // イチゴタレット：寿命が尽きたら溶けて消える
+    if(u.deployTurret){   // ショートケーキ：自分のタレットが立っている間は何もしない。消えたら少し待って足元へ再設置（開幕は即設置）。この後は前進して近接攻撃
+      if(u.myTurret && u.myTurret.hp>0){ /* まだ立っている */ }
+      else { if(u.myTurret){ u.myTurret=null; u.turretT=u.redeployDelay||0.5; }   // 今なくなった→再設置までの小休止
+        u.turretT-=dt; if(u.turretT<=0){ u.myTurret=deployTurret(world,u); } }
+    }
     const tgt=nearestEnemy(u,world);
     if(u.warper && !u.warped){                    // 開幕：少し待ってから消えて敵キャノンの座標へワープ
       const wd=u.warpDelay||1.0;
