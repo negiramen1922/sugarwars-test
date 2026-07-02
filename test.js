@@ -61,7 +61,7 @@ code += `
   applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff, applyIcewizBuff, applyMacaronBuff, buffCountFor,
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck, needFullDeckForPvp,
   buildProfile, applyProfile, displayProfile, get myProfile(){ return myProfile; },
-  profileHasProgress, profilesConflict,
+  profileHasProgress, profilesConflict, filterActiveEntries,
   masteryXp, masteryLevel, avatarUnlocked, awardMasteryXp,
   masteryXpForLevel, skinUnlocked, activeSkinBase, equipSkin, get SPECIAL_SKINS(){ return SPECIAL_SKINS; },
   get MASTERY_WIN_XP(){ return MASTERY_WIN_XP; }, get MASTERY_LOSE_XP(){ return MASTERY_LOSE_XP; }, get MASTERY_XP_PER_LEVEL(){ return MASTERY_XP_PER_LEVEL; },
@@ -2628,6 +2628,27 @@ console.log('\n=== 91) ログイン同期: profileHasProgress / profilesConflict
   check('端末に記録なし→衝突しない（クラウド復元でよい）', API.profilesConflict({}, cloudA) === false);
   check('クラウドに記録なし→衝突しない（端末アップロードでよい）', API.profilesConflict(localA, {}) === false);
   check('トロフィーだけ違っても衝突', API.profilesConflict({ trophies: 1200, wins: 5, losses: 2 }, cloudA) === true);
+}
+
+console.log('\n=== 92) ランキング: filterActiveEntries（放置アカウントを除外） ===');
+{
+  const now = 1_000_000_000_000;
+  const day = 24 * 60 * 60 * 1000;
+  const win = 30 * day;
+  const arr = [
+    { uid: 'a', trophies: 1200, ts: now - 1 * day },      // 直近 → 残る
+    { uid: 'b', trophies: 1500, ts: now - 29 * day },     // ギリ直近 → 残る
+    { uid: 'c', trophies: 1800, ts: now - 31 * day },     // 期限切れ → 除外
+    { uid: 'd', trophies: 1100 },                         // ts なし → 除外
+    { uid: 'e', trophies: 1300, ts: 'x' },                // ts 不正 → 除外
+  ];
+  const r = API.filterActiveEntries(arr, now, win);
+  check('直近30日のエントリだけ残る', r.length === 2, r.map(e => e.uid));
+  check('残るのは a と b', r.some(e => e.uid === 'a') && r.some(e => e.uid === 'b'));
+  check('期限切れ(c)は除外', !r.some(e => e.uid === 'c'));
+  check('ts無し(d)は除外', !r.some(e => e.uid === 'd'));
+  check('ts不正(e)は除外', !r.some(e => e.uid === 'e'));
+  check('空配列でも壊れない', API.filterActiveEntries(null, now, win).length === 0);
 }
 
 Promise.resolve().then(() => {

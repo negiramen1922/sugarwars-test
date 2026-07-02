@@ -4142,9 +4142,10 @@ function applyTrophyResult(won, oppTrophies){
   saveProfileLocal(); scheduleCloudSave(); leaderboardSubmit();
   return pvpLastDelta;
 }
-// リーダーボードへ自分の成績を反映（ログイン時のみ・対戦経験者だけ＝匿名の空エントリで埋めない）
+// リーダーボードへ自分の成績を反映（本ログイン=非匿名かつ対戦経験者のみ）。
+// 匿名ゲストは載せない＝ランダムマッチのたびに増える使い捨てアカウントでランキングを埋めない。
 function leaderboardSubmit(){
-  if(!authUser) return;
+  if(!isRealUser()) return;   // 匿名(ゲスト)は対象外＝死んでるアカウントを今後ためない
   if(((myProfile.wins||0)+(myProfile.losses||0)) <= 0) return;   // 未対戦はランキングに載せない
   const db=ensureFirebase(); if(!db) return;
   const dp=displayProfile();
@@ -4177,14 +4178,23 @@ function renderRankingList(arr){
     list.appendChild(row);
   });
 }
-// 上位N件を取得（trophies降順）。cb(list) で返す。listは {uid,name,avatar,trophies,wins}
+// ランキングに載せる「最終プレイからの日数」。これを過ぎた放置アカウントは表示しない。
+const LEADERBOARD_ACTIVE_DAYS = 30;
+const LEADERBOARD_FETCH = 300;   // 絞り込み前に多めに取得（放置分を除いても上位が埋まるように）
+// 非アクティブ(放置)エントリを除外（純粋関数・テスト対象）。ts が無い/古いものは除外。
+function filterActiveEntries(arr, now, maxAgeMs){
+  const cutoff = now - maxAgeMs;
+  return (arr||[]).filter(function(e){ return e && typeof e.ts==='number' && isFinite(e.ts) && e.ts>=cutoff; });
+}
+// 上位N件を取得（trophies降順・直近LEADERBOARD_ACTIVE_DAYS日プレイした人のみ）。cb(list) で返す。
 function leaderboardLoad(n, cb){
   const db=ensureFirebase(); if(!db){ cb([]); return; }
   try{
-    db.ref('leaderboard').orderByChild('trophies').limitToLast(n||50).once('value').then(function(snap){
-      const arr=[]; snap.forEach(function(ch){ const v=ch.val()||{}; arr.push({ uid:ch.key, name:v.name||'ゲスト', avatar:v.avatar||'', trophies:v.trophies||0, wins:v.wins||0 }); });
+    db.ref('leaderboard').orderByChild('trophies').limitToLast(LEADERBOARD_FETCH).once('value').then(function(snap){
+      let arr=[]; snap.forEach(function(ch){ const v=ch.val()||{}; arr.push({ uid:ch.key, name:v.name||'ゲスト', avatar:v.avatar||'', trophies:v.trophies||0, wins:v.wins||0, ts:v.ts }); });
+      arr = filterActiveEntries(arr, Date.now(), LEADERBOARD_ACTIVE_DAYS*24*60*60*1000);   // 放置アカウントを除外
       arr.sort(function(a,b){ return b.trophies-a.trophies; });   // 降順
-      cb(arr);
+      cb(arr.slice(0, n||50));
     }).catch(function(e){ console.warn('LB読込失敗',e); cb([]); });
   }catch(e){ cb([]); }
 }
