@@ -62,6 +62,9 @@ code += `
   get SODA_BUFF_BLAST(){ return SODA_BUFF_BLAST; }, get SODA_BUFF_DPS(){ return SODA_BUFF_DPS; }, get PUDDLE_DPS_CAP(){ return PUDDLE_DPS_CAP; },
   get DAIFUKU_HP(){ return DAIFUKU_HP; }, get DAIFUKU_ATK(){ return DAIFUKU_ATK; }, get DAIFUKU_DASH(){ return DAIFUKU_DASH; }, get DAIFUKU_REACH(){ return DAIFUKU_REACH; },
   get ICEWIZ_ATK(){ return ICEWIZ_ATK; }, get ICEWIZ_SLOW(){ return ICEWIZ_SLOW; }, get ICEWIZ_SLOW_DUR(){ return ICEWIZ_SLOW_DUR; }, get ICEWIZ_DECAY(){ return ICEWIZ_DECAY; },
+  growKuma, guardSoak,
+  get KUMA_MAX(){ return KUMA_MAX; }, get KUMA_ATK_STEP(){ return KUMA_ATK_STEP; }, get KUMA_SPD_STEP(){ return KUMA_SPD_STEP; },
+  get MANGEL_R(){ return MANGEL_R; }, get MANGEL_SOAK(){ return MANGEL_SOAK; },
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck, needFullDeckForPvp,
   buildProfile, applyProfile, displayProfile, get myProfile(){ return myProfile; },
   profileHasProgress, profilesConflict, filterActiveEntries,
@@ -2905,6 +2908,99 @@ console.log('\n=== 97) ランキング: filterActiveEntries（放置アカウン
   check('ts無し(d)は除外', !r.some(e => e.uid === 'd'));
   check('ts不正(e)は除外', !r.some(e => e.uid === 'e'));
   check('空配列でも壊れない', API.filterActiveEntries(null, now, win).length === 0);
+}
+
+console.log('\n=== 98) クマグミ: キル成長（弱スタート・大化け） ===');
+{
+  const wd = API.createWorld(W, H); API.world = wd;
+  const kuma = API.makeFighters('kumagumi', 'p', W, H, 'army')[0]; kuma.appear = 1; kuma.x = 100; kuma.y = 300;
+  wd.units.push(kuma);
+  const baseAtk = kuma.baseAtk, baseSpd = kuma.baseSpeed;
+  check('初期スタックは0', kuma.kumaKills === 0);
+  check('killGrowフラグを持つ', kuma.killGrow === true);
+  // 敵をおいて、クマグミの攻撃で倒す→成長するはず
+  for (let s = 1; s <= API.KUMA_MAX; s++) {
+    const foe = API.makeFighters('cookie', 'e', W, H, 'army')[0]; foe.appear = 1; foe.x = kuma.x; foe.y = kuma.y; foe.hp = 1;
+    wd.units.push(foe);
+    API.applyHit(wd, kuma, foe, 9999);   // 一撃で倒す
+    check('キル' + s + 'で攻撃が伸びる', kuma.atk === Math.round(baseAtk * (1 + API.KUMA_ATK_STEP * s)), { atk: kuma.atk, s });
+    check('キル' + s + 'で速度が伸びる', Math.abs(kuma.speed - baseSpd * (1 + API.KUMA_SPD_STEP * s)) < 1e-6);
+    check('スタックが' + s, kuma.kumaKills === s);
+  }
+  // 上限を超えて倒しても頭打ち
+  const extra = API.makeFighters('cookie', 'e', W, H, 'army')[0]; extra.appear = 1; extra.x = kuma.x; extra.y = kuma.y; extra.hp = 1;
+  wd.units.push(extra);
+  const cappedAtk = kuma.atk, cappedKills = kuma.kumaKills;
+  API.applyHit(wd, kuma, extra, 9999);
+  check('上限KUMA_MAXで頭打ち（スタック増えない）', kuma.kumaKills === cappedKills && kuma.kumaKills === API.KUMA_MAX);
+  check('上限で攻撃も頭打ち', kuma.atk === cappedAtk);
+  check('最大で攻撃が約2倍', kuma.atk === Math.round(baseAtk * (1 + API.KUMA_ATK_STEP * API.KUMA_MAX)) && API.KUMA_ATK_STEP * API.KUMA_MAX === 1.0);
+  // cookie など通常キャラは成長しない
+  const ck = API.makeFighters('cookie', 'p', W, H, 'army')[0]; ck.appear = 1; ck.x = 200; ck.y = 300; wd.units.push(ck);
+  const tgt2 = API.makeFighters('cookie', 'e', W, H, 'army')[0]; tgt2.appear = 1; tgt2.x = 200; tgt2.y = 300; tgt2.hp = 1; wd.units.push(tgt2);
+  const ckAtk = ck.atk;
+  API.applyHit(wd, ck, tgt2, 9999);
+  check('killGrowでないキャラは成長しない', ck.atk === ckAtk && (ck.kumaKills || 0) === 0);
+}
+
+console.log('\n=== 99) マシュマロエンジェル: 浮遊（近接では狙えない）＋肩代わり ===');
+{
+  const wd = API.createWorld(W, H); API.world = wd;
+  const ang = API.makeFighters('mangel', 'e', W, H, 'army')[0]; ang.appear = 1; ang.x = 200; ang.y = 200;
+  wd.units.push(ang);
+  check('flyフラグを持つ', ang.fly === true);
+  // 近接ユニット（cookie）はflyを狙えない
+  const melee = API.makeFighters('cookie', 'p', W, H, 'army')[0]; melee.appear = 1; melee.x = 200; melee.y = 210;
+  wd.units.push(melee);
+  check('近接(cookie)は浮遊エンジェルを標的にできない', API.nearestEnemy(melee, wd) === null);
+  // 遠距離（shoe）はflyを狙える
+  const arch = API.makeFighters('shoe', 'p', W, H, 'army')[0]; arch.appear = 1; arch.x = 200; arch.y = 260;
+  wd.units.push(arch);
+  check('遠距離(shoe)は浮遊エンジェルを標的にできる', API.nearestEnemy(arch, wd) === ang);
+
+  // 肩代わり：味方が被弾するとエンジェルが一部を自分のHPで受ける
+  const wd2 = API.createWorld(W, H); API.world = wd2;
+  const angel = API.makeFighters('mangel', 'p', W, H, 'army')[0]; angel.appear = 1; angel.x = 300; angel.y = 300; angel.hp = angel.maxHp;
+  const ally = API.makeFighters('cookie', 'p', W, H, 'army')[0]; ally.appear = 1; ally.x = 305; ally.y = 300; ally.hp = ally.maxHp;
+  const enemy = API.makeFighters('cookie', 'e', W, H, 'army')[0]; enemy.appear = 1; enemy.x = 305; enemy.y = 300;
+  wd2.units.push(angel, ally, enemy);
+  const angHp0 = angel.hp, allyHp0 = ally.hp;
+  API.applyHit(wd2, enemy, ally, 20);
+  const soakExpect = Math.max(1, Math.round(20 * API.MANGEL_SOAK));
+  const passExpect = Math.max(1, 20 - soakExpect);
+  check('エンジェルが被ダメを肩代わり（自分のHPが減る）', angel.hp === angHp0 - soakExpect, { ang: angel.hp, exp: angHp0 - soakExpect });
+  check('味方は肩代わり後の残り分だけ受ける', ally.hp === allyHp0 - passExpect, { ally: ally.hp, exp: allyHp0 - passExpect });
+
+  // 範囲外の味方は肩代わりされない
+  const wd3 = API.createWorld(W, H); API.world = wd3;
+  const angel3 = API.makeFighters('mangel', 'p', W, H, 'army')[0]; angel3.appear = 1; angel3.x = 100; angel3.y = 100; angel3.hp = angel3.maxHp;
+  const farAlly = API.makeFighters('cookie', 'p', W, H, 'army')[0]; farAlly.appear = 1; farAlly.x = 400; farAlly.y = 600; farAlly.hp = farAlly.maxHp;
+  const enemy3 = API.makeFighters('cookie', 'e', W, H, 'army')[0]; enemy3.appear = 1; enemy3.x = 400; enemy3.y = 600;
+  wd3.units.push(angel3, farAlly, enemy3);
+  const angHp3 = angel3.hp;
+  API.applyHit(wd3, enemy3, farAlly, 20);
+  check('範囲外の味方は肩代わりされない（エンジェルのHPは不変）', angel3.hp === angHp3);
+  check('範囲外なら味方がフルダメージ', farAlly.hp === farAlly.maxHp - 20);
+
+  // 天使同士は肩代わりしない（ループ防止）
+  const wd4 = API.createWorld(W, H); API.world = wd4;
+  const a1 = API.makeFighters('mangel', 'p', W, H, 'army')[0]; a1.appear = 1; a1.x = 300; a1.y = 300; a1.hp = a1.maxHp;
+  const a2 = API.makeFighters('mangel', 'p', W, H, 'army')[0]; a2.appear = 1; a2.x = 305; a2.y = 300; a2.hp = a2.maxHp;
+  const enemy4 = API.makeFighters('cookie', 'e', W, H, 'army')[0]; enemy4.appear = 1; enemy4.x = 305; enemy4.y = 300;
+  wd4.units.push(a1, a2, enemy4);
+  const a1hp0 = a1.hp;
+  API.applyHit(wd4, enemy4, a2, 20);
+  check('天使が被弾しても別の天使に肩代わりさせない', a1.hp === a1hp0 && a2.hp === a2.maxHp - 20);
+}
+
+console.log('\n=== 100) 通常プレイに test:true βキャラが漏れない ===');
+{
+  // ランダム相手デッキ・スターター・X2生成に test:true が混ざらないこと
+  check('kumagumi は test:true', API.UNIT_BY_KEY['kumagumi'].test === true);
+  check('mangel は test:true', API.UNIT_BY_KEY['mangel'].test === true);
+  check('x2_kumagumi は自動生成されない', !API.SPECIALS['x2_kumagumi']);
+  check('x2_mangel は自動生成されない', !API.SPECIALS['x2_mangel']);
+  check('STARTER_UNITS に test キャラは含まれない', !API.STARTER_UNITS.includes('kumagumi') && !API.STARTER_UNITS.includes('mangel'));
 }
 
 Promise.resolve().then(() => {
