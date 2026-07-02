@@ -39,11 +39,11 @@
 | ghost | わたあめゴースト | 3.5 | 3 | 16 | 44 | 95 | 開幕少し待って敵後方へワープ（warpDelay1.5・無敵中は狙われない） |
 | cannon | キャンディキャノン | 4 | 1 | 0 | 140 | 0 | 不動の全域誘導AoE迫撃（手前の敵を優先・`mortar`=90/`cd`=4.2・爆発範囲 `splash`=35）。強化「ぱちぱちキャンディ」=着弾で小爆発を撒く |
 | icewiz | アイスクリームウィザード | 3.3 | 1 | 20 | 70 | 60 | 後衛魔導士。小範囲の氷弾（`ranged`＋`splash`=32・`range`=190）を撃ち、命中した敵に時限鈍足（`slowHit`=0.35＝35%/`slowDur`=1.5秒）を付与。鈍足は `u.chillT`/`chillAmt` で管理し `slowMul` に反映 |
-| macaron | シェルマカロン | 1 | 2 | 18 | 100 | 70 | 殻スピン（`shell`／`shellStep`）。開幕は殻で突進し壁で反射しながら約4秒(`SHELL_SPIN_DUR`)暴れる→約2秒(`SHELL_STUN_DUR`)スタン→以降は通常戦闘。スピン中は体当たり(`atk`)＋被ダメ80%カット(`SHELL_DR`／`u.inShell`)、スタン(気絶)中は無防備でカットなし。`u.shellPhase`(spin/stun/normal)で挙動・立ち絵を切替 |
+| macaron | シェルマカロン | 1 | 2 | 12 | 100 | 70 | 殻スピン（`shell`／`shellStep`）。強化「マカロンアーマー」=HP100→180(`MACARON_HP`0.8)。開幕は殻で突進し壁で反射しながら約4秒(`SHELL_SPIN_DUR`)暴れる→約2秒(`SHELL_STUN_DUR`)スタン→以降は通常戦闘。スピン中は体当たり(`atk`)＋被ダメ80%カット(`SHELL_DR`／`u.inShell`)、スタン(気絶)中は無防備でカットなし。`u.shellPhase`(spin/stun/normal)で挙動・立ち絵を切替 |
 
 隊列 `arrangeFormation` は **tier が小さいほど前列、大きいほど後方**。
 
-新キャラは `UNITS` に `beta:true` を付けると、編成カードに「β」バッジ・キャラ詳細に「ベータ実装＝バランス調整中」の注記が出る（現在 icewiz / macaron）。
+新キャラは `UNITS` に `beta:true` を付けると、編成カードに「β」バッジ・キャラ詳細に「ベータ実装＝バランス調整中」の注記が出る（現在 icewiz）。
 
 ## 主要定数（`CONFIG` とトップレベル定数）
 
@@ -87,8 +87,8 @@
 
 - 陣営で出し分けるキャラ：**スライム**（`slime_blue/red` ＋ `_big`）と**ソーダ**（`soda_blue`=味方/`soda_red`=敵）ほか多数（cookie/choco/shoe/daifuku/ghost/donut/bakery/ginger/cannon/**icewiz**＝`*_blue`味方/`*_red`敵）。`spriteFor()`/`iconHTML()` で解決。
 - パンケーキは陣営色つき。進化前 `pancake_blue/red`／はや焼き強化(進化前・王冠5トゲ)`pancake_fast_blue/red`(`u.fastEvo`)／進化後(3段)`pancake_evo_blue/red`(`u.evolved`)を切替（進化後が最優先）。旧 `pancake`/`pancake_evo` はフォールバック。
-- シェルマカロンは通常 `macaron_blue/red`／殻スピン・スタン中 `macaron_spin_blue/red` を `u.shellPhase` で切替（スピン中は描画を回転＋スタン中は★演出）。強化(ビッグシェル/`u.macaronBuff`)は `macaron_buff_*`／`macaron_spin_buff_*`。
-- 強化で立ち絵が変わるキャラ：**チョコ**（`choco_buff_*`＝ビター装甲、`u.chocoBuff`）・**シュー**（`shoe_buff_*`＝特盛り、`u.shoeBuff`）・**ソーダ**（`soda_buff_*`＝炭酸沼強化、`u.fizz`）・**ベーカリー**（`bakery_buff_*`＝ラストベイク、`u.bakeryBuff`）・**ポップコーン**（`bomb_buff_*`＝おかわり、`u.spawnMini`）・**大福**（`daifuku_buff_*`＝ちょんまげ大福、`u.daifukuBuff`）・**ゴースト**（`ghost_buff_*`＝分身、`u.cloneOn`／おとり分身は通常絵）・**キャノン**（`cannon_buff_*`＝クラスター花火弾、`u.cluster`）・**ドーナッツ**（`donut_buff_*`＝鉄壁、`u.donutWall`）・**アイス**（`icewiz_buff_*`＝ブリザード、`u.icewizBuff`）・**マカロン**（`macaron_buff_*`/`macaron_spin_buff_*`＝ビッグシェル）。いずれも陣営色つき。`spriteFor()` で解決。
+- シェルマカロンは通常 `macaron_blue/red`／殻スピン・スタン中 `macaron_spin_blue/red` を `u.shellPhase` で切替（スピン中は描画を回転＋スタン中は★演出）。強化(マカロンアーマー/`u.macaronBuff`)は `macaron_buff_*`／`macaron_spin_buff_*`。
+- 強化で立ち絵が変わるキャラ：**チョコ**（`choco_buff_*`＝ビター装甲、`u.chocoBuff`）・**シュー**（`shoe_buff_*`＝特盛り、`u.shoeBuff`）・**ソーダ**（`soda_buff_*`＝炭酸沼強化、`u.fizz`）・**ベーカリー**（`bakery_buff_*`＝ラストベイク、`u.bakeryBuff`）・**ポップコーン**（`bomb_buff_*`＝おかわり、`u.spawnMini`）・**大福**（`daifuku_buff_*`＝ちょんまげ大福、`u.daifukuBuff`）・**ゴースト**（`ghost_buff_*`＝分身、`u.cloneOn`／おとり分身は通常絵）・**キャノン**（`cannon_buff_*`＝クラスター花火弾、`u.cluster`）・**ドーナッツ**（`donut_buff_*`＝鉄壁、`u.donutWall`）・**アイス**（`icewiz_buff_*`＝ブリザード、`u.icewizBuff`）・**マカロン**（`macaron_buff_*`/`macaron_spin_buff_*`＝マカロンアーマー）。いずれも陣営色つき。`spriteFor()` で解決。
 - 立ち絵が無いキャラは絵文字フォールバック。
 - **強化カードの絵**：`SPECIALS` に `evoSprite`（例 `buff_choco`→`choco_buff_blue`／`fast_pancake`→`pancake_evo`／`up_slime`→`slime_blue_big`）を持つ強化は、ドラフトのカード絵を**進化後/強化後の立ち絵**で出す（`specialCardIcon()`）。無ければ対象キャラのベース絵→絵文字にフォールバック。**ライバルの選択カード**（`showFoePickCard`）はユニット＝敵色の立ち絵(`iconHTML(u,'e')`)／強化＝`specialCardIcon()`（強化後の絵）で表示。プロフィールの「よく使うキャラ」は `unitSpriteImg()` で**立ち絵**表示。
 - **ヘッダーのアクション（`.topbar-actions`）**：右上に「コミュニティに参加！(Discord・他より横長)」→「お知らせ📢(`#newsBtn`)」→「設定⚙」の順。お知らせは**新着があると赤ドット**（`renderNewsDot`/`#newsDot`）＝最新 `NEWS[0].ver` を `localStorage('sw_news_seen')` と比較（`newsUnseen`）、`openNews` で既読化（`markNewsSeen`）。起動時に `renderNewsDot()`。
@@ -255,7 +255,7 @@
 
 ユーザー要望の「PVEの戦術指南でカードを入手→その後ガチャ」の前半。各レッスン＝1テーマを実戦で学び、**勝利で仲間（キャラ）解禁＋🍬シュガーコイン（初回のみ）**。キャラ（アーク）は自由選択・アーク内のみ順番制。テスト：test.js 93。
 
-- **データ**：`GUIDE_STAGES`（`{id,title,theme,tip,deck,foe,unit?,coins}`）。`deck`＝レッスン用おすすめデッキ（学ぶキャラを含めて体験させる）、`foe`＝相手デッキ、`unit`＝クリア報酬キャラ（**省略可**＝体験型レッスン。コインのみ）、`coins`＝報酬🍬（**統一ルール：キャラ解禁レッスン=100／体験(それ以前)=50**。test.js 93で担保）。**アーク方式**：複数レッスンで1キャラを解禁できる（`unit`は最終レッスンだけに付け、途中は`unit`省略でコインのみ＝「近道(`buyUnit`)」の価値を出す）。**現在15レッスン**：非スターターの全キャラ（donut/icewiz/macaron）＋ソーダ（`soda1`→`soda2`）＋大福（`charge1`→`charge2`）＋ゴースト（`warp1`→`warp2`）＋キャノン（`aoe1`→`aoe2`）＋ベーカリー（`produce1`→`produce2`）＋パンケーキ（`evolve1`→`evolve2`）を無料解禁できる＝誰でもPVEを進めれば全員そろう（対人も公平）。🍬は「レッスンを待たずに先に解禁する近道」として任意利用。test.js 93 が「全非スターターキャラがレッスンで解禁できる」ことを保証（新キャラを足したらレッスンも追加する）。
+- **データ**：`GUIDE_STAGES`（`{id,title,theme,tip,deck,foe,unit?,coins}`）。`deck`＝レッスン用おすすめデッキ（学ぶキャラを含めて体験させる）、`foe`＝相手デッキ、`unit`＝クリア報酬キャラ（**省略可**＝体験型レッスン。コインのみ）、`coins`＝報酬🍬（**統一ルール：キャラ解禁レッスン=100／体験(それ以前)=50**。test.js 93で担保）。**アーク方式**：複数レッスンで1キャラを解禁できる（`unit`は最終レッスンだけに付け、途中は`unit`省略でコインのみ＝「近道(`buyUnit`)」の価値を出す）。**現在16レッスン**：非スターターの全キャラ（donut/icewiz）＋ソーダ（`soda1`→`soda2`）＋大福（`charge1`→`charge2`）＋ゴースト（`warp1`→`warp2`）＋キャノン（`aoe1`→`aoe2`）＋ベーカリー（`produce1`→`produce2`）＋パンケーキ（`evolve1`→`evolve2`）＋マカロン（`shell1`→`shell2`）を無料解禁できる＝誰でもPVEを進めれば全員そろう（対人も公平）。🍬は「レッスンを待たずに先に解禁する近道」として任意利用。test.js 93 が「全非スターターキャラがレッスンで解禁できる」ことを保証（新キャラを足したらレッスンも追加する）。
 - **アークごとに自由選択＋アーク内は順番制**：`stageArc(s)`＝`arc`明示→`unit`→`id` でアーク（キャラ）を判定。`guideStageUnlocked(id)`＝各アークの先頭レッスンは常に挑戦可（好きなキャラから選べる）、アーク内のレッスン2以降は同アークの前レッスンを `guideCleared` していれば解禁。単発アーク（1レッスン）は常に選べる。
 - **メニューは2階層**（`guideView` = `arcs`/`arc`）：`openGuide`→`renderGuide` が**キャラ一覧**（`guideArcs()`＝アーク単位・進捗 `cleared/total`）を表示→キャラを選ぶと `openGuideArc(a)` で**そのキャラのレッスンを縦に並べて**表示（`arcStages(a)`／上から順番）。`arcUnit(a)`＝アーク代表キャラ。`guideBackToArcs()` で戻る。
 - **フロー**：レッスンタップ→`startGuideStage`（`#guideTipModal` でヒント）→**デッキ編成**`guideOpenDeckBuilder`（`rosterMode='guide'`＝学ぶキャラ `forceUnit`（`stage.forceUnit`→`unit`）を先頭に**強制**・外せない／残りは**解禁済みキャラ**から選ぶ／`stage.deck` の解禁済みをプレフィル／`rosterSub` に**相手のデッキ**をアイコン表示＝対策を組める）→「レッスン開始」`beginGuideStageBattle`＝`myDeck`をその編成にして `startGame`。**相手は `makeGuideFoeController(stage.foe)`＝デッキを round-robin で確実に出す**（貪欲AIだと弓兵など弱い後衛が出ないため／`guideRestoreDeck` で `makeCpuFoeController` に戻す）。**本デッキは `_guideDeckBackup` に退避**（保存しない＝本デッキ不変）。`guideCancelDeck`/`goHome` で復元。
