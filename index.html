@@ -774,7 +774,7 @@ const UNITS = [
   {key:'popcorn_mini', name:'小型ポップコーン', icon:'🍿', role:'fodder', tier:1, count:1, atk:0, hp:24, speed:132, range:22, cd:1.0, tag:'自爆', short:'TNTの爆発から飛び出してもう一度自爆する小型', text:'ポップコーンTNTの爆発から飛び出す小型。すぐに自爆する（さらに分裂はしない）。', suicide:true, blast:60, blastR:48, fuse:0.4, summonOnly:true, spriteScale:0.62},
   {key:'shoe',  name:'シュークリームアーチャー', icon:'🧁', role:'back', tier:3, count:4, atk:14, hp:44, speed:55, range:150, cd:1.0, tag:'後衛', short:'弓を放つシュークリーム', text:'後方から弓を放つシュークリームのアーチャー。矢の雨で近づく前に溶かしちゃう！', ranged:true},
   {key:'ghost', name:'わたあめゴースト', icon:'☁️', role:'back', tier:3.5, count:3, atk:16, hp:44, speed:95, range:28, cd:0.43, tag:'強襲', short:'敵の後衛を奇襲するおばけ', text:'敵の後衛にワープして奇襲するおばけ。背後をとって挟み撃ちにしよう。うらめしや！！', warper:true, warpDelay:1.5, target:'back'},
-  {key:'cannon',name:'キャンディキャノン', icon:'🎆', role:'back', tier:4, count:1, atk:0, hp:140, speed:0, range:9999, cd:3.8, tag:'迫撃', short:'最後尾から全域へ撃ち込む花火の迫撃砲', text:'最後尾から動かず、ステージ全域へ範囲迫撃。遅いが密集地点で大爆発。', artillery:true, mortar:60, splash:35, shotSpeed:230, arcH:80, spriteScale:1.25},
+  {key:'cannon',name:'キャンディキャノン', icon:'🎆', role:'back', tier:4, count:1, atk:0, hp:140, speed:0, range:9999, cd:4.2, tag:'迫撃', short:'最後尾から打ち込まれる強力な一撃', text:'最後尾から大ダメージの強力な一撃の迫撃をお見舞いする。', artillery:true, mortar:90, splash:35, shotSpeed:230, arcH:80, spriteScale:1.25},
   {key:'icewiz', name:'アイスクリームウィザード', icon:'🍦', role:'back', tier:3.3, count:1, atk:20, hp:70, speed:60, range:190, cd:1.2, tag:'氷の魔導士', short:'小さな氷弾を撃ち、当てた敵を鈍足にする後衛魔導士', text:'後方から小さな範囲の氷弾を撃つ魔導士。爆風は小さいが、当たった敵を一定時間鈍足（足を約35%遅く・約1.5秒）にして足止めする。射程が長い。', ranged:true, splash:32, slowHit:0.35, slowDur:1.5, beta:true},
   {key:'macaron', name:'シェルマカロン', icon:'🟣', role:'tank', tier:1, count:2, atk:18, hp:100, speed:70, range:28, cd:0.9, tag:'殻スピン', short:'殻にこもって突進＋反射で暴れ、スタン後に通常戦闘する2体', text:'2体で出る暴れん坊。開幕は殻にこもって近くの敵へ突進し、壁にぶつかると反射して約4秒あばれ回る（スピン中は被ダメージ80%カットでとても硬い）。そのあと約2秒スタン（気絶中は無防備で普通にダメージを受ける）し、以降は普通に殴り合う。', shell:true, beta:true},
 ];
@@ -916,8 +916,8 @@ SPECIALS['clone_ghost'] = {
 };
 /* キャンディキャノン固有強化「クラスター花火弾」：着弾すると小爆発がいくつも周囲に飛び散る。 */
 SPECIALS['cluster_cannon'] = {
-  key:'cluster_cannon', name:'クラスター花火弾', icon:'🎆', upgrade:true, cannonCluster:true, target:'cannon', evoSprite:'cannon_buff_blue',
-  text:'キャンディキャノンの弾が着弾すると、小さな爆発がいくつも周囲に飛び散る（クラスター弾・広範囲制圧）。以後ずっと有効。',
+  key:'cluster_cannon', name:'ぱちぱちキャンディ', icon:'🎆', upgrade:true, cannonCluster:true, target:'cannon', evoSprite:'cannon_buff_blue',
+  text:'着弾時に小爆発を起こすぱちぱちを撒き散らすようになる。',
 };
 /* ランニングソーダ固有強化「メガ炭酸沼」：自爆で残る炭酸沼の範囲とダメージが大幅UP。 */
 SPECIALS['fizz_soda'] = {
@@ -1411,7 +1411,7 @@ const UNIT_ABILITIES = {
   donut:[{name:'吸引', info:'正面の敵を吸い寄せて足止めする鈍足タンク。とても重いので、群れに押し込まれても崩れない。'}],
   bakery:[{name:'兵士生産', info:'動かない生産工場。約2秒ごとにジンジャーソルジャーを作り出す（1体につき最大7体まで）。'}],
   ghost:[{name:'ふわっとワープ', info:'ふわっと消えて敵の後衛の位置にさっと出現して後衛を奇襲する'}],
-  cannon:[{name:'全域迫撃', info:'動かず全域へ誘導迫撃を撃つ。手前の敵を優先し、着弾すると範囲で爆発する。'}],
+  cannon:[{name:'迫撃', info:'ステージ全域を覆う射程の迫撃が敵を襲う'}],
   icewiz:[{name:'氷弾スロー', info:'小範囲の氷弾を撃ち、当たった敵を一定時間鈍足にする（味方が押し勝ちやすくなる）。'}],
   macaron:[{name:'殻スピン', info:'開幕は殻に閉じこもり、壁で反射しながら約4秒暴れる（被ダメを大幅カット）→約2秒スタン→以降は通常戦闘。'}],
 };
@@ -4342,8 +4342,12 @@ const GUIDE_STAGES = [
   { id:'warp2',  title:'後衛を狩る②',     theme:'裏取り（実戦）', unit:'ghost', arc:'ghost', coins:100,
     tip:'相手は弓兵＋キャンディキャノン＋ゼリー。動かないキャノンや弓兵はゴーストの奇襲の的！ 前衛で正面を支えつつ、ゴーストで後衛を崩そう。勝てばわたあめゴーストが仲間になる。',
     deck:['ghost','choco','shoe','cookie'], foe:['shoe','cannon','slime'] },
-  { id:'aoe',    title:'群れを一掃する',   theme:'範囲攻撃', unit:'cannon', coins:100,
-    tip:'数で押す群れには範囲攻撃。キャンディキャノンは動かない代わりに全域へ爆撃して、固まった敵をまとめて溶かす。前衛で守ってあげよう。',
+  { id:'aoe1',   title:'群れを一掃する①', theme:'範囲攻撃（体験）', arc:'cannon', coins:50,
+    easyFoe:true, winRounds:1, forceUnit:'cannon',
+    tip:'相手は密集したクッキーとゼリーの群れ。キャンディキャノンは動かない代わりに全域へ迫撃！ 前衛でキャノンを守りつつ、固まった敵の真ん中に撃ち込んで一掃しよう。まずは1ライフ取ればクリア！',
+    deck:['cannon','choco','cookie'], foe:['cookie','slime'] },
+  { id:'aoe2',   title:'群れを一掃する②', theme:'範囲攻撃（実戦）', unit:'cannon', arc:'cannon', coins:100,
+    tip:'相手はクッキー＋ゼリー＋ポップコーンの群れ。キャノンの範囲迫撃で数を削り、前衛で守り切ろう！勝てばキャンディキャノンが仲間になる。',
     deck:['cannon','choco','shoe','cookie'], foe:['cookie','slime','bomb'] },
   { id:'produce',title:'数で押し返す',     theme:'生産', unit:'bakery', coins:100,
     tip:'ジンジャーベーカリーは戦場で兵士を作り続ける生産工場。時間が経つほど数で有利になる。前衛で守りながら軍をふくらませよう。',
