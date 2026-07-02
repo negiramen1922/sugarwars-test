@@ -60,6 +60,7 @@ code += `
   applyPartyFlag, applyCookieParty, playerCanParty, countSideKey,
   applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff, applyIcewizBuff, applyMacaronBuff, buffCountFor,
   get SODA_BUFF_BLAST(){ return SODA_BUFF_BLAST; }, get SODA_BUFF_DPS(){ return SODA_BUFF_DPS; }, get PUDDLE_DPS_CAP(){ return PUDDLE_DPS_CAP; },
+  get DAIFUKU_HP(){ return DAIFUKU_HP; }, get DAIFUKU_ATK(){ return DAIFUKU_ATK; }, get DAIFUKU_DASH(){ return DAIFUKU_DASH; }, get DAIFUKU_REACH(){ return DAIFUKU_REACH; },
   setMyDeck:(d)=>{ myDeck = d; }, getMyDeck:()=>myDeck, needFullDeckForPvp,
   buildProfile, applyProfile, displayProfile, get myProfile(){ return myProfile; },
   masteryXp, masteryLevel, avatarUnlocked, awardMasteryXp,
@@ -784,15 +785,17 @@ check('大福が居なければ候補に出ない', !API.eligibleSpecials().incl
 let wds2 = API.createWorld(W, H); API.world = wds2;
 const db = API.makeFighters('daifuku', 'p', W, H, 'army')[0]; db.appear = 1; wds2.units.push(db);
 API.makeFighters('daifuku', 'e', W, H, 'army').forEach(f => { f.appear = 1; wds2.units.push(f); });
-const dfHp = db.baseMaxHp, dfAtk = db.baseAtk, dfDash = db.baseDashDamage;
+const dfHp = db.baseMaxHp, dfAtk = db.baseAtk, dfDash = db.baseDashDamage, dfRange = db.baseDashRange;
 API.applyDaifukuBuff(wds2, 'p');
 check('HPが上がる', db.maxHp > dfHp && db.hp === db.maxHp, { base: dfHp, now: db.maxHp });
 check('攻撃が上がる', db.atk > dfAtk, { base: dfAtk, now: db.atk });
-check('突撃の威力も上がる', db.dashDamage > dfDash, { base: dfDash, now: db.dashDamage });
+check('居合ダメージ(dashDamage)が上がる（メイン）', db.dashDamage === Math.round(dfDash*(1+API.DAIFUKU_DASH)) && db.dashDamage > dfDash, { base: dfDash, now: db.dashDamage });
+check('居合の範囲(dashRange)が上がる（メイン）', db.dashRange === Math.round(dfRange*(1+API.DAIFUKU_REACH)) && db.dashRange > dfRange, { base: dfRange, now: db.dashRange });
 check('daifukuBuff フラグが立つ', db.daifukuBuff === true);
 check('敵大福には適用されない', wds2.units.filter(u => u.side === 'e' && u.key === 'daifuku').every(u => !u.daifukuBuff && u.maxHp === u.baseMaxHp));
 API.applyDaifukuBuff(wds2, 'p'); // 冪等
-check('2回適用しても重ねがけしない', db.maxHp === Math.round(dfHp * (1 + 0.6)));
+check('2回適用しても重ねがけしない(HP)', db.maxHp === Math.round(dfHp * (1 + API.DAIFUKU_HP)));
+check('2回適用しても重ねがけしない(居合範囲)', db.dashRange === Math.round(dfRange * (1 + API.DAIFUKU_REACH)));
 
 // pickCard で state.youDaifukuBuff が立ち、盤面大福が強化
 API.resetState();
@@ -2763,7 +2766,7 @@ console.log('\n=== 94) クッキー調整＋キャラ詳細の「能力」欄 ==
   const ab=API.UNIT_ABILITIES;
   check('能力データにbomb/自爆がある', ab.bomb && ab.bomb[0] && /自爆/.test(ab.bomb[0].name));
   check('cookieは能力なし（gimmick撤廃）', !ab.cookie);
-  check('abilitiesHTML: 能力ありは能力名を含む', /居合チャージ/.test(API.abilitiesHTML(API.UNIT_BY_KEY.daifuku)) && /能力/.test(API.abilitiesHTML(API.UNIT_BY_KEY.daifuku)));
+  check('abilitiesHTML: 能力ありは能力名を含む', /居合/.test(API.abilitiesHTML(API.UNIT_BY_KEY.daifuku)) && /能力/.test(API.abilitiesHTML(API.UNIT_BY_KEY.daifuku)));
   check('abilitiesHTML: 能力なし(cookie)は空', API.abilitiesHTML(c)==='');
   check('abilitiesHTML: ℹ️詳細トグルの要素を含む', /ab-desc/.test(API.abilitiesHTML(API.UNIT_BY_KEY.bomb)) && /toggleAbilityInfo/.test(API.abilitiesHTML(API.UNIT_BY_KEY.bomb)));
 }

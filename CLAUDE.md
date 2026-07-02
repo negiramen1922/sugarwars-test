@@ -25,7 +25,7 @@
 
 | key | 名前 | tier | count | atk | hp | speed | 特徴 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| daifuku | 大福サムライ | -1 | 1 | 22 | 160 | 60 | 居合チャージ→抜刀タックル（`chargerStep`）。突撃は範囲薙ぎ払い（reach≈40・dashDamage90） |
+| daifuku | 大福サムライ | -1 | 1 | 22 | 160 | 60 | 居合－竹串（`chargerStep`）＝遠いと力をため強い踏み込みで斬込み。突撃は範囲薙ぎ払い（dashDamage90/dashRange26）。強化「ちょんまげ大福」(`buff_daifuku`)＝居合の範囲(+50%)・威力(+80%)メイン＋HP/攻撃(+30%)・巨大化なし |
 | cookie | クッキーアーミー | 0 | 5 | 14 | 50 | 115 | 固有ギミックなし＝素で手数が多い前衛（cd0.35）。強化「クッキーパーティー」(`applyCookieParty`)＝近くの味方クッキー数で段階的に攻撃＆速度UP（`u.party`でサングラス立ち絵`cookie_party_*`）。※旧flockは撤廃 |
 | slime | ゼリースライム | 0.5 | 3 | 12 | 55 | 90 | 強化カードで融合／倒れると分裂 |
 | bomb | ポップコーンTNT | -2.2 | 2 | 0 | 55 | 128 | 自爆（導火0.5s・HP無関係・死亡時も爆発・blast100/blastR60） |
@@ -88,7 +88,7 @@
 - 陣営で出し分けるキャラ：**スライム**（`slime_blue/red` ＋ `_big`）と**ソーダ**（`soda_blue`=味方/`soda_red`=敵）ほか多数（cookie/choco/shoe/daifuku/ghost/donut/bakery/ginger/cannon/**icewiz**＝`*_blue`味方/`*_red`敵）。`spriteFor()`/`iconHTML()` で解決。
 - パンケーキは陣営色つき。進化前 `pancake_blue/red`／はや焼き強化(進化前・王冠5トゲ)`pancake_fast_blue/red`(`u.fastEvo`)／進化後(3段)`pancake_evo_blue/red`(`u.evolved`)を切替（進化後が最優先）。旧 `pancake`/`pancake_evo` はフォールバック。
 - シェルマカロンは通常 `macaron_blue/red`／殻スピン・スタン中 `macaron_spin_blue/red` を `u.shellPhase` で切替（スピン中は描画を回転＋スタン中は★演出）。強化(ビッグシェル/`u.macaronBuff`)は `macaron_buff_*`／`macaron_spin_buff_*`。
-- 強化で立ち絵が変わるキャラ：**チョコ**（`choco_buff_*`＝ビター装甲、`u.chocoBuff`）・**シュー**（`shoe_buff_*`＝特盛り、`u.shoeBuff`）・**ソーダ**（`soda_buff_*`＝炭酸沼強化、`u.fizz`）・**ベーカリー**（`bakery_buff_*`＝ラストベイク、`u.bakeryBuff`）・**ポップコーン**（`bomb_buff_*`＝おかわり、`u.spawnMini`）・**大福**（`daifuku_buff_*`＝特大大福、`u.daifukuBuff`）・**ゴースト**（`ghost_buff_*`＝分身、`u.cloneOn`／おとり分身は通常絵）・**キャノン**（`cannon_buff_*`＝クラスター花火弾、`u.cluster`）・**ドーナッツ**（`donut_buff_*`＝鉄壁、`u.donutWall`）・**アイス**（`icewiz_buff_*`＝ブリザード、`u.icewizBuff`）・**マカロン**（`macaron_buff_*`/`macaron_spin_buff_*`＝ビッグシェル）。いずれも陣営色つき。`spriteFor()` で解決。
+- 強化で立ち絵が変わるキャラ：**チョコ**（`choco_buff_*`＝ビター装甲、`u.chocoBuff`）・**シュー**（`shoe_buff_*`＝特盛り、`u.shoeBuff`）・**ソーダ**（`soda_buff_*`＝炭酸沼強化、`u.fizz`）・**ベーカリー**（`bakery_buff_*`＝ラストベイク、`u.bakeryBuff`）・**ポップコーン**（`bomb_buff_*`＝おかわり、`u.spawnMini`）・**大福**（`daifuku_buff_*`＝ちょんまげ大福、`u.daifukuBuff`）・**ゴースト**（`ghost_buff_*`＝分身、`u.cloneOn`／おとり分身は通常絵）・**キャノン**（`cannon_buff_*`＝クラスター花火弾、`u.cluster`）・**ドーナッツ**（`donut_buff_*`＝鉄壁、`u.donutWall`）・**アイス**（`icewiz_buff_*`＝ブリザード、`u.icewizBuff`）・**マカロン**（`macaron_buff_*`/`macaron_spin_buff_*`＝ビッグシェル）。いずれも陣営色つき。`spriteFor()` で解決。
 - 立ち絵が無いキャラは絵文字フォールバック。
 - **強化カードの絵**：`SPECIALS` に `evoSprite`（例 `buff_choco`→`choco_buff_blue`／`fast_pancake`→`pancake_evo`／`up_slime`→`slime_blue_big`）を持つ強化は、ドラフトのカード絵を**進化後/強化後の立ち絵**で出す（`specialCardIcon()`）。無ければ対象キャラのベース絵→絵文字にフォールバック。**ライバルの選択カード**（`showFoePickCard`）はユニット＝敵色の立ち絵(`iconHTML(u,'e')`)／強化＝`specialCardIcon()`（強化後の絵）で表示。プロフィールの「よく使うキャラ」は `unitSpriteImg()` で**立ち絵**表示。
 - **ヘッダーのアクション（`.topbar-actions`）**：右上に「コミュニティに参加！(Discord・他より横長)」→「お知らせ📢(`#newsBtn`)」→「設定⚙」の順。お知らせは**新着があると赤ドット**（`renderNewsDot`/`#newsDot`）＝最新 `NEWS[0].ver` を `localStorage('sw_news_seen')` と比較（`newsUnseen`）、`openNews` で既読化（`markNewsSeen`）。起動時に `renderNewsDot()`。
