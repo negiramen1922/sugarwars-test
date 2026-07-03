@@ -58,7 +58,7 @@ code += `
   evolvePancake, evolvedStep, nearestEnemy, spawnerStep, BAKERY_SPAWN_PATTERN,
   beginDraft, nextPick, pickCard, lockAndFight, aiPicks, startGame,
   applyPartyFlag, applyCookieParty, playerCanParty, countSideKey,
-  applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff, applyIcewizBuff, applyMacaronBuff, applyMangelBuff, foeEnhanceCandidates, buffCountFor,
+  applyChocoBuff, applyBombSplit, applyDaifukuBuff, daifukuCleave, applyGhostClone, applyHit, applyCannonCluster, applySodaFizz, applyDonutWall, applyPancakeFast, applyShoeBuff, applyBakeryBuff, applyIcewizBuff, applyMacaronBuff, applyMangelBuff, applyKumaGrowth, foeEnhanceCandidates, buffCountFor,
   get MANGEL_BUFF_HP(){ return MANGEL_BUFF_HP; },
   get SODA_BUFF_BLAST(){ return SODA_BUFF_BLAST; }, get SODA_BUFF_DPS(){ return SODA_BUFF_DPS; }, get PUDDLE_DPS_CAP(){ return PUDDLE_DPS_CAP; },
   get DAIFUKU_HP(){ return DAIFUKU_HP; }, get DAIFUKU_ATK(){ return DAIFUKU_ATK; }, get DAIFUKU_DASH(){ return DAIFUKU_DASH; }, get DAIFUKU_REACH(){ return DAIFUKU_REACH; },
@@ -3209,6 +3209,40 @@ console.log('\n=== 107) テスト対戦モード：X2(2倍)カードを無効化
   const foeCands = API.foeEnhanceCandidates().map(c => c.key);
   check('noX2モードでは敵の候補にもX2が無い', !foeCands.some(k => k.indexOf('x2_') === 0), foeCands);
   API.state.noX2 = false;
+}
+
+console.log('\n=== 108) クマグミ固有強化「コグマの成長」：仲間化コグマが親と同じに ===');
+{
+  check('buff_kumagumi が SPECIALS に存在', !!API.SPECIALS['buff_kumagumi'] && API.SPECIALS['buff_kumagumi'].kumaBuff === true);
+  check('UNIT_ENH に kumagumi→buff_kumagumi', true);   // enhDisplay経由（内部）
+  // 提示候補：クマグミが居れば buff_kumagumi が出る
+  API.resetState();
+  const w0 = API.createWorld(W, H); API.world = w0;
+  API.makeFighters('kumagumi', 'p', W, H, 'army').forEach(f => { f.appear = 1; w0.units.push(f); });
+  check('クマグミが居れば buff_kumagumi が提示候補に入る', API.eligibleSpecials().includes('buff_kumagumi'));
+
+  // 未強化：仲間化コグマは弱い（hp30/atk6）
+  API.resetState();
+  const wd = API.createWorld(W, H); API.world = wd;
+  const kuma = API.makeFighters('kumagumi', 'p', W, H, 'army')[0]; kuma.appear = 1; kuma.x = 100; kuma.y = 300; wd.units.push(kuma);
+  const foe = API.makeFighters('cookie', 'e', W, H, 'army')[0]; foe.appear = 1; foe.x = 100; foe.y = 300; foe.hp = 1; wd.units.push(foe);
+  API.applyHit(wd, kuma, foe, 9999);
+  const child1 = wd.units.find(u => u.side === 'p' && u.key === 'kumagumi' && u !== kuma);
+  check('未強化コグマは弱い(hp30/atk6)', child1 && child1.hp === 30 && child1.atk === 6, child1 && { hp: child1.hp, atk: child1.atk });
+
+  // 強化後：仲間化コグマが親と同じ(hp50/atk8)
+  API.resetState();
+  const wd2 = API.createWorld(W, H); API.world = wd2;
+  const kuma2 = API.makeFighters('kumagumi', 'p', W, H, 'army')[0]; kuma2.appear = 1; kuma2.x = 100; kuma2.y = 300; wd2.units.push(kuma2);
+  API.state.youKumaBuff = true;   // 「コグマの成長」取得済み
+  API.applyKumaGrowth(wd2, 'p');
+  check('applyKumaGrowthで盤面クマグミに強化マーカー', kuma2.kumaBuff === true);
+  const foe2 = API.makeFighters('cookie', 'e', W, H, 'army')[0]; foe2.appear = 1; foe2.x = 100; foe2.y = 300; foe2.hp = 1; wd2.units.push(foe2);
+  API.applyHit(wd2, kuma2, foe2, 9999);
+  const child2 = wd2.units.find(u => u.side === 'p' && u.key === 'kumagumi' && u !== kuma2);
+  check('強化後コグマは親と同じ(hp50/atk8)', child2 && child2.hp === 50 && child2.atk === 8, child2 && { hp: child2.hp, atk: child2.atk });
+  check('強化コグマも強化マーカーを継ぐ', child2 && child2.kumaBuff === true);
+  API.state.youKumaBuff = false;
 }
 
 Promise.resolve().then(() => {
