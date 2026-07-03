@@ -981,8 +981,9 @@ const MACARON_HP = 0.8;          // マカロンアーマー：HP上昇率（+80
 const FOE_MACARON_CHANCE = 0.4;  // 敵（ライバル）がビッグシェルを使う確率
 /* ★クマグミ（倒した敵を自軍のクマグミに仲間化＝数で雪だるま式に増える）。in-battleのみ（毎戦リセット・召喚兵と同じ battlefield 限定で軍には持ち越さない）。 */
 const KUMA_BOARD_CAP = X2_BOARD_CAP;   // 仲間化で増やせる同陣営の盤面上限（増えすぎ防止・X2と共通=120）
-const KUMA_RECRUIT_HP = 30;   // 仲間化で生まれる子グミのHP（素の4体より弱い＝雪だるまが暴走しにくい）
-const KUMA_RECRUIT_ATK = 6;   // 仲間化で生まれる子グミの攻撃力
+const KUMA_RECRUIT_HP = 30;   // 仲間化で生まれるコグマのHP（素の4体より弱い＝雪だるまが暴走しにくい）
+const KUMA_RECRUIT_ATK = 6;   // 仲間化で生まれるコグマの攻撃力
+const KUMA_MIN = 1;           // 盤面にこの数以上クマグミがいると固有強化「コグマの成長」カードが出る
 /* ★マシュマロエンジェル（浮遊＝近接では狙われない／周囲の味方の被ダメを肩代わり＝身代わりで先に落ちる支援）。 */
 const MANGEL_R = 88;          // 守護範囲(px)：この円内の味方の被ダメを肩代わり
 const MANGEL_SOAK = 1.00;     // 肩代わり率（味方の被ダメの100%をエンジェルが自分のHPで受ける＝範囲内の味方は無傷、エンジェルが先に落ちる）
@@ -1065,6 +1066,10 @@ SPECIALS['buff_macaron'] = {
 SPECIALS['buff_mangel'] = {
   key:'buff_mangel', name:'天使の加護', icon:'👼', upgrade:true, mangelBuff:true, target:'mangel',
   text:'マシュマロエンジェルのHPが大幅に増える（500になる）＝もっと長く味方を守れる。',
+};
+SPECIALS['buff_kumagumi'] = {
+  key:'buff_kumagumi', name:'コグマの成長', icon:'🐻', upgrade:true, kumaBuff:true, target:'kumagumi',
+  text:'敵を倒したときに生まれるコグマのステータスが親と同じ（HP50/攻撃8）になる。',
 };
 function isSpecial(key){ return !!SPECIALS[key]; }
 
@@ -1190,6 +1195,7 @@ function iconHTML(u, side){
   if(u.key==='shoe' && SPRITE_DATA['shoe_'+c]) return img('shoe_'+c);
   if(u.key==='purin' && SPRITE_DATA['purin_'+c]) return img('purin_'+c);
   if(u.key==='mangel' && SPRITE_DATA['mangel_1']) return img(side==='e'?'mangel_red_1':'mangel_1');
+  if(u.key==='kumagumi' && SPRITE_DATA['kumagumi_blue']) return img(side==='e'?'kumagumi_red':'kumagumi_blue');
   if(u.key==='daifuku' && SPRITE_DATA['daifuku_'+c]) return img('daifuku_'+c);
   if(u.key==='ghost' && SPRITE_DATA['ghost_'+c]) return img('ghost_'+c);
   if(u.key==='donut' && SPRITE_DATA['donut_'+c]) return img('donut_'+c);
@@ -1242,6 +1248,7 @@ function resetState(){
     youIcewizBuff:false, foeIcewizBuff:false, // ブリザード（アイスウィザード）を獲得済みか（永続・毎ラウンド再適用・1回限り）
     youMacaronBuff:false, foeMacaronBuff:false, // ビッグシェル（シェルマカロン）を獲得済みか（永続・毎ラウンド再適用・1回限り）
     youMangelBuff:false, foeMangelBuff:false, // 天使の加護（マシュマロエンジェル）を獲得済みか（永続・毎ラウンド再適用・1回限り）
+    youKumaBuff:false, foeKumaBuff:false, // コグマの成長（クマグミ）を獲得済みか（以降の仲間化コグマが親と同じ性能に・永続）
     youBakeryBuff:false, foeBakeryBuff:false, // ラストベイクを獲得済みか（永続・毎ラウンド再適用・1回限り）
     roundPicks:[], pickStep:0, pickTotal:CONFIG.picksBase, offer3:[],
     foeRoundPicks:[], foeRevealIdx:0, foePickTotal:CONFIG.picksBase, playerExtra:0,
@@ -1597,7 +1604,7 @@ function toggleAbilityInfo(btn){ const row=btn.closest('.ab-row'); const d=row&&
 /* キャラ詳細用：そのキャラの「進化」と「固有強化」を表示用にまとめる（強化後ステータスは定数から再計算）。 */
 const UNIT_ENH = { cookie:'party_cookie', choco:'buff_choco', bomb:'split_bomb', daifuku:'buff_daifuku',
   ghost:'clone_ghost', cannon:'cluster_cannon', soda:'fizz_soda', donut:'wall_donut',
-  pancake:'fast_pancake', shoe:'buff_shoe', bakery:'last_bake', icewiz:'buff_icewiz', macaron:'buff_macaron', mangel:'buff_mangel' };
+  pancake:'fast_pancake', shoe:'buff_shoe', bakery:'last_bake', icewiz:'buff_icewiz', macaron:'buff_macaron', mangel:'buff_mangel', kumagumi:'buff_kumagumi' };
 function enhDisplay(u){
   const out=[];
   // 進化（パンケーキの自動進化）。固有強化とは別の常設メカ。
@@ -1702,7 +1709,7 @@ function makeFighters(key, side, W, H, slot){
       ranged:!!u.ranged, splash:u.splash||0, blast:u.blast||0, blastR:u.blastR||0,
       slowHit:u.slowHit||0, slowDur:u.slowDur||0, chillT:0, chillAmt:0,   // 氷弾のヒット時スロー（アイスウィザード）
       shell:!!u.shell, shellPhase:(u.shell?'spin':''), shellT:(u.shell?SHELL_SPIN_DUR:0), shellInit:false, svx:0, svy:0, ramCd:0, inShell:!!u.shell,   // シェルマカロン：殻スピン状態
-      macaronBuff:false, mangelBuff:false,
+      macaronBuff:false, mangelBuff:false, kumaBuff:false,
       suicide:!!u.suicide, armed:false, fuseT:0, fuse:u.fuse||0.5,
       puddle:!!u.puddle, puddleR:u.puddleR||0, puddleLife:u.puddleLife||0, puddleDps:u.puddleDps||0, puddleSlow:u.puddleSlow||0, slowMul:1,
       evolve:!!u.evolve, evolved:false, evolveAt:u.evolveAt||10, evoHpMul:u.evoHpMul||2, evoScale:u.evoScale||1.4, evoSpeed:u.evoSpeed||0,
@@ -1948,11 +1955,18 @@ function applyMangelBuff(world, side){
   });
 }
 
+/* ---- コグマの成長（クマグミ固有強化）---- */
+// フラグ系の強化：以降その陣営の仲間化で生まれるコグマが親と同じ性能になる（recruitKumaがstateフラグを見る）。
+// 適用関数は「盤面のクマグミに強化マーカー(kumaBuff)を付ける」だけ＝見た目/バッジ用（実効果はrecruitKuma側）。
+function applyKumaGrowth(world, side){
+  return eachBuffTarget(world, side, 'kumagumi', u=>{ u.kumaBuff = true; });
+}
+
 /* ---- 強化表示まわり ---- */
 // このユニットが何らかの固有強化を受けているか（盤面の「強化中」バッジ用）。おとり分身は除外。
 function isBuffed(u){
   if(u.isDecoy) return false;
-  return !!(u.chocoBuff||u.donutWall||u.shoeBuff||u.bakeryBuff||u.daifukuBuff||u.cloneOn||u.cluster||u.fizz||u.spawnMini||u.fastEvo||u.party||u.icewizBuff||u.macaronBuff||u.mangelBuff);
+  return !!(u.chocoBuff||u.donutWall||u.shoeBuff||u.bakeryBuff||u.daifukuBuff||u.cloneOn||u.cluster||u.fizz||u.spawnMini||u.fastEvo||u.party||u.icewizBuff||u.macaronBuff||u.mangelBuff||u.kumaBuff);
 }
 // プレイヤーが取得済みの強化（融合・X2・各固有強化）を、表示用の{icon,name}配列で返す
 function acquiredBuffs(){
@@ -1964,7 +1978,7 @@ function acquiredBuffs(){
     ['youParty','party_cookie'],['youChocoBuff','buff_choco'],['youBombSplit','split_bomb'],
     ['youDaifukuBuff','buff_daifuku'],['youGhostClone','clone_ghost'],['youCannonCluster','cluster_cannon'],
     ['youSodaFizz','fizz_soda'],['youDonutWall','wall_donut'],['youPancakeFast','fast_pancake'],
-    ['youShoeBuff','buff_shoe'],['youBakeryBuff','last_bake'],['youIcewizBuff','buff_icewiz'],['youMacaronBuff','buff_macaron'],['youMangelBuff','buff_mangel'],
+    ['youShoeBuff','buff_shoe'],['youBakeryBuff','last_bake'],['youIcewizBuff','buff_icewiz'],['youMacaronBuff','buff_macaron'],['youMangelBuff','buff_mangel'],['youKumaBuff','buff_kumagumi'],
   ];
   flags.forEach(([f,sk])=>{ if(S[f]){ const sp=SPECIALS[sk]; out.push({icon: sp?sp.icon:'✦', name: sp?sp.name:sk}); } });
   return out;
@@ -1976,8 +1990,8 @@ function buffCountFor(side){
   const x2 = (p ? state.youX2 : state.foeX2) || {};
   for(const k in x2) n += x2[k]||0;
   const flags = p
-    ? ['youParty','youChocoBuff','youBombSplit','youDaifukuBuff','youGhostClone','youCannonCluster','youSodaFizz','youDonutWall','youPancakeFast','youShoeBuff','youBakeryBuff','youIcewizBuff','youMacaronBuff','youMangelBuff']
-    : ['foeParty','foeChocoBuff','foeBombSplit','foeDaifukuBuff','foeGhostClone','foeCannonCluster','foeSodaFizz','foeDonutWall','foePancakeFast','foeShoeBuff','foeBakeryBuff','foeIcewizBuff','foeMacaronBuff','foeMangelBuff'];
+    ? ['youParty','youChocoBuff','youBombSplit','youDaifukuBuff','youGhostClone','youCannonCluster','youSodaFizz','youDonutWall','youPancakeFast','youShoeBuff','youBakeryBuff','youIcewizBuff','youMacaronBuff','youMangelBuff','youKumaBuff']
+    : ['foeParty','foeChocoBuff','foeBombSplit','foeDaifukuBuff','foeGhostClone','foeCannonCluster','foeSodaFizz','foeDonutWall','foePancakeFast','foeShoeBuff','foeBakeryBuff','foeIcewizBuff','foeMacaronBuff','foeMangelBuff','foeKumaBuff'];
   for(const f of flags) if(state[f]) n++;
   return n;
 }
@@ -2004,6 +2018,7 @@ function foeEnhanceCandidates(){
   if(!state.foeIcewizBuff   && countSideKey('e','icewiz') >=ICEWIZ_MIN)  cands.push({key:'buff_icewiz',   fn:function(){ state.foeIcewizBuff=true;    setBuffCount('e','icewiz',countSideKey('e','icewiz'));   applyIcewizBuff(world,'e'); }});
   if(!state.foeMacaronBuff  && countSideKey('e','macaron')>=MACARON_MIN) cands.push({key:'buff_macaron',  fn:function(){ state.foeMacaronBuff=true;   setBuffCount('e','macaron',countSideKey('e','macaron')); applyMacaronBuff(world,'e'); }});
   if(!state.foeMangelBuff   && countSideKey('e','mangel') >=MANGEL_MIN)  cands.push({key:'buff_mangel',   fn:function(){ state.foeMangelBuff=true;    setBuffCount('e','mangel',countSideKey('e','mangel'));   applyMangelBuff(world,'e'); }});
+  if(!state.foeKumaBuff     && countSideKey('e','kumagumi')>=KUMA_MIN)   cands.push({key:'buff_kumagumi', fn:function(){ state.foeKumaBuff=true;      setBuffCount('e','kumagumi',countSideKey('e','kumagumi')); applyKumaGrowth(world,'e'); }});
   return cands;
 }
 // 永続フラグ系の強化（X2/融合以外）を、指定陣営の現在の盤面へ再適用する。
@@ -2024,6 +2039,7 @@ function applyFlagBuffs(world, side){
   if(p?state.youIcewizBuff:state.foeIcewizBuff)       applyIcewizBuff(world,side);
   if(p?state.youMacaronBuff:state.foeMacaronBuff)     applyMacaronBuff(world,side);
   if(p?state.youMangelBuff:state.foeMangelBuff)       applyMangelBuff(world,side);
+  if(p?state.youKumaBuff:state.foeKumaBuff)           applyKumaGrowth(world,side);
 }
 // プレイヤーが強化/X2カードを取った瞬間に、CPUも1つ強化して同時に公開する（敵味方同時＝同数を保つ）
 function foeMatchEnhance(){
@@ -2196,6 +2212,7 @@ function eligibleSpecials(){
   if(!state.youIcewizBuff && countSideKey('p','icewiz')>=ICEWIZ_MIN) list.push('buff_icewiz');   // 1回限り：未取得かつウィザードがいれば出る
   if(!state.youMacaronBuff && countSideKey('p','macaron')>=MACARON_MIN) list.push('buff_macaron');   // 1回限り：未取得かつマカロンがいれば出る
   if(!state.youMangelBuff && countSideKey('p','mangel')>=MANGEL_MIN) list.push('buff_mangel');   // 1回限り：未取得かつエンジェルがいれば出る
+  if(!state.youKumaBuff && countSideKey('p','kumagumi')>=KUMA_MIN) list.push('buff_kumagumi');   // 1回限り：未取得かつクマグミがいれば出る
   return list.concat(eligibleX2Specials());
 }
 
@@ -2296,6 +2313,7 @@ function beginDraft(){
   if(state.youIcewizBuff) applyIcewizBuff(world,'p');   // ブリザードを再適用（永続・1回限り）
   if(state.youMacaronBuff) applyMacaronBuff(world,'p');   // ビッグシェルを再適用（永続・1回限り）
   if(state.youMangelBuff) applyMangelBuff(world,'p');   // 天使の加護を再適用（永続・1回限り）
+  if(state.youKumaBuff) applyKumaGrowth(world,'p');   // コグマの成長を再適用（永続・1回限り）
   arrangeFormation(world,'p',true);
   // 敵の引き継ぎ軍も上に並べる（ドラフト中から見える）
   capArmy(state.foeArmy).forEach(k=> makeFighters(k,'e',CW,CH,'army').forEach(f=>{ f.appear=1; world.units.push(f); }));
@@ -2317,6 +2335,7 @@ function beginDraft(){
   if(state.foeIcewizBuff) applyIcewizBuff(world,'e');   // 敵のブリザードを再適用（永続・1回限り）
   if(state.foeMacaronBuff) applyMacaronBuff(world,'e');   // 敵のビッグシェルを再適用（永続・1回限り）
   if(state.foeMangelBuff) applyMangelBuff(world,'e');   // 敵の天使の加護を再適用（永続・1回限り）
+  if(state.foeKumaBuff) applyKumaGrowth(world,'e');   // 敵のコグマの成長を再適用（永続・1回限り）
   arrangeFormation(world,'e',true);
   // 敵の今回ピックを準備（プレイヤーが1枚選ぶたびに1枚ずつ上に召喚して公開）
   state.foePickTotal = picksFor(state.foeLostLast, state.lostLast);
@@ -2410,7 +2429,7 @@ function renderPickOffer(){
       const s=SPECIALS[key];
       el.className='card upgrade';
       const ico = specialCardIcon(s);
-      const tag = s.x2 ? '×2' : s.party ? 'パーティー' : s.chocoBuff ? '装甲' : s.bombSplit ? 'おかわり' : s.daifukuBuff ? '特大' : s.ghostClone ? '分身' : s.cannonCluster ? '花火' : s.sodaFizz ? '炭酸' : s.donutWall ? '鉄壁' : s.pancakeFast ? 'はや焼き' : s.shoeBuff ? '特盛り' : s.bakeryBuff ? 'ラスト焼き' : s.icewizBuff ? '氷嵐' : s.macaronBuff ? '大殻' : s.mangelBuff ? '加護' : '融合';
+      const tag = s.x2 ? '×2' : s.party ? 'パーティー' : s.chocoBuff ? '装甲' : s.bombSplit ? 'おかわり' : s.daifukuBuff ? '特大' : s.ghostClone ? '分身' : s.cannonCluster ? '花火' : s.sodaFizz ? '炭酸' : s.donutWall ? '鉄壁' : s.pancakeFast ? 'はや焼き' : s.shoeBuff ? '特盛り' : s.bakeryBuff ? 'ラスト焼き' : s.icewizBuff ? '氷嵐' : s.macaronBuff ? '大殻' : s.mangelBuff ? '加護' : s.kumaBuff ? '成長' : '融合';
       el.innerHTML=`<div class="up-badge">強化</div>
         <div class="icon">${ico}</div>
         <div class="cname">${s.name}</div>
@@ -2559,6 +2578,13 @@ function pickCard(key){
       const gk = world.units.filter(u=>u.side==='p'&&u.key==='mangel'&&u.hp>0);
       if(gk.length){ const cx=gk.reduce((s,u)=>s+u.x,0)/gk.length, cy=gk.reduce((s,u)=>s+u.y,0)/gk.length;
         burst(world,cx,cy,'#ffe6f6',20,120); world.rings.push({x:cx,y:cy,r:4,max:52,life:0.42,color:'#ffd9f2'}); }
+    } else if(SPECIALS[key].kumaBuff){
+      state.youKumaBuff = true;   // 以降の仲間化コグマが親と同じ性能に（recruitKumaが参照）
+      setBuffCount('p','kumagumi', countSideKey('p','kumagumi'));
+      applyKumaGrowth(world,'p');   // 盤面のクマグミに強化マーカー
+      const kk = world.units.filter(u=>u.side==='p'&&u.key==='kumagumi'&&u.hp>0);
+      if(kk.length){ const cx=kk.reduce((s,u)=>s+u.x,0)/kk.length, cy=kk.reduce((s,u)=>s+u.y,0)/kk.length;
+        burst(world,cx,cy,'#ffd9a8',20,120); world.rings.push({x:cx,y:cy,r:4,max:52,life:0.42,color:'#ffd36b'}); }
     }
     foeMatchEnhance();   // 敵味方同時：プレイヤーが強化を取ったらCPUも1つ強化して同時に公開
     state.pickStep++;
@@ -2720,11 +2746,13 @@ function guardSoak(world, tgt, real){
 function recruitKuma(world, side, x, y){
   const mine = world.units.reduce((n,u)=> n + ((u.side===side && u.hp>0)?1:0), 0);
   if(mine >= KUMA_BOARD_CAP) return;   // 増えすぎ防止
-  const k = makeFighters('kumagumi', side, world.W, world.H)[0];   // count=4だが仲間化は1体ずつ
-  // 仲間化で生まれる子グミは本体より弱い（HP/攻撃を専用値に）＝雪だるまが暴走しにくい
-  k.maxHp = KUMA_RECRUIT_HP; k.baseMaxHp = KUMA_RECRUIT_HP; k.hp = KUMA_RECRUIT_HP;
-  k.atk = KUMA_RECRUIT_ATK; k.baseAtk = KUMA_RECRUIT_ATK;
-  k.r = Math.max(5, Math.min(11, 5+KUMA_RECRUIT_HP*0.028)); k.baseR = k.r;   // 当たり判定もHP基準で小さく
+  const k = makeFighters('kumagumi', side, world.W, world.H)[0];   // count=4だが仲間化は1体ずつ（既定=親と同じhp50/atk8）
+  const grown = (side==='p') ? !!(state && state.youKumaBuff) : !!(state && state.foeKumaBuff);   // 「コグマの成長」取得済みなら親と同じ性能
+  if(!grown){   // 未強化：生まれるコグマは本体より弱い（専用値）＝雪だるまが暴走しにくい
+    k.maxHp = KUMA_RECRUIT_HP; k.baseMaxHp = KUMA_RECRUIT_HP; k.hp = KUMA_RECRUIT_HP;
+    k.atk = KUMA_RECRUIT_ATK; k.baseAtk = KUMA_RECRUIT_ATK;
+    k.r = Math.max(5, Math.min(11, 5+KUMA_RECRUIT_HP*0.028)); k.baseR = k.r;   // 当たり判定もHP基準で小さく
+  } else { k.kumaBuff = true; }   // 強化コグマは本体級（makeFightersの既定値のまま）＋強化マーカー
   k.recruited = true;
   k.x = Math.max(k.r, Math.min(world.W-k.r, x+(Math.random()-0.5)*10));
   k.y = Math.max(k.r, Math.min(world.H-k.r, y+(Math.random()-0.5)*10));
@@ -5813,6 +5841,7 @@ function applyPvpSpecial(world, side, key){
       fast_pancake:['PancakeFast','pancake',applyPancakeFast], buff_shoe:['ShoeBuff','shoe',applyShoeBuff], buff_icewiz:['IcewizBuff','icewiz',applyIcewizBuff],
       buff_macaron:['MacaronBuff','macaron',applyMacaronBuff],
       buff_mangel:['MangelBuff','mangel',applyMangelBuff],
+      buff_kumagumi:['KumaBuff','kumagumi',applyKumaGrowth],
       last_bake:['BakeryBuff','bakery',applyBakeryBuff],
     };
     const m = FLAG[key]; if(!m) return;
@@ -5835,7 +5864,7 @@ function pvpCardHTML(key){
   if(isSpecial(key)){
     const s=SPECIALS[key];
     const ico=specialCardIcon(s);
-    const tag=s.x2?'×2':s.party?'パーティー':s.chocoBuff?'装甲':s.bombSplit?'おかわり':s.daifukuBuff?'特大':s.ghostClone?'分身':s.cannonCluster?'花火':s.sodaFizz?'炭酸':s.donutWall?'鉄壁':s.pancakeFast?'はや焼き':s.shoeBuff?'特盛り':s.bakeryBuff?'ラスト焼き':s.icewizBuff?'氷嵐':s.macaronBuff?'大殻':s.mangelBuff?'加護':'融合';
+    const tag=s.x2?'×2':s.party?'パーティー':s.chocoBuff?'装甲':s.bombSplit?'おかわり':s.daifukuBuff?'特大':s.ghostClone?'分身':s.cannonCluster?'花火':s.sodaFizz?'炭酸':s.donutWall?'鉄壁':s.pancakeFast?'はや焼き':s.shoeBuff?'特盛り':s.bakeryBuff?'ラスト焼き':s.icewizBuff?'氷嵐':s.macaronBuff?'大殻':s.mangelBuff?'加護':s.kumaBuff?'成長':'融合';
     return {cls:'card upgrade', html:`<div class="up-badge">強化</div><div class="icon">${ico}</div><div class="cname">${s.name}</div><div class="tagline">${s.text}</div><div class="stats"><span class="up-tag">${tag}</span></div>`};
   }
   const u=UNIT_BY_KEY[key];
