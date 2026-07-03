@@ -3145,16 +3145,20 @@ function chargerStep(world, u, tgt, dt){
     u.chargeT=(u.chargeT||0)+dt;
     if(u.chargeT>=u.chargeTime){
       const d=dist||1; u.ddx=(tgt.x-u.x)/d; u.ddy=(tgt.y-u.y)/d;  // 狙いを定めて抜刀ダッシュ
+      u._chargeTgt=tgt; u.aimX=tgt.x; u.aimY=tgt.y;   // 抜刀の対象と狙い位置を固定（この1体だけ追う。死んだら次へは曲がらない）
       u.cstate='dash'; u.dashT=0; u.drawn=true;
       burst(world,u.x,u.y,'#cfe8ff',8,90);
     }
   } else if(u.cstate==='dash'){
     u.drawn=true;
     u.dashT=(u.dashT||0)+dt;
-    // 敵に当たるまで突進（最寄りの敵へ緩やかにホーミングして必ず接触）
-    if(tgt){ const dx=tgt.x-u.x, dy=tgt.y-u.y, d=Math.hypot(dx,dy)||1;
+    // 最初に狙った対象(u._chargeTgt)が生きている間だけ緩くホーミングして追う。
+    // 対象が死んだら追尾せず、狙った方向へそのまま直進＝横の次の敵へは曲がらない（一直線の一閃）。
+    const ct=u._chargeTgt;
+    if(ct && ct.hp>0){ const dx=ct.x-u.x, dy=ct.y-u.y, d=Math.hypot(dx,dy)||1;
              u.ddx+=((dx/d)-u.ddx)*0.18; u.ddy+=((dy/d)-u.ddy)*0.18;
-             const dl=Math.hypot(u.ddx,u.ddy)||1; u.ddx/=dl; u.ddy/=dl; }
+             const dl=Math.hypot(u.ddx,u.ddy)||1; u.ddx/=dl; u.ddy/=dl;
+             u.aimX=ct.x; u.aimY=ct.y; }   // 狙い位置を追従更新
     u.x += u.ddx*u.dashSpeed*dt; u.y += u.ddy*u.dashSpeed*dt;
     let hit=null,bd=u.dashRange*u.dashRange;
     for(const o of world.units){ if(o.side===u.side||o.hp<=0) continue; const dd=(o.x-u.x)**2+(o.y-u.y)**2; if(dd<bd){bd=dd;hit=o;} }
@@ -3171,9 +3175,13 @@ function chargerStep(world, u, tgt, dt){
       world.shake=Math.max(world.shake,9);
       world.rings.push({x:u.x,y:u.y,r:3,max:reach,life:0.28,color:'#fff3c0'});
       burst(world,u.x,u.y,'#ffe08a',18,190);
-      u.cstate='walk'; u.cool=u.cd*0.5;
-    } else if(!tgt || u.dashT>=3.0){    // 安全策：敵が居ない/異常に長いときだけ徒歩へ
-      u.cstate='walk'; u.chargeT=0;
+      u.cstate='walk'; u.cool=u.cd*0.5; u._chargeTgt=null;
+    } else {
+      // 空振り判定：狙った対象が死ぬ/居ない状態で、狙い位置を通り過ぎたら仕切り直し（チャージからやり直し＝空振りの隙）
+      const targetGone = !ct || ct.hp<=0;
+      const past = ((u.x-(u.aimX!=null?u.aimX:u.x))*u.ddx + (u.y-(u.aimY!=null?u.aimY:u.y))*u.ddy) > 0;
+      if(targetGone && past){ u.cstate='walk'; u.chargeT=0; u.cool=u.cd*0.5; u._chargeTgt=null; popDmg(world,u.x,u.y-u.r-6,'空振り','#cfe8ff'); }
+      else if(u.dashT>=2.0){ u.cstate='walk'; u.chargeT=0; u._chargeTgt=null; }   // 安全策（短縮）
     }
   }
   clamp();
