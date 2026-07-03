@@ -859,7 +859,7 @@ const UNITS = [
   {key:'macaron', name:'シェルマカロン', icon:'🟣', role:'tank', tier:-2.5, count:2, atk:12, hp:100, speed:70, range:28, cd:0.9, tag:'殻スピン', short:'殻にこもって突撃するマカロン', text:'マカロンの殻にこもり、回転しながら敵にタックルをする暴れん坊。こいつの殻を破るのは甘くない', shell:true},
   // マシュマロエンジェル（アニメ付き・開発テスト中）。test:true でロスター/ドラフト/CPUデッキからは除外。
   // anim=立ち絵のフレーム配列（spriteForが world.t で animFps 枚/秒で切替）。挙動/バランスは今後。
-  {key:'mangel', name:'マシュマロエンジェル', icon:'👼', role:'support', tier:0.25, count:1, atk:0, hp:240, speed:88, range:24, cd:0.7, tag:'守護天使', short:'攻撃せず、味方の被弾を広く肩代わりする支援（1体・高HP）', text:'ふわふわ空を飛ぶ天使のマシュマロ。自分は攻撃せず、近くの味方が受けるダメージを身代わりで引き受ける支援専門。空の上なので近接攻撃では狙われないが、味方を守るうちに自分から先に溶けていく。※エンジェルだけが戦場に残っても勝てない（攻撃できないため）。', anim:['mangel_1','mangel_2','mangel_3'], animRed:['mangel_red_1','mangel_red_2','mangel_red_3'], animFps:5, fly:true, guardian:true, noAttack:true, test:true, beta:true},
+  {key:'mangel', name:'マシュマロエンジェル', icon:'👼', role:'support', tier:0.25, count:1, atk:0, hp:240, speed:88, range:24, cd:0.7, tag:'守護天使', short:'攻撃せず味方に追尾し被弾を全部肩代わり（1体）', text:'ふわふわ空を飛ぶ天使のマシュマロ。自分は攻撃せず、守る味方に追尾して、近くの味方が受けるダメージ（近接・遠距離・爆発すべて）を身代わりで100%引き受ける支援専門。空の上なので近接では狙われないが、味方を守るうちに自分から先に溶けていく。※エンジェルだけが戦場に残っても勝てない（攻撃できないため）。', anim:['mangel_1','mangel_2','mangel_3'], animRed:['mangel_red_1','mangel_red_2','mangel_red_3'], animFps:5, fly:true, guardian:true, noAttack:true, test:true, beta:true},
   // クマグミ（開発テスト中・静止立ち絵）。青/赤の陣営色を anim(1枚) の仕組みで出し分け。挙動/バランスは今後。
   {key:'kumagumi', name:'クマグミ', icon:'🐻', role:'fodder', tier:0.75, count:4, atk:8, hp:50, speed:100, range:24, cd:0.5, tag:'仲間化', short:'倒した敵を自軍のクマグミに変える（4体）', text:'倒した敵を自分の仲間（クマグミ）に変えてしまう、もちもちのクマのグミ。倒すほど軍勢がどんどん増えていく雪だるま式のこわいやつ。仲間化で生まれる子グミは本体より少し弱い。', anim:['kumagumi_blue'], animRed:['kumagumi_red'], animFps:1, recruit:true, test:true, beta:true},
   // プリン（開発テスト中）。スプーンをブーメランのように投げ、往復で経路上の敵を薙ぐ。1枚=1体。立ち絵は青/赤の陣営色（anim1枚）。
@@ -985,7 +985,8 @@ const KUMA_RECRUIT_HP = 30;   // 仲間化で生まれる子グミのHP（素の
 const KUMA_RECRUIT_ATK = 6;   // 仲間化で生まれる子グミの攻撃力
 /* ★マシュマロエンジェル（浮遊＝近接では狙われない／周囲の味方の被ダメを肩代わり＝身代わりで先に落ちる支援）。 */
 const MANGEL_R = 88;          // 守護範囲(px)：この円内の味方の被ダメを肩代わり
-const MANGEL_SOAK = 1.00;     // 肩代わり率（味方の被ダメの100%をエンジェルが自分のHPで受ける＝範囲内の味方は近接/遠距離を無傷、エンジェルが先に落ちる）
+const MANGEL_SOAK = 1.00;     // 肩代わり率（味方の被ダメの100%をエンジェルが自分のHPで受ける＝範囲内の味方は無傷、エンジェルが先に落ちる）
+const GUARDIAN_KEEP = 34;     // エンジェルが守る味方に追尾するとき、これ以上近づかない距離(px)＝味方に張り付きつつ重ならない
 /* 各キャラぶんの「○○ ×2」強化カードを自動生成（召喚専用と除外キーは作らない） */
 UNITS.filter(u=>!u.summonOnly && !u.test && !X2_EXCLUDE.has(u.key)).forEach(function(u){
   SPECIALS['x2_'+u.key] = {
@@ -1568,7 +1569,7 @@ const UNIT_ABILITIES = {
   kumagumi:[{name:'仲間化', info:'クマグミが倒した敵は、その場で自軍のクマグミに変わって一緒に戦ってくれる。倒すほど軍勢が雪だるま式に増えていく（増えた分はそのバトル限りで、次のラウンドには持ち越さない）。'}],
   purin:[{name:'ブーメランスプーン', info:'スプーンをブーメランのように投げる。行き（外側へ飛ぶ）と帰り（手元に戻る）の両方で、直線上の敵をまとめて薙ぎ払う。まとまった敵の列に強い。'}],
   shortcake:[{name:'イチゴタレット設置', info:'足元にイチゴタレット（射程80・速射・敵に狙われない）を置き、自分は前進して敵を殴りに行く。タレットはショートケーキが倒れるか数秒で壊れ、壊れたらまた足元に置き直す（設置ぶんはそのバトル限り）。'}],
-  mangel:[{name:'身代わりの翼', info:'自分は攻撃せず、円(足元に表示)の中の味方が受けるダメージの一部を自分のHPで肩代わりする。1体で高HP。味方を守りながら自分から先に溶けていく支援専門。'},{name:'浮遊', info:'空を飛んでいるので近接では狙われない（遠距離・迫撃・爆発でのみ倒せる）。攻撃できないので、戦場に残るのがエンジェルだけになったら負け。'}],
+  mangel:[{name:'身代わりの翼', info:'自分は攻撃せず、守る味方に追尾する。円(足元に表示)の中の味方が受けるダメージを、近接・遠距離・範囲(爆発)すべて100%自分のHPで肩代わり＝味方は無傷、エンジェルが先に溶ける。1体で高HP。'},{name:'浮遊', info:'空を飛んでいるので近接では狙われない（遠距離・迫撃・爆発でのみ倒せる）。攻撃できないので、戦場に残るのがエンジェルだけになったら負け。'}],
 };
 // キャラ詳細の「能力」セクションHTML（能力が無いキャラは空文字＝非表示）。
 function abilitiesHTML(u){
@@ -2699,6 +2700,27 @@ function recruitKuma(world, side, x, y){
   world.rings.push({x:k.x, y:k.y, r:3, max:k.r+18, life:0.4, color:col});
   popDmg(world, k.x, k.y-k.r-8, 'なかま！', '#ffd36b');
 }
+// マシュマロエンジェル（守護天使）：自分は攻撃せず、守る対象＝最も近い「戦える味方」に追尾する（近づきすぎない）。
+// 味方が居なければ前方へ流れて次の味方を探す。分離で味方に重ならない。
+function guardianStep(world, u, live, dt){
+  u.x+=u.knockx; u.y+=u.knocky; u.knockx*=0.6; u.knocky*=0.6;
+  if(u.flash>0) u.flash-=dt;
+  if(u.kbImmune>0) u.kbImmune-=dt;
+  if(u.appearFx>0) u.appearFx-=dt;
+  if(u.invuln>0) u.invuln-=dt;
+  let best=null, bd=1e18;
+  for(const o of world.units){ if(o===u || o.side!==u.side || o.hp<=0 || o.noAttack) continue;   // 守る対象＝攻撃できる味方（他の天使は除く）
+    const d=(o.x-u.x)**2+(o.y-u.y)**2; if(d<bd){ bd=d; best=o; } }
+  let ax=0, ay=0;
+  if(best){ const d=Math.sqrt(bd)||1; if(d>GUARDIAN_KEEP){ ax=(best.x-u.x)/d; ay=(best.y-u.y)/d; } }   // 近づきすぎず、少し離れたら寄る
+  else { ay=(u.side==='p'? -1 : 1); }   // 味方が居なければ前方（敵陣方向）へ流れて次を探す
+  for(const o of (live||world.units)){ if(o===u || o.hp<=0) continue; const dx=u.x-o.x, dy=u.y-o.y, d2=dx*dx+dy*dy, rr=(u.r+o.r);
+    if(d2<rr*rr && d2>0.01){ const d=Math.sqrt(d2), f=(rr-d)/rr; ax+=dx/d*f*1.2; ay+=dy/d*f*1.2; } }   // 分離（重なり回避）
+  const al=Math.hypot(ax,ay)||1;
+  u.vx=ax/al*u.speed*(u.slowMul||1); u.vy=ay/al*u.speed*(u.slowMul||1);
+  u.x+=u.vx*dt; u.y+=u.vy*dt;
+  u.x=Math.max(u.r,Math.min(world.W-u.r,u.x)); u.y=Math.max(u.r,Math.min(world.H-u.r,u.y));
+}
 // プリン（ブーメラン）：スプーンを敵の方向へ投げる。行き（out）→折り返し→帰り（owner へ戻る）で経路上の敵を薙ぐ。
 function throwBoomerang(world, u, tgt){
   const dx=tgt.x-u.x, dy=tgt.y-u.y, d=Math.hypot(dx,dy)||1;
@@ -2761,8 +2783,9 @@ function killUnit(world, t){
     world.rings.push({x:t.x,y:t.y,r:4,max:t.blastR,life:0.35,color:'#ffb24d'});
     burst(world,t.x,t.y,'#ffb24d',22,150);
     for(const o of world.units){ if(o.side===t.side||o.hp<=0||(o.invuln||0)>0) continue; const dx=o.x-t.x, dy=o.y-t.y, dd=dx*dx+dy*dy; if(dd < t.blastR*t.blastR){   // 無敵中は爆発も当たらない
-      const dl=Math.sqrt(dd)||1, dmg=shellCut(o, Math.max(1,Math.round(t.blast*(1-BLAST_FALLOFF*(dl/t.blastR)))));   // 中心ほど高ダメージ（外周は減衰）。殻マカロンはカット
-      o.hp-=dmg; o.flash=0.2; popDmg(world,o.x,o.y-o.r-4,dmg,'#ffb24d');
+      const dl=Math.sqrt(dd)||1; let dmg=shellCut(o, Math.max(1,Math.round(t.blast*(1-BLAST_FALLOFF*(dl/t.blastR)))));   // 中心ほど高ダメージ（外周は減衰）。殻マカロンはカット
+      dmg=guardSoak(world, o, dmg);   // 守護天使：範囲攻撃(爆発AoE)も肩代わり
+      o.hp-=dmg; o.flash=0.2; if(dmg>0) popDmg(world,o.x,o.y-o.r-4,dmg,'#ffb24d');
       const kf=(1-dl/t.blastR)*BLAST_KB; o.knockx+=dx/dl*kf; o.knocky+=dy/dl*kf;   // 爆発ノックバック（中心ほど強い・kb無敵を貫通）
       if(o.hp<=0) killUnit(world,o); } }
   }
@@ -2848,7 +2871,7 @@ function evolvedStep(world, u, tgt, dt){
         if(o.side===u.side||o.hp<=0) continue;
         const dx=o.x-u.x,dy=o.y-u.y,dd=dx*dx+dy*dy;
         if(dd<u.shockR*u.shockR){
-          const sdmg=shellCut(o, u.shockDmg); o.hp-=sdmg; o.flash=0.2; popDmg(world,o.x,o.y-o.r-4,sdmg,'#ffb24d');
+          let sdmg=shellCut(o, u.shockDmg); sdmg=guardSoak(world, o, sdmg); o.hp-=sdmg; o.flash=0.2; if(sdmg>0) popDmg(world,o.x,o.y-o.r-4,sdmg,'#ffb24d');   // 衝撃波AoEも守護天使が肩代わり
           const d=Math.sqrt(dd)||1;
           if((o.kbImmune||0)<=0 && !o.vacuum && !o.armed){ o.knockx+=dx/d*3.2; o.knocky+=dy/d*3.2; }
           if(o.hp<=0) killUnit(world,o);
@@ -3241,6 +3264,7 @@ function stepWorld(world, dt){
     if(u.vacuum){ vacuumStep(world,u,tgt,dt); continue; }    // 吸引タンク（デューティ＆アンカー）
     if(u.spawner){ spawnerStep(world,u,dt); continue; }      // 生産工場（動かず召喚）
     if(u.shell){ if(shellStep(world,u,tgt,dt)) continue; }   // シェルマカロン：殻スピン/スタン中はここで処理（通常時は下の通常攻撃へ）
+    if(u.guardian){ guardianStep(world,u,live,dt); continue; }   // マシュマロエンジェル：攻撃せず、守る味方に追尾する
     let ax=0,ay=0;
     if(tgt){ const dx=tgt.x-u.x,dy=tgt.y-u.y,d=Math.hypot(dx,dy)||1; if(d>u.range-2){ ax+=dx/d; ay+=dy/d; } }
     for(const o of live){ if(o===u) continue; const dx=u.x-o.x,dy=u.y-o.y,d2=dx*dx+dy*dy,rr=(u.r+o.r); if(d2<rr*rr&&d2>0.01){ const d=Math.sqrt(d2),f=(rr-d)/rr; ax+=dx/d*f*1.4; ay+=dy/d*f*1.4; } }
