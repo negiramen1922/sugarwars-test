@@ -859,7 +859,7 @@ const UNITS = [
   {key:'macaron', name:'シェルマカロン', icon:'🟣', role:'tank', tier:-2.5, count:2, atk:12, hp:100, speed:70, range:28, cd:0.9, tag:'殻スピン', short:'殻にこもって突撃するマカロン', text:'マカロンの殻にこもり、回転しながら敵にタックルをする暴れん坊。こいつの殻を破るのは甘くない', shell:true},
   // マシュマロエンジェル（アニメ付き・開発テスト中）。test:true でロスター/ドラフト/CPUデッキからは除外。
   // anim=立ち絵のフレーム配列（spriteForが world.t で animFps 枚/秒で切替）。挙動/バランスは今後。
-  {key:'mangel', name:'マシュマロエンジェル', icon:'👼', role:'support', tier:0.25, count:1, atk:0, hp:240, speed:88, range:24, cd:0.7, tag:'守護天使', short:'攻撃せず味方に追尾し被弾を全部肩代わり（1体）', text:'ふわふわ空を飛ぶ天使のマシュマロ。自分は攻撃せず、守る味方に追尾して、近くの味方が受けるダメージ（近接・遠距離・爆発すべて）を身代わりで100%引き受ける支援専門。空の上なので近接では狙われないが、味方を守るうちに自分から先に溶けていく。※エンジェルだけが戦場に残っても勝てない（攻撃できないため）。', anim:['mangel_1','mangel_2','mangel_3'], animRed:['mangel_red_1','mangel_red_2','mangel_red_3'], animFps:5, fly:true, guardian:true, noAttack:true, test:true, beta:true},
+  {key:'mangel', name:'マシュマロエンジェル', icon:'👼', role:'support', tier:0.25, count:1, atk:0, hp:300, speed:88, range:24, cd:0.7, tag:'守護天使', short:'攻撃せず味方に追尾し被弾を全部肩代わり（1体）', text:'ふわふわ空を飛ぶ天使のマシュマロ。自分は攻撃せず、守る味方に追尾して、近くの味方が受けるダメージ（近接・遠距離・爆発すべて）を身代わりで100%引き受ける支援専門。空の上なので近接では狙われないが、味方を守るうちに自分から先に溶けていく。※エンジェルだけが戦場に残っても勝てない（攻撃できないため）。', anim:['mangel_1','mangel_2','mangel_3'], animRed:['mangel_red_1','mangel_red_2','mangel_red_3'], animFps:5, fly:true, guardian:true, noAttack:true, test:true, beta:true},
   // クマグミ（開発テスト中・静止立ち絵）。青/赤の陣営色を anim(1枚) の仕組みで出し分け。挙動/バランスは今後。
   {key:'kumagumi', name:'クマグミ', icon:'🐻', role:'fodder', tier:0.75, count:4, atk:8, hp:50, speed:100, range:24, cd:0.5, tag:'仲間化', short:'倒した敵を自軍のクマグミに変える（4体）', text:'倒した敵を自分の仲間（クマグミ）に変えてしまう、もちもちのクマのグミ。倒すほど軍勢がどんどん増えていく雪だるま式のこわいやつ。仲間化で生まれる子グミは本体より少し弱い。', anim:['kumagumi_blue'], animRed:['kumagumi_red'], animFps:1, recruit:true, test:true, beta:true},
   // プリン（開発テスト中）。スプーンをブーメランのように投げ、往復で経路上の敵を薙ぐ。1枚=1体。立ち絵は青/赤の陣営色（anim1枚）。
@@ -987,6 +987,8 @@ const KUMA_RECRUIT_ATK = 6;   // 仲間化で生まれる子グミの攻撃力
 const MANGEL_R = 88;          // 守護範囲(px)：この円内の味方の被ダメを肩代わり
 const MANGEL_SOAK = 1.00;     // 肩代わり率（味方の被ダメの100%をエンジェルが自分のHPで受ける＝範囲内の味方は無傷、エンジェルが先に落ちる）
 const GUARDIAN_KEEP = 34;     // エンジェルが守る味方に追尾するとき、これ以上近づかない距離(px)＝味方に張り付きつつ重ならない
+const MANGEL_MIN = 1;         // 盤面にこの数以上エンジェルがいると「天使の加護」強化カードが出る
+const MANGEL_BUFF_HP = 500;   // 天使の加護（固有強化）：強化後のHP（base300→500）＝もっと長く肩代わりできる
 /* 各キャラぶんの「○○ ×2」強化カードを自動生成（召喚専用と除外キーは作らない） */
 UNITS.filter(u=>!u.summonOnly && !u.test && !X2_EXCLUDE.has(u.key)).forEach(function(u){
   SPECIALS['x2_'+u.key] = {
@@ -1059,6 +1061,10 @@ SPECIALS['buff_icewiz'] = {
 SPECIALS['buff_macaron'] = {
   key:'buff_macaron', name:'マカロンアーマー', icon:'🟣', upgrade:true, macaronBuff:true, target:'macaron', evoSprite:'macaron_buff_blue',
   text:'マカロンのHPが大幅に増える（180になる）。',
+};
+SPECIALS['buff_mangel'] = {
+  key:'buff_mangel', name:'天使の加護', icon:'👼', upgrade:true, mangelBuff:true, target:'mangel',
+  text:'マシュマロエンジェルのHPが大幅に増える（500になる）＝もっと長く味方を守れる。',
 };
 function isSpecial(key){ return !!SPECIALS[key]; }
 
@@ -1183,6 +1189,7 @@ function iconHTML(u, side){
   if(u.key==='choco' && SPRITE_DATA['choco_'+c]) return img('choco_'+c);
   if(u.key==='shoe' && SPRITE_DATA['shoe_'+c]) return img('shoe_'+c);
   if(u.key==='purin' && SPRITE_DATA['purin_'+c]) return img('purin_'+c);
+  if(u.key==='mangel' && SPRITE_DATA['mangel_1']) return img(side==='e'?'mangel_red_1':'mangel_1');
   if(u.key==='daifuku' && SPRITE_DATA['daifuku_'+c]) return img('daifuku_'+c);
   if(u.key==='ghost' && SPRITE_DATA['ghost_'+c]) return img('ghost_'+c);
   if(u.key==='donut' && SPRITE_DATA['donut_'+c]) return img('donut_'+c);
@@ -1234,11 +1241,14 @@ function resetState(){
     youShoeBuff:false, foeShoeBuff:false, // 特盛りシュークリームを獲得済みか（永続・毎ラウンド再適用・1回限り）
     youIcewizBuff:false, foeIcewizBuff:false, // ブリザード（アイスウィザード）を獲得済みか（永続・毎ラウンド再適用・1回限り）
     youMacaronBuff:false, foeMacaronBuff:false, // ビッグシェル（シェルマカロン）を獲得済みか（永続・毎ラウンド再適用・1回限り）
+    youMangelBuff:false, foeMangelBuff:false, // 天使の加護（マシュマロエンジェル）を獲得済みか（永続・毎ラウンド再適用・1回限り）
     youBakeryBuff:false, foeBakeryBuff:false, // ラストベイクを獲得済みか（永続・毎ラウンド再適用・1回限り）
     roundPicks:[], pickStep:0, pickTotal:CONFIG.picksBase, offer3:[],
     foeRoundPicks:[], foeRevealIdx:0, foePickTotal:CONFIG.picksBase, playerExtra:0,
   };
+  state.noX2 = _pendingNoX2; _pendingNoX2 = false;   // テスト対戦などでX2(2倍)カードを無効化（この対戦だけ・次の対戦へは持ち越さない）
 }
+let _pendingNoX2 = false;   // 次に始める対戦でX2を無効化するか（beginTestBattleで立てる）
 const $ = id => document.getElementById(id);
 // ドラフトの提示ボックス（見出し「ドラフト/ピック」＋カード3枚＋下のヒント）の表示制御。
 // ヒント(draftHint)はボックス内にあるので、待機メッセージを見せたいときは「カードだけ」隠してボックスは残す。
@@ -1326,6 +1336,7 @@ function beginTestBattle(){
   cpuDeckMode='auto'; cpuDeck=[];
   tutorial=false; guideMode=false; guideStageId=null;
   foeCtl = makeGuideFoeController(testFoeDeck.slice());   // 相手は選んだ編成を確実に出す（round-robin）
+  _pendingNoX2 = true;   // テスト対戦ではX2(2倍)カードを出さない（運要素を排して純粋な性能テスト）
   SFX.play('button');
   startGame();
 }
@@ -1586,7 +1597,7 @@ function toggleAbilityInfo(btn){ const row=btn.closest('.ab-row'); const d=row&&
 /* キャラ詳細用：そのキャラの「進化」と「固有強化」を表示用にまとめる（強化後ステータスは定数から再計算）。 */
 const UNIT_ENH = { cookie:'party_cookie', choco:'buff_choco', bomb:'split_bomb', daifuku:'buff_daifuku',
   ghost:'clone_ghost', cannon:'cluster_cannon', soda:'fizz_soda', donut:'wall_donut',
-  pancake:'fast_pancake', shoe:'buff_shoe', bakery:'last_bake', icewiz:'buff_icewiz', macaron:'buff_macaron' };
+  pancake:'fast_pancake', shoe:'buff_shoe', bakery:'last_bake', icewiz:'buff_icewiz', macaron:'buff_macaron', mangel:'buff_mangel' };
 function enhDisplay(u){
   const out=[];
   // 進化（パンケーキの自動進化）。固有強化とは別の常設メカ。
@@ -1605,6 +1616,7 @@ function enhDisplay(u){
     else if(u.key==='donut')   stats={hp:Math.round(u.hp*(1+DONUT_HP)),    atk:u.atk};
     else if(u.key==='bakery')  stats={hp:Math.round(u.hp*(1+BAKERY_HP)),   atk:u.atk};
     else if(u.key==='macaron') stats={hp:Math.round(u.hp*(1+MACARON_HP)),  atk:u.atk};
+    else if(u.key==='mangel')  stats={hp:MANGEL_BUFF_HP,                   atk:u.atk};
     else if(u.key==='icewiz')  stats={hp:u.hp,                             atk:ICEWIZ_ATK};
     out.push({ kind:'強化', name:s.name, sprite:s.evoSprite||'', stats:stats, text:s.text });
   }
@@ -1690,7 +1702,7 @@ function makeFighters(key, side, W, H, slot){
       ranged:!!u.ranged, splash:u.splash||0, blast:u.blast||0, blastR:u.blastR||0,
       slowHit:u.slowHit||0, slowDur:u.slowDur||0, chillT:0, chillAmt:0,   // 氷弾のヒット時スロー（アイスウィザード）
       shell:!!u.shell, shellPhase:(u.shell?'spin':''), shellT:(u.shell?SHELL_SPIN_DUR:0), shellInit:false, svx:0, svy:0, ramCd:0, inShell:!!u.shell,   // シェルマカロン：殻スピン状態
-      macaronBuff:false,
+      macaronBuff:false, mangelBuff:false,
       suicide:!!u.suicide, armed:false, fuseT:0, fuse:u.fuse||0.5,
       puddle:!!u.puddle, puddleR:u.puddleR||0, puddleLife:u.puddleLife||0, puddleDps:u.puddleDps||0, puddleSlow:u.puddleSlow||0, slowMul:1,
       evolve:!!u.evolve, evolved:false, evolveAt:u.evolveAt||10, evoHpMul:u.evoHpMul||2, evoScale:u.evoScale||1.4, evoSpeed:u.evoSpeed||0,
@@ -1926,11 +1938,21 @@ function applyMacaronBuff(world, side){
   });
 }
 
+/* ---- 天使の加護（マシュマロエンジェル固有強化）---- */
+// 指定陣営のエンジェル全員のHPを強化値(500)に（毎ラウンド再適用・冪等）
+function applyMangelBuff(world, side){
+  return eachBuffTarget(world, side, 'mangel', u=>{
+    u.maxHp = MANGEL_BUFF_HP;
+    u.hp = u.maxHp;                                  // 再適用で全回復
+    u.mangelBuff = true;
+  });
+}
+
 /* ---- 強化表示まわり ---- */
 // このユニットが何らかの固有強化を受けているか（盤面の「強化中」バッジ用）。おとり分身は除外。
 function isBuffed(u){
   if(u.isDecoy) return false;
-  return !!(u.chocoBuff||u.donutWall||u.shoeBuff||u.bakeryBuff||u.daifukuBuff||u.cloneOn||u.cluster||u.fizz||u.spawnMini||u.fastEvo||u.party||u.icewizBuff||u.macaronBuff);
+  return !!(u.chocoBuff||u.donutWall||u.shoeBuff||u.bakeryBuff||u.daifukuBuff||u.cloneOn||u.cluster||u.fizz||u.spawnMini||u.fastEvo||u.party||u.icewizBuff||u.macaronBuff||u.mangelBuff);
 }
 // プレイヤーが取得済みの強化（融合・X2・各固有強化）を、表示用の{icon,name}配列で返す
 function acquiredBuffs(){
@@ -1942,7 +1964,7 @@ function acquiredBuffs(){
     ['youParty','party_cookie'],['youChocoBuff','buff_choco'],['youBombSplit','split_bomb'],
     ['youDaifukuBuff','buff_daifuku'],['youGhostClone','clone_ghost'],['youCannonCluster','cluster_cannon'],
     ['youSodaFizz','fizz_soda'],['youDonutWall','wall_donut'],['youPancakeFast','fast_pancake'],
-    ['youShoeBuff','buff_shoe'],['youBakeryBuff','last_bake'],['youIcewizBuff','buff_icewiz'],['youMacaronBuff','buff_macaron'],
+    ['youShoeBuff','buff_shoe'],['youBakeryBuff','last_bake'],['youIcewizBuff','buff_icewiz'],['youMacaronBuff','buff_macaron'],['youMangelBuff','buff_mangel'],
   ];
   flags.forEach(([f,sk])=>{ if(S[f]){ const sp=SPECIALS[sk]; out.push({icon: sp?sp.icon:'✦', name: sp?sp.name:sk}); } });
   return out;
@@ -1954,8 +1976,8 @@ function buffCountFor(side){
   const x2 = (p ? state.youX2 : state.foeX2) || {};
   for(const k in x2) n += x2[k]||0;
   const flags = p
-    ? ['youParty','youChocoBuff','youBombSplit','youDaifukuBuff','youGhostClone','youCannonCluster','youSodaFizz','youDonutWall','youPancakeFast','youShoeBuff','youBakeryBuff','youIcewizBuff','youMacaronBuff']
-    : ['foeParty','foeChocoBuff','foeBombSplit','foeDaifukuBuff','foeGhostClone','foeCannonCluster','foeSodaFizz','foeDonutWall','foePancakeFast','foeShoeBuff','foeBakeryBuff','foeIcewizBuff','foeMacaronBuff'];
+    ? ['youParty','youChocoBuff','youBombSplit','youDaifukuBuff','youGhostClone','youCannonCluster','youSodaFizz','youDonutWall','youPancakeFast','youShoeBuff','youBakeryBuff','youIcewizBuff','youMacaronBuff','youMangelBuff']
+    : ['foeParty','foeChocoBuff','foeBombSplit','foeDaifukuBuff','foeGhostClone','foeCannonCluster','foeSodaFizz','foeDonutWall','foePancakeFast','foeShoeBuff','foeBakeryBuff','foeIcewizBuff','foeMacaronBuff','foeMangelBuff'];
   for(const f of flags) if(state[f]) n++;
   return n;
 }
@@ -1963,7 +1985,7 @@ function buffCountFor(side){
 function foeEnhanceCandidates(){
   const cands=[];
   if(countUnmergedSlimes(world,'e')>=3) cands.push({key:'up_slime', fn:function(){ if(mergeOneSlimeGroup(world,'e')) state.foeMerges+=1; }});
-  { const fc={}; let aliveE=0;
+  if(!(state && state.noX2)){ const fc={}; let aliveE=0;   // テスト対戦などX2無効モードでは敵もX2を使わない
     world.units.forEach(u=>{ if(u.side==='e'&&u.hp>0){ aliveE++; const unit=UNIT_BY_KEY[u.key]; if(unit&&!unit.summonOnly&&!X2_EXCLUDE.has(u.key)) fc[u.key]=(fc[u.key]||0)+1; }});   // 連打クールダウンは撤廃
     let bestKey=null,bestN=0; for(const k in fc){ if(fc[k]>=X2_MIN && fc[k]<X2_OFFER_CAP && fc[k]>bestN){ bestN=fc[k]; bestKey=k; } }   // 多すぎる種類(>=X2_OFFER_CAP)はX2を出さない
     if(bestKey && aliveE < X2_BOARD_CAP) cands.push({key:'x2_'+bestKey, fn:function(){ const n=doubleUnitsOnBoard(world,'e',bestKey); if(n>0){ state.foeX2[bestKey]=(state.foeX2[bestKey]||0)+1; } }});   // 盤面が上限なら空振りするので出さない
@@ -1981,6 +2003,7 @@ function foeEnhanceCandidates(){
   if(!state.foeBakeryBuff   && countSideKey('e','bakery') >=BAKERY_MIN)  cands.push({key:'last_bake',     fn:function(){ state.foeBakeryBuff=true;    setBuffCount('e','bakery',countSideKey('e','bakery'));   applyBakeryBuff(world,'e'); }});
   if(!state.foeIcewizBuff   && countSideKey('e','icewiz') >=ICEWIZ_MIN)  cands.push({key:'buff_icewiz',   fn:function(){ state.foeIcewizBuff=true;    setBuffCount('e','icewiz',countSideKey('e','icewiz'));   applyIcewizBuff(world,'e'); }});
   if(!state.foeMacaronBuff  && countSideKey('e','macaron')>=MACARON_MIN) cands.push({key:'buff_macaron',  fn:function(){ state.foeMacaronBuff=true;   setBuffCount('e','macaron',countSideKey('e','macaron')); applyMacaronBuff(world,'e'); }});
+  if(!state.foeMangelBuff   && countSideKey('e','mangel') >=MANGEL_MIN)  cands.push({key:'buff_mangel',   fn:function(){ state.foeMangelBuff=true;    setBuffCount('e','mangel',countSideKey('e','mangel'));   applyMangelBuff(world,'e'); }});
   return cands;
 }
 // 永続フラグ系の強化（X2/融合以外）を、指定陣営の現在の盤面へ再適用する。
@@ -2000,6 +2023,7 @@ function applyFlagBuffs(world, side){
   if(p?state.youBakeryBuff:state.foeBakeryBuff)       applyBakeryBuff(world,side);
   if(p?state.youIcewizBuff:state.foeIcewizBuff)       applyIcewizBuff(world,side);
   if(p?state.youMacaronBuff:state.foeMacaronBuff)     applyMacaronBuff(world,side);
+  if(p?state.youMangelBuff:state.foeMangelBuff)       applyMangelBuff(world,side);
 }
 // プレイヤーが強化/X2カードを取った瞬間に、CPUも1つ強化して同時に公開する（敵味方同時＝同数を保つ）
 function foeMatchEnhance(){
@@ -2143,6 +2167,7 @@ function applyX2Replay(world, side, x2map){
 // いま盤面でX2カードを出せるプレイヤー側のキャラ専用キー一覧（x2_<key>）
 function eligibleX2Specials(){
   const list=[];
+  if(state && state.noX2) return list;   // テスト対戦などX2無効モードでは2倍カードを出さない
   if(!world) return list;
   const counts={}; let aliveP=0;
   world.units.forEach(u=>{ if(u.side==='p' && u.hp>0){ counts[u.key]=(counts[u.key]||0)+1; aliveP++; } });
@@ -2170,6 +2195,7 @@ function eligibleSpecials(){
   if(!state.youBakeryBuff && countSideKey('p','bakery')>=BAKERY_MIN) list.push('last_bake');   // 1回限り：未取得かつベーカリーがいれば出る
   if(!state.youIcewizBuff && countSideKey('p','icewiz')>=ICEWIZ_MIN) list.push('buff_icewiz');   // 1回限り：未取得かつウィザードがいれば出る
   if(!state.youMacaronBuff && countSideKey('p','macaron')>=MACARON_MIN) list.push('buff_macaron');   // 1回限り：未取得かつマカロンがいれば出る
+  if(!state.youMangelBuff && countSideKey('p','mangel')>=MANGEL_MIN) list.push('buff_mangel');   // 1回限り：未取得かつエンジェルがいれば出る
   return list.concat(eligibleX2Specials());
 }
 
@@ -2269,6 +2295,7 @@ function beginDraft(){
   if(state.youBakeryBuff) applyBakeryBuff(world,'p');   // ラストベイクを再適用（永続・1回限り）
   if(state.youIcewizBuff) applyIcewizBuff(world,'p');   // ブリザードを再適用（永続・1回限り）
   if(state.youMacaronBuff) applyMacaronBuff(world,'p');   // ビッグシェルを再適用（永続・1回限り）
+  if(state.youMangelBuff) applyMangelBuff(world,'p');   // 天使の加護を再適用（永続・1回限り）
   arrangeFormation(world,'p',true);
   // 敵の引き継ぎ軍も上に並べる（ドラフト中から見える）
   capArmy(state.foeArmy).forEach(k=> makeFighters(k,'e',CW,CH,'army').forEach(f=>{ f.appear=1; world.units.push(f); }));
@@ -2289,6 +2316,7 @@ function beginDraft(){
   if(state.foeBakeryBuff) applyBakeryBuff(world,'e');   // 敵のラストベイクを再適用（永続・1回限り）
   if(state.foeIcewizBuff) applyIcewizBuff(world,'e');   // 敵のブリザードを再適用（永続・1回限り）
   if(state.foeMacaronBuff) applyMacaronBuff(world,'e');   // 敵のビッグシェルを再適用（永続・1回限り）
+  if(state.foeMangelBuff) applyMangelBuff(world,'e');   // 敵の天使の加護を再適用（永続・1回限り）
   arrangeFormation(world,'e',true);
   // 敵の今回ピックを準備（プレイヤーが1枚選ぶたびに1枚ずつ上に召喚して公開）
   state.foePickTotal = picksFor(state.foeLostLast, state.lostLast);
@@ -2382,7 +2410,7 @@ function renderPickOffer(){
       const s=SPECIALS[key];
       el.className='card upgrade';
       const ico = specialCardIcon(s);
-      const tag = s.x2 ? '×2' : s.party ? 'パーティー' : s.chocoBuff ? '装甲' : s.bombSplit ? 'おかわり' : s.daifukuBuff ? '特大' : s.ghostClone ? '分身' : s.cannonCluster ? '花火' : s.sodaFizz ? '炭酸' : s.donutWall ? '鉄壁' : s.pancakeFast ? 'はや焼き' : s.shoeBuff ? '特盛り' : s.bakeryBuff ? 'ラスト焼き' : s.icewizBuff ? '氷嵐' : s.macaronBuff ? '大殻' : '融合';
+      const tag = s.x2 ? '×2' : s.party ? 'パーティー' : s.chocoBuff ? '装甲' : s.bombSplit ? 'おかわり' : s.daifukuBuff ? '特大' : s.ghostClone ? '分身' : s.cannonCluster ? '花火' : s.sodaFizz ? '炭酸' : s.donutWall ? '鉄壁' : s.pancakeFast ? 'はや焼き' : s.shoeBuff ? '特盛り' : s.bakeryBuff ? 'ラスト焼き' : s.icewizBuff ? '氷嵐' : s.macaronBuff ? '大殻' : s.mangelBuff ? '加護' : '融合';
       el.innerHTML=`<div class="up-badge">強化</div>
         <div class="icon">${ico}</div>
         <div class="cname">${s.name}</div>
@@ -2524,6 +2552,13 @@ function pickCard(key){
       const mk = world.units.filter(u=>u.side==='p'&&u.key==='macaron'&&u.hp>0);
       if(mk.length){ const cx=mk.reduce((s,u)=>s+u.x,0)/mk.length, cy=mk.reduce((s,u)=>s+u.y,0)/mk.length;
         burst(world,cx,cy,'#9fb8ff',20,120); world.rings.push({x:cx,y:cy,r:4,max:52,life:0.42,color:'#cdd6ff'}); }
+    } else if(SPECIALS[key].mangelBuff){
+      state.youMangelBuff = true;
+      setBuffCount('p','mangel', countSideKey('p','mangel'));
+      applyMangelBuff(world,'p');   // 取得時にいたエンジェルだけ強化
+      const gk = world.units.filter(u=>u.side==='p'&&u.key==='mangel'&&u.hp>0);
+      if(gk.length){ const cx=gk.reduce((s,u)=>s+u.x,0)/gk.length, cy=gk.reduce((s,u)=>s+u.y,0)/gk.length;
+        burst(world,cx,cy,'#ffe6f6',20,120); world.rings.push({x:cx,y:cy,r:4,max:52,life:0.42,color:'#ffd9f2'}); }
     }
     foeMatchEnhance();   // 敵味方同時：プレイヤーが強化を取ったらCPUも1つ強化して同時に公開
     state.pickStep++;
@@ -5777,6 +5812,7 @@ function applyPvpSpecial(world, side, key){
       fizz_soda:['SodaFizz','soda',applySodaFizz], wall_donut:['DonutWall','donut',applyDonutWall],
       fast_pancake:['PancakeFast','pancake',applyPancakeFast], buff_shoe:['ShoeBuff','shoe',applyShoeBuff], buff_icewiz:['IcewizBuff','icewiz',applyIcewizBuff],
       buff_macaron:['MacaronBuff','macaron',applyMacaronBuff],
+      buff_mangel:['MangelBuff','mangel',applyMangelBuff],
       last_bake:['BakeryBuff','bakery',applyBakeryBuff],
     };
     const m = FLAG[key]; if(!m) return;
@@ -5799,7 +5835,7 @@ function pvpCardHTML(key){
   if(isSpecial(key)){
     const s=SPECIALS[key];
     const ico=specialCardIcon(s);
-    const tag=s.x2?'×2':s.party?'パーティー':s.chocoBuff?'装甲':s.bombSplit?'おかわり':s.daifukuBuff?'特大':s.ghostClone?'分身':s.cannonCluster?'花火':s.sodaFizz?'炭酸':s.donutWall?'鉄壁':s.pancakeFast?'はや焼き':s.shoeBuff?'特盛り':s.bakeryBuff?'ラスト焼き':s.icewizBuff?'氷嵐':s.macaronBuff?'大殻':'融合';
+    const tag=s.x2?'×2':s.party?'パーティー':s.chocoBuff?'装甲':s.bombSplit?'おかわり':s.daifukuBuff?'特大':s.ghostClone?'分身':s.cannonCluster?'花火':s.sodaFizz?'炭酸':s.donutWall?'鉄壁':s.pancakeFast?'はや焼き':s.shoeBuff?'特盛り':s.bakeryBuff?'ラスト焼き':s.icewizBuff?'氷嵐':s.macaronBuff?'大殻':s.mangelBuff?'加護':'融合';
     return {cls:'card upgrade', html:`<div class="up-badge">強化</div><div class="icon">${ico}</div><div class="cname">${s.name}</div><div class="tagline">${s.text}</div><div class="stats"><span class="up-tag">${tag}</span></div>`};
   }
   const u=UNIT_BY_KEY[key];
