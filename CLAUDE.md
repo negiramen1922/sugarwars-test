@@ -306,6 +306,15 @@
 - 計測点：`startGame`（cpu/tutorial）・`pvpStartAsHost`/`pvpGuestEnterPlay`（pvp）・`endBattle`・`pickCard`・`endTutorial`・`randomMatchStart`/`mmConnState`。
 - **要確認**：Firebaseプロジェクトで Google Analytics 連携が有効なこと（`FIREBASE_CONFIG.measurementId` があれば連携済み）。GA4のDebugView/リアルタイムでイベント確認。キャラ別の正確な実数が要るなら将来 GA4→BigQueryエクスポート（無料）かRTDB集計カウンタ。
 
+## シェア＆招待（新規プレイヤーを増やすバイラル導線・実装済み・`<script>`「シェア＆招待」）
+
+**目的**：人が少ないので「今いる人が友達を連れてくる」導線を作る。3点セット。
+
+- **OGP / Twitterカード**：`<head>` に `og:*`／`twitter:*` を追加。SNSやLINEにURLを貼ると**画像＋説明のリッチプレビュー**が出てクリック率が上がる。共有画像は `og-image.png`（1200×630・`icon-src.png` のポップコーンをChromiumで合成）。**公開URLは絶対URL必須**＝`SHARE_URL`（既定 `https://negiramen1922.github.io/sugarwars-test/`）と `<head>` の `og:url`/`og:image`/`twitter:image` を**独自ドメイン移行時に合わせて変更**。SWの `CACHE` は `v4`・SHELLに `og-image.png` を追加済み。
+- **結果シェア**：対戦決着画面（`overDefaultBtns`＝CPU/ランダムPVP。プライベートは再戦UI優先で非表示）に「📣 結果をシェア」＝`shareResult()`→`shareText()`。**Web Share API →無ければX投稿画面→最後にクリップボード**にフォールバック（環境非依存）。文言は純粋関数 `shareResultText(won,trophies)`（勝敗＋トロフィー。`_lastResultWon` は `endGame` で更新）。
+- **招待リンク**：プライベート部屋のホスト画面に「🔗 招待リンクをシェア」＝`pvpShareInvite()`。`roomInviteUrl(base,code)`＝`base?room=CODE`。受け取った人がリンクを開くと起動時 `pvpMaybeJoinFromUrl()` が `parseRoomCode(location.search)`（4文字[A-Z0-9]のみ有効）で拾い、デッキ4枚チェック→プライベート参加フローへ直行して自動接続（チュートリアル中・Firebase未設定・URL掃除まで面倒を見る）。
+- 純粋関数 `shareResultText`/`roomInviteUrl`/`parseRoomCode` はヘッドレス検証（test.js 112）。実シェア/実接続は要実機。
+
 ## 次の候補タスク（未着手・要相談）
 
 - **経済Phase 3（コインショップ）**：全キャラはレッスンで無料解禁できるので、🍬の用途は「**近道**」。UI（`buyUnit` を呼ぶ「先に解禁」ボタン＝まだ到達していないレッスンのキャラを🍬で先取り）を足すだけ。

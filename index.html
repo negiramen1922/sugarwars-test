@@ -5,6 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>SUGAR WARS — お菓子の王国の戦争</title>
 <meta name="description" content="お菓子の兵士を集めて軍を編成し、リアルタイム自動戦闘で覇権を争うカードドラフト＆オートバトラー。">
+<!-- OGP / Twitterカード（SNSやLINEにURLを貼るとリッチなプレビュー＝画像＋説明が出る＝クリック率UP）。
+     独自ドメインに移すときは、この og:url / og:image / twitter:image の絶対URLと、スクリプト内の SHARE_URL 定数を合わせて変更する。 -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="SUGAR WARS">
+<meta property="og:title" content="SUGAR WARS — お菓子の王国の戦争">
+<meta property="og:description" content="お菓子の兵士を集めて軍を編成し、リアルタイム自動戦闘で覇権を争う無料ブラウザゲーム。友達と対戦しよう！">
+<meta property="og:url" content="https://negiramen1922.github.io/sugarwars-test/">
+<meta property="og:image" content="https://negiramen1922.github.io/sugarwars-test/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ja_JP">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="SUGAR WARS — お菓子の王国の戦争">
+<meta name="twitter:description" content="お菓子の兵士を集めて軍を編成し、リアルタイム自動戦闘で覇権を争う無料ブラウザゲーム。友達と対戦しよう！">
+<meta name="twitter:image" content="https://negiramen1922.github.io/sugarwars-test/og-image.png">
 <!-- PWA（ホーム追加・オフライン起動） -->
 <meta name="theme-color" content="#14161f">
 <link rel="manifest" href="manifest.webmanifest">
@@ -533,6 +548,8 @@
       <div id="pvpHostBox" class="hidden" style="text-align:center;margin-top:14px">
         <p class="stage-sub">この「あいことば」を相手に伝えてください</p>
         <div id="pvpCode" style="font-size:38px;font-weight:800;letter-spacing:8px;color:var(--brass);margin:8px 0">----</div>
+        <button class="btn btn-primary" onclick="pvpShareInvite()" style="margin:2px 0 6px">🔗 招待リンクをシェア</button>
+        <p class="stage-sub" style="margin:2px 0 6px;opacity:.85">リンクを送れば、相手はタップするだけで参加できます</p>
         <p class="stage-sub" id="pvpHostStatus">相手の参加を待っています…</p>
         <button class="btn btn-ghost" onclick="pvpRetry()" style="margin-top:6px">🔄 接続をやり直す</button>
       </div>
@@ -641,6 +658,7 @@
       <p id="overText"></p>
       <div id="overDefaultBtns" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="startGame()">もう一度</button>
+        <button class="btn btn-ghost" onclick="shareResult()">📣 結果をシェア</button>
         <button class="btn btn-ghost" onclick="goHome()">ホームへ</button>
       </div>
       <!-- 戦術指南のレッスン後 -->
@@ -4025,6 +4043,7 @@ function endGame(){
   if(privateRoom){ pvpPresenceSet('connecting'); }   // 接続は保持・対戦間は待機表示にしない（マッチ待ちにも数えない）
   else { pvpPresenceSet('home'); if(wasPvp) foeCtl=makeCpuFoeController(); }   // 後始末（「もう一度」はCPU対戦に戻す）
   const won=state.foeLives<=0;
+  _lastResultWon=won;   // 決着画面のシェア文言（勝ち/負け）用
   if(guideMode){   // 戦術指南のレッスン決着：初回クリアのみ 解禁＋ジェム＋コインを付与（再挑戦・敗北は報酬なし）
     const clearedId=guideStageId, st=GUIDE_BY_ID[clearedId];
     const guideWon = (st && st.winRounds) ? ((CONFIG.startLives - state.foeLives) >= st.winRounds) : (state.foeLives<=0);   // winRounds指定は「規定ライフ取ればクリア」
@@ -4363,6 +4382,70 @@ function ensureFirebase(){
   return pvpDb;
 }
 function genRoomCode(){ const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<4;i++) s+=c[Math.floor(Math.random()*c.length)]; return s; }
+
+/* ===== シェア＆招待（新規プレイヤーを増やすバイラル導線） =====
+   ・結果シェア：勝ち負けをSNSに投稿→友達が来る
+   ・招待リンク：プライベート部屋の ?room=あいことば URLをタップするだけで参加
+   純粋関数（shareResultText / roomInviteUrl / parseRoomCode）はヘッドレステスト対象。 */
+const SHARE_URL='https://negiramen1922.github.io/sugarwars-test/';   // 公開URL（head内OGPと合わせる。独自ドメイン移行時はこことメタを変更）
+let _lastResultWon=false;   // 直前の対戦の勝敗（決着画面のシェア文言用）。endGameで更新。
+// 実行時の実URL（クエリ/ハッシュ除去）。http(s)で開かれていればそれを使い、file:等ではSHARE_URLにフォールバック。
+function siteUrl(){
+  try{ if(typeof location!=='undefined' && typeof location.origin==='string' && location.origin.indexOf('http')===0) return location.origin + location.pathname; }catch(e){}
+  return SHARE_URL;
+}
+// 対戦結果のシェア文言（純粋関数）：勝敗＋トロフィーから定型文を作る。
+function shareResultText(won, trophies){
+  const t=(typeof trophies==='number' && trophies>0) ? '🏆'+trophies+' ' : '';
+  const head=won ? ('SUGAR WARS で'+t+'勝利！🍭⚔️') : ('SUGAR WARS で'+t+'修行中…🍭');
+  return head+' お菓子の軍団でリアルタイム自動バトル！みんなで対戦しよう🎮';
+}
+// 招待URL（純粋関数）：ベースURL＋あいことば → 「base?room=CODE」。
+function roomInviteUrl(base, code){
+  const b=String(base||'').split('#')[0].split('?')[0];
+  return b + '?room=' + encodeURIComponent(String(code||'').toUpperCase());
+}
+// URLクエリからあいことばを取り出す（純粋関数）：4文字[A-Z0-9]のみ有効、それ以外は空文字。
+function parseRoomCode(search){
+  const m=String(search||'').match(/[?&]room=([^&#]+)/i);
+  if(!m) return '';
+  let code=''; try{ code=decodeURIComponent(m[1]); }catch(e){ code=m[1]; }
+  code=code.toUpperCase().replace(/[^A-Z0-9]/g,'');
+  return code.length===4 ? code : '';
+}
+// 実シェア：Web Share API →無ければ X の投稿画面 →最後にクリップボードへ（環境非依存のフォールバック）。
+function shareText(text, url){
+  const full=text+'\n'+url;
+  try{ if(typeof navigator!=='undefined' && navigator.share){ navigator.share({ title:'SUGAR WARS', text:text, url:url }).catch(function(){}); return; } }catch(e){}
+  try{ if(typeof window!=='undefined' && window.open){ window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(full), '_blank', 'noopener'); return; } }catch(e){}
+  copyShare(full);
+}
+function copyShare(s){
+  try{ if(typeof navigator!=='undefined' && navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(s).then(function(){ toast('コピーしました📋'); }).catch(function(){ toast('コピーできませんでした'); }); return; } }catch(e){}
+  try{ toast('コピーできませんでした'); }catch(e){}
+}
+// 決着画面：結果をシェア（直前の勝敗フラグを使う）。
+function shareResult(){ try{ SFX.play('button'); }catch(e){} shareText(shareResultText(!!_lastResultWon, myTrophies()), siteUrl()); }
+// プライベート部屋：今のあいことばの招待URLをシェア（相手はリンクを開くだけで参加できる）。
+function pvpShareInvite(){
+  try{ SFX.play('button'); }catch(e){}
+  const code=(($('pvpCode')&&$('pvpCode').textContent)||'').trim();
+  if(code.length!==4) return;
+  shareText('SUGAR WARS で対戦しよう！あいことば「'+code+'」🍭⚔️ リンクを開いて「接続する」を押してね', roomInviteUrl(siteUrl(), code));
+}
+// 招待リンク（?room=CODE）で来たら、参加フローへ直行（デッキ4枚チェック＋接続まで自動）。起動時に1回だけ呼ぶ。
+function pvpMaybeJoinFromUrl(){
+  let code=''; try{ code=parseRoomCode(typeof location!=='undefined' ? location.search : ''); }catch(e){}
+  if(!code) return;
+  try{ if(typeof window!=='undefined' && window.history && history.replaceState) history.replaceState(null,'',siteUrl()); }catch(e){}   // リロードで再入室しないようURLを掃除
+  if(!tutSeen()) return;   // 初回はチュートリアルを邪魔しない（後で手動参加できる）
+  openPvpLobby();          // デッキ4枚チェック＋ロビー表示（未達なら編成へ誘導して中断）
+  if($('pvpLobby') && $('pvpLobby').classList.contains('hidden')) return;
+  if(!firebaseConfigured()) return;   // 未設定なら警告表示のまま（openPvpLobbyが出す）
+  pvpShowPrivate(); pvpShowJoin();
+  if($('pvpCodeInput')) $('pvpCodeInput').value=code;
+  pvpJoin();
+}
 
 /* ============================================================
    13) アカウント（Firebase Auth：Google＋メール）＆ クラウド保存
@@ -6477,6 +6560,7 @@ try{ getAnalytics(); }catch(e){}   // GA4を起動時に初期化（タグ検出
 try{ pvpTryResumeOnLoad(); }catch(e){}   // リログ（再読み込み）で対戦が切れていたら通知
 // オンライン人数のpresence参加は authInit の onAuthStateChanged 内で行う（リダイレクトログインと競合しないように）
 if(!tutSeen()){ try{ startTutorial(); }catch(e){} }   // 初回プレイ時は自動でチュートリアル（メニューからいつでも再生可）
+try{ pvpMaybeJoinFromUrl(); }catch(e){}   // 招待リンク（?room=あいことば）で来たら参加フローへ直行
 
 // PWA：Service Worker を登録（オフライン起動・ホーム追加）。https/localhost でのみ有効。
 if(typeof navigator!=='undefined' && navigator.serviceWorker && typeof window!=='undefined'){
