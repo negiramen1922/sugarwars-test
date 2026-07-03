@@ -740,6 +740,21 @@
       </div>
     </div>
   </div>
+  <!-- 戦術指南：クッキーじいのキャラ紹介ダイアログ（レッスン開始前） -->
+  <div id="guideIntroLayer" class="tut-layer hidden">
+    <div class="tut-backdrop" onclick="closeGuideIntro()"></div>
+    <div class="tut-bubble">
+      <div class="tut-head">
+        <img class="tut-avatar" id="guideIntroAvatar" alt="">
+        <div class="tut-headtxt"><span class="tut-name">クッキーじぃ</span><span class="tut-tag" id="guideIntroTag">キャラ紹介</span></div>
+      </div>
+      <div class="tut-text" id="guideIntroText"></div>
+      <div class="tut-btns">
+        <button class="btn btn-ghost" onclick="closeGuideIntro()">とじる</button>
+        <button class="btn btn-primary" onclick="guideIntroContinue()">つづける ›</button>
+      </div>
+    </div>
+  </div>
   <!-- お知らせモーダル -->
   <div id="newsModal" class="modal-overlay hidden" onclick="closeNews(event)">
     <div class="modal-card" onclick="event.stopPropagation()">
@@ -4895,8 +4910,12 @@ const GUIDE_STAGES = [
   { id:'soda2',  title:'沼で群れを溶かす②', theme:'デバフ / 沼（実戦）', unit:'soda', arc:'soda', coins:100,
     tip:'今度はソーダ入りデッキで実戦。相手はクッキーとゼリーの群れ。ソーダの沼で足を止めて、弓兵で削り切ろう！勝てばランニングソーダが仲間になる。',
     deck:['soda','shoe','choco','cookie'], foe:['cookie','slime'] },
-  { id:'ranged', title:'遠くから削る',     theme:'遠距離', unit:'icewiz', coins:100,
-    tip:'遠距離ユニットは近づかれる前に相手を削れる。アイスクリームウィザードは氷弾で当てた敵を鈍足にして、味方が押し勝ちやすくなる。前衛の後ろに置こう。',
+  { id:'ranged1', title:'氷弾で足を止める①', theme:'遠距離 / 鈍足（体験）', arc:'icewiz', coins:50,
+    easyFoe:true, winRounds:1, forceUnit:'icewiz',
+    tip:'相手はクッキーとゼリーの群れ。アイスクリームウィザードは氷弾を当てた敵を鈍足にする！ 前衛の後ろに置いて、近づく群れの足を止めよう。まずは相手から1ライフ取ればクリア！',
+    deck:['icewiz','choco','cookie'], foe:['cookie','slime'] },
+  { id:'ranged2', title:'遠くから削り切る②', theme:'遠距離 / 鈍足（実戦）', unit:'icewiz', arc:'icewiz', coins:100,
+    tip:'相手はクッキー＋ゼリー＋ソーダ。アイスの鈍足で敵の足を止めつつ、弓兵（シュークリーム）でまとめて削り切ろう！勝てばアイスクリームウィザードが仲間になる。',
     deck:['icewiz','shoe','choco','cookie'], foe:['cookie','slime','soda'] },
   { id:'warp1',  title:'後衛に回り込む①', theme:'ワープ / 裏取り（体験）', arc:'ghost', coins:50,
     easyFoe:true, winRounds:1, forceUnit:'ghost',
@@ -5011,20 +5030,53 @@ function renderGuide(){
   }).join('');
 }
 // レッスンを選ぶ→ヒント→（デッキ編成へ）。
+// クッキーじいが「そのキャラの特徴」を最初に語るセリフ（学ぶキャラ＝アークの先頭レッスンでだけ表示）。※文言は今後1体ずつ調整
+const GUIDE_INTRO = {
+  soda:   'ほっほっ、これがランニングソーダじゃ。走って敵に突っ込み、爆ぜて足元にシュワシュワの沼を残すんじゃ。沼を踏んだ群れは足が鈍って、じわじわ溶けていくぞい。',
+  daifuku:'この大福サムライはのう、遠いほど力をためて、強い踏み込みで“居合”を放つんじゃ。まとめて薙ぎ払う範囲攻撃、群れの前で構えさせるとよいぞい。',
+  ghost:  'わたあめゴーストは正面には目もくれん。少し待って、ふわりと敵の後ろへワープするんじゃ。出た直後はすり抜け（無敵）でな、後ろの弓兵や砲台を叩くのが得意じゃぞ。',
+  cannon: 'キャンディキャノンは動かん代わりに、ステージのどこへでも迫撃を撃ち込むんじゃ。固まった群れの真ん中に落とせば一掃じゃ。前衛でしっかり守ってやるのじゃぞ。',
+  bakery: 'ジンジャーベーカリーは戦わん。焼き立てのジンジャーをどんどん生み出す工場じゃ。数を絶やさず押し返すのが役目でな、これも前衛で守ってやるとよいぞい。',
+  pancake:'パンケーキキングは、しばらくすると大きく進化するんじゃ。進化まではちと弱いが、進化すればHPも跳ね上がり、着地の衝撃波でまとめて薙ぎ払う。それまで前衛で時間を稼ぐのじゃ。',
+  macaron:'シェルマカロンは殻にこもって突進し、壁で跳ね返りながら暴れ回るんじゃ。スピン中はとても硬い（被ダメ大幅カット）が、あばれ終わると少し気絶する。数を並べてかく乱するとよいぞい。',
+  icewiz: 'アイスクリームウィザードは、後ろから小さな氷弾を撃つんじゃ。当たった敵は鈍足になってな、味方が押し勝ちやすくなる。前衛の後ろに置いて、じわじわ足止めするのじゃ。',
+  donut:  'バキュームドーナッツは、正面の敵を吸い寄せて足止めする鈍足タンクじゃ。とても硬く、押し込まれても後退せん。前に置いて壁にし、後ろの仲間を守るのじゃぞ。',
+};
+let _guideIntroThen=null;
+// 学ぶキャラの紹介ダイアログを出す（thenは「つづける」で呼ぶ続きの処理）。紹介文が無ければ即thenへ。
+function showGuideIntro(unitKey, then){
+  const u=UNIT_BY_KEY[unitKey], txt=GUIDE_INTRO[unitKey];
+  if(!u || !txt){ if(then) then(); return; }
+  try{ SFX.play('button'); }catch(e){}
+  const av=$('guideIntroAvatar'); if(av && SPRITE_DATA['tut_gramps'] && !av.src) av.src=SPRITE_DATA['tut_gramps'];
+  const tag=$('guideIntroTag'); if(tag) tag.textContent=u.name+' のとくちょう';
+  const t=$('guideIntroText'); if(t) t.innerHTML='<div>'+txt+'</div>';
+  _guideIntroThen=then||null;
+  $('guideIntroLayer').classList.remove('hidden');
+}
+function guideIntroContinue(){ try{ SFX.play('button'); }catch(e){} const l=$('guideIntroLayer'); if(l) l.classList.add('hidden'); const f=_guideIntroThen; _guideIntroThen=null; if(f) f(); }
+function closeGuideIntro(){ const l=$('guideIntroLayer'); if(l) l.classList.add('hidden'); _guideIntroThen=null; }   // とじる＝レッスン一覧へ戻る（つづけない）
 function startGuideStage(id){
   const s=GUIDE_BY_ID[id]; if(!s) return;
   if(!guideStageUnlocked(id)){ toast('このキャラの前のレッスンをクリアしてね'); return; }
-  const rewU = s.unit?UNIT_BY_KEY[s.unit]:null;
-  $('guideTipTitle').textContent='レッスン：'+s.title;
-  $('guideTipTheme').textContent=s.theme;
-  $('guideTipText').textContent=s.tip;
-  $('guideTipReward').innerHTML = guideCleared(id)
-    ? '（クリア済み。もう一度挑戦できます／報酬は初回のみ）'
-    : (rewU ? 'クリアで <b>'+rewU.name+'</b> が仲間になり、🍬'+s.coins+' がもらえます！'
-            : 'クリアで 🍬'+s.coins+' がもらえます！');
-  $('guideTipStart').textContent='デッキを組む ›';
-  $('guideTipStart').onclick=function(){ closeGuideTip(); guideOpenDeckBuilder(id); };
-  $('guideTipModal').classList.remove('hidden');
+  const showTip=function(){
+    const rewU = s.unit?UNIT_BY_KEY[s.unit]:null;
+    $('guideTipTitle').textContent='レッスン：'+s.title;
+    $('guideTipTheme').textContent=s.theme;
+    $('guideTipText').textContent=s.tip;
+    $('guideTipReward').innerHTML = guideCleared(id)
+      ? '（クリア済み。もう一度挑戦できます／報酬は初回のみ）'
+      : (rewU ? 'クリアで <b>'+rewU.name+'</b> が仲間になり、🍬'+s.coins+' がもらえます！'
+              : 'クリアで 🍬'+s.coins+' がもらえます！');
+    $('guideTipStart').textContent='デッキを組む ›';
+    $('guideTipStart').onclick=function(){ closeGuideTip(); guideOpenDeckBuilder(id); };
+    $('guideTipModal').classList.remove('hidden');
+  };
+  // アークの先頭レッスンでは、まずクッキーじいが学ぶキャラの特徴を紹介してから説明へ
+  const learned = s.forceUnit || s.unit;
+  const arcFirst = arcStages(stageArc(s))[0];
+  if(learned && GUIDE_INTRO[learned] && arcFirst && arcFirst.id===id) showGuideIntro(learned, showTip);
+  else showTip();
 }
 function closeGuideTip(e){ if(e && e.target!==e.currentTarget) return; const m=$('guideTipModal'); if(m) m.classList.add('hidden'); }
 // レッスン用デッキ編成：学ぶキャラ（forceUnit）は必ず入る。残りは解禁済みキャラから選ぶ。
