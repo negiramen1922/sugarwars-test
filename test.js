@@ -76,7 +76,7 @@ code += `
   battleCoinReward, grantBattleReward, myCoins,
   equipFrame, equipTitlePre, equipTitleSuf, equipNameColor, equippedFrame, equippedTitlePre, equippedTitleSuf, equippedNameColor, titleText, titleTextOf,
   get FRAMES(){ return FRAMES; }, get TITLE_PRE(){ return TITLE_PRE; }, get TITLE_SUF(){ return TITLE_SUF; }, get NAME_COLORS(){ return NAME_COLORS; },
-  get PACK_COST(){ return PACK_COST; }, get COIN_PLAY(){ return COIN_PLAY; }, get COIN_WIN(){ return COIN_WIN; }, get COIN_DAILY_WIN(){ return COIN_DAILY_WIN; }, get PACK_DUP_XP(){ return PACK_DUP_XP; },
+  get PACK_COST(){ return PACK_COST; }, get PACK11_COST(){ return PACK11_COST; }, get PACK11_COUNT(){ return PACK11_COUNT; }, buyPack11, get COIN_PLAY(){ return COIN_PLAY; }, get COIN_WIN(){ return COIN_WIN; }, get COIN_DAILY_WIN(){ return COIN_DAILY_WIN; }, get PACK_DUP_XP(){ return PACK_DUP_XP; },
   get STARTER_UNITS(){ return STARTER_UNITS; }, unitUnlocked, unlockUnit, buyUnit, lockedUnits, migrateUnlocks, unitUnlockCost,
   get GUIDE_STAGES(){ return GUIDE_STAGES; }, guideCleared, guideStageUnlocked, guideFinish, guideArcForUnit, openUnlockModal, unlockByCoins,
   get GUIDE_INTRO(){ return GUIDE_INTRO; }, arcStages, stageArc, arcUnit,
@@ -3300,6 +3300,21 @@ console.log('\n=== 109) 指南レッスン中のデッキで誤解禁しない�
   API.migrateUnlocks();
   check('通常時は本デッキの非スターター(icewiz)がmigrateで解禁される', API.unitUnlocked('icewiz') === true);
   prof.units = []; API.setMyDeck([]);
+}
+
+console.log('\n=== 111) ガチャ：11連（1200コイン＝10回ぶんで11枚） ===');
+{
+  check('PACK11_COUNT は11', API.PACK11_COUNT === 11);
+  check('PACK11_COST は1200（＝10回ぶん）', API.PACK11_COST === 1200 && API.PACK11_COST === API.PACK_COST * 10);
+  const prof = API.myProfileRef;
+  prof.collected = {}; prof.mastery = {}; prof.coins = API.PACK11_COST;
+  const before = API.myCoins();
+  API.buyPack11();
+  check('11連でコインが1200消費される', API.myCoins() === before - API.PACK11_COST, API.myCoins());
+  const total = Object.values(prof.collected).reduce((a, b) => a + b, 0);
+  check('11連で collected が合計11枚ぶん増える', total === 11, total);
+  prof.collected = {}; prof.mastery = {}; prof.coins = 0;
+  check('残高不足では11連は開けない（コイン変動なし）', (function(){ const c=API.myCoins(); API.buyPack11(); return API.myCoins()===c; })());
 }
 
 Promise.resolve().then(() => {
