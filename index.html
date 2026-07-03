@@ -377,6 +377,12 @@
   .shop-pull .shop-pull-cost{display:block;font-size:12px;font-weight:700;opacity:.9;margin-top:2px}
   .shop-pull11{background:linear-gradient(180deg,#ffd873,#f5a623);color:#3a2205;border:1px solid #ffe9a8}
   .shop-pull11:hover{filter:brightness(1.05)}
+  /* プロフィール編集：見た目カテゴリの開閉メニュー */
+  .cosm-sec{border:1px solid var(--line);border-radius:10px;margin:6px 0;overflow:hidden}
+  .cosm-head{display:flex;align-items:center;justify-content:space-between;width:100%;gap:8px;padding:9px 12px;cursor:pointer;background:var(--panel-2);border:none;color:var(--ink);font-family:inherit;font-size:13px;font-weight:700;text-align:left}
+  .cosm-head:hover{filter:brightness(1.06)}
+  .cosm-cur{font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap;flex:0 0 auto}
+  .cosm-body{display:flex;flex-wrap:wrap;align-items:center;gap:2px;padding:8px 10px;border-top:1px solid var(--line)}
   .vs-badge{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:"Oswald",sans-serif;font-weight:800;font-size:54px;color:#fff;-webkit-text-stroke:3px #2a1a10;text-shadow:0 6px 18px rgba(0,0,0,.5);z-index:2}
   .vs-cutin.play{animation:vsFade 2s ease forwards}
   .vs-cutin.play .vs-row-foe{animation:vsTop 2s ease forwards}
@@ -5510,24 +5516,34 @@ function fillProfileEditor(){
   renderProfileStats();
 }
 // プロフィール編集：持っているアイテム（フレーム/二つ名の前半・後半/ネームカラー）から装備を切り替える
+let _cosmOpen={ frame:false, pre:false, suf:false, color:false };   // 見た目カテゴリの開閉状態（初期は全部たたむ＝縦長にならない）
+function toggleCosmeticSection(key){ _cosmOpen[key]=!_cosmOpen[key]; renderProfileCosmetics(); }
 function renderProfileCosmetics(){
   const box=$('profileCosmetics'); if(!box) return;
-  const sec=function(title, items, curId, equipName){
-    const owned=items.filter(function(it){ return ownsCollected(it.id); });
-    let chips='<button class="btn '+(!curId?'btn-primary':'btn-ghost')+'" style="padding:3px 9px;font-size:12px;margin:3px" onclick="'+equipName+'(\''+(curId||'')+'\')">なし</button>';
-    owned.forEach(function(it){ const on=(curId===it.id);
-      chips+='<button class="btn '+(on?'btn-primary':'btn-ghost')+'" style="padding:3px 9px;font-size:12px;margin:3px" onclick="'+equipName+'(\''+it.id+'\')">'+it.name+'</button>'; });
-    const note = owned.length?'':'<span style="font-size:11px;color:var(--muted);align-self:center;margin-left:4px">まだ持っていません（🎁パックで入手）</span>';
-    return '<div style="margin:8px 0 2px"><div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:2px">'+title+'</div><div style="display:flex;flex-wrap:wrap;align-items:center">'+chips+note+'</div></div>';
+  const sec=function(key, title, items, curId, equipName){
+    const open=!!_cosmOpen[key];
+    const cur = curId ? ((items.find(function(it){return it.id===curId;})||{}).name||'') : '';
+    const head='<button type="button" class="cosm-head" onclick="toggleCosmeticSection(\''+key+'\')">'
+      + '<span>'+title+'</span><span class="cosm-cur">'+(cur||'なし')+'　'+(open?'▾':'▸')+'</span></button>';
+    let bodyHtml='';
+    if(open){
+      const owned=items.filter(function(it){ return ownsCollected(it.id); });
+      let chips='<button class="btn '+(!curId?'btn-primary':'btn-ghost')+'" style="padding:3px 9px;font-size:12px;margin:3px" onclick="'+equipName+'(\''+(curId||'')+'\')">なし</button>';
+      owned.forEach(function(it){ const on=(curId===it.id);
+        chips+='<button class="btn '+(on?'btn-primary':'btn-ghost')+'" style="padding:3px 9px;font-size:12px;margin:3px" onclick="'+equipName+'(\''+it.id+'\')">'+it.name+'</button>'; });
+      const note = owned.length?'':'<span style="font-size:11px;color:var(--muted);align-self:center;margin-left:4px">まだ持っていません（🎁パックで入手）</span>';
+      bodyHtml='<div class="cosm-body">'+chips+note+'</div>';
+    }
+    return '<div class="cosm-sec">'+head+bodyHtml+'</div>';
   };
   const preview = titleText() || '（二つ名なし）';
   box.innerHTML = '<div style="border-top:1px dashed var(--line);padding-top:10px">'
-    + '<div style="font-size:12px;font-weight:800;color:var(--muted);margin-bottom:2px">見た目（持っているアイテムから選ぶ）</div>'
-    + '<div style="font-size:12px;margin:2px 0 4px">二つ名プレビュー：<b style="color:var(--brass)">'+preview+'</b></div>'
-    + sec('🖼 フレーム', FRAMES, equippedFrame(), 'equipFrame')
-    + sec('🏷 二つ名（前半）', TITLE_PRE, equippedTitlePre(), 'equipTitlePre')
-    + sec('🏷 二つ名（後半）', TITLE_SUF, equippedTitleSuf(), 'equipTitleSuf')
-    + sec('🎨 ネームカラー', NAME_COLORS, equippedNameColor(), 'equipNameColor')
+    + '<div style="font-size:12px;font-weight:800;color:var(--muted);margin-bottom:2px">見た目（タップで開いて選ぶ）</div>'
+    + '<div style="font-size:12px;margin:2px 0 6px">二つ名プレビュー：<b style="color:var(--brass)">'+preview+'</b></div>'
+    + sec('frame', '🖼 フレーム', FRAMES, equippedFrame(), 'equipFrame')
+    + sec('pre', '🏷 二つ名（前半）', TITLE_PRE, equippedTitlePre(), 'equipTitlePre')
+    + sec('suf', '🏷 二つ名（後半）', TITLE_SUF, equippedTitleSuf(), 'equipTitleSuf')
+    + sec('color', '🎨 ネームカラー', NAME_COLORS, equippedNameColor(), 'equipNameColor')
     + '</div>';
 }
 // プロフィールの戦績（トロフィー＝レート／バトル数／勝利／敗北）を表示。バトル数＝勝利＋敗北。
@@ -6487,9 +6503,14 @@ function pvpGuestInterpolate(now){
   });
   return Object.assign({}, s1.w, { units });
 }
+// 子の表示高さ＝表示幅(availを440上限)×親のアスペクト比（純粋関数・テスト対象）。
+// 親が小さい端末でも、子は自分の画面幅いっぱいに拡大表示する（座標系は親のまま）。
+function pvpGuestDisplayH(availW, worldW, worldH){ const dispW=Math.min(availW||440, 440); return Math.round(dispW*(worldH/Math.max(1,worldW||1))); }
 function pvpGuestRenderSnapshot(w){
-  if(w && (CW!==w.W || CH!==w.H) && canvas){   // 子のキャンバスを親の盤面サイズに合わせて座標系を一致させる
-    CW=w.W; CH=w.H; canvas.style.height=CH+'px'; canvas.width=Math.round(CW*dpr); canvas.height=Math.round(CH*dpr); ctx.setTransform(dpr,0,0,dpr,0,0);
+  if(w && (CW!==w.W || CH!==w.H) && canvas){   // 座標系は親の盤面サイズに合わせる（スナップショット座標をそのまま使う）
+    CW=w.W; CH=w.H; canvas.width=Math.round(CW*dpr); canvas.height=Math.round(CH*dpr); ctx.setTransform(dpr,0,0,dpr,0,0);
+    const avail=(canvas.parentElement&&canvas.parentElement.clientWidth)||440;   // 表示は子の画面幅いっぱいに拡大＝親が小さくてもステージが縮まない
+    canvas.style.height=pvpGuestDisplayH(avail, CW, CH)+'px';
   }
   const now=(typeof performance!=='undefined'&&performance.now)?performance.now():Date.now();
   pvpSnapBuf.push({ t:now, w }); if(pvpSnapBuf.length>5) pvpSnapBuf.shift();   // 時刻つきで貯める（メモリ節約のため浅め）

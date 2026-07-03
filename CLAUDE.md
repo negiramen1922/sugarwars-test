@@ -187,7 +187,7 @@
 - **敗者先行**：差分（`pvpHostExtra`/`pvpGuestExtra`）ぶんを先頭ステップで**単独ピック**。`pvpHostDraftStep()` が各ステップで `pvpStepHostActive`/`pvpStepGuestActive` を判定し、片側のみアクティブなら単独・両方なら同時選択（強化パリティはこのときだけ）。
 - **待機同期**：親が単独で選ぶステップは `notifyGuestWait()` が STEP に `wait:true` を載せ、子は `pvpGuestShowWait()` で待機表示＋**返信しない**。子が単独のステップは親が `pvpHostShowOffer` を出さず待機表示。
 - テスト：test.js 59（`picksFor`の逆転）・60（待機通知で子が返信しない）。
-- **未対応**：親子のキャンバスサイズ差の厳密なスケーリング。
+- **親子のキャンバスサイズ差**：子は座標系を親(`snap.W/H`)に合わせつつ、**表示は自分の画面幅いっぱいに拡大**（`pvpGuestRenderSnapshot`＝CSS高さを `pvpGuestDisplayH(avail,CW,CH)`＝表示幅(440上限)×親アスペクト比に設定）＝**親が小さい端末でもステージが縮まない**（純粋関数 `pvpGuestDisplayH`・test.js 113）。
 
 ### プライベート部屋の再戦（接続を保ったまま何度でも）— 実装済み
 
@@ -241,7 +241,7 @@
 - **開封演出（CSS描画・絵素材不要）**：中身を即確定して `showPackOpen(arr)`→全画面 `#packOpenLayer`。パック（`.pack`＝🍬柄の包装・点線の切り取り線／11連は「11連パック」表示）が登場して待機→**タップ `ripPack()` でギザギザに2分割（`clip-path`）して上下に飛ぶ＋砂糖バースト `packBurstFx()`**→`revealPackItems(arr)` で中身を表示（1件＝大カード／複数＝`packItemMini` のグリッド＋NEW/重複の集計）。`もう一度`=`packOpenAgain`（直前と同じ種類）／`とじる`=`closePackOpen`。ロジック（`openPackOnce`）は不変＝ヘッドレステストに影響なし。
 - **排出内容モーダル**：ショップの「📋 排出内容を見る」→`openPackPool()`→`#poolModal`（`renderPackPool`＝プールを読み取り専用で一覧・所持✓/未所持マーク）。**ショップからは所持一覧/装備UI（旧`renderCollection`）は撤去し、装備はプロフィール編集(`renderProfileCosmetics`)に一本化**。
 - **初入手 vs 重複**：`alreadyHave(item)`（`ownsCollected`）で判定。初入手→`myProfile.collected[id]` に加算して**解禁**。**重複→そのアイテムのテーマキャラ(`unit`)の熟練度XPに変換**（`addMasteryXp`・`PACK_DUP_XP`=25／重複で熟練度が早く進む助け）。
-- **見た目3種（絵素材不要・CSS/テキスト）**：`FRAMES`（アイコン装飾枠＝box-shadow）／**二つ名＝`TITLE_PRE`（前半）＋`TITLE_SUF`（後半）を1つずつ組み合わせて作る**（`titleText()`＝装備中の前半＋後半・`titleTextOf(pre,suf)`＝任意組み合わせ）／`NAME_COLORS`（名前の色・グラデ）。各行に `unit`（テーマ表示用）。装備は `myProfile.frame/titlePre/titleSuf/nameColor`＋`equipFrame/equipTitlePre/equipTitleSuf/equipNameColor`（トグル・所持のみ）。表示は**自分のプロフィールチップ**（`renderProfileChip`）＋**プロフィール編集の見た目UI**（`renderProfileCosmetics`＝#authModal内・持っているアイテムから選ぶ＋二つ名プレビュー）＋VSカットイン。二つ名パーツはガチャ排出（`packPool` が `titlePre`/`titleSuf` を出す・`renderCollection` は前半/後半の2セクション）。
+- **見た目3種（絵素材不要・CSS/テキスト）**：`FRAMES`（アイコン装飾枠＝box-shadow）／**二つ名＝`TITLE_PRE`（前半）＋`TITLE_SUF`（後半）を1つずつ組み合わせて作る**（`titleText()`＝装備中の前半＋後半・`titleTextOf(pre,suf)`＝任意組み合わせ）／`NAME_COLORS`（名前の色・グラデ）。各行に `unit`（テーマ表示用）。装備は `myProfile.frame/titlePre/titleSuf/nameColor`＋`equipFrame/equipTitlePre/equipTitleSuf/equipNameColor`（トグル・所持のみ）。表示は**自分のプロフィールチップ**（`renderProfileChip`）＋**プロフィール編集の見た目UI**（`renderProfileCosmetics`＝#authModal内・**開閉メニュー(アコーディオン)**＝カテゴリ(フレーム/前半/後半/カラー)ごとにヘッダーをタップで開閉・`_cosmOpen`/`toggleCosmeticSection`・ヘッダーに現在の選択を表示・持っているアイテムから選ぶ＋二つ名プレビュー）＋VSカットイン。二つ名パーツはガチャ排出（`packPool` が `titlePre`/`titleSuf` を出す・`renderCollection` は前半/後半の2セクション）。
 - **アイコン/スキンは熟練度のみで解禁**（ガチャ非排出）：`avatarUnlocked`/`skinUnlocked` は熟練度Lvで判定（`ownsCollected` fallbackは残すが、パックがそれらを配らないので実質使わない）。フレーム/二つ名パーツ/ネームカラーを増やすときは各配列（`FRAMES`/`TITLE_PRE`/`TITLE_SUF`/`NAME_COLORS`）に1行足すだけでパックプール・コレクション画面（`renderCollection`）・プロフィール編集の見た目UIに自動反映。アイコン/スキンを増やすときは `SPRITE_DATA` 注入＋`SPECIAL_AVATARS`/`SPECIAL_SKINS`（熟練度ロードマップに反映）。
 - **保存**：`coins`/`collected`/`frame`/`title`/`nameColor`/`dailyWinKey` を `saveProfileLocal`（端末）＋`buildProfile`/`applyProfile`（クラウド）に統合。マージは coins=大きい方・collected=個数の大きい方（進捗が消えない割り切り）。
 - **UI**：ホームメニュー「🎁 ショップ」＋ホームのコイン表示（クリックでショップ）→ `#shopModal`（`openShop`/`closeShop`/`renderShop`＝大きい「パックを開ける(120)」「11連を開ける(1200)」＋「📋排出内容を見る」）。
