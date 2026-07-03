@@ -246,6 +246,19 @@
 - **保存**：`coins`/`collected`/`frame`/`title`/`nameColor`/`dailyWinKey` を `saveProfileLocal`（端末）＋`buildProfile`/`applyProfile`（クラウド）に統合。マージは coins=大きい方・collected=個数の大きい方（進捗が消えない割り切り）。
 - **UI**：ホームメニュー「🎁 ショップ」＋ホームのコイン表示（クリックでショップ）→ `#shopModal`（`openShop`/`closeShop`/`renderShop`＝大きい「パックを開ける(120)」「11連を開ける(1200)」＋「📋排出内容を見る」）。
 
+## 継続ログイン報酬（毎日ログインでコイン＋累計日数で見た目解禁・実装済み・`<script>`「13.55) 継続ログイン報酬」）
+
+**目的**：戻ってくる理由を作って定着を上げる。**コインは【連続ログイン日数】でスケール**（途切れたら1日目に戻る・7日で頭打ち）、**見た目のマイルストーンは【累計ログイン日数】で解禁**（一日休んでもリセットされず積み上がる＝誰でもいつかは到達＝格差最小・見た目だけ＝対戦はフェア）。テスト：test.js 115。
+
+- **状態**：`myProfile.login`＝`{last,streak,best,total}`（`last`=最後にログインした日キー・`streak`=連続日数・`best`=最高連続・`total`=累計日数）。`saveProfileLocal`/`buildProfile`/`applyProfile` に統合（マージ＝累計 `total` が大きい方の `last`/`streak` を採用＋`best`は最大＝進捗が消えない）。
+- **毎日のコイン**：`loginCoinReward(streak)`（純粋関数）＝`LOGIN_COIN_BASE`(15)＋`(streak-1)*LOGIN_COIN_STEP`(5)、`LOGIN_COIN_MAX`(45・連続7日で到達)で頭打ち。
+- **チェックイン**：起動時に `loginCheckinAndShow()`→`loginCheckin()`。`computeLoginUpdate(prev,today,yesterday)`（純粋関数）で当日ぶんを判定（`last===today`なら二重付与しない＝`changed:false`／昨日ログイン済みなら連続+1／間があいたら連続1に戻す・累計は+1）。日付キーは `todayKey()`/`yesterdayKey()`。新しい日ならコイン付与＋`grantLoginMilestones(total)` で到達済みマイルストーンを `collected` へ解禁し、`showLoginModal(res)` を表示（**チュートリアル中は表示を抑制＝コインは付与済み**）。
+- **マイルストーン（累計日数→見た目）**：`LOGIN_MILESTONES`＝7日フレーム(`frame_login7`)／**10日アイコン(`ava_login10`)**／30日 二つ名「まいにち王さま」(`tp_everyday`+`ts_king`)／50日 レインボーネーム(`nc_login50`)／**100日アイコン(`ava_login100`)**。各コレクション配列（`FRAMES`/`TITLE_PRE`/`TITLE_SUF`/`NAME_COLORS`/`SPECIAL_AVATARS`）に **`login:N` を付けた項目**として定義。
+  - **ガチャ非排出**：`login` 付きは `packPool()` と `renderCollection()`（排出一覧）から除外＝**継続ログインでのみ入手**（見た目の入手経路を分離）。装備は通常どおり `ownsCollected` 経由（`renderProfileCosmetics`）。
+  - **記念アイコン**：`avatarUnlocked()` は `login` 付きアバターを **累計ログイン日数(`myLoginTotal()`)** で解禁（`renderAvatarGrid` はロック中「N日」バッジ＋累計進捗をツールチップ表示）。熟練度ロードマップ(`masteryDetailHTML`)には `lvl` 未設定なので出ない。**アイコン画像 `ava_login10`/`ava_login100` は仮の自動生成プレースホルダ（128×128・Chromium合成）を `SPRITE_DATA` に注入済み。ユーザーが本番絵に差し替え予定**（差し替え時は同idの128px PNGを `SPRITE_DATA` に再注入するだけ）。
+- **UI**：ホームメニュー「📅 ログインボーナス」＝`openLoginInfo()`→`showLoginModal(null)`（現在の連続/累計＋ロードマップ `loginRoadmapHTML()`）。日替わりの受け取りは起動時の自動ポップアップ（`#loginModal`）。
+- **調整**：`LOGIN_COIN_*`（コイン曲線）と `LOGIN_MILESTONES`（解禁日数・種類）＋各配列の `login:` 値。
+
 ## キャラ解禁（スターター＋🍬シュガーコイン・実装済み・`<script>`「13.6) キャラ解禁」）
 
 **方針（①=全モード解禁制を採用）**：スターターを実用的な数にし、コインは無料で貯まる（指南クリア＋対戦報酬）ので、初心者でもすぐ4枚デッキを組めて、いつかは全員そろう＝格差を最小化。将来は課金でのコイン購入も想定。テスト：test.js 92。
@@ -305,6 +318,15 @@
 - 送信イベント：`battle_start{mode}`／`unit_in_deck{unit,mode}`（デッキ構成＝使用率）／`unit_pick{unit}`（ドラフト選択＝使用率）／`battle_end{mode,result}`／`tutorial_complete`／`random_match_start`・`random_match_connected`・`random_match_failed`（マッチ成立/接続健全性）／`pvp_matchup{type,ranked}`（端末組み合わせ＝`pc_pc`/`pc_mobile`/`mobile_mobile`/`unknown`。**親側から1回だけ**送信＝1対戦1件で重複なし。A案=サーバー権威型の要否判断に使う。`pvpMatchupType()`・test.js 84）。
 - 計測点：`startGame`（cpu/tutorial）・`pvpStartAsHost`/`pvpGuestEnterPlay`（pvp）・`endBattle`・`pickCard`・`endTutorial`・`randomMatchStart`/`mmConnState`。
 - **要確認**：Firebaseプロジェクトで Google Analytics 連携が有効なこと（`FIREBASE_CONFIG.measurementId` があれば連携済み）。GA4のDebugView/リアルタイムでイベント確認。キャラ別の正確な実数が要るなら将来 GA4→BigQueryエクスポート（無料）かRTDB集計カウンタ。
+
+## シェア＆招待（新規プレイヤーを増やすバイラル導線・実装済み・`<script>`「シェア＆招待」）
+
+**目的**：人が少ないので「今いる人が友達を連れてくる」導線を作る。3点セット。
+
+- **OGP / Twitterカード**：`<head>` に `og:*`／`twitter:*` を追加。SNSやLINEにURLを貼ると**画像＋説明のリッチプレビュー**が出てクリック率が上がる。共有画像は `og-image.png`（1200×630・`icon-src.png` のポップコーンをChromiumで合成）。**公開URLは絶対URL必須**＝`SHARE_URL`（既定 `https://negiramen1922.github.io/sugarwars-test/`）と `<head>` の `og:url`/`og:image`/`twitter:image` を**独自ドメイン移行時に合わせて変更**。SWの `CACHE` は `v4`・SHELLに `og-image.png` を追加済み。
+- **結果シェア**：対戦決着画面（`overDefaultBtns`＝CPU/ランダムPVP。プライベートは再戦UI優先で非表示）に「📣 結果をシェア」＝`shareResult()`→`shareText()`。**Web Share API →無ければX投稿画面→最後にクリップボード**にフォールバック（環境非依存）。文言は純粋関数 `shareResultText(won,trophies)`（勝敗＋トロフィー。`_lastResultWon` は `endGame` で更新）。
+- **招待リンク**：プライベート部屋のホスト画面に「🔗 招待リンクをシェア」＝`pvpShareInvite()`。`roomInviteUrl(base,code)`＝`base?room=CODE`。受け取った人がリンクを開くと起動時 `pvpMaybeJoinFromUrl()` が `parseRoomCode(location.search)`（4文字[A-Z0-9]のみ有効）で拾い、デッキ4枚チェック→プライベート参加フローへ直行して自動接続（チュートリアル中・Firebase未設定・URL掃除まで面倒を見る）。
+- 純粋関数 `shareResultText`/`roomInviteUrl`/`parseRoomCode` はヘッドレス検証（test.js 114）。実シェア/実接続は要実機。
 
 ## 次の候補タスク（未着手・要相談）
 
