@@ -1240,6 +1240,18 @@ const SFX = (function(){
       [[392,0.10],[392,0.10],[523,0.12],[784,0.34]].forEach(([f,d],i)=>{ blip(t+i*0.12,f,d,{type:'sawtooth',vol:0.32}); });
       blip(t,131,0.5,{type:'sine',vol:0.28,slide:0.9});   // 低音のドン
       noise(t+0.36,0.18,{vol:0.12,hp:1200}); },           // 締めのシャッ
+    // ガチャ：パックを破く「ビリッ」（紙/フォイルの引き裂き＝ノイズのラスプ＋下降）
+    packRip(){ const a=ctx(); if(!a)return; const t=a.currentTime;
+      noise(t,0.20,{vol:0.34,hp:1500});                    // ビリ…
+      noise(t+0.05,0.13,{vol:0.24,hp:2800});               // …リッ
+      blip(t,760,0.20,{type:'sawtooth',vol:0.18,slide:0.35}); },   // 引き裂きの下降ラスプ
+    // ガチャ：中身お披露目「テ・テ・テーン↑」ファンファーレ
+    packReveal(){ const a=ctx(); if(!a)return; const t=a.currentTime;
+      blip(t,880,0.10,{type:'triangle',vol:0.34});          // テ
+      blip(t+0.13,880,0.10,{type:'triangle',vol:0.34});     // テ
+      [1047,1319,1568].forEach(f=>blip(t+0.28,f,0.5,{type:'triangle',vol:0.28}));   // テーン（C6/E6/G6の和音）
+      blip(t+0.28,131,0.42,{type:'sine',vol:0.20,slide:1.0});   // 低音の支え
+      noise(t+0.28,0.12,{vol:0.10,hp:6000}); },                 // キラッ
   };
   function play(name){ if(muted) return; const fn=S[name]; if(!fn) return;
     try{ const a=ctx(); if(a&&a.state==='suspended') a.resume(); fn(); }catch(e){} }
@@ -5061,7 +5073,7 @@ function ripPack(){
   if(!_packPending) return;
   const arr=_packPending; _packPending=null;
   const wrap=$('packWrap'); if(wrap){ wrap.classList.remove('wobble'); wrap.classList.add('ripped'); }
-  try{ SFX.play('button'); }catch(e){}
+  try{ SFX.play('packRip'); }catch(e){}   // ビリッ
   packBurstFx();
   setTimeout(function(){ revealPackItems(arr); }, 470);
 }
@@ -5091,7 +5103,7 @@ function packItemMini(res){
 function revealPackItems(arr){
   const wrap=$('packWrap'); if(wrap) wrap.style.visibility='hidden';
   const rv=$('packReveal'); if(!rv||!arr||!arr.length) return;
-  try{ SFX.play('battleStart'); }catch(e){}
+  try{ SFX.play('packReveal'); }catch(e){}   // テテーン↑
   if(arr.length===1){
     const res=arr[0], it=res.item, kind=PACK_KIND_LABEL[it.type]||'アイテム';
     const body = res.dup
