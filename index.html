@@ -342,6 +342,8 @@
   .vs-name{font-family:"Oswald",sans-serif;font-weight:700;font-size:22px;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.45);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:210px}
   .vs-rate{font-family:"Space Mono",monospace;font-size:16px;font-weight:700;color:#ffe26a;text-shadow:0 2px 5px rgba(0,0,0,.45)}
   .vs-side{font-size:11px;letter-spacing:.18em;color:rgba(255,255,255,.85);text-transform:uppercase}
+  .vs-title{font-size:13px;font-weight:700;color:#ffe9a3;text-shadow:0 2px 5px rgba(0,0,0,.5);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:210px}
+  .vs-title.hidden{display:none}
   .vs-badge{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:"Oswald",sans-serif;font-weight:800;font-size:54px;color:#fff;-webkit-text-stroke:3px #2a1a10;text-shadow:0 6px 18px rgba(0,0,0,.5);z-index:2}
   .vs-cutin.play{animation:vsFade 2s ease forwards}
   .vs-cutin.play .vs-row-foe{animation:vsTop 2s ease forwards}
@@ -662,6 +664,7 @@
         <div style="font-size:12px;color:var(--muted);margin:10px 0 4px">アイコンを選ぶ（お菓子キャラ）</div>
         <div id="avatarGrid" style="display:flex;flex-wrap:wrap;gap:6px"></div>
         <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="saveProfile()">プロフィールを保存</button>
+        <div id="profileCosmetics" style="margin-top:12px"></div>
         <div id="profileStats" style="display:flex;justify-content:space-around;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);text-align:center"></div>
         <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px">※ 戦績はランダムマッチ（オンライン対戦）の記録です</div>
       </div>
@@ -703,9 +706,9 @@
     <div class="vs-half vs-top"></div>
     <div class="vs-half vs-bot"></div>
     <div class="vs-line"></div>
-    <div class="vs-row vs-row-foe"><div class="vs-card"><span class="vs-ico" id="vsFoeIco"></span><div class="vs-info"><span class="vs-side">Rival</span><span class="vs-name" id="vsFoeName"></span><span class="vs-rate" id="vsFoeRate"></span></div></div></div>
+    <div class="vs-row vs-row-foe"><div class="vs-card"><span class="vs-ico" id="vsFoeIco"></span><div class="vs-info"><span class="vs-side">Rival</span><span class="vs-title" id="vsFoeTitle"></span><span class="vs-name" id="vsFoeName"></span><span class="vs-rate" id="vsFoeRate"></span></div></div></div>
     <div class="vs-badge">VS</div>
-    <div class="vs-row vs-row-you"><div class="vs-card"><span class="vs-ico" id="vsYouIco"></span><div class="vs-info"><span class="vs-side">You</span><span class="vs-name" id="vsYouName"></span><span class="vs-rate" id="vsYouRate"></span></div></div></div>
+    <div class="vs-row vs-row-you"><div class="vs-card"><span class="vs-ico" id="vsYouIco"></span><div class="vs-info"><span class="vs-side">You</span><span class="vs-title" id="vsYouTitle"></span><span class="vs-name" id="vsYouName"></span><span class="vs-rate" id="vsYouRate"></span></div></div></div>
   </div>
   <!-- PVP 再接続オーバーレイ（対戦中に通信が切れたとき） -->
   <div id="pvpReconnOverlay" class="modal-overlay hidden" style="z-index:80">
@@ -740,12 +743,39 @@
       </div>
     </div>
   </div>
+  <!-- 戦術指南：クッキーじいのキャラ紹介ダイアログ（レッスン開始前） -->
+  <div id="guideIntroLayer" class="tut-layer hidden">
+    <div class="tut-backdrop" onclick="closeGuideIntro()"></div>
+    <div class="tut-bubble">
+      <div class="tut-head">
+        <img class="tut-avatar" id="guideIntroAvatar" alt="">
+        <div class="tut-headtxt"><span class="tut-name">クッキーじぃ</span><span class="tut-tag" id="guideIntroTag">キャラ紹介</span></div>
+      </div>
+      <div class="tut-text" id="guideIntroText"></div>
+      <div class="tut-btns">
+        <button class="btn btn-ghost" onclick="closeGuideIntro()">とじる</button>
+        <button class="btn btn-primary" onclick="guideIntroContinue()">つづける ›</button>
+      </div>
+    </div>
+  </div>
   <!-- お知らせモーダル -->
   <div id="newsModal" class="modal-overlay hidden" onclick="closeNews(event)">
     <div class="modal-card" onclick="event.stopPropagation()">
       <h3>お知らせ</h3>
       <div id="newsList" class="news-list"></div>
       <div style="text-align:center;margin-top:14px"><button class="btn btn-ghost" onclick="closeNews()">閉じる</button></div>
+    </div>
+  </div>
+  <div id="unlockModal" class="modal-overlay hidden" onclick="closeUnlock(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <h3>🔒 キャラを解放する</h3>
+      <div id="unlockChar" style="text-align:center;margin:4px 0 14px"></div>
+      <div style="font-size:13px;color:var(--muted);text-align:center;margin-bottom:10px">2つの方法で仲間にできます</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="btn btn-primary" id="unlockBuyBtn" onclick="unlockByCoins()" style="line-height:1.35"></button>
+        <button class="btn btn-ghost" onclick="unlockByGuide()" style="line-height:1.35">🎓 戦術指南で解放する<br><span style="font-size:11px;opacity:.85;font-weight:600">レッスンをクリアして無料で仲間に</span></button>
+      </div>
+      <div style="text-align:center;margin-top:14px"><button class="btn btn-ghost" onclick="closeUnlock()">閉じる</button></div>
     </div>
   </div>
   <div id="guideTipModal" class="modal-overlay hidden" onclick="closeGuideTip(event)">
@@ -1450,8 +1480,8 @@ function toggleDeck(key){
   // 自分のデッキ編成では、未解禁キャラはデッキに入れられない（CPUデッキ編成では制限しない）
   if(rosterMode==='guide' && key===guideForceUnit){ toast('このレッスンで学ぶキャラなので外せません'); return; }   // 強制ユニットはトグル不可
   if((rosterMode==='you'||rosterMode==='guide') && !unitUnlocked(key) && !(rosterMode==='guide'&&key===guideForceUnit)){
-    const u=UNIT_BY_KEY[key];
-    toast('🔒 '+((u&&u.name)||'このキャラ')+'はまだ仲間になっていません。戦術指南のクリアや🍬シュガーコインで解禁できます。');
+    if(rosterMode==='you'){ openUnlockModal(key); }   // キャラ一覧では解放方法（🍬コイン／戦術指南）を提示
+    else { const u=UNIT_BY_KEY[key]; toast('🔒 '+((u&&u.name)||'このキャラ')+'はまだ仲間になっていません。'); }   // レッスン編成は解禁済みから選ぶ
     return;
   }
   const deck=activeDeck();
@@ -4271,7 +4301,7 @@ function genRoomCode(){ const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; fo
    ============================================================ */
 let authUser=null;            // ログイン中のユーザー（未ログインはnull）
 let _cloudSaveT=0;            // クラウド保存のデバウンス用タイマ
-let myProfile={ name:'', avatar:'', trophies:1000, best:1000, wins:0, losses:0, mastery:{}, usage:{}, skins:{}, coins:0, collected:{}, frame:'', title:'', nameColor:'', dailyWinKey:'', units:[], guideDone:[] };   // 名前＋アイコン＋トロフィー(=レート)＋最高＋戦績＋熟練度(key→XP)＋使用回数＋装備スキン＋通貨シュガーコイン(coins)＋所持コレクション(collected)＋装備中フレーム/称号/ネームカラー＋デイリー初勝利日(dailyWinKey)＋解禁済みキャラ(units)＋クリア済みレッスン(guideDone)
+let myProfile={ name:'', avatar:'', trophies:1000, best:1000, wins:0, losses:0, mastery:{}, usage:{}, skins:{}, coins:0, collected:{}, frame:'', titlePre:'', titleSuf:'', nameColor:'', dailyWinKey:'', units:[], guideDone:[] };   // 名前＋アイコン＋トロフィー(=レート)＋最高＋戦績＋熟練度(key→XP)＋使用回数＋装備スキン＋通貨シュガーコイン(coins)＋所持コレクション(collected)＋装備中フレーム/称号/ネームカラー＋デイリー初勝利日(dailyWinKey)＋解禁済みキャラ(units)＋クリア済みレッスン(guideDone)
 /* 熟練度（キャラ経験値）で解禁する特別アバターアイコン。XPは【PVP対戦のみ】、勝ち=多め/負け=少なめで加算。
    ★重要：解禁は見た目（アイコン/スキン）だけにする。強化カード等ゲーム性能は熟練度で解禁しない＝対戦は常にフェア。 */
 const MASTERY_WIN_XP = 10;      // PVPで勝ったとき、デッキ各キャラに入る熟練度XP
@@ -4340,16 +4370,41 @@ const FRAMES = [
   { id:'frame_soda',  name:'ソーダフレーム',   unit:'soda',    ring:'0 0 0 2px #46b7f0, 0 0 7px 1px rgba(70,183,240,.8)' },
 ];
 const FRAME_BY_ID = Object.fromEntries(FRAMES.map(f=>[f.id,f]));
-// 名前の横に付く称号（テキストのみ＝絵素材不要）。unit=テーマ。
-const TITLES = [
-  { id:'title_king',    name:'お菓子の王',     unit:'pancake' },
-  { id:'title_novice',  name:'甘党見習い',     unit:'cookie'  },
-  { id:'title_samurai', name:'もち侍',         unit:'daifuku' },
-  { id:'title_boom',    name:'爆裂職人',       unit:'bomb'    },
-  { id:'title_frost',   name:'氷菓の魔導士',   unit:'icewiz'  },
-  { id:'title_baker',   name:'王室パティシエ', unit:'bakery'  },
+// 二つ名（名前の横に付くテキスト）は「前半＋後半」を1つずつ組み合わせて作る。パーツはガチャで集める。unit=テーマ。
+const TITLE_PRE = [
+  { id:'tp_party',    name:'パーティー', unit:'cookie'  },
+  { id:'tp_topknot',  name:'ちょんまげ', unit:'daifuku' },
+  { id:'tp_fastbake', name:'はや焼き',   unit:'pancake' },
+  { id:'tp_giant',    name:'巨大な',     unit:'donut'   },
+  { id:'tp_tiny',     name:'小さな',     unit:'bomb'    },
+  { id:'tp_bean',     name:'豆粒の',     unit:'shoe'    },
+  { id:'tp_cute',     name:'かわいい',   unit:'slime'   },
+  { id:'tp_tasty',    name:'おいしい',   unit:'bakery'  },
+  { id:'tp_cool',     name:'かっこいい', unit:'choco'   },
+  { id:'tp_crackle',  name:'ぱちぱち',   unit:'cannon'  },
+  { id:'tp_jiggle',   name:'ぷるぷる',   unit:'macaron' },
+  { id:'tp_hard',     name:'カチコチ',   unit:'icewiz'  },
+  { id:'tp_fluffy',   name:'ふわふわ',   unit:'ghost'   },
+  { id:'tp_swift',    name:'素早い',     unit:'soda'    },
 ];
-const TITLE_BY_ID = Object.fromEntries(TITLES.map(t=>[t.id,t]));
+const TITLE_SUF = [
+  { id:'ts_daifuku',     name:'大福',         unit:'daifuku' },
+  { id:'ts_cookie',      name:'クッキー',     unit:'cookie'  },
+  { id:'ts_knight',      name:'ナイト',       unit:'choco'   },
+  { id:'ts_archer',      name:'アーチャー',   unit:'shoe'    },
+  { id:'ts_revenger',    name:'リベンジャー', unit:'bakery'  },
+  { id:'ts_samurai',     name:'サムライ',     unit:'daifuku' },
+  { id:'ts_cannon',      name:'キャノン',     unit:'cannon'  },
+  { id:'ts_donut',       name:'ドーナツ',     unit:'donut'   },
+  { id:'ts_slime',       name:'スライム',     unit:'slime'   },
+  { id:'ts_soda',        name:'ソーダ',       unit:'soda'    },
+  { id:'ts_popcorn',     name:'ポップコーン', unit:'bomb'    },
+  { id:'ts_macaron',     name:'マカロン',     unit:'macaron' },
+  { id:'ts_icecream',    name:'アイスクリーム', unit:'icewiz' },
+  { id:'ts_cottoncandy', name:'わたあめ',     unit:'ghost'   },
+];
+const TITLE_PRE_BY_ID = Object.fromEntries(TITLE_PRE.map(t=>[t.id,t]));
+const TITLE_SUF_BY_ID = Object.fromEntries(TITLE_SUF.map(t=>[t.id,t]));
 // ニックネームの色（CSS）。grad=trueならグラデ文字（background-clip:text）。unit=テーマ。
 const NAME_COLORS = [
   { id:'nc_berry',  name:'ストロベリー', css:'#ff5b7f',                                unit:'macaron' },
@@ -4366,7 +4421,8 @@ const NAME_COLOR_BY_ID = Object.fromEntries(NAME_COLORS.map(c=>[c.id,c]));
 function packPool(){
   const pool=[];
   FRAMES.forEach(f=>pool.push({ type:'frame', id:f.id, unit:f.unit, name:f.name }));
-  TITLES.forEach(t=>pool.push({ type:'title', id:t.id, unit:t.unit, name:t.name }));
+  TITLE_PRE.forEach(t=>pool.push({ type:'titlePre', id:t.id, unit:t.unit, name:t.name }));
+  TITLE_SUF.forEach(t=>pool.push({ type:'titleSuf', id:t.id, unit:t.unit, name:t.name }));
   NAME_COLORS.forEach(c=>pool.push({ type:'color', id:c.id, unit:c.unit, name:c.name }));
   return pool;
 }
@@ -4403,10 +4459,14 @@ function openPackOnce(r){
 }
 // 装備中の（所持済み・有効な）フレーム/称号/ネームカラーid。未所持や不正は空＝なし。
 function equippedFrame(){ const id=myProfile.frame; return (id && FRAME_BY_ID[id] && ownsCollected(id))?id:''; }
-function equippedTitle(){ const id=myProfile.title; return (id && TITLE_BY_ID[id] && ownsCollected(id))?id:''; }
+function equippedTitlePre(){ const id=myProfile.titlePre; return (id && TITLE_PRE_BY_ID[id] && ownsCollected(id))?id:''; }
+function equippedTitleSuf(){ const id=myProfile.titleSuf; return (id && TITLE_SUF_BY_ID[id] && ownsCollected(id))?id:''; }
 function equippedNameColor(){ const id=myProfile.nameColor; return (id && NAME_COLOR_BY_ID[id] && ownsCollected(id))?id:''; }
 function frameRing(id){ const f=FRAME_BY_ID[id]; return f?('box-shadow:'+f.ring+';'):''; }
-function titleText(id){ const t=TITLE_BY_ID[id]; return t?t.name:''; }
+// 装備中の二つ名テキスト（前半＋後半・片方だけでも表示）
+function titleText(){ const p=TITLE_PRE_BY_ID[equippedTitlePre()], s=TITLE_SUF_BY_ID[equippedTitleSuf()]; return (p?p.name:'')+(s?s.name:''); }
+// 任意の(前半id,後半id)から二つ名テキストを作る（相手表示・プレビュー用）
+function titleTextOf(preId, sufId){ const p=TITLE_PRE_BY_ID[preId], s=TITLE_SUF_BY_ID[sufId]; return (p?p.name:'')+(s?s.name:''); }
 // 名前要素に色/グラデを適用（グラデはbackground-clip:text）。id空でリセット。
 function applyNameColor(el, id){ if(!el) return;
   el.style.backgroundImage=''; el.style.webkitBackgroundClip=''; el.style.backgroundClip=''; el.style.color='';
@@ -4415,9 +4475,10 @@ function applyNameColor(el, id){ if(!el) return;
   else el.style.color=c.css;
 }
 // 装備トグル（コレクション画面から）。所持していないものは装備できない。
-function equipFrame(id){ if(id && !ownsCollected(id)) return; myProfile.frame=(myProfile.frame===id?'':id); saveProfileLocal(); scheduleCloudSave(); renderProfileChip(); renderCollection(); }
-function equipTitle(id){ if(id && !ownsCollected(id)) return; myProfile.title=(myProfile.title===id?'':id); saveProfileLocal(); scheduleCloudSave(); renderProfileChip(); renderCollection(); }
-function equipNameColor(id){ if(id && !ownsCollected(id)) return; myProfile.nameColor=(myProfile.nameColor===id?'':id); saveProfileLocal(); scheduleCloudSave(); renderProfileChip(); renderCollection(); }
+function equipFrame(id){ if(id && !ownsCollected(id)) return; myProfile.frame=(myProfile.frame===id?'':id); saveProfileLocal(); scheduleCloudSave(); renderProfileChip(); renderCollection(); renderProfileCosmetics(); }
+function equipTitlePre(id){ if(id && !ownsCollected(id)) return; myProfile.titlePre=(myProfile.titlePre===id?'':id); saveProfileLocal(); scheduleCloudSave(); renderProfileChip(); renderCollection(); renderProfileCosmetics(); }
+function equipTitleSuf(id){ if(id && !ownsCollected(id)) return; myProfile.titleSuf=(myProfile.titleSuf===id?'':id); saveProfileLocal(); scheduleCloudSave(); renderProfileChip(); renderCollection(); renderProfileCosmetics(); }
+function equipNameColor(id){ if(id && !ownsCollected(id)) return; myProfile.nameColor=(myProfile.nameColor===id?'':id); saveProfileLocal(); scheduleCloudSave(); renderProfileChip(); renderCollection(); renderProfileCosmetics(); }
 // 通貨まわり
 function myCoins(){ return (myProfile && typeof myProfile.coins==='number')?myProfile.coins:0; }
 function todayKey(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
@@ -4448,8 +4509,34 @@ function lockedUnits(){ return UNITS.filter(u=>!u.summonOnly && !unitUnlocked(u.
 function unlockUnit(key){ const u=UNIT_BY_KEY[key]; if(!u||u.summonOnly) return false; if(unitUnlocked(key)) return false; if(!Array.isArray(myProfile.units)) myProfile.units=[]; myProfile.units.push(key); saveProfileLocal(); scheduleCloudSave(); return true; }
 // 🍬シュガーコインでキャラを購入解禁。成功でtrue（未解禁かつ残高が足りるとき）。
 function buyUnit(key){ if(unitUnlocked(key)) return false; const cost=unitUnlockCost(key); if(myCoins()<cost) return false; myProfile.coins=myCoins()-cost; unlockUnit(key); saveProfileLocal(); scheduleCloudSave(); return true; }
-// 既存プレイヤー救済：今のデッキに入っているキャラは解禁済み扱いにする（新解禁システムでデッキが壊れないように）。
-function migrateUnlocks(){ if(!Array.isArray(myProfile.units)) myProfile.units=[]; (myDeck||[]).forEach(function(k){ if(UNIT_BY_KEY[k] && !UNIT_BY_KEY[k].summonOnly && STARTER_UNITS.indexOf(k)<0 && myProfile.units.indexOf(k)<0) myProfile.units.push(k); }); }
+// 保存・解禁判定に使う「本来のデッキ」。戦術指南のレッスン中は myDeck が一時的にレッスン用デッキ
+// （＝まだ未解禁の“学ぶキャラ”を含む）に入れ替わるため、退避した本デッキ(_guideDeckBackup)を使う。
+// これで「レッスン準備/対戦中の保存やmigrateで、クリアしていない学ぶキャラが誤って解禁される」不具合を防ぐ。
+function realDeck(){ return (typeof _guideDeckBackup!=='undefined' && _guideDeckBackup!==null) ? _guideDeckBackup : (myDeck||[]); }
+// 既存プレイヤー救済：本デッキに入っているキャラは解禁済み扱いにする（新解禁システムでデッキが壊れないように）。※レッスン用デッキは対象外。
+function migrateUnlocks(){ if(!Array.isArray(myProfile.units)) myProfile.units=[]; (realDeck()||[]).forEach(function(k){ if(UNIT_BY_KEY[k] && !UNIT_BY_KEY[k].summonOnly && STARTER_UNITS.indexOf(k)<0 && myProfile.units.indexOf(k)<0) myProfile.units.push(k); }); }
+// キャラを解放するアーク（戦術指南）を探す（そのキャラを最終的に解禁するアーク）。無ければnull。
+function guideArcForUnit(key){ const arcs=guideArcs(); for(let i=0;i<arcs.length;i++){ if(arcUnit(arcs[i])===key) return arcs[i]; } return null; }
+// ロックキャラをタップしたとき：🍬コイン解放／戦術指南解放の2択を出す
+let unlockTargetKey='';
+function openUnlockModal(key){
+  const u=UNIT_BY_KEY[key]; if(!u) return; unlockTargetKey=key; try{ SFX.play('button'); }catch(e){}
+  const cost=unitUnlockCost(key), have=myCoins();
+  const box=$('unlockChar');
+  if(box) box.innerHTML='<div class="md-art">'+iconHTML(u,'p')+'</div>'
+    +'<div style="font-weight:700;font-size:17px;margin-top:6px">'+u.name+'</div>'
+    +'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+(u.short||'')+'</div>';
+  const bb=$('unlockBuyBtn');
+  if(bb) bb.innerHTML='🍬 シュガーコイン '+cost+' で解放<br><span style="font-size:11px;opacity:.85;font-weight:600">所持: '+have+(have<cost?'（あと '+(cost-have)+'）':'')+'</span>';
+  $('unlockModal').classList.remove('hidden');
+}
+function closeUnlock(e){ if(e&&e.target!==e.currentTarget) return; $('unlockModal').classList.add('hidden'); }
+function unlockByCoins(){
+  const key=unlockTargetKey; if(!key) return; const cost=unitUnlockCost(key);
+  if(myCoins()<cost){ toast('🍬 コインが足りません（あと '+(cost-myCoins())+'）。戦術指南でも無料で解放できます'); return; }
+  if(buyUnit(key)){ try{ SFX.play('button'); }catch(e){} toast('🎉 '+UNIT_BY_KEY[key].name+'を解放しました！'); try{ renderHomeCoins(); }catch(e){} closeUnlock(); renderRoster(); }
+}
+function unlockByGuide(){ const key=unlockTargetKey; closeUnlock(); const arc=guideArcForUnit(key); openGuide(); if(arc) openGuideArc(arc); }
 // 指定ユニットに「装備中かつ解禁済み」のスキンの立ち絵接頭辞(base)を返す。無ければ null。
 function activeSkinBase(unitKey){
   const id = myProfile.skins && myProfile.skins[unitKey]; if(!id) return null;
@@ -4510,16 +4597,16 @@ function defaultGuestName(){ const uid=(authUser&&authUser.uid)||''; let n=0; fo
 function displayProfile(){ return { name: (myProfile.name||'').trim() || defaultGuestName(), avatar: validAvatarId(myProfile.avatar) }; }
 
 // --- デッキ／プロフィールのローカル保存（ログイン有無に関わらず端末に残す） ---
-function saveDeckLocal(){ try{ localStorage.setItem('sw_deck', JSON.stringify(myDeck)); }catch(e){} }
+function saveDeckLocal(){ try{ localStorage.setItem('sw_deck', JSON.stringify(realDeck())); }catch(e){} }
 function loadDeckLocal(){ try{ const s=localStorage.getItem('sw_deck'); if(s){ const a=JSON.parse(s); if(Array.isArray(a)) applyProfile({deck:a}); } }catch(e){} }
 // トロフィー・戦績・使用回数・スキン＋経済（コイン/コレクション/装備/解禁/指南進捗）も端末に保存（ゲスト＝匿名でもリロードで消えないように。ログイン時のクラウドとの突き合わせにも使う）
-function saveProfileLocal(){ try{ localStorage.setItem('sw_profile', JSON.stringify({name:myProfile.name,avatar:myProfile.avatar,mastery:myProfile.mastery||{},trophies:myProfile.trophies,best:myProfile.best,wins:myProfile.wins,losses:myProfile.losses,usage:myProfile.usage||{},skins:myProfile.skins||{},coins:myProfile.coins||0,collected:myProfile.collected||{},frame:myProfile.frame||'',title:myProfile.title||'',nameColor:myProfile.nameColor||'',dailyWinKey:myProfile.dailyWinKey||'',units:myProfile.units||[],guideDone:myProfile.guideDone||[]})); }catch(e){} }
+function saveProfileLocal(){ try{ localStorage.setItem('sw_profile', JSON.stringify({name:myProfile.name,avatar:myProfile.avatar,mastery:myProfile.mastery||{},trophies:myProfile.trophies,best:myProfile.best,wins:myProfile.wins,losses:myProfile.losses,usage:myProfile.usage||{},skins:myProfile.skins||{},coins:myProfile.coins||0,collected:myProfile.collected||{},frame:myProfile.frame||'',titlePre:myProfile.titlePre||'',titleSuf:myProfile.titleSuf||'',nameColor:myProfile.nameColor||'',dailyWinKey:myProfile.dailyWinKey||'',units:myProfile.units||[],guideDone:myProfile.guideDone||[]})); }catch(e){} }
 function loadProfileLocal(){ try{ const s=localStorage.getItem('sw_profile'); if(s){ const o=JSON.parse(s); applyProfile(o); } }catch(e){} }
 // 編成変更時に呼ぶ：ローカル保存＋（ログイン中なら）クラウドへデバウンス保存
 function persistDeck(){ saveDeckLocal(); scheduleCloudSave(); }
 
 // --- 保存プロフィールの整形（純粋関数・テスト対象） ---
-function buildProfile(){ return { deck: myDeck.slice(0, CONFIG.deckSize), name: myProfile.name||'', avatar: myProfile.avatar||'', trophies: myTrophies(), best: Math.max(myProfile.best||0, myTrophies()), wins: myProfile.wins||0, losses: myProfile.losses||0, mastery: myProfile.mastery||{}, usage: myProfile.usage||{}, skins: myProfile.skins||{}, coins: myCoins(), collected: myProfile.collected||{}, frame: myProfile.frame||'', title: myProfile.title||'', nameColor: myProfile.nameColor||'', dailyWinKey: myProfile.dailyWinKey||'', units: myProfile.units||[], guideDone: myProfile.guideDone||[], tutorialDone: tutSeen(), updatedAt: Date.now() }; }
+function buildProfile(){ return { deck: realDeck().slice(0, CONFIG.deckSize), name: myProfile.name||'', avatar: myProfile.avatar||'', trophies: myTrophies(), best: Math.max(myProfile.best||0, myTrophies()), wins: myProfile.wins||0, losses: myProfile.losses||0, mastery: myProfile.mastery||{}, usage: myProfile.usage||{}, skins: myProfile.skins||{}, coins: myCoins(), collected: myProfile.collected||{}, frame: myProfile.frame||'', titlePre: myProfile.titlePre||'', titleSuf: myProfile.titleSuf||'', nameColor: myProfile.nameColor||'', dailyWinKey: myProfile.dailyWinKey||'', units: myProfile.units||[], guideDone: myProfile.guideDone||[], tutorialDone: tutSeen(), updatedAt: Date.now() }; }
 // クラウド/ローカルから読んだプロフィールをゲーム状態へ反映（不正キーは除外）
 function applyProfile(p){
   if(!p) return;
@@ -4537,7 +4624,8 @@ function applyProfile(p){
   if(typeof p.coins==='number' && isFinite(p.coins)) myProfile.coins = Math.max(myProfile.coins||0, Math.max(0,Math.round(p.coins)));   // コインは大きい方を採用（端末とクラウドのマージ・進捗が消えないように）
   if(p.collected && typeof p.collected==='object'){ if(!myProfile.collected) myProfile.collected={}; for(const id in p.collected){ const v=p.collected[id]; if(typeof v==='number' && isFinite(v) && v>0) myProfile.collected[id]=Math.max(myProfile.collected[id]||0, Math.round(v)); } }   // 所持コレクション（個数は大きい方）
   if(typeof p.frame==='string') myProfile.frame = p.frame;         // 装備フレーム（使用時に所持/有効を再検証するのでそのまま反映）
-  if(typeof p.title==='string') myProfile.title = p.title;         // 装備称号
+  if(typeof p.titlePre==='string') myProfile.titlePre = p.titlePre; // 装備二つ名（前半）
+  if(typeof p.titleSuf==='string') myProfile.titleSuf = p.titleSuf; // 装備二つ名（後半）
   if(typeof p.nameColor==='string') myProfile.nameColor = p.nameColor;   // 装備ネームカラー
   if(typeof p.dailyWinKey==='string' && p.dailyWinKey) myProfile.dailyWinKey = p.dailyWinKey;   // デイリー初勝利の付与日
   if(Array.isArray(p.units)){ if(!Array.isArray(myProfile.units)) myProfile.units=[]; p.units.forEach(function(k){ if(UNIT_BY_KEY[k] && !UNIT_BY_KEY[k].summonOnly && STARTER_UNITS.indexOf(k)<0 && myProfile.units.indexOf(k)<0) myProfile.units.push(k); }); }   // 解禁済みキャラは和集合（進捗が消えない）
@@ -4740,7 +4828,7 @@ function syncUseLocal(){ _syncCloudPending=null; _cloudSyncReady=true; cloudSave
 let pvpOppProfile = null;   // 対戦相手のプロフィール（名前/アイコン/トロフィー）。ハンドシェイクで受信
 let pvpLastDelta = 0;       // 直近の対戦でのトロフィー増減（over画面表示用）
 // 通信で相手に渡す自分のプロフィール（名前・アイコン・トロフィー）
-function pvpNetProfile(){ const dp=displayProfile(); return { name:dp.name, avatar:dp.avatar, trophies:myTrophies() }; }
+function pvpNetProfile(){ const dp=displayProfile(); return { name:dp.name, avatar:dp.avatar, trophies:myTrophies(), frame:equippedFrame(), titlePre:equippedTitlePre(), titleSuf:equippedTitleSuf(), nameColor:equippedNameColor() }; }
 // この端末の種別（'pc' or 'mobile'）。PVPの役割調整（A案：PCを優先して親=計算側）に使う。
 // 保守的：タッチ/モバイルUAは 'mobile' 扱い（弱い側を親にしないため）。
 function pvpDeviceType(){
@@ -4803,7 +4891,7 @@ function packItemVisual(it, size){ size=size||40;
   if(it.type==='skin'){ const s=SPECIAL_SKIN_BY_ID[it.id]; return s?('<img src="'+SPRITE_DATA[s.base+'_blue']+'" alt="" style="width:'+size+'px;height:'+size+'px;object-fit:contain;image-rendering:pixelated;vertical-align:middle">'):''; }
   if(it.type==='frame') return '<span style="display:inline-block;width:'+size+'px;height:'+size+'px;border-radius:8px;background:var(--panel-2);'+frameRing(it.id)+'"></span>';
   if(it.type==='color'){ const c=NAME_COLOR_BY_ID[it.id]; const st = c ? (c.grad?('background-image:'+c.css+';-webkit-background-clip:text;background-clip:text;color:transparent'):('color:'+c.css)) : ''; return '<span style="display:inline-flex;align-items:center;justify-content:center;width:'+size+'px;height:'+size+'px;font-weight:800;font-size:'+Math.round(size*0.6)+'px;'+st+'">A</span>'; }
-  if(it.type==='title') return '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:'+size+'px;height:'+size+'px;font-size:11px;font-weight:700;color:var(--brass)">「'+it.name+'」</span>';
+  if(it.type==='title'||it.type==='titlePre'||it.type==='titleSuf') return '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:'+size+'px;height:'+size+'px;font-size:11px;font-weight:700;color:var(--brass)">「'+it.name+'」</span>';
   return '';
 }
 // パックを1回開ける（コインを消費）。
@@ -4833,14 +4921,15 @@ function renderCollection(){
         ? '<button class="btn '+(on?'btn-primary':'btn-ghost')+'" style="padding:4px 10px;font-size:12px" onclick="equip'+type+'(\''+it.id+'\')">'+(on?'装備中 ✓':'装備する')+'</button>'
         : '<span style="font-size:11px;color:var(--muted)">🔒 パックで入手</span>';
       return '<div style="display:flex;align-items:center;gap:10px;padding:6px 4px;border-bottom:1px dashed var(--line);opacity:'+(owned?'1':'.6')+'">'
-        + packItemVisual({type:type==='Frame'?'frame':type==='Title'?'title':'color', id:it.id, name:it.name}, 34)
+        + packItemVisual({type:type==='Frame'?'frame':(type==='TitlePre'||type==='TitleSuf')?'title':'color', id:it.id, name:it.name}, 34)
         + '<div style="flex:1;font-size:13px;font-weight:600">'+it.name+'</div>'+btn+'</div>';
     }).join('');
     return '<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:800;color:var(--muted);margin:4px 0">'+title+'</div>'+rows+'</div>';
   };
   box.innerHTML =
       sec('🖼 フレーム', FRAMES, 'Frame', equippedFrame())
-    + sec('🏷 称号', TITLES, 'Title', equippedTitle())
+    + sec('🏷 二つ名（前半）', TITLE_PRE, 'TitlePre', equippedTitlePre())
+    + sec('🏷 二つ名（後半）', TITLE_SUF, 'TitleSuf', equippedTitleSuf())
     + sec('🎨 ネームカラー', NAME_COLORS, 'NameColor', equippedNameColor());
 }
 
@@ -4861,8 +4950,12 @@ const GUIDE_STAGES = [
   { id:'soda2',  title:'沼で群れを溶かす②', theme:'デバフ / 沼（実戦）', unit:'soda', arc:'soda', coins:100,
     tip:'今度はソーダ入りデッキで実戦。相手はクッキーとゼリーの群れ。ソーダの沼で足を止めて、弓兵で削り切ろう！勝てばランニングソーダが仲間になる。',
     deck:['soda','shoe','choco','cookie'], foe:['cookie','slime'] },
-  { id:'ranged', title:'遠くから削る',     theme:'遠距離', unit:'icewiz', coins:100,
-    tip:'遠距離ユニットは近づかれる前に相手を削れる。アイスクリームウィザードは氷弾で当てた敵を鈍足にして、味方が押し勝ちやすくなる。前衛の後ろに置こう。',
+  { id:'ranged1', title:'氷弾で足を止める①', theme:'遠距離 / 鈍足（体験）', arc:'icewiz', coins:50,
+    easyFoe:true, winRounds:1, forceUnit:'icewiz',
+    tip:'相手はクッキーとゼリーの群れ。アイスクリームウィザードは氷弾を当てた敵を鈍足にする！ 前衛の後ろに置いて、近づく群れの足を止めよう。まずは相手から1ライフ取ればクリア！',
+    deck:['icewiz','choco','cookie'], foe:['cookie','slime'] },
+  { id:'ranged2', title:'遠くから削り切る②', theme:'遠距離 / 鈍足（実戦）', unit:'icewiz', arc:'icewiz', coins:100,
+    tip:'相手はクッキー＋ゼリー＋ソーダ。アイスの鈍足で敵の足を止めつつ、弓兵（シュークリーム）でまとめて削り切ろう！勝てばアイスクリームウィザードが仲間になる。',
     deck:['icewiz','shoe','choco','cookie'], foe:['cookie','slime','soda'] },
   { id:'warp1',  title:'後衛に回り込む①', theme:'ワープ / 裏取り（体験）', arc:'ghost', coins:50,
     easyFoe:true, winRounds:1, forceUnit:'ghost',
@@ -4977,20 +5070,53 @@ function renderGuide(){
   }).join('');
 }
 // レッスンを選ぶ→ヒント→（デッキ編成へ）。
+// クッキーじいが「そのキャラの特徴」を最初に語るセリフ（学ぶキャラ＝アークの先頭レッスンでだけ表示）。※文言は今後1体ずつ調整
+const GUIDE_INTRO = {
+  soda:   'ほっほっ、これがランニングソーダじゃ。走って敵に突っ込み、爆ぜて足元にシュワシュワの沼を残すんじゃ。沼を踏んだ群れは足が鈍って、じわじわ溶けていくぞい。',
+  daifuku:'この大福サムライはのう、敵が遠いと力をためて、強い踏み込みで“居合－竹串”を放つんじゃ。この一撃はまとめて薙ぎ払う範囲攻撃じゃから群れの前で構えさせるとよいぞい。',
+  ghost:  'わたあめゴーストは正面には目もくれん。戦いが始まって少し待つと、ふわりと敵の後ろへワープするんじゃ。後ろの弓兵や砲台を奇襲して叩くのが得意でな、前衛に正面を任せて挟み撃ちにするとよいぞい。',
+  cannon: 'キャンディキャノンは動かん代わりに、ステージのどこへでも迫撃を撃ち込むんじゃ。固まった群れの真ん中に落とせば一掃じゃ。前衛でしっかり守ってやるのじゃぞ。',
+  bakery: 'ジンジャーベーカリーは戦わん。焼き立てのジンジャーをどんどん生み出す工場じゃ。数を絶やさず押し返すのが役目でな、これも前衛で守ってやるとよいぞい。',
+  pancake:'パンケーキキングは、しばらくすると大きく進化するんじゃ。進化まではちと弱いが、進化すればHPも跳ね上がり、着地の衝撃波でまとめて薙ぎ払う。それまで前衛で時間を稼ぐのじゃ。',
+  macaron:'シェルマカロンは殻にこもって突進し、壁で跳ね返りながら暴れ回るんじゃ。スピン中はとても硬い（被ダメ大幅カット）が、あばれ終わると少し気絶する。数を並べてかく乱するとよいぞい。',
+  icewiz: 'アイスクリームウィザードは、後ろから小さな氷弾を撃つんじゃ。当たった敵は鈍足になってな、味方が押し勝ちやすくなる。前衛の後ろに置いて、じわじわ足止めするのじゃ。',
+  donut:  'バキュームドーナッツは、正面の敵を吸い寄せて足止めする鈍足タンクじゃ。とても硬く、押し込まれても後退せん。前に置いて壁にし、後ろの仲間を守るのじゃぞ。',
+};
+let _guideIntroThen=null;
+// 学ぶキャラの紹介ダイアログを出す（thenは「つづける」で呼ぶ続きの処理）。紹介文が無ければ即thenへ。
+function showGuideIntro(unitKey, then){
+  const u=UNIT_BY_KEY[unitKey], txt=GUIDE_INTRO[unitKey];
+  if(!u || !txt){ if(then) then(); return; }
+  try{ SFX.play('button'); }catch(e){}
+  const av=$('guideIntroAvatar'); if(av && SPRITE_DATA['tut_gramps'] && !av.src) av.src=SPRITE_DATA['tut_gramps'];
+  const tag=$('guideIntroTag'); if(tag) tag.textContent=u.name+' のとくちょう';
+  const t=$('guideIntroText'); if(t) t.innerHTML='<div>'+txt+'</div>';
+  _guideIntroThen=then||null;
+  $('guideIntroLayer').classList.remove('hidden');
+}
+function guideIntroContinue(){ try{ SFX.play('button'); }catch(e){} const l=$('guideIntroLayer'); if(l) l.classList.add('hidden'); const f=_guideIntroThen; _guideIntroThen=null; if(f) f(); }
+function closeGuideIntro(){ const l=$('guideIntroLayer'); if(l) l.classList.add('hidden'); _guideIntroThen=null; }   // とじる＝レッスン一覧へ戻る（つづけない）
 function startGuideStage(id){
   const s=GUIDE_BY_ID[id]; if(!s) return;
   if(!guideStageUnlocked(id)){ toast('このキャラの前のレッスンをクリアしてね'); return; }
-  const rewU = s.unit?UNIT_BY_KEY[s.unit]:null;
-  $('guideTipTitle').textContent='レッスン：'+s.title;
-  $('guideTipTheme').textContent=s.theme;
-  $('guideTipText').textContent=s.tip;
-  $('guideTipReward').innerHTML = guideCleared(id)
-    ? '（クリア済み。もう一度挑戦できます／報酬は初回のみ）'
-    : (rewU ? 'クリアで <b>'+rewU.name+'</b> が仲間になり、🍬'+s.coins+' がもらえます！'
-            : 'クリアで 🍬'+s.coins+' がもらえます！');
-  $('guideTipStart').textContent='デッキを組む ›';
-  $('guideTipStart').onclick=function(){ closeGuideTip(); guideOpenDeckBuilder(id); };
-  $('guideTipModal').classList.remove('hidden');
+  const showTip=function(){
+    const rewU = s.unit?UNIT_BY_KEY[s.unit]:null;
+    $('guideTipTitle').textContent='レッスン：'+s.title;
+    $('guideTipTheme').textContent=s.theme;
+    $('guideTipText').textContent=s.tip;
+    $('guideTipReward').innerHTML = guideCleared(id)
+      ? '（クリア済み。もう一度挑戦できます／報酬は初回のみ）'
+      : (rewU ? 'クリアで <b>'+rewU.name+'</b> が仲間になり、🍬'+s.coins+' がもらえます！'
+              : 'クリアで 🍬'+s.coins+' がもらえます！');
+    $('guideTipStart').textContent='デッキを組む ›';
+    $('guideTipStart').onclick=function(){ closeGuideTip(); guideOpenDeckBuilder(id); };
+    $('guideTipModal').classList.remove('hidden');
+  };
+  // アークの先頭レッスンでは、まずクッキーじいが学ぶキャラの特徴を紹介してから説明へ
+  const learned = s.forceUnit || s.unit;
+  const arcFirst = arcStages(stageArc(s))[0];
+  if(learned && GUIDE_INTRO[learned] && arcFirst && arcFirst.id===id) showGuideIntro(learned, showTip);
+  else showTip();
 }
 function closeGuideTip(e){ if(e && e.target!==e.currentTarget) return; const m=$('guideTipModal'); if(m) m.classList.add('hidden'); }
 // レッスン用デッキ編成：学ぶキャラ（forceUnit）は必ず入る。残りは解禁済みキャラから選ぶ。
@@ -5054,7 +5180,7 @@ function guideFinish(won){
 function renderProfileChip(){ const dp=displayProfile(); const ic=$('profileChipIco'), nm=$('profileChipName'), tt=$('profileChipTitle');
   if(ic) ic.innerHTML=avatarHTML(dp.avatar, 22, equippedFrame());
   if(nm){ nm.textContent=dp.name; applyNameColor(nm, equippedNameColor()); }
-  if(tt) tt.textContent = titleText(equippedTitle());   // 称号（TITLESの固定文字＝安全）
+  if(tt) tt.textContent = titleText();   // 二つ名（前半＋後半・固定文字＝安全）
 }
 // ランキング画面を開いて上位を表示
 function openRanking(){
@@ -5145,7 +5271,29 @@ function fillProfileEditor(){
   if($('profileName')) $('profileName').value = myProfile.name||'';
   if($('profileAvatarPrev')) $('profileAvatarPrev').innerHTML = avatarHTML(_avatarPick, 30, equippedFrame());
   renderAvatarGrid();
+  renderProfileCosmetics();
   renderProfileStats();
+}
+// プロフィール編集：持っているアイテム（フレーム/二つ名の前半・後半/ネームカラー）から装備を切り替える
+function renderProfileCosmetics(){
+  const box=$('profileCosmetics'); if(!box) return;
+  const sec=function(title, items, curId, equipName){
+    const owned=items.filter(function(it){ return ownsCollected(it.id); });
+    let chips='<button class="btn '+(!curId?'btn-primary':'btn-ghost')+'" style="padding:3px 9px;font-size:12px;margin:3px" onclick="'+equipName+'(\''+(curId||'')+'\')">なし</button>';
+    owned.forEach(function(it){ const on=(curId===it.id);
+      chips+='<button class="btn '+(on?'btn-primary':'btn-ghost')+'" style="padding:3px 9px;font-size:12px;margin:3px" onclick="'+equipName+'(\''+it.id+'\')">'+it.name+'</button>'; });
+    const note = owned.length?'':'<span style="font-size:11px;color:var(--muted);align-self:center;margin-left:4px">まだ持っていません（🎁パックで入手）</span>';
+    return '<div style="margin:8px 0 2px"><div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:2px">'+title+'</div><div style="display:flex;flex-wrap:wrap;align-items:center">'+chips+note+'</div></div>';
+  };
+  const preview = titleText() || '（二つ名なし）';
+  box.innerHTML = '<div style="border-top:1px dashed var(--line);padding-top:10px">'
+    + '<div style="font-size:12px;font-weight:800;color:var(--muted);margin-bottom:2px">見た目（持っているアイテムから選ぶ）</div>'
+    + '<div style="font-size:12px;margin:2px 0 4px">二つ名プレビュー：<b style="color:var(--brass)">'+preview+'</b></div>'
+    + sec('🖼 フレーム', FRAMES, equippedFrame(), 'equipFrame')
+    + sec('🏷 二つ名（前半）', TITLE_PRE, equippedTitlePre(), 'equipTitlePre')
+    + sec('🏷 二つ名（後半）', TITLE_SUF, equippedTitleSuf(), 'equipTitleSuf')
+    + sec('🎨 ネームカラー', NAME_COLORS, equippedNameColor(), 'equipNameColor')
+    + '</div>';
 }
 // プロフィールの戦績（トロフィー＝レート／バトル数／勝利／敗北）を表示。バトル数＝勝利＋敗北。
 function renderProfileStats(){
@@ -5751,10 +5899,15 @@ function pvpTrace(s){ try{ console.log('[PVP]', s); }catch(e){} }   // 進行の
 let _vsTimer=0;
 function showVsCutin(foe, you){
   const el=$('vsCutin'); if(!el) return;
-  if($('vsFoeIco')) $('vsFoeIco').innerHTML = foe.icon; if($('vsFoeName')) $('vsFoeName').textContent = foe.name;
-  if($('vsFoeRate')) $('vsFoeRate').innerHTML = (foe.rate!=null) ? ('🏆 '+foe.rate) : '';
-  if($('vsYouIco')) $('vsYouIco').innerHTML = you.icon; if($('vsYouName')) $('vsYouName').textContent = you.name;
-  if($('vsYouRate')) $('vsYouRate').innerHTML = (you.rate!=null) ? ('🏆 '+you.rate) : '';
+  // p={name,avatar,frame,titlePre,titleSuf,nameColor,rate}。見た目（フレーム/二つ名/名前の色）も反映。
+  const fill=function(who, p){
+    const ico=$('vs'+who+'Ico'), nm=$('vs'+who+'Name'), rt=$('vs'+who+'Rate'), ti=$('vs'+who+'Title');
+    if(ico) ico.innerHTML = avatarHTML(p.avatar||'', 78, p.frame||'');
+    if(nm){ nm.textContent = p.name; applyNameColor(nm, p.nameColor||''); }
+    if(rt) rt.innerHTML = (p.rate!=null) ? ('🏆 '+p.rate) : '';
+    if(ti){ const t=titleTextOf(p.titlePre||'', p.titleSuf||''); ti.textContent=t; ti.classList.toggle('hidden', !t); }
+  };
+  fill('Foe', foe); fill('You', you);
   el.classList.remove('hidden'); el.classList.remove('play'); void el.offsetWidth; el.classList.add('play');   // アニメを頭から再生
   try{ SFX.play('battleStart'); }catch(e){}
   clearTimeout(_vsTimer); _vsTimer=setTimeout(function(){ el.classList.add('hidden'); el.classList.remove('play'); }, 2000);
@@ -5763,8 +5916,8 @@ function showVsCutin(foe, you){
 function pvpShowVsCutin(){
   const opp = pvpOppProfile||{}, me = displayProfile();
   showVsCutin(
-    { name:(opp.name||'ライバル').slice(0,16), icon:avatarHTML(opp.avatar||'', 78), rate:(typeof opp.trophies==='number'?opp.trophies:null) },
-    { name:me.name, icon:avatarHTML(me.avatar||'', 78), rate:myTrophies() }
+    { name:(opp.name||'ライバル').slice(0,16), avatar:opp.avatar||'', frame:opp.frame||'', titlePre:opp.titlePre||'', titleSuf:opp.titleSuf||'', nameColor:opp.nameColor||'', rate:(typeof opp.trophies==='number'?opp.trophies:null) },
+    { name:me.name, avatar:me.avatar||'', frame:equippedFrame(), titlePre:equippedTitlePre(), titleSuf:equippedTitleSuf(), nameColor:equippedNameColor(), rate:myTrophies() }
   );
 }
 function pvpStartAsHost(){
