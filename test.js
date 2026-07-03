@@ -2631,8 +2631,8 @@ console.log('\n=== 90) 経済：カードパック＋通貨（見た目だけ＝
   // プール：フレーム/称号/カラー＋非freeアバター＋スキンを含み、freeアバターは含まない
   const pool = API.packPool(); const ids = pool.map(p=>p.id);
   check('プールにフレーム', ids.includes('frame_gold'));
-  check('プールに二つ名（前半）', ids.includes('tp_legend'));
-  check('プールに二つ名（後半）', ids.includes('ts_king'));
+  check('プールに二つ名（前半）', ids.includes('tp_party'));
+  check('プールに二つ名（後半）', ids.includes('ts_cookie'));
   check('プールにネームカラー', ids.includes('nc_gold'));
   check('アイコン(アバター)はガチャに出ない', !ids.includes('ava_daifuku') && !ids.includes('ava_cookie_free'));
   check('スキンはガチャに出ない', !ids.some(id=>API.SPECIAL_SKINS.some(s=>s.id===id)));
@@ -2660,13 +2660,13 @@ console.log('\n=== 90) 経済：カードパック＋通貨（見た目だけ＝
   prof.mastery={ choco: API.masteryXpForLevel(3) };
   check('熟練度Lv3でアバター解禁', API.avatarUnlocked('ava_choco')===true);
   // 装備トグル（所持のみ）
-  prof.collected={ frame_gold:1, tp_legend:1, ts_king:1, nc_gold:1 }; prof.frame=''; prof.titlePre=''; prof.titleSuf=''; prof.nameColor='';
+  prof.collected={ frame_gold:1, tp_party:1, ts_cookie:1, nc_gold:1 }; prof.frame=''; prof.titlePre=''; prof.titleSuf=''; prof.nameColor='';
   API.equipFrame('frame_gold'); check('フレーム装備', API.equippedFrame()==='frame_gold');
   API.equipFrame('frame_gold'); check('再クリックで解除', API.equippedFrame()==='');
-  API.equipTitlePre('tp_legend'); check('二つ名前半を装備', API.equippedTitlePre()==='tp_legend');
-  API.equipTitleSuf('ts_king'); check('二つ名後半を装備', API.equippedTitleSuf()==='ts_king');
-  check('二つ名テキストは前半＋後半（伝説のキング）', API.titleText()==='伝説のキング', API.titleText());
-  check('titleTextOfで任意の組み合わせ', API.titleTextOf('tp_melt','ts_wizard')==='とろけるウィザード');
+  API.equipTitlePre('tp_party'); check('二つ名前半を装備', API.equippedTitlePre()==='tp_party');
+  API.equipTitleSuf('ts_cookie'); check('二つ名後半を装備', API.equippedTitleSuf()==='ts_cookie');
+  check('二つ名テキストは前半＋後半（パーティークッキー）', API.titleText()==='パーティークッキー', API.titleText());
+  check('titleTextOfで任意の組み合わせ', API.titleTextOf('tp_cool','ts_samurai')==='かっこいいサムライ');
   API.equipNameColor('nc_gold'); check('ネームカラー装備', API.equippedNameColor()==='nc_gold');
   API.equipFrame('frame_berry'); check('未所持は装備できない', API.equippedFrame()==='');
   prof.frame='frame_gold'; prof.collected={};
@@ -2690,11 +2690,11 @@ console.log('\n=== 90) 経済：カードパック＋通貨（見た目だけ＝
 console.log('\n=== 91) 経済：プロフィール保存の往復（コイン/コレクション/装備） ===');
 {
   const prof = API.myProfileRef;
-  prof.coins=300; prof.collected={ frame_gold:2, tp_legend:1, ts_king:1 }; prof.frame='frame_gold'; prof.titlePre='tp_legend'; prof.titleSuf='ts_king'; prof.nameColor='nc_soda'; prof.dailyWinKey='2026-7-1';
+  prof.coins=300; prof.collected={ frame_gold:2, tp_party:1, ts_cookie:1 }; prof.frame='frame_gold'; prof.titlePre='tp_party'; prof.titleSuf='ts_cookie'; prof.nameColor='nc_soda'; prof.dailyWinKey='2026-7-1';
   const p=API.buildProfile();
   check('buildProfile: coins', p.coins===300, p.coins);
   check('buildProfile: collected', p.collected.frame_gold===2, p.collected);
-  check('buildProfile: frame/二つ名/nameColor', p.frame==='frame_gold'&&p.titlePre==='tp_legend'&&p.titleSuf==='ts_king'&&p.nameColor==='nc_soda');
+  check('buildProfile: frame/二つ名/nameColor', p.frame==='frame_gold'&&p.titlePre==='tp_party'&&p.titleSuf==='ts_cookie'&&p.nameColor==='nc_soda');
   // マージ：coins=大きい方／collected=個数の大きい方／新規もマージ
   prof.coins=100; prof.collected={ frame_gold:1 };
   API.applyProfile({ coins:250, collected:{ frame_gold:5, nc_gold:1 }, frame:'frame_berry', dailyWinKey:'2026-7-2' });
