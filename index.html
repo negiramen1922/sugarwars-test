@@ -342,6 +342,8 @@
   .vs-name{font-family:"Oswald",sans-serif;font-weight:700;font-size:22px;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.45);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:210px}
   .vs-rate{font-family:"Space Mono",monospace;font-size:16px;font-weight:700;color:#ffe26a;text-shadow:0 2px 5px rgba(0,0,0,.45)}
   .vs-side{font-size:11px;letter-spacing:.18em;color:rgba(255,255,255,.85);text-transform:uppercase}
+  .vs-title{font-size:13px;font-weight:700;color:#ffe9a3;text-shadow:0 2px 5px rgba(0,0,0,.5);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:210px}
+  .vs-title.hidden{display:none}
   .vs-badge{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:"Oswald",sans-serif;font-weight:800;font-size:54px;color:#fff;-webkit-text-stroke:3px #2a1a10;text-shadow:0 6px 18px rgba(0,0,0,.5);z-index:2}
   .vs-cutin.play{animation:vsFade 2s ease forwards}
   .vs-cutin.play .vs-row-foe{animation:vsTop 2s ease forwards}
@@ -662,6 +664,7 @@
         <div style="font-size:12px;color:var(--muted);margin:10px 0 4px">アイコンを選ぶ（お菓子キャラ）</div>
         <div id="avatarGrid" style="display:flex;flex-wrap:wrap;gap:6px"></div>
         <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="saveProfile()">プロフィールを保存</button>
+        <div id="profileCosmetics" style="margin-top:12px"></div>
         <div id="profileStats" style="display:flex;justify-content:space-around;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);text-align:center"></div>
         <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px">※ 戦績はランダムマッチ（オンライン対戦）の記録です</div>
       </div>
@@ -703,9 +706,9 @@
     <div class="vs-half vs-top"></div>
     <div class="vs-half vs-bot"></div>
     <div class="vs-line"></div>
-    <div class="vs-row vs-row-foe"><div class="vs-card"><span class="vs-ico" id="vsFoeIco"></span><div class="vs-info"><span class="vs-side">Rival</span><span class="vs-name" id="vsFoeName"></span><span class="vs-rate" id="vsFoeRate"></span></div></div></div>
+    <div class="vs-row vs-row-foe"><div class="vs-card"><span class="vs-ico" id="vsFoeIco"></span><div class="vs-info"><span class="vs-side">Rival</span><span class="vs-title" id="vsFoeTitle"></span><span class="vs-name" id="vsFoeName"></span><span class="vs-rate" id="vsFoeRate"></span></div></div></div>
     <div class="vs-badge">VS</div>
-    <div class="vs-row vs-row-you"><div class="vs-card"><span class="vs-ico" id="vsYouIco"></span><div class="vs-info"><span class="vs-side">You</span><span class="vs-name" id="vsYouName"></span><span class="vs-rate" id="vsYouRate"></span></div></div></div>
+    <div class="vs-row vs-row-you"><div class="vs-card"><span class="vs-ico" id="vsYouIco"></span><div class="vs-info"><span class="vs-side">You</span><span class="vs-title" id="vsYouTitle"></span><span class="vs-name" id="vsYouName"></span><span class="vs-rate" id="vsYouRate"></span></div></div></div>
   </div>
   <!-- PVP 再接続オーバーレイ（対戦中に通信が切れたとき） -->
   <div id="pvpReconnOverlay" class="modal-overlay hidden" style="z-index:80">
@@ -4298,7 +4301,7 @@ function genRoomCode(){ const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; fo
    ============================================================ */
 let authUser=null;            // ログイン中のユーザー（未ログインはnull）
 let _cloudSaveT=0;            // クラウド保存のデバウンス用タイマ
-let myProfile={ name:'', avatar:'', trophies:1000, best:1000, wins:0, losses:0, mastery:{}, usage:{}, skins:{}, coins:0, collected:{}, frame:'', title:'', nameColor:'', dailyWinKey:'', units:[], guideDone:[] };   // 名前＋アイコン＋トロフィー(=レート)＋最高＋戦績＋熟練度(key→XP)＋使用回数＋装備スキン＋通貨シュガーコイン(coins)＋所持コレクション(collected)＋装備中フレーム/称号/ネームカラー＋デイリー初勝利日(dailyWinKey)＋解禁済みキャラ(units)＋クリア済みレッスン(guideDone)
+let myProfile={ name:'', avatar:'', trophies:1000, best:1000, wins:0, losses:0, mastery:{}, usage:{}, skins:{}, coins:0, collected:{}, frame:'', titlePre:'', titleSuf:'', nameColor:'', dailyWinKey:'', units:[], guideDone:[] };   // 名前＋アイコン＋トロフィー(=レート)＋最高＋戦績＋熟練度(key→XP)＋使用回数＋装備スキン＋通貨シュガーコイン(coins)＋所持コレクション(collected)＋装備中フレーム/称号/ネームカラー＋デイリー初勝利日(dailyWinKey)＋解禁済みキャラ(units)＋クリア済みレッスン(guideDone)
 /* 熟練度（キャラ経験値）で解禁する特別アバターアイコン。XPは【PVP対戦のみ】、勝ち=多め/負け=少なめで加算。
    ★重要：解禁は見た目（アイコン/スキン）だけにする。強化カード等ゲーム性能は熟練度で解禁しない＝対戦は常にフェア。 */
 const MASTERY_WIN_XP = 10;      // PVPで勝ったとき、デッキ各キャラに入る熟練度XP
@@ -4367,16 +4370,29 @@ const FRAMES = [
   { id:'frame_soda',  name:'ソーダフレーム',   unit:'soda',    ring:'0 0 0 2px #46b7f0, 0 0 7px 1px rgba(70,183,240,.8)' },
 ];
 const FRAME_BY_ID = Object.fromEntries(FRAMES.map(f=>[f.id,f]));
-// 名前の横に付く称号（テキストのみ＝絵素材不要）。unit=テーマ。
-const TITLES = [
-  { id:'title_king',    name:'お菓子の王',     unit:'pancake' },
-  { id:'title_novice',  name:'甘党見習い',     unit:'cookie'  },
-  { id:'title_samurai', name:'もち侍',         unit:'daifuku' },
-  { id:'title_boom',    name:'爆裂職人',       unit:'bomb'    },
-  { id:'title_frost',   name:'氷菓の魔導士',   unit:'icewiz'  },
-  { id:'title_baker',   name:'王室パティシエ', unit:'bakery'  },
+// 二つ名（名前の横に付くテキスト）は「前半＋後半」を1つずつ組み合わせて作る。パーツはガチャで集める。unit=テーマ。
+const TITLE_PRE = [
+  { id:'tp_sweet', name:'甘い',       unit:'cookie'  },
+  { id:'tp_swift', name:'疾風の',     unit:'ghost'   },
+  { id:'tp_still', name:'不動の',     unit:'donut'   },
+  { id:'tp_boom',  name:'爆裂の',     unit:'bomb'    },
+  { id:'tp_frost', name:'氷結の',     unit:'icewiz'  },
+  { id:'tp_royal', name:'王室の',     unit:'bakery'  },
+  { id:'tp_mochi', name:'もちもち',   unit:'daifuku' },
+  { id:'tp_fizz',  name:'シュワっと', unit:'soda'    },
 ];
-const TITLE_BY_ID = Object.fromEntries(TITLES.map(t=>[t.id,t]));
+const TITLE_SUF = [
+  { id:'ts_novice',  name:'見習い',     unit:'cookie'  },
+  { id:'ts_maker',   name:'職人',       unit:'bomb'    },
+  { id:'ts_samurai', name:'侍',         unit:'daifuku' },
+  { id:'ts_mage',    name:'魔導士',     unit:'icewiz'  },
+  { id:'ts_patis',   name:'パティシエ', unit:'bakery'  },
+  { id:'ts_king',    name:'王',         unit:'pancake' },
+  { id:'ts_champ',   name:'覇者',       unit:'choco'   },
+  { id:'ts_hero',    name:'勇者',       unit:'shoe'    },
+];
+const TITLE_PRE_BY_ID = Object.fromEntries(TITLE_PRE.map(t=>[t.id,t]));
+const TITLE_SUF_BY_ID = Object.fromEntries(TITLE_SUF.map(t=>[t.id,t]));
 // ニックネームの色（CSS）。grad=trueならグラデ文字（background-clip:text）。unit=テーマ。
 const NAME_COLORS = [
   { id:'nc_berry',  name:'ストロベリー', css:'#ff5b7f',                                unit:'macaron' },
@@ -4393,7 +4409,8 @@ const NAME_COLOR_BY_ID = Object.fromEntries(NAME_COLORS.map(c=>[c.id,c]));
 function packPool(){
   const pool=[];
   FRAMES.forEach(f=>pool.push({ type:'frame', id:f.id, unit:f.unit, name:f.name }));
-  TITLES.forEach(t=>pool.push({ type:'title', id:t.id, unit:t.unit, name:t.name }));
+  TITLE_PRE.forEach(t=>pool.push({ type:'titlePre', id:t.id, unit:t.unit, name:t.name }));
+  TITLE_SUF.forEach(t=>pool.push({ type:'titleSuf', id:t.id, unit:t.unit, name:t.name }));
   NAME_COLORS.forEach(c=>pool.push({ type:'color', id:c.id, unit:c.unit, name:c.name }));
   return pool;
 }
@@ -4430,10 +4447,14 @@ function openPackOnce(r){
 }
 // 装備中の（所持済み・有効な）フレーム/称号/ネームカラーid。未所持や不正は空＝なし。
 function equippedFrame(){ const id=myProfile.frame; return (id && FRAME_BY_ID[id] && ownsCollected(id))?id:''; }
-function equippedTitle(){ const id=myProfile.title; return (id && TITLE_BY_ID[id] && ownsCollected(id))?id:''; }
+function equippedTitlePre(){ const id=myProfile.titlePre; return (id && TITLE_PRE_BY_ID[id] && ownsCollected(id))?id:''; }
+function equippedTitleSuf(){ const id=myProfile.titleSuf; return (id && TITLE_SUF_BY_ID[id] && ownsCollected(id))?id:''; }
 function equippedNameColor(){ const id=myProfile.nameColor; return (id && NAME_COLOR_BY_ID[id] && ownsCollected(id))?id:''; }
 function frameRing(id){ const f=FRAME_BY_ID[id]; return f?('box-shadow:'+f.ring+';'):''; }
-function titleText(id){ const t=TITLE_BY_ID[id]; return t?t.name:''; }
+// 装備中の二つ名テキスト（前半＋後半・片方だけでも表示）
+function titleText(){ const p=TITLE_PRE_BY_ID[equippedTitlePre()], s=TITLE_SUF_BY_ID[equippedTitleSuf()]; return (p?p.name:'')+(s?s.name:''); }
+// 任意の(前半id,後半id)から二つ名テキストを作る（相手表示・プレビュー用）
+function titleTextOf(preId, sufId){ const p=TITLE_PRE_BY_ID[preId], s=TITLE_SUF_BY_ID[sufId]; return (p?p.name:'')+(s?s.name:''); }
 // 名前要素に色/グラデを適用（グラデはbackground-clip:text）。id空でリセット。
 function applyNameColor(el, id){ if(!el) return;
   el.style.backgroundImage=''; el.style.webkitBackgroundClip=''; el.style.backgroundClip=''; el.style.color='';
@@ -4442,9 +4463,10 @@ function applyNameColor(el, id){ if(!el) return;
   else el.style.color=c.css;
 }
 // 装備トグル（コレクション画面から）。所持していないものは装備できない。
-function equipFrame(id){ if(id && !ownsCollected(id)) return; myProfile.frame=(myProfile.frame===id?'':id); saveProfileLocal(); scheduleCloudSave(); renderProfileChip(); renderCollection(); }
-function equipTitle(id){ if(id && !ownsCollected(id)) return; myProfile.title=(myProfile.title===id?'':id); saveProfileLocal(); scheduleCloudSave(); renderProfileChip(); renderCollection(); }
-function equipNameColor(id){ if(id && !ownsCollected(id)) return; myProfile.nameColor=(myProfile.nameColor===id?'':id); saveProfileLocal(); scheduleCloudSave(); renderProfileChip(); renderCollection(); }
+function equipFrame(id){ if(id && !ownsCollected(id)) return; myProfile.frame=(myProfile.frame===id?'':id); saveProfileLocal(); scheduleCloudSave(); renderProfileChip(); renderCollection(); renderProfileCosmetics(); }
+function equipTitlePre(id){ if(id && !ownsCollected(id)) return; myProfile.titlePre=(myProfile.titlePre===id?'':id); saveProfileLocal(); scheduleCloudSave(); renderProfileChip(); renderCollection(); renderProfileCosmetics(); }
+function equipTitleSuf(id){ if(id && !ownsCollected(id)) return; myProfile.titleSuf=(myProfile.titleSuf===id?'':id); saveProfileLocal(); scheduleCloudSave(); renderProfileChip(); renderCollection(); renderProfileCosmetics(); }
+function equipNameColor(id){ if(id && !ownsCollected(id)) return; myProfile.nameColor=(myProfile.nameColor===id?'':id); saveProfileLocal(); scheduleCloudSave(); renderProfileChip(); renderCollection(); renderProfileCosmetics(); }
 // 通貨まわり
 function myCoins(){ return (myProfile && typeof myProfile.coins==='number')?myProfile.coins:0; }
 function todayKey(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
@@ -4562,13 +4584,13 @@ function displayProfile(){ return { name: (myProfile.name||'').trim() || default
 function saveDeckLocal(){ try{ localStorage.setItem('sw_deck', JSON.stringify(myDeck)); }catch(e){} }
 function loadDeckLocal(){ try{ const s=localStorage.getItem('sw_deck'); if(s){ const a=JSON.parse(s); if(Array.isArray(a)) applyProfile({deck:a}); } }catch(e){} }
 // トロフィー・戦績・使用回数・スキン＋経済（コイン/コレクション/装備/解禁/指南進捗）も端末に保存（ゲスト＝匿名でもリロードで消えないように。ログイン時のクラウドとの突き合わせにも使う）
-function saveProfileLocal(){ try{ localStorage.setItem('sw_profile', JSON.stringify({name:myProfile.name,avatar:myProfile.avatar,mastery:myProfile.mastery||{},trophies:myProfile.trophies,best:myProfile.best,wins:myProfile.wins,losses:myProfile.losses,usage:myProfile.usage||{},skins:myProfile.skins||{},coins:myProfile.coins||0,collected:myProfile.collected||{},frame:myProfile.frame||'',title:myProfile.title||'',nameColor:myProfile.nameColor||'',dailyWinKey:myProfile.dailyWinKey||'',units:myProfile.units||[],guideDone:myProfile.guideDone||[]})); }catch(e){} }
+function saveProfileLocal(){ try{ localStorage.setItem('sw_profile', JSON.stringify({name:myProfile.name,avatar:myProfile.avatar,mastery:myProfile.mastery||{},trophies:myProfile.trophies,best:myProfile.best,wins:myProfile.wins,losses:myProfile.losses,usage:myProfile.usage||{},skins:myProfile.skins||{},coins:myProfile.coins||0,collected:myProfile.collected||{},frame:myProfile.frame||'',titlePre:myProfile.titlePre||'',titleSuf:myProfile.titleSuf||'',nameColor:myProfile.nameColor||'',dailyWinKey:myProfile.dailyWinKey||'',units:myProfile.units||[],guideDone:myProfile.guideDone||[]})); }catch(e){} }
 function loadProfileLocal(){ try{ const s=localStorage.getItem('sw_profile'); if(s){ const o=JSON.parse(s); applyProfile(o); } }catch(e){} }
 // 編成変更時に呼ぶ：ローカル保存＋（ログイン中なら）クラウドへデバウンス保存
 function persistDeck(){ saveDeckLocal(); scheduleCloudSave(); }
 
 // --- 保存プロフィールの整形（純粋関数・テスト対象） ---
-function buildProfile(){ return { deck: myDeck.slice(0, CONFIG.deckSize), name: myProfile.name||'', avatar: myProfile.avatar||'', trophies: myTrophies(), best: Math.max(myProfile.best||0, myTrophies()), wins: myProfile.wins||0, losses: myProfile.losses||0, mastery: myProfile.mastery||{}, usage: myProfile.usage||{}, skins: myProfile.skins||{}, coins: myCoins(), collected: myProfile.collected||{}, frame: myProfile.frame||'', title: myProfile.title||'', nameColor: myProfile.nameColor||'', dailyWinKey: myProfile.dailyWinKey||'', units: myProfile.units||[], guideDone: myProfile.guideDone||[], tutorialDone: tutSeen(), updatedAt: Date.now() }; }
+function buildProfile(){ return { deck: myDeck.slice(0, CONFIG.deckSize), name: myProfile.name||'', avatar: myProfile.avatar||'', trophies: myTrophies(), best: Math.max(myProfile.best||0, myTrophies()), wins: myProfile.wins||0, losses: myProfile.losses||0, mastery: myProfile.mastery||{}, usage: myProfile.usage||{}, skins: myProfile.skins||{}, coins: myCoins(), collected: myProfile.collected||{}, frame: myProfile.frame||'', titlePre: myProfile.titlePre||'', titleSuf: myProfile.titleSuf||'', nameColor: myProfile.nameColor||'', dailyWinKey: myProfile.dailyWinKey||'', units: myProfile.units||[], guideDone: myProfile.guideDone||[], tutorialDone: tutSeen(), updatedAt: Date.now() }; }
 // クラウド/ローカルから読んだプロフィールをゲーム状態へ反映（不正キーは除外）
 function applyProfile(p){
   if(!p) return;
@@ -4586,7 +4608,8 @@ function applyProfile(p){
   if(typeof p.coins==='number' && isFinite(p.coins)) myProfile.coins = Math.max(myProfile.coins||0, Math.max(0,Math.round(p.coins)));   // コインは大きい方を採用（端末とクラウドのマージ・進捗が消えないように）
   if(p.collected && typeof p.collected==='object'){ if(!myProfile.collected) myProfile.collected={}; for(const id in p.collected){ const v=p.collected[id]; if(typeof v==='number' && isFinite(v) && v>0) myProfile.collected[id]=Math.max(myProfile.collected[id]||0, Math.round(v)); } }   // 所持コレクション（個数は大きい方）
   if(typeof p.frame==='string') myProfile.frame = p.frame;         // 装備フレーム（使用時に所持/有効を再検証するのでそのまま反映）
-  if(typeof p.title==='string') myProfile.title = p.title;         // 装備称号
+  if(typeof p.titlePre==='string') myProfile.titlePre = p.titlePre; // 装備二つ名（前半）
+  if(typeof p.titleSuf==='string') myProfile.titleSuf = p.titleSuf; // 装備二つ名（後半）
   if(typeof p.nameColor==='string') myProfile.nameColor = p.nameColor;   // 装備ネームカラー
   if(typeof p.dailyWinKey==='string' && p.dailyWinKey) myProfile.dailyWinKey = p.dailyWinKey;   // デイリー初勝利の付与日
   if(Array.isArray(p.units)){ if(!Array.isArray(myProfile.units)) myProfile.units=[]; p.units.forEach(function(k){ if(UNIT_BY_KEY[k] && !UNIT_BY_KEY[k].summonOnly && STARTER_UNITS.indexOf(k)<0 && myProfile.units.indexOf(k)<0) myProfile.units.push(k); }); }   // 解禁済みキャラは和集合（進捗が消えない）
@@ -4789,7 +4812,7 @@ function syncUseLocal(){ _syncCloudPending=null; _cloudSyncReady=true; cloudSave
 let pvpOppProfile = null;   // 対戦相手のプロフィール（名前/アイコン/トロフィー）。ハンドシェイクで受信
 let pvpLastDelta = 0;       // 直近の対戦でのトロフィー増減（over画面表示用）
 // 通信で相手に渡す自分のプロフィール（名前・アイコン・トロフィー）
-function pvpNetProfile(){ const dp=displayProfile(); return { name:dp.name, avatar:dp.avatar, trophies:myTrophies() }; }
+function pvpNetProfile(){ const dp=displayProfile(); return { name:dp.name, avatar:dp.avatar, trophies:myTrophies(), frame:equippedFrame(), titlePre:equippedTitlePre(), titleSuf:equippedTitleSuf(), nameColor:equippedNameColor() }; }
 // この端末の種別（'pc' or 'mobile'）。PVPの役割調整（A案：PCを優先して親=計算側）に使う。
 // 保守的：タッチ/モバイルUAは 'mobile' 扱い（弱い側を親にしないため）。
 function pvpDeviceType(){
@@ -4852,7 +4875,7 @@ function packItemVisual(it, size){ size=size||40;
   if(it.type==='skin'){ const s=SPECIAL_SKIN_BY_ID[it.id]; return s?('<img src="'+SPRITE_DATA[s.base+'_blue']+'" alt="" style="width:'+size+'px;height:'+size+'px;object-fit:contain;image-rendering:pixelated;vertical-align:middle">'):''; }
   if(it.type==='frame') return '<span style="display:inline-block;width:'+size+'px;height:'+size+'px;border-radius:8px;background:var(--panel-2);'+frameRing(it.id)+'"></span>';
   if(it.type==='color'){ const c=NAME_COLOR_BY_ID[it.id]; const st = c ? (c.grad?('background-image:'+c.css+';-webkit-background-clip:text;background-clip:text;color:transparent'):('color:'+c.css)) : ''; return '<span style="display:inline-flex;align-items:center;justify-content:center;width:'+size+'px;height:'+size+'px;font-weight:800;font-size:'+Math.round(size*0.6)+'px;'+st+'">A</span>'; }
-  if(it.type==='title') return '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:'+size+'px;height:'+size+'px;font-size:11px;font-weight:700;color:var(--brass)">「'+it.name+'」</span>';
+  if(it.type==='title'||it.type==='titlePre'||it.type==='titleSuf') return '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:'+size+'px;height:'+size+'px;font-size:11px;font-weight:700;color:var(--brass)">「'+it.name+'」</span>';
   return '';
 }
 // パックを1回開ける（コインを消費）。
@@ -4882,14 +4905,15 @@ function renderCollection(){
         ? '<button class="btn '+(on?'btn-primary':'btn-ghost')+'" style="padding:4px 10px;font-size:12px" onclick="equip'+type+'(\''+it.id+'\')">'+(on?'装備中 ✓':'装備する')+'</button>'
         : '<span style="font-size:11px;color:var(--muted)">🔒 パックで入手</span>';
       return '<div style="display:flex;align-items:center;gap:10px;padding:6px 4px;border-bottom:1px dashed var(--line);opacity:'+(owned?'1':'.6')+'">'
-        + packItemVisual({type:type==='Frame'?'frame':type==='Title'?'title':'color', id:it.id, name:it.name}, 34)
+        + packItemVisual({type:type==='Frame'?'frame':(type==='TitlePre'||type==='TitleSuf')?'title':'color', id:it.id, name:it.name}, 34)
         + '<div style="flex:1;font-size:13px;font-weight:600">'+it.name+'</div>'+btn+'</div>';
     }).join('');
     return '<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:800;color:var(--muted);margin:4px 0">'+title+'</div>'+rows+'</div>';
   };
   box.innerHTML =
       sec('🖼 フレーム', FRAMES, 'Frame', equippedFrame())
-    + sec('🏷 称号', TITLES, 'Title', equippedTitle())
+    + sec('🏷 二つ名（前半）', TITLE_PRE, 'TitlePre', equippedTitlePre())
+    + sec('🏷 二つ名（後半）', TITLE_SUF, 'TitleSuf', equippedTitleSuf())
     + sec('🎨 ネームカラー', NAME_COLORS, 'NameColor', equippedNameColor());
 }
 
@@ -5140,7 +5164,7 @@ function guideFinish(won){
 function renderProfileChip(){ const dp=displayProfile(); const ic=$('profileChipIco'), nm=$('profileChipName'), tt=$('profileChipTitle');
   if(ic) ic.innerHTML=avatarHTML(dp.avatar, 22, equippedFrame());
   if(nm){ nm.textContent=dp.name; applyNameColor(nm, equippedNameColor()); }
-  if(tt) tt.textContent = titleText(equippedTitle());   // 称号（TITLESの固定文字＝安全）
+  if(tt) tt.textContent = titleText();   // 二つ名（前半＋後半・固定文字＝安全）
 }
 // ランキング画面を開いて上位を表示
 function openRanking(){
@@ -5231,7 +5255,29 @@ function fillProfileEditor(){
   if($('profileName')) $('profileName').value = myProfile.name||'';
   if($('profileAvatarPrev')) $('profileAvatarPrev').innerHTML = avatarHTML(_avatarPick, 30, equippedFrame());
   renderAvatarGrid();
+  renderProfileCosmetics();
   renderProfileStats();
+}
+// プロフィール編集：持っているアイテム（フレーム/二つ名の前半・後半/ネームカラー）から装備を切り替える
+function renderProfileCosmetics(){
+  const box=$('profileCosmetics'); if(!box) return;
+  const sec=function(title, items, curId, equipName){
+    const owned=items.filter(function(it){ return ownsCollected(it.id); });
+    let chips='<button class="btn '+(!curId?'btn-primary':'btn-ghost')+'" style="padding:3px 9px;font-size:12px;margin:3px" onclick="'+equipName+'(\''+(curId||'')+'\')">なし</button>';
+    owned.forEach(function(it){ const on=(curId===it.id);
+      chips+='<button class="btn '+(on?'btn-primary':'btn-ghost')+'" style="padding:3px 9px;font-size:12px;margin:3px" onclick="'+equipName+'(\''+it.id+'\')">'+it.name+'</button>'; });
+    const note = owned.length?'':'<span style="font-size:11px;color:var(--muted);align-self:center;margin-left:4px">まだ持っていません（🎁パックで入手）</span>';
+    return '<div style="margin:8px 0 2px"><div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:2px">'+title+'</div><div style="display:flex;flex-wrap:wrap;align-items:center">'+chips+note+'</div></div>';
+  };
+  const preview = titleText() || '（二つ名なし）';
+  box.innerHTML = '<div style="border-top:1px dashed var(--line);padding-top:10px">'
+    + '<div style="font-size:12px;font-weight:800;color:var(--muted);margin-bottom:2px">見た目（持っているアイテムから選ぶ）</div>'
+    + '<div style="font-size:12px;margin:2px 0 4px">二つ名プレビュー：<b style="color:var(--brass)">'+preview+'</b></div>'
+    + sec('🖼 フレーム', FRAMES, equippedFrame(), 'equipFrame')
+    + sec('🏷 二つ名（前半）', TITLE_PRE, equippedTitlePre(), 'equipTitlePre')
+    + sec('🏷 二つ名（後半）', TITLE_SUF, equippedTitleSuf(), 'equipTitleSuf')
+    + sec('🎨 ネームカラー', NAME_COLORS, equippedNameColor(), 'equipNameColor')
+    + '</div>';
 }
 // プロフィールの戦績（トロフィー＝レート／バトル数／勝利／敗北）を表示。バトル数＝勝利＋敗北。
 function renderProfileStats(){
@@ -5837,10 +5883,15 @@ function pvpTrace(s){ try{ console.log('[PVP]', s); }catch(e){} }   // 進行の
 let _vsTimer=0;
 function showVsCutin(foe, you){
   const el=$('vsCutin'); if(!el) return;
-  if($('vsFoeIco')) $('vsFoeIco').innerHTML = foe.icon; if($('vsFoeName')) $('vsFoeName').textContent = foe.name;
-  if($('vsFoeRate')) $('vsFoeRate').innerHTML = (foe.rate!=null) ? ('🏆 '+foe.rate) : '';
-  if($('vsYouIco')) $('vsYouIco').innerHTML = you.icon; if($('vsYouName')) $('vsYouName').textContent = you.name;
-  if($('vsYouRate')) $('vsYouRate').innerHTML = (you.rate!=null) ? ('🏆 '+you.rate) : '';
+  // p={name,avatar,frame,titlePre,titleSuf,nameColor,rate}。見た目（フレーム/二つ名/名前の色）も反映。
+  const fill=function(who, p){
+    const ico=$('vs'+who+'Ico'), nm=$('vs'+who+'Name'), rt=$('vs'+who+'Rate'), ti=$('vs'+who+'Title');
+    if(ico) ico.innerHTML = avatarHTML(p.avatar||'', 78, p.frame||'');
+    if(nm){ nm.textContent = p.name; applyNameColor(nm, p.nameColor||''); }
+    if(rt) rt.innerHTML = (p.rate!=null) ? ('🏆 '+p.rate) : '';
+    if(ti){ const t=titleTextOf(p.titlePre||'', p.titleSuf||''); ti.textContent=t; ti.classList.toggle('hidden', !t); }
+  };
+  fill('Foe', foe); fill('You', you);
   el.classList.remove('hidden'); el.classList.remove('play'); void el.offsetWidth; el.classList.add('play');   // アニメを頭から再生
   try{ SFX.play('battleStart'); }catch(e){}
   clearTimeout(_vsTimer); _vsTimer=setTimeout(function(){ el.classList.add('hidden'); el.classList.remove('play'); }, 2000);
@@ -5849,8 +5900,8 @@ function showVsCutin(foe, you){
 function pvpShowVsCutin(){
   const opp = pvpOppProfile||{}, me = displayProfile();
   showVsCutin(
-    { name:(opp.name||'ライバル').slice(0,16), icon:avatarHTML(opp.avatar||'', 78), rate:(typeof opp.trophies==='number'?opp.trophies:null) },
-    { name:me.name, icon:avatarHTML(me.avatar||'', 78), rate:myTrophies() }
+    { name:(opp.name||'ライバル').slice(0,16), avatar:opp.avatar||'', frame:opp.frame||'', titlePre:opp.titlePre||'', titleSuf:opp.titleSuf||'', nameColor:opp.nameColor||'', rate:(typeof opp.trophies==='number'?opp.trophies:null) },
+    { name:me.name, avatar:me.avatar||'', frame:equippedFrame(), titlePre:equippedTitlePre(), titleSuf:equippedTitleSuf(), nameColor:equippedNameColor(), rate:myTrophies() }
   );
 }
 function pvpStartAsHost(){

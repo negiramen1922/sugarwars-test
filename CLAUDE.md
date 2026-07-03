@@ -166,7 +166,7 @@
 - **子**：`PVP_GUEST_HOOKS`＋`pvpGuestEnterPlay/ShowOffer/RenderSnapshot/OnResult/OnGameover`。
   計算せず、OFFERで選び・SNAPSHOTを `render` で描画するだけの薄いクライアント。
 - `pvpOnConnected` が接続後に親=子デッキ待ち→開始／子=デッキ送信→START待ち、に分岐。`openPvpLobby` は `needPlayerDeck()` で編成を要求。
-- **VSカットイン**：対戦開始時（`pvpStartAsHost`/`pvpGuestEnterPlay` 冒頭）に `pvpShowVsCutin()`→`showVsCutin(foe,you)`。全画面 `#vsCutin`（上=相手・赤／下=自分・青／間に斜めライン、アイコン大＋横に名前/レート縦並び）を約2秒アニメ表示（`pvpOppProfile` から相手名/アイコン/トロフィー）。`pointer-events:none`・自動で消える。
+- **VSカットイン**：対戦開始時（`pvpStartAsHost`/`pvpGuestEnterPlay` 冒頭）に `pvpShowVsCutin()`→`showVsCutin(foe,you)`。全画面 `#vsCutin`（上=相手・赤／下=自分・青／間に斜めライン、アイコン大＋横に**二つ名**/名前/レート縦並び）を約2秒アニメ表示。**見た目（フレーム/二つ名/名前の色）も両陣営に反映**＝`showVsCutin` は `{name,avatar,frame,titlePre,titleSuf,nameColor,rate}` を受け取り `avatarHTML(avatar,78,frame)`＋`applyNameColor`＋`titleTextOf` で描画。相手の見た目は**ハンドシェイクで共有**（`pvpNetProfile()` に frame/titlePre/titleSuf/nameColor を載せ `pvpOppProfile` で受信。旧版は各フィールド無しで見た目なしにフォールバック）。`pointer-events:none`・自動で消える。
 - テスト：test.js 48（オーケストレーション往復）＋49（リモート敵が実フローを駆動）。CPU対戦は不変。
 - **要・実機確認**：2台（または同端末2タブ）での対戦通しはこのリポジトリ環境ではテスト不可。手元で確認する。
 
@@ -238,8 +238,8 @@
 - **通貨（🍬シュガーコイン＝`myProfile.coins`）**：課金ではなく**対戦報酬**で配る（子ども向けに安全）。`grantBattleReward(won)` を決着時に呼ぶ＝**CPU/PVP両方**（`endGame`＋子の `pvpGuestOnGameover`。チュートリアルは除外）。報酬額は純粋関数 `battleCoinReward(won, firstWinToday)`＝`COIN_PLAY`(10・参加)＋`COIN_WIN`(15・勝利)＋`COIN_DAILY_WIN`(50・その日の初勝利=`myProfile.dailyWinKey` で1日1回)。ホーム＆ショップに残高表示（`renderHomeCoins`/`renderShopCoins`）。
 - **カードパック**：`PACK_COST`(120コイン)で `buyPack()`→`openPackOnce(Math.random())`。中身は**レア度なし＝全アイテム同確率**（`packPool()`＝フレーム＋称号＋ネームカラーの**見た目3種のみ**）。抽選は純粋関数 `rollPack(pool, r)`（0..1）。**★アイコン(アバター)/スキンはガチャに出さない**＝それらは**キャラの熟練度でのみ解禁**（熟練度報酬をガチャで進めさせない＝対戦を常にフェアに）。
 - **初入手 vs 重複**：`alreadyHave(item)`（`ownsCollected`）で判定。初入手→`myProfile.collected[id]` に加算して**解禁**。**重複→そのアイテムのテーマキャラ(`unit`)の熟練度XPに変換**（`addMasteryXp`・`PACK_DUP_XP`=25／重複で熟練度が早く進む助け）。
-- **見た目3種（絵素材不要・CSS/テキスト）**：`FRAMES`（アイコン装飾枠＝box-shadow）／`TITLES`（名前横の称号テキスト）／`NAME_COLORS`（名前の色・グラデ）。各行に `unit`（テーマ表示用）。装備は `myProfile.frame/title/nameColor`＋`equipFrame/equipTitle/equipNameColor`（トグル・所持のみ）。表示は**自分のプロフィールチップ**（`renderProfileChip`＝`avatarHTML(...,frame)`＋`applyNameColor`＋`#profileChipTitle`）とプロフィール編集プレビューに反映（相手の見た目共有はスキン同様に未対応＝自分だけ）。
-- **アイコン/スキンは熟練度のみで解禁**（ガチャ非排出）：`avatarUnlocked`/`skinUnlocked` は熟練度Lvで判定（`ownsCollected` fallbackは残すが、パックがそれらを配らないので実質使わない）。フレーム/称号/ネームカラーを増やすときは各配列（`FRAMES`/`TITLES`/`NAME_COLORS`）に1行足すだけでパックプール・コレクション画面（`renderCollection`）に自動反映。アイコン/スキンを増やすときは `SPRITE_DATA` 注入＋`SPECIAL_AVATARS`/`SPECIAL_SKINS`（熟練度ロードマップに反映）。
+- **見た目3種（絵素材不要・CSS/テキスト）**：`FRAMES`（アイコン装飾枠＝box-shadow）／**二つ名＝`TITLE_PRE`（前半）＋`TITLE_SUF`（後半）を1つずつ組み合わせて作る**（`titleText()`＝装備中の前半＋後半・`titleTextOf(pre,suf)`＝任意組み合わせ）／`NAME_COLORS`（名前の色・グラデ）。各行に `unit`（テーマ表示用）。装備は `myProfile.frame/titlePre/titleSuf/nameColor`＋`equipFrame/equipTitlePre/equipTitleSuf/equipNameColor`（トグル・所持のみ）。表示は**自分のプロフィールチップ**（`renderProfileChip`）＋**プロフィール編集の見た目UI**（`renderProfileCosmetics`＝#authModal内・持っているアイテムから選ぶ＋二つ名プレビュー）＋VSカットイン。二つ名パーツはガチャ排出（`packPool` が `titlePre`/`titleSuf` を出す・`renderCollection` は前半/後半の2セクション）。
+- **アイコン/スキンは熟練度のみで解禁**（ガチャ非排出）：`avatarUnlocked`/`skinUnlocked` は熟練度Lvで判定（`ownsCollected` fallbackは残すが、パックがそれらを配らないので実質使わない）。フレーム/二つ名パーツ/ネームカラーを増やすときは各配列（`FRAMES`/`TITLE_PRE`/`TITLE_SUF`/`NAME_COLORS`）に1行足すだけでパックプール・コレクション画面（`renderCollection`）・プロフィール編集の見た目UIに自動反映。アイコン/スキンを増やすときは `SPRITE_DATA` 注入＋`SPECIAL_AVATARS`/`SPECIAL_SKINS`（熟練度ロードマップに反映）。
 - **保存**：`coins`/`collected`/`frame`/`title`/`nameColor`/`dailyWinKey` を `saveProfileLocal`（端末）＋`buildProfile`/`applyProfile`（クラウド）に統合。マージは coins=大きい方・collected=個数の大きい方（進捗が消えない割り切り）。
 - **UI**：ホームメニュー「🎁 ショップ＆コレクション」＋ホームのコイン表示（クリックでショップ）→ `#shopModal`（`openShop`/`closeShop`/`renderShop`）。
 
