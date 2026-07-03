@@ -990,7 +990,7 @@ const UNITS = [
   // タレット設置中は頭のベリーが無い立ち絵(shortcake_deploy_*)に切替（ベリー＝タレットになって飛び出した表現）。ふわふわ浮遊は各状態の2フレーム(_2＝影の位置違い)をspriteForで切替。
   {key:'shortcake', name:'ショートケーキ', icon:'🍰', role:'fodder', tier:1.25, count:1, atk:12, hp:110, speed:55, range:26, cd:1.0, tag:'設置＋前進', short:'足元にイチゴタレットを置きつつ前進して殴る（1体）', text:'足元にイチゴタレットを設置したら、自分は前進して敵を殴りに行くケーキ。タレットは数秒で溶けるが、消えるとその時の足元にまた新しいタレットを置き直す。', deployTurret:true, turretKey:'strawturret', redeployDelay:0.5, test:true, beta:true},
   // イチゴタレット（ショートケーキ専用の召喚物・動かない短命の砲台）。summonOnly でロスター/ドラフト/CPU/X2/ピッカーから除外。turretLife 秒で消える。
-  {key:'strawturret', name:'イチゴタレット', icon:'🍓', role:'back', tier:2, count:1, atk:14, hp:70, speed:0, range:80, cd:0.45, tag:'タレット', short:'狙われずに近くの敵を速射する砲台（時間/設置者で消滅）', text:'ショートケーキが設置する砲台。動かず近くの敵をイチゴで速射する。敵からは狙われないが、設置したショートケーキが倒れる／時間が経つと壊れてしまう。', ranged:true, turretLife:4.0, untargetable:true, summonOnly:true},
+  {key:'strawturret', name:'イチゴタレット', icon:'🍓', role:'back', tier:2, count:1, atk:9, hp:70, speed:0, range:80, cd:0.22, tag:'タレット', short:'狙われずに近くの敵へ小さな粒を連射する砲台（時間/設置者で消滅）', text:'ショートケーキが設置する砲台。動かず近くの敵へ小さな粒（ベリー）を高速で連射する。敵からは狙われないが、設置したショートケーキが倒れる／時間が経つと壊れてしまう。', ranged:true, pellet:true, turretLife:4.0, untargetable:true, summonOnly:true},
 ];
 const UNIT_BY_KEY = Object.fromEntries(UNITS.map(u=>[u.key,u]));
 
@@ -1854,7 +1854,7 @@ function makeFighters(key, side, W, H, slot){
       vx:0, vy:0, r, baseR:r, hp, maxHp:hp, baseMaxHp:hp, atk, baseAtk:atk,
       speed:u.speed*SPEED_MUL, baseSpeed:u.speed*SPEED_MUL, range:u.range, cd:u.cd, cool:Math.random()*u.cd,
       party:false, partyStage:0,
-      ranged:!!u.ranged, splash:u.splash||0, blast:u.blast||0, blastR:u.blastR||0,
+      ranged:!!u.ranged, pellet:!!u.pellet, splash:u.splash||0, blast:u.blast||0, blastR:u.blastR||0,
       slowHit:u.slowHit||0, slowDur:u.slowDur||0, chillT:0, chillAmt:0,   // 氷弾のヒット時スロー（アイスウィザード）
       shell:!!u.shell, shellPhase:(u.shell?'spin':''), shellT:(u.shell?SHELL_SPIN_DUR:0), shellInit:false, svx:0, svy:0, ramCd:0, inShell:!!u.shell,   // シェルマカロン：殻スピン状態
       macaronBuff:false, mangelBuff:false, kumaBuff:false, purinBuff:false, spoonOut:false, spoonsOut:0,
@@ -3564,9 +3564,10 @@ function stepWorld(world, dt){
           if(u.purinBuff){ throwBoomerang(world,u,tgt,-1); throwBoomerang(world,u,tgt,+1); u.cool=PURIN_BUFF_CD; }
           else throwBoomerang(world,u,tgt,0);
           SFX.play('atk_'+u.key); }
-        else if(u.ranged){ const dtot=Math.hypot(tgt.x-u.x,tgt.y-u.y)||1; const ice=!!u.slowHit;
-          world.shots.push({x:u.x,y:u.y,sx:u.x,sy:u.y,tx:tgt.x,ty:tgt.y,total:dtot,target:tgt,owner:u,side:u.side,atk:u.atk,splash:u.splash,sp:ice?300:340,color:ice?'#8fd8ff':(u.splash?'#b98cff':'#ffe08a'),sprite:ice?'ice':'arrow',arcH:ice?34:SHOE_ARC,chill:u.slowHit||0,chillDur:u.slowDur||0});
-          SFX.play(ice?'atk_icewiz':'atk_'+u.key); }   // 氷弾＝アイスウィザード／矢＝シュー等
+        else if(u.ranged){ const dtot=Math.hypot(tgt.x-u.x,tgt.y-u.y)||1; const ice=!!u.slowHit, pel=!!u.pellet;
+          // タレットは矢ではなく小さな粒（ベリー）を直線・高速で連射（sprite指定なし＝丸い粒で描画）
+          world.shots.push({x:u.x,y:u.y,sx:u.x,sy:u.y,tx:tgt.x,ty:tgt.y,total:dtot,target:tgt,owner:u,side:u.side,atk:u.atk,splash:u.splash,sp:ice?300:pel?460:340,color:ice?'#8fd8ff':pel?(u.side==='p'?'#6f7dff':'#ff5a7a'):(u.splash?'#b98cff':'#ffe08a'),sprite:ice?'ice':pel?'pellet':'arrow',arcH:ice?34:pel?0:SHOE_ARC,chill:u.slowHit||0,chillDur:u.slowDur||0});
+          SFX.play(ice?'atk_icewiz':'atk_'+u.key); }   // 氷弾＝アイスウィザード／粒＝タレット／矢＝シュー等
         else { u.knockx-=(tgt.x-u.x)/(dist||1)*0.9; u.knocky-=(tgt.y-u.y)/(dist||1)*0.9; applyHit(world,u,tgt,u.atk); SFX.play('atk_'+u.key); }   // 近接：キャラ別の攻撃音（cookie/choco/slime/ghost/pancake等）
       }
     }
