@@ -251,7 +251,7 @@
 - **解禁状態**：`myProfile.units`（解禁済みキャラのkey配列）。`unitUnlocked(key)`＝召喚専用は非対象／スターター／units に入っていれば真。`lockedUnits()`＝まだロックのkey一覧。
 - **通貨は🍬シュガーコインのみ**（`myProfile.coins`／`myCoins()`）。対戦報酬 `grantBattleReward` は `battleCoinReward`＝`COIN_PLAY`(10)＋`COIN_WIN`(15)＋`COIN_DAILY_WIN`(50・初勝利)を付与。※旧`gems`/`myGems`/`GEM_*`/`battleGemReward`は廃止。
 - **解禁手段**：戦術指南クリア（下記）＋`buyUnit(key)`（🍬で直接購入・`unitUnlockCost`=一律500）。`unlockUnit(key)` が units に追加。
-- **編成のゲート**：`toggleDeck` は自分の編成（`rosterMode==='you'`）で未解禁キャラを拒否（トースト）。`renderRoster` はロックキャラに🔒＋🍬コストのオーバーレイ（`.rlocked`/`.rlock`）。CPUデッキ編成はゲートしない。
+- **編成のゲート**：`toggleDeck` は自分の編成（`rosterMode==='you'`）で未解禁キャラをタップすると**解放モーダル `#unlockModal`（`openUnlockModal`）**を開く＝①🍬シュガーコイン`unitUnlockCost`(500)で解放（`unlockByCoins`→`buyUnit`・残高不足はトースト）／②戦術指南で解放（`unlockByGuide`→`guideArcForUnit(key)` でそのキャラを解禁するアークへ `openGuide`＋`openGuideArc`）の2択を提示。`renderRoster` はロックキャラに🔒＋🍬コストのオーバーレイ（`.rlocked`/`.rlock`）。レッスン編成(`guide`)は従来どおりトースト。CPUデッキ編成はゲートしない。`guideArcForUnit`＝`arcUnit(a)===key` のアークを返す純粋関数（全ロックキャラに対応アークがある＝test.js 99）。
 - **既存救済**：`migrateUnlocks()`＝今のデッキに入っている非スターターは解禁済み扱い（起動時＋クラウド復元後に呼ぶ）＝新システムでデッキが壊れない。
 - **保存**：`units`/`guideDone` を `saveProfileLocal`＋`buildProfile`/`applyProfile` に統合（和集合マージ）。コインは経済側で保存。
 

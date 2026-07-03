@@ -748,6 +748,18 @@
       <div style="text-align:center;margin-top:14px"><button class="btn btn-ghost" onclick="closeNews()">閉じる</button></div>
     </div>
   </div>
+  <div id="unlockModal" class="modal-overlay hidden" onclick="closeUnlock(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <h3>🔒 キャラを解放する</h3>
+      <div id="unlockChar" style="text-align:center;margin:4px 0 14px"></div>
+      <div style="font-size:13px;color:var(--muted);text-align:center;margin-bottom:10px">2つの方法で仲間にできます</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="btn btn-primary" id="unlockBuyBtn" onclick="unlockByCoins()" style="line-height:1.35"></button>
+        <button class="btn btn-ghost" onclick="unlockByGuide()" style="line-height:1.35">🎓 戦術指南で解放する<br><span style="font-size:11px;opacity:.85;font-weight:600">レッスンをクリアして無料で仲間に</span></button>
+      </div>
+      <div style="text-align:center;margin-top:14px"><button class="btn btn-ghost" onclick="closeUnlock()">閉じる</button></div>
+    </div>
+  </div>
   <div id="guideTipModal" class="modal-overlay hidden" onclick="closeGuideTip(event)">
     <div class="modal-card" onclick="event.stopPropagation()">
       <h3 id="guideTipTitle">レッスン</h3>
@@ -1450,8 +1462,8 @@ function toggleDeck(key){
   // 自分のデッキ編成では、未解禁キャラはデッキに入れられない（CPUデッキ編成では制限しない）
   if(rosterMode==='guide' && key===guideForceUnit){ toast('このレッスンで学ぶキャラなので外せません'); return; }   // 強制ユニットはトグル不可
   if((rosterMode==='you'||rosterMode==='guide') && !unitUnlocked(key) && !(rosterMode==='guide'&&key===guideForceUnit)){
-    const u=UNIT_BY_KEY[key];
-    toast('🔒 '+((u&&u.name)||'このキャラ')+'はまだ仲間になっていません。戦術指南のクリアや🍬シュガーコインで解禁できます。');
+    if(rosterMode==='you'){ openUnlockModal(key); }   // キャラ一覧では解放方法（🍬コイン／戦術指南）を提示
+    else { const u=UNIT_BY_KEY[key]; toast('🔒 '+((u&&u.name)||'このキャラ')+'はまだ仲間になっていません。'); }   // レッスン編成は解禁済みから選ぶ
     return;
   }
   const deck=activeDeck();
@@ -4450,6 +4462,28 @@ function unlockUnit(key){ const u=UNIT_BY_KEY[key]; if(!u||u.summonOnly) return 
 function buyUnit(key){ if(unitUnlocked(key)) return false; const cost=unitUnlockCost(key); if(myCoins()<cost) return false; myProfile.coins=myCoins()-cost; unlockUnit(key); saveProfileLocal(); scheduleCloudSave(); return true; }
 // 既存プレイヤー救済：今のデッキに入っているキャラは解禁済み扱いにする（新解禁システムでデッキが壊れないように）。
 function migrateUnlocks(){ if(!Array.isArray(myProfile.units)) myProfile.units=[]; (myDeck||[]).forEach(function(k){ if(UNIT_BY_KEY[k] && !UNIT_BY_KEY[k].summonOnly && STARTER_UNITS.indexOf(k)<0 && myProfile.units.indexOf(k)<0) myProfile.units.push(k); }); }
+// キャラを解放するアーク（戦術指南）を探す（そのキャラを最終的に解禁するアーク）。無ければnull。
+function guideArcForUnit(key){ const arcs=guideArcs(); for(let i=0;i<arcs.length;i++){ if(arcUnit(arcs[i])===key) return arcs[i]; } return null; }
+// ロックキャラをタップしたとき：🍬コイン解放／戦術指南解放の2択を出す
+let unlockTargetKey='';
+function openUnlockModal(key){
+  const u=UNIT_BY_KEY[key]; if(!u) return; unlockTargetKey=key; try{ SFX.play('button'); }catch(e){}
+  const cost=unitUnlockCost(key), have=myCoins();
+  const box=$('unlockChar');
+  if(box) box.innerHTML='<div class="md-art">'+iconHTML(u,'p')+'</div>'
+    +'<div style="font-weight:700;font-size:17px;margin-top:6px">'+u.name+'</div>'
+    +'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+(u.short||'')+'</div>';
+  const bb=$('unlockBuyBtn');
+  if(bb) bb.innerHTML='🍬 シュガーコイン '+cost+' で解放<br><span style="font-size:11px;opacity:.85;font-weight:600">所持: '+have+(have<cost?'（あと '+(cost-have)+'）':'')+'</span>';
+  $('unlockModal').classList.remove('hidden');
+}
+function closeUnlock(e){ if(e&&e.target!==e.currentTarget) return; $('unlockModal').classList.add('hidden'); }
+function unlockByCoins(){
+  const key=unlockTargetKey; if(!key) return; const cost=unitUnlockCost(key);
+  if(myCoins()<cost){ toast('🍬 コインが足りません（あと '+(cost-myCoins())+'）。戦術指南でも無料で解放できます'); return; }
+  if(buyUnit(key)){ try{ SFX.play('button'); }catch(e){} toast('🎉 '+UNIT_BY_KEY[key].name+'を解放しました！'); try{ renderHomeCoins(); }catch(e){} closeUnlock(); renderRoster(); }
+}
+function unlockByGuide(){ const key=unlockTargetKey; closeUnlock(); const arc=guideArcForUnit(key); openGuide(); if(arc) openGuideArc(arc); }
 // 指定ユニットに「装備中かつ解禁済み」のスキンの立ち絵接頭辞(base)を返す。無ければ null。
 function activeSkinBase(unitKey){
   const id = myProfile.skins && myProfile.skins[unitKey]; if(!id) return null;
