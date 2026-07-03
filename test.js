@@ -3104,6 +3104,47 @@ console.log('\n=== 103) プリン/ショートケーキ 実戦スモーク（ste
   check('プリンがブーメランを投げた', boomSeen === true);
 }
 
+console.log('\n=== 104) マシュマロエンジェル改修：1体・高HP・攻撃しない・エンジェルだけなら負け ===');
+{
+  check('mangel は1体・攻撃0・高HP', API.UNIT_BY_KEY['mangel'].count === 1 && API.UNIT_BY_KEY['mangel'].atk === 0 && API.UNIT_BY_KEY['mangel'].hp >= 150);
+  check('mangel は noAttack フラグ', API.UNIT_BY_KEY['mangel'].noAttack === true);
+  // エンジェル自身は攻撃しない：射程内に敵を置いても敵HPが減らない
+  const wd = API.createWorld(W, H); wd.phase = 'battle'; wd.intro = 0; API.world = wd;
+  const ang = API.makeFighters('mangel', 'p', W, H, 'army')[0]; ang.appear = 1; ang.x = 200; ang.y = 300; wd.units.push(ang);
+  const foe = API.makeFighters('choco', 'e', W, H, 'army')[0]; foe.appear = 1; foe.x = 210; foe.y = 300; foe.hp = foe.maxHp = 500; wd.units.push(foe);
+  // エンジェルだけ vs 敵 → エンジェルは攻撃しないので敵は無傷、かつ p側は「戦える兵0」で負け判定になるはず
+  for (let f = 0; f < 30; f++) { API.stepWorld(wd, 1 / 60); if (wd.phase === 'outro') break; }
+  check('エンジェル自身は敵にダメージを与えない', foe.hp === 500, { hp: foe.hp });
+  check('残りがエンジェルだけの側は負け', wd.phase === 'outro' && wd.result === 'lose', { phase: wd.phase, result: wd.result });
+  // 逆に、エンジェル＋戦える味方が居れば即負けにはならない
+  const wd2 = API.createWorld(W, H); wd2.phase = 'battle'; wd2.intro = 0; API.world = wd2;
+  const ang2 = API.makeFighters('mangel', 'p', W, H, 'army')[0]; ang2.appear = 1; ang2.x = 200; ang2.y = 500; wd2.units.push(ang2);
+  const ck = API.makeFighters('cookie', 'p', W, H, 'army')[0]; ck.appear = 1; ck.x = 210; ck.y = 500; wd2.units.push(ck);
+  const en = API.makeFighters('choco', 'e', W, H, 'army')[0]; en.appear = 1; en.x = 210; en.y = 120; en.hp = en.maxHp = 9999; wd2.units.push(en);
+  API.stepWorld(wd2, 1 / 60);
+  check('エンジェル＋戦える味方が居れば負けにならない', wd2.phase === 'battle');
+}
+
+console.log('\n=== 105) イチゴタレット改修：狙われない・速射・設置者が死ぬと壊れる ===');
+{
+  check('タレットは untargetable', API.UNIT_BY_KEY['strawturret'].untargetable === true);
+  check('タレットの攻撃速度が速い(cd<=0.5)', API.UNIT_BY_KEY['strawturret'].cd <= 0.5);
+  // 敵はタレットを標的にできない
+  const wd = API.createWorld(W, H); API.world = wd;
+  const turret = API.makeFighters('strawturret', 'p', W, H, 'army')[0]; turret.appear = 1; turret.x = 200; turret.y = 300; wd.units.push(turret);
+  const foe = API.makeFighters('cookie', 'e', W, H, 'army')[0]; foe.appear = 1; foe.x = 205; foe.y = 300; wd.units.push(foe);
+  check('敵はタレットのみでは標的にできない(untargetable)', API.nearestEnemy(foe, wd) === null);
+  // ただしタレットは敵を攻撃できる（ranged）
+  check('タレットは敵を標的にできる', API.nearestEnemy(turret, wd) === foe);
+  // 設置者(ショートケーキ)が倒れるとタレットも壊れる
+  const wd2 = API.createWorld(W, H); API.world = wd2;
+  const cake = API.makeFighters('shortcake', 'p', W, H, 'army')[0]; cake.appear = 1; cake.x = 120; cake.y = 500; wd2.units.push(cake);
+  const t2 = API.deployTurret(wd2, cake); cake.myTurret = t2;
+  check('タレットが設置された', t2 && t2.hp > 0);
+  API.killUnit(wd2, cake);   // ショートケーキ死亡
+  check('設置者が死ぬとタレットも壊れる', t2.hp <= 0);
+}
+
 Promise.resolve().then(() => {
   console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
   process.exit(fail ? 1 : 0);
