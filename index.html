@@ -372,6 +372,11 @@
   .pack-reveal .pr-item{animation:revealPop .5s cubic-bezier(.2,1.5,.4,1) both}
   @keyframes revealPop{from{transform:scale(0) rotate(-14deg);opacity:0}to{transform:none;opacity:1}}
   .pack-btns{display:flex;gap:10px}
+  /* ガチャの大きい開けるボタン */
+  .shop-pull{display:block;width:100%;max-width:300px;margin:8px auto;padding:15px 12px;font-size:20px;font-weight:800;line-height:1.15}
+  .shop-pull .shop-pull-cost{display:block;font-size:12px;font-weight:700;opacity:.9;margin-top:2px}
+  .shop-pull11{background:linear-gradient(180deg,#ffd873,#f5a623);color:#3a2205;border:1px solid #ffe9a8}
+  .shop-pull11:hover{filter:brightness(1.05)}
   .vs-badge{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:"Oswald",sans-serif;font-weight:800;font-size:54px;color:#fff;-webkit-text-stroke:3px #2a1a10;text-shadow:0 6px 18px rgba(0,0,0,.5);z-index:2}
   .vs-cutin.play{animation:vsFade 2s ease forwards}
   .vs-cutin.play .vs-row-foe{animation:vsTop 2s ease forwards}
@@ -820,15 +825,14 @@
   </div>
   <div id="shopModal" class="modal-overlay hidden" onclick="closeShop(event)">
     <div class="modal-card" onclick="event.stopPropagation()">
-      <h3>🎁 ショップ＆コレクション</h3>
-      <div style="text-align:center;font-size:16px;margin:2px 0 8px" id="shopCoins">🍬 <b>0</b> シュガーコイン</div>
-      <div style="text-align:center;margin-bottom:6px">
-        <button class="btn btn-primary" id="buyPackBtn" onclick="buyPack()">パックを開ける（🍬<span id="packCostLabel">120</span>）</button>
-      </div>
-      <div id="packResult" style="min-height:0;text-align:center;margin:6px 0"></div>
-      <p style="font-size:11.5px;color:var(--muted);text-align:center;margin:4px 0 2px">見た目だけのごほうびです（対戦バランスには影響しません）。同じものが出たら、そのキャラの<b>熟練度XP</b>になります。</p>
-      <div id="collectionGrid" style="max-height:46vh;overflow-y:auto;margin-top:6px"></div>
-      <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px">アイコン／スキンはパックには出ません（キャラの熟練度でのみ解禁＝キャラ詳細の「熟練度」から）。</p>
+      <h3>🎁 ガチャ</h3>
+      <div style="text-align:center;font-size:16px;margin:2px 0 12px" id="shopCoins">🍬 <b>0</b> シュガーコイン</div>
+      <button class="btn btn-primary shop-pull" id="buyPackBtn" onclick="buyPack()">パックを開ける<span class="shop-pull-cost">🍬 <span id="packCostLabel">120</span></span></button>
+      <button class="btn shop-pull shop-pull11" id="buyPack11Btn" onclick="buyPack11()">11連を開ける<span class="shop-pull-cost">🍬 <span id="pack11CostLabel">1200</span>（1回ぶんお得！）</span></button>
+      <div style="text-align:center;margin:12px 0 4px"><button class="btn btn-ghost" onclick="openPackPool()">📋 排出内容を見る</button></div>
+      <div id="packResult" style="display:none"></div>
+      <p style="font-size:11.5px;color:var(--muted);text-align:center;margin:6px 0 2px">見た目だけのごほうびです（対戦バランスには影響しません）。同じものが出たら、そのキャラの<b>熟練度XP</b>になります。装備は「👤プロフィール」から。</p>
+      <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:4px">アイコン／スキンはパックには出ません（キャラの熟練度でのみ解禁＝キャラ詳細の「熟練度」から）。</p>
       <div style="text-align:center;margin-top:12px"><button class="btn btn-ghost" onclick="closeShop()">閉じる</button></div>
     </div>
   </div>
@@ -836,15 +840,24 @@
   <div id="packOpenLayer" class="pack-layer hidden">
     <div class="pack-stage">
       <div id="packWrap" class="pack wobble" onclick="ripPack()">
-        <div class="pack-half pack-top"><span class="pack-logo">🍬</span><span class="pack-title">シュガーパック</span></div>
+        <div class="pack-half pack-top"><span class="pack-logo">🍬</span><span class="pack-title" id="packTitleTxt">シュガーパック</span></div>
         <div class="pack-half pack-bot"><span class="pack-hint">タップで開ける！</span></div>
       </div>
       <div id="packBurst" class="pack-burst"></div>
       <div id="packReveal" class="pack-reveal hidden"></div>
       <div id="packBtns" class="pack-btns hidden">
         <button class="btn btn-ghost" onclick="closePackOpen()">とじる</button>
-        <button class="btn btn-primary" id="packAgainBtn" onclick="packOpenAgain()">もう一度（🍬<span id="packAgainCost">120</span>）</button>
+        <button class="btn btn-primary" id="packAgainBtn" onclick="packOpenAgain()">もう一度</button>
       </div>
+    </div>
+  </div>
+  <!-- ガチャ排出内容（読み取り専用の一覧） -->
+  <div id="poolModal" class="modal-overlay hidden" onclick="closePackPool(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <h3>📋 排出内容</h3>
+      <p style="font-size:12px;color:var(--muted);text-align:center;margin:0 0 8px">パックから出る見た目アイテム（すべて同確率）。✓＝所持済み。</p>
+      <div id="poolGrid" style="max-height:56vh;overflow-y:auto"></div>
+      <div style="text-align:center;margin-top:12px"><button class="btn btn-ghost" onclick="closePackPool()">閉じる</button></div>
     </div>
   </div>
   <!-- 【開発用】テスト対戦：自分と相手CPUのデッキを自由に選ぶ -->
@@ -4411,6 +4424,8 @@ function skinUnlocked(id){ const s=SPECIAL_SKIN_BY_ID[id]; return !!s && (master
    調整したい数値はこのブロック先頭の定数（PACK_COST／COIN_各種／PACK_DUP_XP）と各コレクション配列。
    ============================================================ */
 const PACK_COST      = 120;   // カードパック1回の価格（コイン）
+const PACK11_COUNT   = 11;    // 11連で開ける枚数
+const PACK11_COST    = 1200;  // 11連の価格（10回ぶんで11枚＝1回お得）
 const COIN_PLAY      = 10;    // 対戦を終えるともらえる参加報酬
 const COIN_WIN       = 15;    // 勝ったときの追加ボーナス
 const COIN_DAILY_WIN = 50;    // その日の初勝利ボーナス（1日1回）
@@ -4939,8 +4954,11 @@ function renderHomeCoins(){ const el=$('homeCoins'); if(el) el.textContent='🍬
 /* ===== ショップ＆コレクション（見た目だけ・対戦バランス不変） ===== */
 function openShop(){ try{ SFX.play('button'); }catch(e){} const mm=$('menuModal'); if(mm) mm.classList.add('hidden'); renderShop(); const m=$('shopModal'); if(m) m.classList.remove('hidden'); }
 function closeShop(e){ if(e && e.target!==e.currentTarget) return; const m=$('shopModal'); if(m) m.classList.add('hidden'); }
-function renderShop(){ const cl=$('packCostLabel'); if(cl) cl.textContent=PACK_COST; renderShopCoins(); const pr=$('packResult'); if(pr) pr.innerHTML=''; renderCollection(); }
-function renderShopCoins(){ const el=$('shopCoins'); if(el) el.innerHTML='🍬 <b>'+myCoins()+'</b> シュガーコイン'; const btn=$('buyPackBtn'); if(btn){ btn.disabled=myCoins()<PACK_COST; btn.style.opacity=btn.disabled?'.5':'1'; } renderHomeCoins(); }
+function renderShop(){ const cl=$('packCostLabel'); if(cl) cl.textContent=PACK_COST; const c11=$('pack11CostLabel'); if(c11) c11.textContent=PACK11_COST; renderShopCoins(); }
+function renderShopCoins(){ const el=$('shopCoins'); if(el) el.innerHTML='🍬 <b>'+myCoins()+'</b> シュガーコイン';
+  const btn=$('buyPackBtn'); if(btn){ btn.disabled=myCoins()<PACK_COST; btn.style.opacity=btn.disabled?'.5':'1'; }
+  const b11=$('buyPack11Btn'); if(b11){ b11.disabled=myCoins()<PACK11_COST; b11.style.opacity=b11.disabled?'.5':'1'; }
+  renderHomeCoins(); }
 // アイテムの小さな見た目プレビュー（コレクション/開封結果用）。
 function packItemVisual(it, size){ size=size||40;
   if(it.type==='ava')  return avatarHTML(it.id, size);
@@ -4950,22 +4968,33 @@ function packItemVisual(it, size){ size=size||40;
   if(it.type==='title'||it.type==='titlePre'||it.type==='titleSuf') return '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:'+size+'px;height:'+size+'px;font-size:11px;font-weight:700;color:var(--brass)">「'+it.name+'」</span>';
   return '';
 }
-// パックを1回開ける（コインを消費）。中身は即確定し、演出（登場→タップでビリッ→中身）で見せる。
-let _packPending=null;
+// パックを開ける（コインを消費）。中身は即確定し、演出（登場→タップでビリッ→中身）で見せる。
+let _packPending=null, _packLastKind='one';
 function buyPack(){
   if(myCoins()<PACK_COST){ toast('コインが足りません（🍬'+PACK_COST+'必要）'); return; }
   try{ SFX.play('pick'); }catch(e){}
   myProfile.coins=myCoins()-PACK_COST;
-  const res=openPackOnce(Math.random());
-  saveProfileLocal(); scheduleCloudSave();
-  renderShopCoins();
-  showPackOpen(res);
+  _packLastKind='one';
+  const arr=[openPackOnce(Math.random())].filter(Boolean);
+  saveProfileLocal(); scheduleCloudSave(); renderShopCoins();
+  showPackOpen(arr);
 }
-// 開封オーバーレイを出す（パックが登場して待機）。
-function showPackOpen(res){
+// 11連（1200コイン＝10回ぶんで11枚）。
+function buyPack11(){
+  if(myCoins()<PACK11_COST){ toast('コインが足りません（🍬'+PACK11_COST+'必要）'); return; }
+  try{ SFX.play('pick'); }catch(e){}
+  myProfile.coins=myCoins()-PACK11_COST;
+  _packLastKind='eleven';
+  const arr=[]; for(let i=0;i<PACK11_COUNT;i++){ const r=openPackOnce(Math.random()); if(r) arr.push(r); }
+  saveProfileLocal(); scheduleCloudSave(); renderShopCoins();
+  showPackOpen(arr);
+}
+// 開封オーバーレイを出す（パックが登場して待機）。arr=結果の配列（1件 or 11件）。
+function showPackOpen(arr){
   const layer=$('packOpenLayer');
-  if(!layer){ renderCollection(); return; }   // 念のためのフォールバック
-  _packPending=res;
+  if(!layer || !arr || !arr.length){ renderShopCoins(); return; }   // 念のため
+  _packPending=arr;
+  const tt=$('packTitleTxt'); if(tt) tt.textContent = (arr.length>1) ? (arr.length+'連パック') : 'シュガーパック';
   const wrap=$('packWrap'); if(wrap){ wrap.className='pack wobble'; wrap.style.visibility=''; }
   const rv=$('packReveal'); if(rv){ rv.classList.add('hidden'); rv.innerHTML=''; }
   const bt=$('packBtns'); if(bt) bt.classList.add('hidden');
@@ -4975,11 +5004,11 @@ function showPackOpen(res){
 // パックをビリッと破く（タップ）。1回だけ反応。
 function ripPack(){
   if(!_packPending) return;
-  const res=_packPending; _packPending=null;
+  const arr=_packPending; _packPending=null;
   const wrap=$('packWrap'); if(wrap){ wrap.classList.remove('wobble'); wrap.classList.add('ripped'); }
   try{ SFX.play('button'); }catch(e){}
   packBurstFx();
-  setTimeout(function(){ revealPackItem(res); }, 470);
+  setTimeout(function(){ revealPackItems(arr); }, 470);
 }
 // 破いた瞬間の砂糖バースト。
 function packBurstFx(){
@@ -4994,27 +5023,62 @@ function packBurstFx(){
     b.appendChild(s);
   }
 }
-// 中身をバーンと表示。
-function revealPackItem(res){
-  const wrap=$('packWrap'); if(wrap) wrap.style.visibility='hidden';
-  const rv=$('packReveal'); if(!rv||!res) return; const it=res.item;
-  const kind={frame:'フレーム',titlePre:'二つ名（前半）',titleSuf:'二つ名（後半）',title:'二つ名',color:'ネームカラー',ava:'アイコン',skin:'スキン'}[it.type]||'アイテム';
-  let body;
-  if(res.dup){ const u=UNIT_BY_KEY[it.unit]; body='<div style="font-weight:700;color:#8fd0ff;font-size:14px">重複！ 「'+it.name+'」<br>'+(u?u.name:it.unit)+'の熟練度 +'+res.xp+'XP</div>'; }
-  else body='<div style="font-weight:800;color:#8dfba7;font-size:15px">🎉 NEW！ '+kind+'<br>「'+it.name+'」を入手！</div>';
-  rv.innerHTML='<div class="pr-item" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 20px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.28);border-radius:16px">'
-    + '<div style="transform:scale(1.6);margin:6px 0">'+packItemVisual(it,52)+'</div>' + body + '</div>';
-  rv.classList.remove('hidden');
-  try{ SFX.play('battleStart'); }catch(e){}
-  const ag=$('packAgainCost'); if(ag) ag.textContent=PACK_COST;
-  const agBtn=$('packAgainBtn'); if(agBtn){ const can=myCoins()>=PACK_COST; agBtn.disabled=!can; agBtn.style.opacity=can?'1':'.5'; }
-  const bt=$('packBtns'); if(bt) bt.classList.remove('hidden');
-  renderShopCoins(); renderCollection();
+const PACK_KIND_LABEL={frame:'フレーム',titlePre:'二つ名（前半）',titleSuf:'二つ名（後半）',title:'二つ名',color:'ネームカラー',ava:'アイコン',skin:'スキン'};
+// 11連用の小カード（NEW/重複を枠色で表示）。
+function packItemMini(res){
+  const it=res.item, col=res.dup?'#8fd0ff':'#8dfba7';
+  return '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px;border:2px solid '+col+';border-radius:10px;background:rgba(255,255,255,.08);width:66px">'
+    + packItemVisual(it,32)
+    + '<div style="font-size:10px;color:'+col+';font-weight:800">'+(res.dup?'重複':'NEW')+'</div>'
+    + '<div style="font-size:10px;color:#fff;opacity:.85;max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+it.name+'</div></div>';
 }
-// 「もう一度」＝コインが足りれば新しいパックを開ける。
-function packOpenAgain(){ buyPack(); }
+// 中身をバーンと表示（1件＝大カード／複数＝グリッド）。
+function revealPackItems(arr){
+  const wrap=$('packWrap'); if(wrap) wrap.style.visibility='hidden';
+  const rv=$('packReveal'); if(!rv||!arr||!arr.length) return;
+  try{ SFX.play('battleStart'); }catch(e){}
+  if(arr.length===1){
+    const res=arr[0], it=res.item, kind=PACK_KIND_LABEL[it.type]||'アイテム';
+    const body = res.dup
+      ? '<div style="font-weight:700;color:#8fd0ff;font-size:14px">重複！ 「'+it.name+'」<br>'+((UNIT_BY_KEY[it.unit]||{}).name||it.unit)+'の熟練度 +'+res.xp+'XP</div>'
+      : '<div style="font-weight:800;color:#8dfba7;font-size:15px">🎉 NEW！ '+kind+'<br>「'+it.name+'」を入手！</div>';
+    rv.innerHTML='<div class="pr-item" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 20px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.28);border-radius:16px">'
+      + '<div style="transform:scale(1.6);margin:6px 0">'+packItemVisual(it,52)+'</div>' + body + '</div>';
+  } else {
+    const news=arr.filter(function(r){return !r.dup;}).length, dups=arr.length-news;
+    rv.innerHTML='<div class="pr-item" style="display:flex;flex-direction:column;align-items:center;gap:8px">'
+      + '<div style="font-weight:800;color:#fff;font-size:16px">'+arr.length+'連！　<span style="color:#8dfba7">NEW '+news+'</span>／<span style="color:#8fd0ff">重複 '+dups+'</span></div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:300px;max-height:44vh;overflow-y:auto">'+arr.map(packItemMini).join('')+'</div></div>';
+  }
+  rv.classList.remove('hidden');
+  const cost=(_packLastKind==='eleven')?PACK11_COST:PACK_COST;
+  const agBtn=$('packAgainBtn'); if(agBtn){ agBtn.textContent='もう一度（🍬'+cost+'）'; const can=myCoins()>=cost; agBtn.disabled=!can; agBtn.style.opacity=can?'1':'.5'; }
+  const bt=$('packBtns'); if(bt) bt.classList.remove('hidden');
+  renderShopCoins();
+}
+// 「もう一度」＝直前と同じ種類（単発/11連）をコインが足りれば開ける。
+function packOpenAgain(){ if(_packLastKind==='eleven') buyPack11(); else buyPack(); }
 // 開封を閉じてショップへ戻る。
 function closePackOpen(){ const l=$('packOpenLayer'); if(l) l.classList.add('hidden'); const wrap=$('packWrap'); if(wrap) wrap.style.visibility=''; _packPending=null; renderShop(); }
+// 排出内容（読み取り専用の一覧・所持マーク付き）。装備はプロフィール編集から。
+function openPackPool(){ try{ SFX.play('button'); }catch(e){} renderPackPool(); const m=$('poolModal'); if(m) m.classList.remove('hidden'); }
+function closePackPool(e){ if(e && e.target!==e.currentTarget) return; const m=$('poolModal'); if(m) m.classList.add('hidden'); }
+function renderPackPool(){
+  const box=$('poolGrid'); if(!box) return;
+  const sec=function(title, items, vtype){
+    const rows=items.map(function(it){ const owned=ownsCollected(it.id);
+      return '<div style="display:flex;align-items:center;gap:10px;padding:5px 4px;border-bottom:1px dashed var(--line);opacity:'+(owned?'1':'.72')+'">'
+        + packItemVisual({type:vtype,id:it.id,name:it.name},30)
+        + '<div style="flex:1;font-size:13px;font-weight:600">'+it.name+'</div>'
+        + (owned?'<span style="font-size:12px;color:var(--green);font-weight:700">✓ 所持</span>':'<span style="font-size:11px;color:var(--muted)">未所持</span>')+'</div>';
+    }).join('');
+    return '<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:800;color:var(--muted);margin:4px 0">'+title+'（'+items.length+'）</div>'+rows+'</div>';
+  };
+  box.innerHTML = sec('🖼 フレーム', FRAMES, 'frame')
+    + sec('🏷 二つ名（前半）', TITLE_PRE, 'title')
+    + sec('🏷 二つ名（後半）', TITLE_SUF, 'title')
+    + sec('🎨 ネームカラー', NAME_COLORS, 'color');
+}
 // コレクション一覧（フレーム／称号／ネームカラー）。所持=装備トグル、未所持=🔒。
 function renderCollection(){
   const box=$('collectionGrid'); if(!box) return;

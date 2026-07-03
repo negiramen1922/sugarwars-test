@@ -237,12 +237,14 @@
 
 - **通貨（🍬シュガーコイン＝`myProfile.coins`）**：課金ではなく**対戦報酬**で配る（子ども向けに安全）。`grantBattleReward(won)` を決着時に呼ぶ＝**CPU/PVP両方**（`endGame`＋子の `pvpGuestOnGameover`。チュートリアルは除外）。報酬額は純粋関数 `battleCoinReward(won, firstWinToday)`＝`COIN_PLAY`(10・参加)＋`COIN_WIN`(15・勝利)＋`COIN_DAILY_WIN`(50・その日の初勝利=`myProfile.dailyWinKey` で1日1回)。ホーム＆ショップに残高表示（`renderHomeCoins`/`renderShopCoins`）。
 - **カードパック**：`PACK_COST`(120コイン)で `buyPack()`→`openPackOnce(Math.random())`。中身は**レア度なし＝全アイテム同確率**（`packPool()`＝フレーム＋称号＋ネームカラーの**見た目3種のみ**）。抽選は純粋関数 `rollPack(pool, r)`（0..1）。**★アイコン(アバター)/スキンはガチャに出さない**＝それらは**キャラの熟練度でのみ解禁**（熟練度報酬をガチャで進めさせない＝対戦を常にフェアに）。
-- **開封演出（CSS描画・絵素材不要）**：`buyPack` は中身を即確定して `showPackOpen(res)`→全画面 `#packOpenLayer`。パック（`.pack`＝🍬柄の包装・点線の切り取り線）が登場して待機→**タップ `ripPack()` でギザギザに2分割（`clip-path`）して上下に飛ぶ＋砂糖バースト `packBurstFx()`**→`revealPackItem` で中身を「NEW！/重複！」でポップ表示（`もう一度`=`packOpenAgain`／`とじる`=`closePackOpen`）。ロジック（`openPackOnce`）は不変＝ヘッドレステストに影響なし。
+- **11連**：`PACK11_COST`(1200＝10回ぶん)で `buyPack11()`＝`PACK11_COUNT`(11)回 `openPackOnce` を回す（1回お得）。単発 `buyPack`/11連 `buyPack11` とも結果を**配列**で `showPackOpen(arr)` に渡す（test.js 111）。
+- **開封演出（CSS描画・絵素材不要）**：中身を即確定して `showPackOpen(arr)`→全画面 `#packOpenLayer`。パック（`.pack`＝🍬柄の包装・点線の切り取り線／11連は「11連パック」表示）が登場して待機→**タップ `ripPack()` でギザギザに2分割（`clip-path`）して上下に飛ぶ＋砂糖バースト `packBurstFx()`**→`revealPackItems(arr)` で中身を表示（1件＝大カード／複数＝`packItemMini` のグリッド＋NEW/重複の集計）。`もう一度`=`packOpenAgain`（直前と同じ種類）／`とじる`=`closePackOpen`。ロジック（`openPackOnce`）は不変＝ヘッドレステストに影響なし。
+- **排出内容モーダル**：ショップの「📋 排出内容を見る」→`openPackPool()`→`#poolModal`（`renderPackPool`＝プールを読み取り専用で一覧・所持✓/未所持マーク）。**ショップからは所持一覧/装備UI（旧`renderCollection`）は撤去し、装備はプロフィール編集(`renderProfileCosmetics`)に一本化**。
 - **初入手 vs 重複**：`alreadyHave(item)`（`ownsCollected`）で判定。初入手→`myProfile.collected[id]` に加算して**解禁**。**重複→そのアイテムのテーマキャラ(`unit`)の熟練度XPに変換**（`addMasteryXp`・`PACK_DUP_XP`=25／重複で熟練度が早く進む助け）。
 - **見た目3種（絵素材不要・CSS/テキスト）**：`FRAMES`（アイコン装飾枠＝box-shadow）／**二つ名＝`TITLE_PRE`（前半）＋`TITLE_SUF`（後半）を1つずつ組み合わせて作る**（`titleText()`＝装備中の前半＋後半・`titleTextOf(pre,suf)`＝任意組み合わせ）／`NAME_COLORS`（名前の色・グラデ）。各行に `unit`（テーマ表示用）。装備は `myProfile.frame/titlePre/titleSuf/nameColor`＋`equipFrame/equipTitlePre/equipTitleSuf/equipNameColor`（トグル・所持のみ）。表示は**自分のプロフィールチップ**（`renderProfileChip`）＋**プロフィール編集の見た目UI**（`renderProfileCosmetics`＝#authModal内・持っているアイテムから選ぶ＋二つ名プレビュー）＋VSカットイン。二つ名パーツはガチャ排出（`packPool` が `titlePre`/`titleSuf` を出す・`renderCollection` は前半/後半の2セクション）。
 - **アイコン/スキンは熟練度のみで解禁**（ガチャ非排出）：`avatarUnlocked`/`skinUnlocked` は熟練度Lvで判定（`ownsCollected` fallbackは残すが、パックがそれらを配らないので実質使わない）。フレーム/二つ名パーツ/ネームカラーを増やすときは各配列（`FRAMES`/`TITLE_PRE`/`TITLE_SUF`/`NAME_COLORS`）に1行足すだけでパックプール・コレクション画面（`renderCollection`）・プロフィール編集の見た目UIに自動反映。アイコン/スキンを増やすときは `SPRITE_DATA` 注入＋`SPECIAL_AVATARS`/`SPECIAL_SKINS`（熟練度ロードマップに反映）。
 - **保存**：`coins`/`collected`/`frame`/`title`/`nameColor`/`dailyWinKey` を `saveProfileLocal`（端末）＋`buildProfile`/`applyProfile`（クラウド）に統合。マージは coins=大きい方・collected=個数の大きい方（進捗が消えない割り切り）。
-- **UI**：ホームメニュー「🎁 ショップ＆コレクション」＋ホームのコイン表示（クリックでショップ）→ `#shopModal`（`openShop`/`closeShop`/`renderShop`）。
+- **UI**：ホームメニュー「🎁 ショップ」＋ホームのコイン表示（クリックでショップ）→ `#shopModal`（`openShop`/`closeShop`/`renderShop`＝大きい「パックを開ける(120)」「11連を開ける(1200)」＋「📋排出内容を見る」）。
 
 ## キャラ解禁（スターター＋🍬シュガーコイン・実装済み・`<script>`「13.6) キャラ解禁」）
 
