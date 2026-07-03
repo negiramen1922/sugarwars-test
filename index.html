@@ -861,7 +861,7 @@ const UNITS = [
   // anim=立ち絵のフレーム配列（spriteForが world.t で animFps 枚/秒で切替）。挙動/バランスは今後。
   {key:'mangel', name:'マシュマロエンジェル', icon:'👼', role:'support', tier:0, count:1, atk:0, hp:240, speed:88, range:24, cd:0.7, tag:'守護天使', short:'攻撃せず、味方の被弾を広く肩代わりする支援（1体・高HP）', text:'ふわふわ空を飛ぶ天使のマシュマロ。自分は攻撃せず、近くの味方が受けるダメージを身代わりで引き受ける支援専門。空の上なので近接攻撃では狙われないが、味方を守るうちに自分から先に溶けていく。※エンジェルだけが戦場に残っても勝てない（攻撃できないため）。', anim:['mangel_1','mangel_2','mangel_3'], animRed:['mangel_red_1','mangel_red_2','mangel_red_3'], animFps:5, fly:true, guardian:true, noAttack:true, test:true, beta:true},
   // クマグミ（開発テスト中・静止立ち絵）。青/赤の陣営色を anim(1枚) の仕組みで出し分け。挙動/バランスは今後。
-  {key:'kumagumi', name:'クマグミ', icon:'🐻', role:'fodder', tier:0, count:3, atk:12, hp:60, speed:100, range:24, cd:0.5, tag:'仲間化', short:'倒した敵を自軍のクマグミに変える（3体）', text:'倒した敵を自分の仲間（クマグミ）に変えてしまう、もちもちのクマのグミ。倒すほど軍勢がどんどん増えていく雪だるま式のこわいやつ。', anim:['kumagumi_blue'], animRed:['kumagumi_red'], animFps:1, recruit:true, test:true, beta:true},
+  {key:'kumagumi', name:'クマグミ', icon:'🐻', role:'fodder', tier:0, count:4, atk:8, hp:50, speed:100, range:24, cd:0.5, tag:'仲間化', short:'倒した敵を自軍のクマグミに変える（4体）', text:'倒した敵を自分の仲間（クマグミ）に変えてしまう、もちもちのクマのグミ。倒すほど軍勢がどんどん増えていく雪だるま式のこわいやつ。仲間化で生まれる子グミは本体より少し弱い。', anim:['kumagumi_blue'], animRed:['kumagumi_red'], animFps:1, recruit:true, test:true, beta:true},
   // プリン（開発テスト中）。スプーンをブーメランのように投げ、往復で経路上の敵を薙ぐ。1枚=1体。立ち絵は青/赤の陣営色（anim1枚）。
   {key:'purin', name:'ブーメランプリン', icon:'🍮', role:'back', tier:1.5, count:1, atk:16, hp:80, speed:70, range:150, cd:1.6, tag:'ブーメラン', short:'スプーンを投げて往復で敵を薙ぐプリン（1体）', text:'銀のスプーンをブーメランのように投げて戦うプリン。行きと帰りで直線上の敵を2回薙ぎ払う。まとまった敵の列に強い。', boomerang:true, boomDist:150, boomSp:300, boomR:15, anim:['purin_blue'], animRed:['purin_red'], animFps:1, test:true, beta:true},
   // ショートケーキ（開発テスト中・スプライト無し＝絵文字）。開幕に自分の位置へイチゴタレットを設置する。1枚=1体。
@@ -981,6 +981,8 @@ const MACARON_HP = 0.8;          // マカロンアーマー：HP上昇率（+80
 const FOE_MACARON_CHANCE = 0.4;  // 敵（ライバル）がビッグシェルを使う確率
 /* ★クマグミ（倒した敵を自軍のクマグミに仲間化＝数で雪だるま式に増える）。in-battleのみ（毎戦リセット・召喚兵と同じ battlefield 限定で軍には持ち越さない）。 */
 const KUMA_BOARD_CAP = X2_BOARD_CAP;   // 仲間化で増やせる同陣営の盤面上限（増えすぎ防止・X2と共通=120）
+const KUMA_RECRUIT_HP = 30;   // 仲間化で生まれる子グミのHP（素の4体より弱い＝雪だるまが暴走しにくい）
+const KUMA_RECRUIT_ATK = 6;   // 仲間化で生まれる子グミの攻撃力
 /* ★マシュマロエンジェル（浮遊＝近接では狙われない／周囲の味方の被ダメを肩代わり＝身代わりで先に落ちる支援）。 */
 const MANGEL_R = 88;          // 守護範囲(px)：この円内の味方の被ダメを肩代わり
 const MANGEL_SOAK = 0.40;     // 肩代わり率（味方の被ダメの40%をエンジェルが自分のHPで受ける＝先に落ちる）
@@ -2682,7 +2684,12 @@ function guardSoak(world, tgt, real){
 function recruitKuma(world, side, x, y){
   const mine = world.units.reduce((n,u)=> n + ((u.side===side && u.hp>0)?1:0), 0);
   if(mine >= KUMA_BOARD_CAP) return;   // 増えすぎ防止
-  const k = makeFighters('kumagumi', side, world.W, world.H)[0];   // count=3だが仲間化は1体ずつ
+  const k = makeFighters('kumagumi', side, world.W, world.H)[0];   // count=4だが仲間化は1体ずつ
+  // 仲間化で生まれる子グミは本体より弱い（HP/攻撃を専用値に）＝雪だるまが暴走しにくい
+  k.maxHp = KUMA_RECRUIT_HP; k.baseMaxHp = KUMA_RECRUIT_HP; k.hp = KUMA_RECRUIT_HP;
+  k.atk = KUMA_RECRUIT_ATK; k.baseAtk = KUMA_RECRUIT_ATK;
+  k.r = Math.max(5, Math.min(11, 5+KUMA_RECRUIT_HP*0.028)); k.baseR = k.r;   // 当たり判定もHP基準で小さく
+  k.recruited = true;
   k.x = Math.max(k.r, Math.min(world.W-k.r, x+(Math.random()-0.5)*10));
   k.y = Math.max(k.r, Math.min(world.H-k.r, y+(Math.random()-0.5)*10));
   k.appear = 0;
