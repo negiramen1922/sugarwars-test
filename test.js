@@ -84,6 +84,8 @@ code += `
   get MASTERY_WIN_XP(){ return MASTERY_WIN_XP; }, get MASTERY_LOSE_XP(){ return MASTERY_LOSE_XP; }, get MASTERY_XP_PER_LEVEL(){ return MASTERY_XP_PER_LEVEL; },
   mmPickWaiter, pvpResumeIsRecent, pvpReconnRemain, eloExpected, eloDelta, myTrophies, presenceCounts,
   shareResultText, roomInviteUrl, parseRoomCode, get SHARE_URL(){ return SHARE_URL; },
+  computeLoginUpdate, loginCoinReward, grantLoginMilestones, loginCheckin, myLoginTotal, myLoginStreak,
+  get LOGIN_MILESTONES(){ return LOGIN_MILESTONES; }, get LOGIN_COIN_BASE(){ return LOGIN_COIN_BASE; }, get LOGIN_COIN_STEP(){ return LOGIN_COIN_STEP; }, get LOGIN_COIN_MAX(){ return LOGIN_COIN_MAX; },
   enhDisplay, specialCardIcon, abilitiesHTML, get UNIT_ABILITIES(){ return UNIT_ABILITIES; },
   pvpDecideIAmHost, pvpMatchupType, unitDamageType, unitAtkText, mostUsedUnit,
   spriteFor, get SPRITES(){ return SPRITES; },
@@ -3340,6 +3342,51 @@ console.log('\n=== 112) シェア＆招待（プレイヤー増加の導線） =
   check('parseRoomCode room無しは空', API.parseRoomCode('?foo=bar') === '' && API.parseRoomCode('') === '');
   check('parseRoomCode roundtrip（招待URLから復元できる）', API.parseRoomCode('?' + API.roomInviteUrl('https://x/', 'K7MN').split('?')[1]) === 'K7MN');
   check('SHARE_URL は https の絶対URL', /^https:\/\//.test(API.SHARE_URL), API.SHARE_URL);
+}
+
+console.log('\n=== 113) 継続ログイン報酬 ===');
+{
+  // computeLoginUpdate：純粋な連続/累計ロジック
+  const first = API.computeLoginUpdate({}, '2026-7-3', '2026-7-2');
+  check('初ログイン：streak1・total1・changed', first.changed && first.streak === 1 && first.total === 1);
+  const cont = API.computeLoginUpdate({ last: '2026-7-2', streak: 3, best: 3, total: 5 }, '2026-7-3', '2026-7-2');
+  check('昨日ログイン済み：連続+1（streak4・total6）', cont.streak === 4 && cont.total === 6 && cont.best === 4);
+  const gap = API.computeLoginUpdate({ last: '2026-6-30', streak: 9, best: 9, total: 20 }, '2026-7-3', '2026-7-2');
+  check('間があいたら連続は1に戻る・累計は+1・bestは維持', gap.streak === 1 && gap.total === 21 && gap.best === 9);
+  const same = API.computeLoginUpdate({ last: '2026-7-3', streak: 4, best: 4, total: 6 }, '2026-7-3', '2026-7-2');
+  check('同じ日はchanged=false（二重付与しない）', same.changed === false && same.total === 6);
+
+  // loginCoinReward：連続でスケール＋上限
+  check('連続1日目=BASE', API.loginCoinReward(1) === API.LOGIN_COIN_BASE);
+  check('連続2日目=BASE+STEP', API.loginCoinReward(2) === API.LOGIN_COIN_BASE + API.LOGIN_COIN_STEP);
+  check('十分続けたら上限MAXで頭打ち', API.loginCoinReward(7) === API.LOGIN_COIN_MAX && API.loginCoinReward(100) === API.LOGIN_COIN_MAX);
+  check('streak0/負でも最低BASE', API.loginCoinReward(0) === API.LOGIN_COIN_BASE);
+
+  // マイルストーンは累計日数で解禁（見た目のみ）。ガチャには出さない。
+  const pool = API.packPool();
+  const loginIds = ['frame_login7', 'ava_login10', 'tp_everyday', 'ts_king', 'nc_login50', 'ava_login100'];
+  check('ログイン限定の見た目はガチャプールに出ない', loginIds.every(id => !pool.some(p => p.id === id)));
+
+  const prof = API.myProfileRef;
+  prof.collected = {}; prof.login = { last: '', streak: 0, best: 0, total: 0 };
+  check('累計9日ではava_login10はロック', (function () { prof.login.total = 9; return API.avatarUnlocked('ava_login10') === false; })());
+  check('累計10日でava_login10が解禁', (function () { prof.login.total = 10; return API.avatarUnlocked('ava_login10') === true; })());
+  // grantLoginMilestones：到達済みを collected に付与（新規のみ返す）
+  prof.collected = {}; prof.login.total = 30;
+  const newly = API.grantLoginMilestones(30);
+  check('累計30日で 7/10/30日ぶんが解禁される', newly.length === 3 && API.ownsCollected('frame_login7') && API.ownsCollected('ava_login10') && API.ownsCollected('tp_everyday') && API.ownsCollected('ts_king'));
+  check('50/100日はまだ解禁されない', !API.ownsCollected('nc_login50') && !API.ownsCollected('ava_login100'));
+  const newly2 = API.grantLoginMilestones(30);
+  check('再実行では新規解禁ゼロ（重複付与しない）', newly2.length === 0);
+
+  // loginCheckin：今日ぶんのコイン付与＋累計インクリメント（Dateは実行時）
+  prof.collected = {}; prof.login = { last: '', streak: 0, best: 0, total: 0 }; prof.coins = 0;
+  const r1 = API.loginCheckin();
+  check('初チェックインでコインが付与される', r1 && r1.coins === API.LOGIN_COIN_BASE && API.myCoins() === API.LOGIN_COIN_BASE);
+  check('初チェックインで累計1日・連続1日', API.myLoginTotal() === 1 && API.myLoginStreak() === 1);
+  const r2 = API.loginCheckin();
+  check('同じ日の再チェックインは無効（null・コイン変動なし）', r2 === null && API.myCoins() === API.LOGIN_COIN_BASE);
+  prof.collected = {}; prof.login = { last: '', streak: 0, best: 0, total: 0 }; prof.coins = 0;
 }
 
 Promise.resolve().then(() => {
