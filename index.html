@@ -4372,24 +4372,24 @@ const FRAMES = [
 const FRAME_BY_ID = Object.fromEntries(FRAMES.map(f=>[f.id,f]));
 // 二つ名（名前の横に付くテキスト）は「前半＋後半」を1つずつ組み合わせて作る。パーツはガチャで集める。unit=テーマ。
 const TITLE_PRE = [
-  { id:'tp_sweet', name:'甘い',       unit:'cookie'  },
-  { id:'tp_swift', name:'疾風の',     unit:'ghost'   },
-  { id:'tp_still', name:'不動の',     unit:'donut'   },
-  { id:'tp_boom',  name:'爆裂の',     unit:'bomb'    },
-  { id:'tp_frost', name:'氷結の',     unit:'icewiz'  },
-  { id:'tp_royal', name:'王室の',     unit:'bakery'  },
-  { id:'tp_mochi', name:'もちもち',   unit:'daifuku' },
-  { id:'tp_fizz',  name:'シュワっと', unit:'soda'    },
+  { id:'tp_sweet',  name:'あまーい',   unit:'cookie'  },
+  { id:'tp_legend', name:'伝説の',     unit:'choco'   },
+  { id:'tp_gold',   name:'黄金の',     unit:'pancake' },
+  { id:'tp_pop',    name:'はじける',   unit:'bomb'    },
+  { id:'tp_melt',   name:'とろける',   unit:'icewiz'  },
+  { id:'tp_royal',  name:'王室の',     unit:'bakery'  },
+  { id:'tp_candy',  name:'おかしの',   unit:'soda'    },
+  { id:'tp_magic',  name:'まほうの',   unit:'ghost'   },
 ];
 const TITLE_SUF = [
-  { id:'ts_novice',  name:'見習い',     unit:'cookie'  },
-  { id:'ts_maker',   name:'職人',       unit:'bomb'    },
-  { id:'ts_samurai', name:'侍',         unit:'daifuku' },
-  { id:'ts_mage',    name:'魔導士',     unit:'icewiz'  },
+  { id:'ts_rookie',  name:'ルーキー',   unit:'cookie'  },
+  { id:'ts_meister', name:'マイスター', unit:'bomb'    },
+  { id:'ts_knight',  name:'ナイト',     unit:'choco'   },
+  { id:'ts_wizard',  name:'ウィザード', unit:'icewiz'  },
   { id:'ts_patis',   name:'パティシエ', unit:'bakery'  },
-  { id:'ts_king',    name:'王',         unit:'pancake' },
-  { id:'ts_champ',   name:'覇者',       unit:'choco'   },
-  { id:'ts_hero',    name:'勇者',       unit:'shoe'    },
+  { id:'ts_king',    name:'キング',     unit:'pancake' },
+  { id:'ts_queen',   name:'クイーン',   unit:'macaron' },
+  { id:'ts_hero',    name:'ヒーロー',   unit:'shoe'    },
 ];
 const TITLE_PRE_BY_ID = Object.fromEntries(TITLE_PRE.map(t=>[t.id,t]));
 const TITLE_SUF_BY_ID = Object.fromEntries(TITLE_SUF.map(t=>[t.id,t]));
