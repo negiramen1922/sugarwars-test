@@ -859,7 +859,7 @@ const UNITS = [
   {key:'macaron', name:'シェルマカロン', icon:'🟣', role:'tank', tier:-2.5, count:2, atk:12, hp:100, speed:70, range:28, cd:0.9, tag:'殻スピン', short:'殻にこもって突撃するマカロン', text:'マカロンの殻にこもり、回転しながら敵にタックルをする暴れん坊。こいつの殻を破るのは甘くない', shell:true},
   // マシュマロエンジェル（アニメ付き・開発テスト中）。test:true でロスター/ドラフト/CPUデッキからは除外。
   // anim=立ち絵のフレーム配列（spriteForが world.t で animFps 枚/秒で切替）。挙動/バランスは今後。
-  {key:'mangel', name:'マシュマロエンジェル', icon:'👼', role:'support', tier:0, count:3, atk:8, hp:55, speed:88, range:24, cd:0.7, tag:'守護天使', short:'空を舞い、味方の被弾を肩代わりする支援（3体）', text:'ふわふわ空を飛ぶ天使のマシュマロ。空の上なので近接攻撃は当たらないが、近くの味方が受けるダメージを身代わりで引き受け、自分から先に溶けてしまう健気な支援役。', anim:['mangel_1','mangel_2','mangel_3'], animRed:['mangel_red_1','mangel_red_2','mangel_red_3'], animFps:5, fly:true, guardian:true, test:true, beta:true},
+  {key:'mangel', name:'マシュマロエンジェル', icon:'👼', role:'support', tier:0, count:1, atk:0, hp:240, speed:88, range:24, cd:0.7, tag:'守護天使', short:'攻撃せず、味方の被弾を広く肩代わりする支援（1体・高HP）', text:'ふわふわ空を飛ぶ天使のマシュマロ。自分は攻撃せず、近くの味方が受けるダメージを身代わりで引き受ける支援専門。空の上なので近接攻撃では狙われないが、味方を守るうちに自分から先に溶けていく。※エンジェルだけが戦場に残っても勝てない（攻撃できないため）。', anim:['mangel_1','mangel_2','mangel_3'], animRed:['mangel_red_1','mangel_red_2','mangel_red_3'], animFps:5, fly:true, guardian:true, noAttack:true, test:true, beta:true},
   // クマグミ（開発テスト中・静止立ち絵）。青/赤の陣営色を anim(1枚) の仕組みで出し分け。挙動/バランスは今後。
   {key:'kumagumi', name:'クマグミ', icon:'🐻', role:'fodder', tier:0, count:3, atk:12, hp:60, speed:100, range:24, cd:0.5, tag:'仲間化', short:'倒した敵を自軍のクマグミに変える（3体）', text:'倒した敵を自分の仲間（クマグミ）に変えてしまう、もちもちのクマのグミ。倒すほど軍勢がどんどん増えていく雪だるま式のこわいやつ。', anim:['kumagumi_blue'], animRed:['kumagumi_red'], animFps:1, recruit:true, test:true, beta:true},
   // プリン（開発テスト中）。スプーンをブーメランのように投げ、往復で経路上の敵を薙ぐ。1枚=1体。立ち絵は青/赤の陣営色（anim1枚）。
@@ -867,7 +867,7 @@ const UNITS = [
   // ショートケーキ（開発テスト中・スプライト無し＝絵文字）。開幕に自分の位置へイチゴタレットを設置する。1枚=1体。
   {key:'shortcake', name:'ショートケーキ', icon:'🍰', role:'fodder', tier:0.5, count:1, atk:12, hp:110, speed:55, range:26, cd:1.0, tag:'設置＋前進', short:'足元にイチゴタレットを置きつつ前進して殴る（1体）', text:'足元にイチゴタレットを設置したら、自分は前進して敵を殴りに行くケーキ。タレットは数秒で溶けるが、消えるとその時の足元にまた新しいタレットを置き直す。', deployTurret:true, turretKey:'strawturret', redeployDelay:0.5, test:true, beta:true},
   // イチゴタレット（ショートケーキ専用の召喚物・動かない短命の砲台）。summonOnly でロスター/ドラフト/CPU/X2/ピッカーから除外。turretLife 秒で消える。
-  {key:'strawturret', name:'イチゴタレット', icon:'🍓', role:'back', tier:2, count:1, atk:14, hp:70, speed:0, range:80, cd:0.9, tag:'タレット', short:'近くの敵をイチゴで撃つ短命の砲台', text:'ショートケーキが設置する砲台。動かず近くの敵をイチゴで撃つが、数秒で溶けてしまう。', ranged:true, turretLife:4.0, summonOnly:true},
+  {key:'strawturret', name:'イチゴタレット', icon:'🍓', role:'back', tier:2, count:1, atk:14, hp:70, speed:0, range:80, cd:0.45, tag:'タレット', short:'狙われずに近くの敵を速射する砲台（時間/設置者で消滅）', text:'ショートケーキが設置する砲台。動かず近くの敵をイチゴで速射する。敵からは狙われないが、設置したショートケーキが倒れる／時間が経つと壊れてしまう。', ranged:true, turretLife:4.0, untargetable:true, summonOnly:true},
 ];
 const UNIT_BY_KEY = Object.fromEntries(UNITS.map(u=>[u.key,u]));
 
@@ -1565,8 +1565,8 @@ const UNIT_ABILITIES = {
   macaron:[{name:'スピン', info:'マカロンの殻にこもり敵めがけてスピンアタック！この間はダメージを大幅に軽減する'}],
   kumagumi:[{name:'仲間化', info:'クマグミが倒した敵は、その場で自軍のクマグミに変わって一緒に戦ってくれる。倒すほど軍勢が雪だるま式に増えていく（増えた分はそのバトル限りで、次のラウンドには持ち越さない）。'}],
   purin:[{name:'ブーメランスプーン', info:'スプーンをブーメランのように投げる。行き（外側へ飛ぶ）と帰り（手元に戻る）の両方で、直線上の敵をまとめて薙ぎ払う。まとまった敵の列に強い。'}],
-  shortcake:[{name:'イチゴタレット設置', info:'足元にイチゴタレット（射程80・数秒で溶ける）を置き、自分は前進して敵を殴りに行く。タレットが溶けると、その時の足元にまた新しいタレットを置き直す（設置ぶんはそのバトル限り）。'}],
-  mangel:[{name:'浮遊', info:'空を飛んでいるので近接攻撃では狙われない。倒せるのは遠距離・迫撃・爆発だけ。'},{name:'身代わりの翼', info:'近くの味方が受けるダメージの一部を自分のHPで肩代わりする。味方を守りながら自分から先に溶けていく健気な支援。'}],
+  shortcake:[{name:'イチゴタレット設置', info:'足元にイチゴタレット（射程80・速射・敵に狙われない）を置き、自分は前進して敵を殴りに行く。タレットはショートケーキが倒れるか数秒で壊れ、壊れたらまた足元に置き直す（設置ぶんはそのバトル限り）。'}],
+  mangel:[{name:'身代わりの翼', info:'自分は攻撃せず、円(足元に表示)の中の味方が受けるダメージの一部を自分のHPで肩代わりする。1体で高HP。味方を守りながら自分から先に溶けていく支援専門。'},{name:'浮遊', info:'空を飛んでいるので近接では狙われない（遠距離・迫撃・爆発でのみ倒せる）。攻撃できないので、戦場に残るのがエンジェルだけになったら負け。'}],
 };
 // キャラ詳細の「能力」セクションHTML（能力が無いキャラは空文字＝非表示）。
 function abilitiesHTML(u){
@@ -1677,7 +1677,7 @@ function makeFighters(key, side, W, H, slot){
     const hp=u.hp, atk=u.atk, r=Math.max(5,Math.min(11,5+hp*0.028));   // 当たり判定を小さめに（密集して陣地に食い込みにくく）
     arr.push({
       side, key, name:u.name, icon:u.icon, slot, role:u.role, tier:u.tier||0, spriteScale:u.spriteScale||1,
-      fly:!!u.fly, guardian:!!u.guardian, recruit:!!u.recruit,   // 浮遊(近接無敵)／守護天使／仲間化(クマグミ＝倒した敵を自軍化)
+      fly:!!u.fly, guardian:!!u.guardian, recruit:!!u.recruit, noAttack:!!u.noAttack, untargetable:!!u.untargetable,   // 浮遊(近接無敵)／守護天使／仲間化／攻撃しない(エンジェル)／狙われない(タレット)
       boomerang:!!u.boomerang, boomDist:u.boomDist||150, boomSp:u.boomSp||300, boomR:u.boomR||15,   // プリン：スプーンをブーメラン投げ
       deployTurret:!!u.deployTurret, turretKey:u.turretKey||'', redeployDelay:u.redeployDelay||0.5, turretT:0, myTurret:null, turretLife:u.turretLife||0,   // ショートケーキ：タレットが消えたら足元へ再設置／タレット側は turretLife秒で消える
       x:xMin+Math.random()*(xMax-xMin), y:yMin+Math.random()*(yMax-yMin),
@@ -2623,6 +2623,7 @@ function nearestEnemy(u, world){
   let best=null, bd=1e9;
   for(const o of world.units){
     if(o.side===u.side || o.hp<=0 || (o.invuln||0)>0) continue;   // 無敵中(ワープ直後のゴースト等)は標的にしない＝サムライ等が吊られない
+    if(o.untargetable) continue;   // 狙われないユニット(イチゴタレット)＝誰の標的にもならない（時間/設置者死亡で壊れる）
     if(o.fly && !(u.ranged||u.artillery)) continue;   // 浮遊ユニット(マシュマロエンジェル)は近接では狙えない＝遠距離/迫撃だけが直接ヒット
     let d=(o.x-u.x)**2+(o.y-u.y)**2;
     if(u.targetRule==='low') d = o.hp*1000 + d*0.0005;
@@ -2745,6 +2746,7 @@ function expireTurret(world, u){
 function killUnit(world, t){
   if(t._dead) return; t._dead=true; t.hp=0;
   t.dying=true; t.dieT=0; t.dieDir=(Math.random()<0.5?-1:1);   // 立ち絵を横に倒してから消す演出
+  if(t.myTurret && t.myTurret.hp>0) expireTurret(world, t.myTurret);   // ショートケーキが倒れたら、設置中のイチゴタレットも一緒に壊れる
   burst(world, t.x, t.y, t.side==='p'?'#4ea3c9':'#d2603a', 12, 90);
   if(t.blast){
     SFX.play(t.key==='bomb'?'atk_bomb':t.key==='soda'?'atk_soda':'explode');   // ポップコーン=パーン / ソーダ=シュワ / その他=ポフッ
@@ -3256,7 +3258,7 @@ function stepWorld(world, dt){
       }
       continue;   // 通常攻撃はしない
     }
-    if(!u.heal && tgt){
+    if(!u.heal && !u.noAttack && tgt){   // noAttack(マシュマロエンジェル)は攻撃しない＝移動して味方を守るだけ
       u.cool-=dt;
       const dist=Math.hypot(tgt.x-u.x,tgt.y-u.y);
       if(dist<=u.range && u.cool<=0){
@@ -3300,7 +3302,8 @@ function stepWorld(world, dt){
   for(const u of world.units){ if(u.hp>0) clampToStage(u,world.W,world.H); }   // 盤面（クリーム枠）の内側に収める
   for(const u of world.units){ if(u.dying) u.dieT=(u.dieT||0)+dt; }             // 横倒し演出のタイマーを進める
   world.units=world.units.filter(u=> u.hp>0 || (u.dying && u.dieT < DIE_DUR) );  // 倒れた兵は演出が終わるまで残す
-  const p=world.units.filter(u=>u.side==='p'&&u.hp>0).length, e=world.units.filter(u=>u.side==='e'&&u.hp>0).length;
+  // 決着判定は「戦える兵（＝攻撃しない守護天使 mangel を除く）」で数える＝残りがエンジェルだけになった側は負け（攻撃できず勝てないため）
+  const p=world.units.filter(u=>u.side==='p'&&u.hp>0&&!u.noAttack).length, e=world.units.filter(u=>u.side==='e'&&u.hp>0&&!u.noAttack).length;
   if(p===0||e===0){ beginOutro(world, (p>0&&e===0)?'win':(e>0&&p===0)?'lose':'draw'); }
   else if(world.t>=CONFIG.timeLimit){ const ph=world.units.filter(u=>u.side==='p').reduce((s,u)=>s+u.hp,0), eh=world.units.filter(u=>u.side==='e').reduce((s,u)=>s+u.hp,0); beginOutro(world, ph>eh?'win':eh>ph?'lose':'draw'); }
 }
@@ -3494,6 +3497,15 @@ function render(){
     } else {
       ctx.beginPath(); ctx.arc(s.x,s.y,s.splash?4:3,0,6.28); ctx.fillStyle=s.color; ctx.fill(); ctx.globalAlpha=.4; ctx.beginPath(); ctx.arc(s.x,s.y,s.splash?7:5,0,6.28); ctx.fillStyle=s.color; ctx.fill(); ctx.globalAlpha=1;
     }
+  }
+  // 守護天使（マシュマロエンジェル）の肩代わりカバー範囲を可視化（この円内の味方の被ダメを肩代わりする）
+  for(const u of world.units){
+    if(u.key!=='mangel' || u.hp<=0 || u.dying) continue;
+    const col = u.side==='p' ? '120,200,255' : '255,150,170';
+    const pulse = 0.5+0.5*Math.sin(world.t*3);
+    ctx.beginPath(); ctx.arc(u.x, u.y, MANGEL_R, 0, 6.28);
+    ctx.fillStyle='rgba('+col+',0.05)'; ctx.fill();
+    ctx.save(); ctx.setLineDash([6,5]); ctx.lineWidth=1.6; ctx.strokeStyle='rgba('+col+','+(0.30+0.18*pulse)+')'; ctx.stroke(); ctx.restore();
   }
   for(const u of world.units){
     if(u.dying){ drawDyingUnit(u); continue; }   // やられた兵は横倒し→フェードのみ描画
