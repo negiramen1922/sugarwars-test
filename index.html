@@ -859,13 +859,13 @@ const UNITS = [
   {key:'macaron', name:'シェルマカロン', icon:'🟣', role:'tank', tier:-2.5, count:2, atk:12, hp:100, speed:70, range:28, cd:0.9, tag:'殻スピン', short:'殻にこもって突撃するマカロン', text:'マカロンの殻にこもり、回転しながら敵にタックルをする暴れん坊。こいつの殻を破るのは甘くない', shell:true},
   // マシュマロエンジェル（アニメ付き・開発テスト中）。test:true でロスター/ドラフト/CPUデッキからは除外。
   // anim=立ち絵のフレーム配列（spriteForが world.t で animFps 枚/秒で切替）。挙動/バランスは今後。
-  {key:'mangel', name:'マシュマロエンジェル', icon:'👼', role:'support', tier:0, count:1, atk:0, hp:240, speed:88, range:24, cd:0.7, tag:'守護天使', short:'攻撃せず、味方の被弾を広く肩代わりする支援（1体・高HP）', text:'ふわふわ空を飛ぶ天使のマシュマロ。自分は攻撃せず、近くの味方が受けるダメージを身代わりで引き受ける支援専門。空の上なので近接攻撃では狙われないが、味方を守るうちに自分から先に溶けていく。※エンジェルだけが戦場に残っても勝てない（攻撃できないため）。', anim:['mangel_1','mangel_2','mangel_3'], animRed:['mangel_red_1','mangel_red_2','mangel_red_3'], animFps:5, fly:true, guardian:true, noAttack:true, test:true, beta:true},
+  {key:'mangel', name:'マシュマロエンジェル', icon:'👼', role:'support', tier:0.25, count:1, atk:0, hp:240, speed:88, range:24, cd:0.7, tag:'守護天使', short:'攻撃せず、味方の被弾を広く肩代わりする支援（1体・高HP）', text:'ふわふわ空を飛ぶ天使のマシュマロ。自分は攻撃せず、近くの味方が受けるダメージを身代わりで引き受ける支援専門。空の上なので近接攻撃では狙われないが、味方を守るうちに自分から先に溶けていく。※エンジェルだけが戦場に残っても勝てない（攻撃できないため）。', anim:['mangel_1','mangel_2','mangel_3'], animRed:['mangel_red_1','mangel_red_2','mangel_red_3'], animFps:5, fly:true, guardian:true, noAttack:true, test:true, beta:true},
   // クマグミ（開発テスト中・静止立ち絵）。青/赤の陣営色を anim(1枚) の仕組みで出し分け。挙動/バランスは今後。
-  {key:'kumagumi', name:'クマグミ', icon:'🐻', role:'fodder', tier:0, count:4, atk:8, hp:50, speed:100, range:24, cd:0.5, tag:'仲間化', short:'倒した敵を自軍のクマグミに変える（4体）', text:'倒した敵を自分の仲間（クマグミ）に変えてしまう、もちもちのクマのグミ。倒すほど軍勢がどんどん増えていく雪だるま式のこわいやつ。仲間化で生まれる子グミは本体より少し弱い。', anim:['kumagumi_blue'], animRed:['kumagumi_red'], animFps:1, recruit:true, test:true, beta:true},
+  {key:'kumagumi', name:'クマグミ', icon:'🐻', role:'fodder', tier:0.75, count:4, atk:8, hp:50, speed:100, range:24, cd:0.5, tag:'仲間化', short:'倒した敵を自軍のクマグミに変える（4体）', text:'倒した敵を自分の仲間（クマグミ）に変えてしまう、もちもちのクマのグミ。倒すほど軍勢がどんどん増えていく雪だるま式のこわいやつ。仲間化で生まれる子グミは本体より少し弱い。', anim:['kumagumi_blue'], animRed:['kumagumi_red'], animFps:1, recruit:true, test:true, beta:true},
   // プリン（開発テスト中）。スプーンをブーメランのように投げ、往復で経路上の敵を薙ぐ。1枚=1体。立ち絵は青/赤の陣営色（anim1枚）。
-  {key:'purin', name:'ブーメランプリン', icon:'🍮', role:'back', tier:1.5, count:1, atk:16, hp:80, speed:70, range:150, cd:1.6, tag:'ブーメラン', short:'スプーンを投げて往復で敵を薙ぐプリン（1体）', text:'銀のスプーンをブーメランのように投げて戦うプリン。行きと帰りで直線上の敵を2回薙ぎ払う。まとまった敵の列に強い。', boomerang:true, boomDist:150, boomSp:300, boomR:15, anim:['purin_blue'], animRed:['purin_red'], animFps:1, test:true, beta:true},
+  {key:'purin', name:'ブーメランプリン', icon:'🍮', role:'back', tier:1.1, count:1, atk:16, hp:80, speed:70, range:150, cd:1.6, tag:'ブーメラン', short:'スプーンを投げて往復で敵を薙ぐプリン（1体）', text:'銀のスプーンをブーメランのように投げて戦うプリン。行きと帰りで直線上の敵を2回薙ぎ払う。まとまった敵の列に強い。', boomerang:true, boomDist:150, boomSp:300, boomR:15, anim:['purin_blue'], animRed:['purin_red'], animFps:1, test:true, beta:true},
   // ショートケーキ（開発テスト中・スプライト無し＝絵文字）。開幕に自分の位置へイチゴタレットを設置する。1枚=1体。
-  {key:'shortcake', name:'ショートケーキ', icon:'🍰', role:'fodder', tier:0.5, count:1, atk:12, hp:110, speed:55, range:26, cd:1.0, tag:'設置＋前進', short:'足元にイチゴタレットを置きつつ前進して殴る（1体）', text:'足元にイチゴタレットを設置したら、自分は前進して敵を殴りに行くケーキ。タレットは数秒で溶けるが、消えるとその時の足元にまた新しいタレットを置き直す。', deployTurret:true, turretKey:'strawturret', redeployDelay:0.5, test:true, beta:true},
+  {key:'shortcake', name:'ショートケーキ', icon:'🍰', role:'fodder', tier:1.25, count:1, atk:12, hp:110, speed:55, range:26, cd:1.0, tag:'設置＋前進', short:'足元にイチゴタレットを置きつつ前進して殴る（1体）', text:'足元にイチゴタレットを設置したら、自分は前進して敵を殴りに行くケーキ。タレットは数秒で溶けるが、消えるとその時の足元にまた新しいタレットを置き直す。', deployTurret:true, turretKey:'strawturret', redeployDelay:0.5, test:true, beta:true},
   // イチゴタレット（ショートケーキ専用の召喚物・動かない短命の砲台）。summonOnly でロスター/ドラフト/CPU/X2/ピッカーから除外。turretLife 秒で消える。
   {key:'strawturret', name:'イチゴタレット', icon:'🍓', role:'back', tier:2, count:1, atk:14, hp:70, speed:0, range:80, cd:0.45, tag:'タレット', short:'狙われずに近くの敵を速射する砲台（時間/設置者で消滅）', text:'ショートケーキが設置する砲台。動かず近くの敵をイチゴで速射する。敵からは狙われないが、設置したショートケーキが倒れる／時間が経つと壊れてしまう。', ranged:true, turretLife:4.0, untargetable:true, summonOnly:true},
 ];
@@ -985,7 +985,7 @@ const KUMA_RECRUIT_HP = 30;   // 仲間化で生まれる子グミのHP（素の
 const KUMA_RECRUIT_ATK = 6;   // 仲間化で生まれる子グミの攻撃力
 /* ★マシュマロエンジェル（浮遊＝近接では狙われない／周囲の味方の被ダメを肩代わり＝身代わりで先に落ちる支援）。 */
 const MANGEL_R = 88;          // 守護範囲(px)：この円内の味方の被ダメを肩代わり
-const MANGEL_SOAK = 0.40;     // 肩代わり率（味方の被ダメの40%をエンジェルが自分のHPで受ける＝先に落ちる）
+const MANGEL_SOAK = 1.00;     // 肩代わり率（味方の被ダメの100%をエンジェルが自分のHPで受ける＝範囲内の味方は近接/遠距離を無傷、エンジェルが先に落ちる）
 /* 各キャラぶんの「○○ ×2」強化カードを自動生成（召喚専用と除外キーは作らない） */
 UNITS.filter(u=>!u.summonOnly && !u.test && !X2_EXCLUDE.has(u.key)).forEach(function(u){
   SPECIALS['x2_'+u.key] = {
@@ -2672,7 +2672,7 @@ function guardSoak(world, tgt, real){
   }
   if(!g) return real;
   const soak=Math.max(1, Math.round(real*MANGEL_SOAK));   // エンジェルが肩代わりする分
-  const pass=Math.max(1, real-soak);                       // 味方に残る分（最低1）
+  const pass=Math.max(0, real-soak);                       // 味方に残る分（100%肩代わりなら0＝無傷）
   g.hp-=soak; g.flash=0.18;
   popDmg(world, g.x, g.y-g.r-4, soak, '#ffe6f6');
   if(Math.random()<0.5) world.rings.push({x:g.x,y:g.y,r:2,max:14,life:0.24,color:'#ffd9f2'});
