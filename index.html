@@ -4509,8 +4509,12 @@ function lockedUnits(){ return UNITS.filter(u=>!u.summonOnly && !unitUnlocked(u.
 function unlockUnit(key){ const u=UNIT_BY_KEY[key]; if(!u||u.summonOnly) return false; if(unitUnlocked(key)) return false; if(!Array.isArray(myProfile.units)) myProfile.units=[]; myProfile.units.push(key); saveProfileLocal(); scheduleCloudSave(); return true; }
 // 🍬シュガーコインでキャラを購入解禁。成功でtrue（未解禁かつ残高が足りるとき）。
 function buyUnit(key){ if(unitUnlocked(key)) return false; const cost=unitUnlockCost(key); if(myCoins()<cost) return false; myProfile.coins=myCoins()-cost; unlockUnit(key); saveProfileLocal(); scheduleCloudSave(); return true; }
-// 既存プレイヤー救済：今のデッキに入っているキャラは解禁済み扱いにする（新解禁システムでデッキが壊れないように）。
-function migrateUnlocks(){ if(!Array.isArray(myProfile.units)) myProfile.units=[]; (myDeck||[]).forEach(function(k){ if(UNIT_BY_KEY[k] && !UNIT_BY_KEY[k].summonOnly && STARTER_UNITS.indexOf(k)<0 && myProfile.units.indexOf(k)<0) myProfile.units.push(k); }); }
+// 保存・解禁判定に使う「本来のデッキ」。戦術指南のレッスン中は myDeck が一時的にレッスン用デッキ
+// （＝まだ未解禁の“学ぶキャラ”を含む）に入れ替わるため、退避した本デッキ(_guideDeckBackup)を使う。
+// これで「レッスン準備/対戦中の保存やmigrateで、クリアしていない学ぶキャラが誤って解禁される」不具合を防ぐ。
+function realDeck(){ return (typeof _guideDeckBackup!=='undefined' && _guideDeckBackup!==null) ? _guideDeckBackup : (myDeck||[]); }
+// 既存プレイヤー救済：本デッキに入っているキャラは解禁済み扱いにする（新解禁システムでデッキが壊れないように）。※レッスン用デッキは対象外。
+function migrateUnlocks(){ if(!Array.isArray(myProfile.units)) myProfile.units=[]; (realDeck()||[]).forEach(function(k){ if(UNIT_BY_KEY[k] && !UNIT_BY_KEY[k].summonOnly && STARTER_UNITS.indexOf(k)<0 && myProfile.units.indexOf(k)<0) myProfile.units.push(k); }); }
 // キャラを解放するアーク（戦術指南）を探す（そのキャラを最終的に解禁するアーク）。無ければnull。
 function guideArcForUnit(key){ const arcs=guideArcs(); for(let i=0;i<arcs.length;i++){ if(arcUnit(arcs[i])===key) return arcs[i]; } return null; }
 // ロックキャラをタップしたとき：🍬コイン解放／戦術指南解放の2択を出す
@@ -4593,7 +4597,7 @@ function defaultGuestName(){ const uid=(authUser&&authUser.uid)||''; let n=0; fo
 function displayProfile(){ return { name: (myProfile.name||'').trim() || defaultGuestName(), avatar: validAvatarId(myProfile.avatar) }; }
 
 // --- デッキ／プロフィールのローカル保存（ログイン有無に関わらず端末に残す） ---
-function saveDeckLocal(){ try{ localStorage.setItem('sw_deck', JSON.stringify(myDeck)); }catch(e){} }
+function saveDeckLocal(){ try{ localStorage.setItem('sw_deck', JSON.stringify(realDeck())); }catch(e){} }
 function loadDeckLocal(){ try{ const s=localStorage.getItem('sw_deck'); if(s){ const a=JSON.parse(s); if(Array.isArray(a)) applyProfile({deck:a}); } }catch(e){} }
 // トロフィー・戦績・使用回数・スキン＋経済（コイン/コレクション/装備/解禁/指南進捗）も端末に保存（ゲスト＝匿名でもリロードで消えないように。ログイン時のクラウドとの突き合わせにも使う）
 function saveProfileLocal(){ try{ localStorage.setItem('sw_profile', JSON.stringify({name:myProfile.name,avatar:myProfile.avatar,mastery:myProfile.mastery||{},trophies:myProfile.trophies,best:myProfile.best,wins:myProfile.wins,losses:myProfile.losses,usage:myProfile.usage||{},skins:myProfile.skins||{},coins:myProfile.coins||0,collected:myProfile.collected||{},frame:myProfile.frame||'',titlePre:myProfile.titlePre||'',titleSuf:myProfile.titleSuf||'',nameColor:myProfile.nameColor||'',dailyWinKey:myProfile.dailyWinKey||'',units:myProfile.units||[],guideDone:myProfile.guideDone||[]})); }catch(e){} }
@@ -4602,7 +4606,7 @@ function loadProfileLocal(){ try{ const s=localStorage.getItem('sw_profile'); if
 function persistDeck(){ saveDeckLocal(); scheduleCloudSave(); }
 
 // --- 保存プロフィールの整形（純粋関数・テスト対象） ---
-function buildProfile(){ return { deck: myDeck.slice(0, CONFIG.deckSize), name: myProfile.name||'', avatar: myProfile.avatar||'', trophies: myTrophies(), best: Math.max(myProfile.best||0, myTrophies()), wins: myProfile.wins||0, losses: myProfile.losses||0, mastery: myProfile.mastery||{}, usage: myProfile.usage||{}, skins: myProfile.skins||{}, coins: myCoins(), collected: myProfile.collected||{}, frame: myProfile.frame||'', titlePre: myProfile.titlePre||'', titleSuf: myProfile.titleSuf||'', nameColor: myProfile.nameColor||'', dailyWinKey: myProfile.dailyWinKey||'', units: myProfile.units||[], guideDone: myProfile.guideDone||[], tutorialDone: tutSeen(), updatedAt: Date.now() }; }
+function buildProfile(){ return { deck: realDeck().slice(0, CONFIG.deckSize), name: myProfile.name||'', avatar: myProfile.avatar||'', trophies: myTrophies(), best: Math.max(myProfile.best||0, myTrophies()), wins: myProfile.wins||0, losses: myProfile.losses||0, mastery: myProfile.mastery||{}, usage: myProfile.usage||{}, skins: myProfile.skins||{}, coins: myCoins(), collected: myProfile.collected||{}, frame: myProfile.frame||'', titlePre: myProfile.titlePre||'', titleSuf: myProfile.titleSuf||'', nameColor: myProfile.nameColor||'', dailyWinKey: myProfile.dailyWinKey||'', units: myProfile.units||[], guideDone: myProfile.guideDone||[], tutorialDone: tutSeen(), updatedAt: Date.now() }; }
 // クラウド/ローカルから読んだプロフィールをゲーム状態へ反映（不正キーは除外）
 function applyProfile(p){
   if(!p) return;
