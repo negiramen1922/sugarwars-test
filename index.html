@@ -3801,15 +3801,17 @@ const KAT_PIVX=0.24, KAT_PIVY=0.5;   // 刀スプライト内の「持ち手(回
 function drawDaifukuWeapon(u, S, cx, cy){
   const kat=SPRITES['daifuku_katana'], sh=SPRITES['daifuku_sheath'];
   if(!kat || !kat.complete || !kat.naturalWidth) return;
-  const midY=cy+S*0.05;                             // 刀/鞘の高さ（体の中ほど＝横一文字）
-  const sheathX=cx-S*0.03, sheathY=midY;            // 鞘の位置（水平・中央やや左）
-  const gripX=cx+S*0.24, gripY=midY;                // 抜刀後の柄（右）＝刀は水平に【左】へ伸びる（抜刀＝左へ抜く／攻撃も左）
-  const SHEATHED_ANG=2.55, SHEATH_PX=cx+S*0.07, SHEATH_PY=cy+S*0.05;   // 納刀：柄が右上に立つ（参考イラスト準拠）＝刃は右上→左下、鞘は下で水平
   const kW=S*0.92, kH=kW*(kat.naturalHeight/kat.naturalWidth);   // 刀の描画サイズ（アスペクト維持・大きめ）
+  // 腰に【斜めに】差した鞘。納刀時は刀身(尖った先)をこの鞘の中に隠し、柄だけが開口から出る。
+  const SA=2.3;                                     // 鞘＝納刀刀の角度（刃は左下・柄は右上）
+  const dcos=Math.cos(SA), dsin=Math.sin(SA);
+  const SCX=cx+S*0.03, SCY=cy+S*0.18, SLEN=S*0.66;  // 鞘の中心（腰やや下）と長さ（刃先まで隠せる長さ）
+  const openX=SCX-dcos*SLEN*0.5, openY=SCY-dsin*SLEN*0.5;        // 鞘の開口＝右上端（ここから柄が出る）
+  const shePX=openX-dcos*0.17*S, shePY=openY-dsin*0.17*S;        // 納刀時のpivot（鍔≈0.42が開口に来る位置）
   const drawKat=function(px,py,ang){ ctx.save(); ctx.translate(px,py); ctx.rotate(ang); ctx.imageSmoothingEnabled=false; ctx.drawImage(kat,-KAT_PIVX*kW,-KAT_PIVY*kH,kW,kH); ctx.restore(); };
-  const drawSheath=function(){ if(!sh||!sh.complete||!sh.naturalWidth) return; const sW=S*0.44, sH=sW*(sh.naturalHeight/sh.naturalWidth); ctx.save(); ctx.translate(sheathX,sheathY); ctx.imageSmoothingEnabled=false; ctx.drawImage(sh,-0.5*sW,-0.5*sH,sW,sH); ctx.restore(); };   // 水平
+  const drawSheath=function(){ if(!sh||!sh.complete||!sh.naturalWidth) return; const sW=SLEN, sHh=sW*(sh.naturalHeight/sh.naturalWidth); ctx.save(); ctx.translate(SCX,SCY); ctx.rotate(SA); ctx.imageSmoothingEnabled=false; ctx.drawImage(sh,-0.5*sW,-0.5*sHh,sW,sHh); ctx.restore(); };
   const st=u.cstate;
-  let px, py, ang, behind=false;   // behind=true のとき 刀→鞘 の順（鞘が手前＝納刀/抜刀前）
+  let px, py, ang, behind=false;   // behind=true のとき 刀→鞘 の順（鞘が手前＝刃を隠す）
   if(st==='dash'){                                  // 抜刀：刀を掲げて突撃（頭上に構える）
     px=cx+S*0.03; py=cy-S*0.05; ang=-1.75;          // ≈ -100°（上やや後方へ掲げる）
   } else if(st==='walk' && u.atkAnim>0){            // 通常攻撃：体の【左側】で振り下ろす（スケッチ準拠）
@@ -3817,16 +3819,15 @@ function drawDaifukuWeapon(u, S, cx, cy){
     px=cx; py=cy; ang=-2.35 - 1.5*a;                 // 左上段→左へ振り下ろし（左側で弧を描く）
   } else if(st==='walk'){                           // 抜刀済みの待機（左に軽く構える）
     px=cx; py=cy; ang=-2.75;
-  } else if(st==='charge'){                         // 納刀（柄が右上）→ 水平・左向きに下ろしながら左へ抜く
-    behind=true;                                     // 鞘を手前に（刀は鞘の後ろから出る）
+  } else if(st==='charge'){                         // 納刀→鞘軸に沿って柄を引き、刃を抜く（開口=右上へ）
+    behind=true;
     const prog=u.chargeTime>0 ? Math.min(1,(u.chargeT||0)/u.chargeTime) : 0;
-    const out = prog<0.25 ? 0 : Math.min(1,(prog-0.25)/0.75);   // 前半は完全納刀→後半で抜く
-    ang = SHEATHED_ANG + (Math.PI - SHEATHED_ANG)*out;
-    px = SHEATH_PX + ((gripX - S*0.34) - SHEATH_PX)*out; py = SHEATH_PY + (gripY - SHEATH_PY)*out;
-  } else {                                          // idle等＝納刀（柄が右上に立ち、鞘は下で水平・参考イラスト準拠）
-    behind=true; px=SHEATH_PX; py=SHEATH_PY; ang=SHEATHED_ANG;
+    const out = prog<0.3 ? 0 : Math.min(1,(prog-0.3)/0.7);      // 前半は完全納刀→後半で抜く
+    px=shePX + (-dcos)*out*0.55*S; py=shePY + (-dsin)*out*0.55*S; ang=SA;
+  } else {                                          // idle等＝納刀（刀は鞘に収まり、尖った先は鞘で隠れる）
+    behind=true; px=shePX; py=shePY; ang=SA;
   }
-  if(behind){ drawKat(px,py,ang); drawSheath(); }   // 納刀/抜刀前＝鞘が手前
+  if(behind){ drawKat(px,py,ang); drawSheath(); }   // 納刀/抜刀中＝鞘が手前（刃先を隠す）
   else { drawSheath(); drawKat(px,py,ang); }        // 抜刀後＝刀が手前
 }
 function render(){
