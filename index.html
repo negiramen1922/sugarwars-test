@@ -3192,7 +3192,8 @@ function chargerStep(world, u, tgt, dt){
       u.cool-=dt;
       if(d<=u.range && u.cool<=0){
         u.cool=u.cd;
-        // 通常攻撃は単体（突撃のみ範囲薙ぎ払い）
+        // 通常攻撃は単体（突撃のみ範囲薙ぎ払い）。刀を体の前で振るモーション用に atkAnim を立てる。
+        u.atkAnim=ATK_ANIM; u.atkDx=dx/d; u.atkDy=dy/d;
         applyHit(world,u,tgt,u.atk);
         SFX.play('atk_'+u.key);   // キャラ別の攻撃音（cookie/choco/slime/ghost/pancake/donut等。無ければ無音）
         u.knockx-=dx/d*1.2; u.knocky-=dy/d*1.2;
@@ -3782,35 +3783,32 @@ const KAT_PIVX=0.24, KAT_PIVY=0.5;   // 刀スプライト内の「持ち手(回
 function drawDaifukuWeapon(u, S, cx, cy){
   const kat=SPRITES['daifuku_katana'], sh=SPRITES['daifuku_sheath'];
   if(!kat || !kat.complete || !kat.naturalWidth) return;
-  const handX=cx, handY=cy+S*0.06;                 // 刀を握る手の位置（腹の高さ）
-  const waistX=cx-S*0.05, waistY=cy+S*0.20;        // 鞘/納刀の位置（腰・やや左下）
+  const SA=0.16;                                    // 鞘の角度（やや下向き）
+  const waistX=cx-S*0.02, waistY=cy+S*0.19;         // 腰＝鞘の位置
+  const handX=cx+S*0.05, handY=cy+S*0.03;           // 抜刀後に握る手（体の前）
+  const gripX=waistX-Math.cos(SA)*S*0.11, gripY=waistY-Math.sin(SA)*S*0.11;   // 納刀時の柄（鞘の入口）
   const kW=S*0.60, kH=kW*(kat.naturalHeight/kat.naturalWidth);   // 刀の描画サイズ（アスペクト維持）
-  const blit=function(img,px,py,ang,w,h,pvx,pvy){ ctx.save(); ctx.translate(px,py); ctx.rotate(ang); ctx.imageSmoothingEnabled=false; ctx.drawImage(img,-pvx*w,-pvy*h,w,h); ctx.restore(); };
-  // 鞘は常に腰に固定（少し下向き）
-  if(sh && sh.complete && sh.naturalWidth){ const sW=S*0.34, sH=sW*(sh.naturalHeight/sh.naturalWidth); blit(sh, waistX, waistY, 0.22, sW, sH, 0.5, 0.5); }
-  // 刀のポーズ：納刀→抜刀構え→抜刀(突撃)→通常攻撃
-  const SHEATH_ANG=0.22, READY_ANG=-0.55;
-  let px=handX, py=handY, ang=READY_ANG;
+  const drawKat=function(px,py,ang){ ctx.save(); ctx.translate(px,py); ctx.rotate(ang); ctx.imageSmoothingEnabled=false; ctx.drawImage(kat,-KAT_PIVX*kW,-KAT_PIVY*kH,kW,kH); ctx.restore(); };
+  const drawSheath=function(){ if(!sh||!sh.complete||!sh.naturalWidth) return; const sW=S*0.34, sH=sW*(sh.naturalHeight/sh.naturalWidth); ctx.save(); ctx.translate(waistX,waistY); ctx.rotate(SA); ctx.imageSmoothingEnabled=false; ctx.drawImage(sh,-0.5*sW,-0.5*sH,sW,sH); ctx.restore(); };
   const st=u.cstate;
-  if(st==='dash'){                                  // 抜刀（突撃）：突進方向へ刀を向けて突き出す
-    const dfx=u.ddx||0, dfy=u.ddy||0;
-    ang=(dfx||dfy) ? Math.atan2(dfy, dfx) : 0;
-    px=cx + dfx*S*0.10; py=cy + dfy*S*0.10 + S*0.02;
-  } else if(st==='charge'){                          // 納刀→（溜め終盤に）抜刀構え：刀が鞘から少し出て上がる
-    const prog = u.chargeTime>0 ? Math.max(0, Math.min(1, ((u.chargeT||0)/u.chargeTime - 0.55)/0.45)) : 0;
-    px = waistX + (handX-waistX)*prog;
-    py = waistY + (handY-waistY)*prog;
-    ang = SHEATH_ANG + (READY_ANG-0.2 - SHEATH_ANG)*prog;   // 鞘の角度→やや上げた構え
-  } else if(st==='walk' && u.atkAnim>0){             // 通常攻撃：振り下ろしの弧
+  let px, py, ang, behind=false;   // behind=true のとき 刀→鞘 の順（鞘が手前＝納刀/抜刀前）
+  if(st==='dash'){                                  // 抜刀：刀を掲げて突撃（頭上に構える）
+    px=handX; py=handY-S*0.08; ang=-1.75;           // ≈ -100°（上やや後方へ掲げる）
+  } else if(st==='walk' && u.atkAnim>0){            // 通常攻撃：体の前で刀を振る（上段→前方へブン）
     const a=1-u.atkAnim/ATK_ANIM;                    // 0→1
-    ang = -1.35 + 1.9*a;                             // 上段(-77°)→振り下ろし(+31°)
-    px=handX; py=handY;
-  } else if(st==='walk'){                            // 近接の構え（抜刀済み・待機）
-    ang=READY_ANG; px=handX; py=handY;
-  } else {                                           // idle等＝納刀（鞘に収まっている）
-    ang=SHEATH_ANG; px=waistX; py=waistY;
+    px=handX; py=handY; ang=-1.55 + 2.5*a;           // 上段(-89°)→振り下ろし(+54°)
+  } else if(st==='walk'){                           // 抜刀済みの待機（体の前で軽く構える）
+    px=handX; py=handY; ang=-0.55;
+  } else if(st==='charge'){                         // 納刀してから → 溜め中に鞘から刀を少し出す
+    behind=true;                                     // 鞘を手前に（刀は鞘の後ろから出る）
+    const prog=u.chargeTime>0 ? Math.min(1,(u.chargeT||0)/u.chargeTime) : 0;
+    const out = prog<0.25 ? 0 : Math.min(1,(prog-0.25)/0.75);   // 前半は完全納刀→後半で少し抜く
+    px=gripX; py=gripY; ang=SA + (-0.85-SA)*out;     // 鞘に沿う→刃先が少し上に出る
+  } else {                                          // idle等＝納刀（鞘に収まっている）
+    behind=true; px=gripX; py=gripY; ang=SA;
   }
-  blit(kat, px, py, ang, kW, kH, KAT_PIVX, KAT_PIVY);
+  if(behind){ drawKat(px,py,ang); drawSheath(); }   // 納刀/抜刀前＝鞘が手前
+  else { drawSheath(); drawKat(px,py,ang); }        // 抜刀後＝刀が手前
 }
 function render(){
   ctx.clearRect(0,0,CW,CH);
@@ -3881,6 +3879,8 @@ function render(){
     // 攻撃モーション：攻撃した瞬間だけ前方へ「ツン」と突き出す（誰が攻撃したか分かる）
     let lungeX=0, lungeY=0;
     if(u.atkAnim>0){ const a=1-u.atkAnim/ATK_ANIM, j=Math.sin(a*Math.PI); lungeX=(u.atkDx||0)*j*7; lungeY=(u.atkDy||0)*j*7; sc*=1+0.10*j; }
+    // 大福サムライ（パーツ合成）は通常攻撃で本体を前に押し出さない＝刀を振る動きだけで見せる
+    if(u.key==='daifuku' && !u.daifukuBuff && !(u.side==='p'&&activeSkinBase('daifuku')) && SPRITES['daifuku_body_blue']){ lungeX=0; lungeY=0; }
     // ワープの消える/現れる演出
     let wAlpha=1;
     if(u.warper){
