@@ -3672,7 +3672,7 @@ function startLoop(){ cancelAnimationFrame(raf); lastT=performance.now(); raf=re
    決着させずに無限に動かしてアニメ/挙動を確認する。メニューの「🧪 アニメテスト」から起動。 ===== */
 let animTestOn=false, animTestRaf=0, animTestLastT=0, animTestKey='mangel', animTestLive=false, animTestSamurai=null, animTestResetT=0, animTestPhaseT=0;
 // 大福サムライの「ポーズ確認」用（各状態をゆっくり順番に見せる・ラベル付き）
-const SAM_POSES=[{name:'① 納刀（鞘に収める）',dur:1.6},{name:'② 抜刀前（チャージ＝鞘から少し出す）',dur:2.0},{name:'③ 抜刀・掲げて突撃',dur:1.6},{name:'④ 通常攻撃（体の前で振る）',dur:2.2}];
+const SAM_POSES=[{name:'① 納刀（鞘に収める）',dur:1.6},{name:'② 抜刀（途中まで抜いて止める）',dur:2.0},{name:'③ 抜刀途中のまま突撃＋斬撃',dur:1.6},{name:'④ 通常攻撃（左で振る）',dur:2.2}];
 // テスト用キャラ一覧（test:true）＋動作確認用の追加キャラ（タレット/サムライ＝武器アニメ確認）
 const ANIM_TEST_EXTRA=['strawturret','daifuku'];
 function animTestUnits(){ return UNITS.filter(function(u){ return u.test; }).concat(ANIM_TEST_EXTRA.map(function(k){return UNIT_BY_KEY[k];}).filter(Boolean)); }
@@ -3810,20 +3810,22 @@ function drawDaifukuWeapon(u, S, cx, cy){
   const shePX=openX-dcos*0.17*S, shePY=openY-dsin*0.17*S;        // 納刀時のpivot（鍔≈0.42が開口に来る位置）
   const drawKat=function(px,py,ang){ ctx.save(); ctx.translate(px,py); ctx.rotate(ang); ctx.imageSmoothingEnabled=false; ctx.drawImage(kat,-KAT_PIVX*kW,-KAT_PIVY*kH,kW,kH); ctx.restore(); };
   const drawSheath=function(){ if(!sh||!sh.complete||!sh.naturalWidth) return; const sW=SLEN, sHh=sW*(sh.naturalHeight/sh.naturalWidth); ctx.save(); ctx.translate(SCX,SCY); ctx.rotate(SA); ctx.imageSmoothingEnabled=false; ctx.drawImage(sh,-0.5*sW,-0.5*sHh,sW,sHh); ctx.restore(); };
+  const DRAW_DIST=S*0.30;                           // 抜刀は「途中まで（少し抜いた状態）」で止める距離
   const st=u.cstate;
   let px, py, ang, behind=false;   // behind=true のとき 刀→鞘 の順（鞘が手前＝刃を隠す）
-  if(st==='dash'){                                  // 抜刀：刀を掲げて突撃（頭上に構える）
-    px=cx+S*0.03; py=cy-S*0.05; ang=-1.75;          // ≈ -100°（上やや後方へ掲げる）
-  } else if(st==='walk' && u.atkAnim>0){            // 通常攻撃：体の【左側】で振り下ろす（スケッチ準拠）
+  if(st==='dash'){                                  // 突撃：抜刀途中のまま突っ込む（掲げない／ヒット時に扇状斬撃＝抜刀術）
+    behind=true;
+    px=shePX + (-dcos)*DRAW_DIST; py=shePY + (-dsin)*DRAW_DIST; ang=SA;
+  } else if(st==='walk' && u.atkAnim>0){            // 通常攻撃：体の【左側】で振り下ろす（もっと左寄せ）
     const a=1-u.atkAnim/ATK_ANIM;                    // 0→1
-    px=cx; py=cy; ang=-2.35 - 1.5*a;                 // 左上段→左へ振り下ろし（左側で弧を描く）
+    px=cx-S*0.12; py=cy; ang=-2.35 - 1.5*a;          // 左上段→左へ振り下ろし（左側で弧を描く）
   } else if(st==='walk'){                           // 抜刀済みの待機（左に軽く構える）
-    px=cx; py=cy; ang=-2.75;
-  } else if(st==='charge'){                         // 納刀→鞘軸に沿って柄を引き、刃を抜く（開口=右上へ）
+    px=cx-S*0.12; py=cy; ang=-2.75;
+  } else if(st==='charge'){                         // 納刀→鞘軸に沿って柄を引き、刃を【途中まで】抜いて止める
     behind=true;
     const prog=u.chargeTime>0 ? Math.min(1,(u.chargeT||0)/u.chargeTime) : 0;
-    const out = prog<0.3 ? 0 : Math.min(1,(prog-0.3)/0.7);      // 前半は完全納刀→後半で抜く
-    px=shePX + (-dcos)*out*0.55*S; py=shePY + (-dsin)*out*0.55*S; ang=SA;
+    const p = prog<0.3 ? 0 : Math.min(1,(prog-0.3)/0.7);        // 前半は完全納刀→後半で途中まで抜く
+    px=shePX + (-dcos)*p*DRAW_DIST; py=shePY + (-dsin)*p*DRAW_DIST; ang=SA;
   } else {                                          // idle等＝納刀（刀は鞘に収まり、尖った先は鞘で隠れる）
     behind=true; px=shePX; py=shePY; ang=SA;
   }
