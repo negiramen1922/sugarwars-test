@@ -3816,11 +3816,11 @@ function drawDaifukuWeapon(u, S, cx, cy){
   if(st==='dash'){                                  // 突撃：抜刀途中のまま突っ込む（掲げない／ヒット時に扇状斬撃＝抜刀術）
     behind=true;
     px=shePX + (-dcos)*DRAW_DIST; py=shePY + (-dsin)*DRAW_DIST; ang=SA;
-  } else if(st==='walk' && u.atkAnim>0){            // 通常攻撃：体の【左側】で振り下ろす（もっと左寄せ）
+  } else if(st==='walk' && u.atkAnim>0){            // 通常攻撃：体の【左側】で振り下ろす（もっと左寄せ・目にかからないよう少し下げる）
     const a=1-u.atkAnim/ATK_ANIM;                    // 0→1
-    px=cx-S*0.12; py=cy; ang=-2.35 - 1.5*a;          // 左上段→左へ振り下ろし（左側で弧を描く）
+    px=cx-S*0.12; py=cy+S*0.12; ang=-2.35 - 1.5*a;   // 左上段→左へ振り下ろし（左側で弧を描く）
   } else if(st==='walk'){                           // 抜刀済みの待機（左に軽く構える）
-    px=cx-S*0.12; py=cy; ang=-2.75;
+    px=cx-S*0.12; py=cy+S*0.12; ang=-2.75;
   } else if(st==='charge'){                         // 納刀→鞘軸に沿って柄を引き、刃を【途中まで】抜いて止める
     behind=true;
     const prog=u.chargeTime>0 ? Math.min(1,(u.chargeT||0)/u.chargeTime) : 0;
