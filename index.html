@@ -2866,7 +2866,7 @@ function lockAndFight(){
 /* ============================================================
    6) ワールド & ステップ（純粋ロジック）
    ============================================================ */
-function createWorld(W,H){ return { W,H, units:[], shots:[], dmgs:[], parts:[], rings:[], puddles:[], shake:0, t:0, done:false, result:null, intro:0, phase:'muster' }; }
+function createWorld(W,H){ return { W,H, units:[], shots:[], dmgs:[], parts:[], rings:[], slashes:[], puddles:[], shake:0, t:0, done:false, result:null, intro:0, phase:'muster' }; }
 function burst(world,x,y,color,n,spd){ if(LOW_FX) n=Math.ceil(n*0.5); const cap=partCap(); for(let i=0;i<n;i++){ if(world.parts.length>=cap) break; const a=Math.random()*6.28,s=spd*(0.4+Math.random());world.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.5+Math.random()*0.4,color,size:1.5+Math.random()*2.5});} }
 function popDmg(world,x,y,txt,color){ world.dmgs.push({x,y,vy:-26,life:0.8,txt,color}); }
 function nearestEnemy(u, world){
@@ -3234,6 +3234,9 @@ function chargerStep(world, u, tgt, dt){
       world.shake=Math.max(world.shake,9);
       world.rings.push({x:u.x,y:u.y,r:3,max:reach,life:0.28,color:'#fff3c0'});
       burst(world,u.x,u.y,'#ffe08a',18,190);
+      // 前方に扇状の斬撃演出（突進方向へ広がる弧）
+      const sa=Math.atan2(u.ddy,u.ddx);
+      (world.slashes||(world.slashes=[])).push({x:u.x+u.ddx*reach*0.35, y:u.y+u.ddy*reach*0.35, sang:sa, reach:reach*1.15, life:0.3, max:0.3, side:u.side});
       u.cstate='walk'; u.cool=u.cd*0.5; u._chargeTgt=null;
     } else {
       // 空振り判定：狙った対象が死ぬ/居ない状態で、狙い位置を通り過ぎたら仕切り直し（チャージからやり直し＝空振りの隙）
@@ -3598,6 +3601,7 @@ function stepWorld(world, dt){
   for(const d of world.dmgs){ d.y+=d.vy*dt; d.life-=dt; } world.dmgs=world.dmgs.filter(d=>d.life>0);
   for(const p of world.parts){ p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=120*dt; p.life-=dt; } world.parts=world.parts.filter(p=>p.life>0);
   for(const r of world.rings){ r.r+=(r.max-r.r)*Math.min(1,dt*10); r.life-=dt; } world.rings=world.rings.filter(r=>r.life>0);
+  if(world.slashes){ for(const s of world.slashes){ s.life-=dt; } world.slashes=world.slashes.filter(s=>s.life>0); }   // 扇状斬撃エフェクト（大福の突撃ヒット）
   resolveOverlaps(world);                                                       // ユニット同士が重ならないように押し分ける
   for(const u of world.units){ if(u.hp>0) clampToStage(u,world.W,world.H); }   // 盤面（クリーム枠）の内側に収める
   for(const u of world.units){ if(u.dying) u.dieT=(u.dieT||0)+dt; }             // 横倒し演出のタイマーを進める
@@ -3729,8 +3733,10 @@ function animTestLoop(now){
     for(let i=0;i<SAM_POSES.length;i++){ if(t < acc+SAM_POSES[i].dur){ idx=i; pt=t-acc; break; } acc+=SAM_POSES[i].dur; }
     if(idx===0){ f.cstate='idle'; }
     else if(idx===1){ f.cstate='charge'; f.chargeTime=1; f.chargeT=Math.min(1, pt/SAM_POSES[1].dur); }   // 納刀→抜刀前をゆっくり
-    else if(idx===2){ f.cstate='dash'; f.ddx=0; f.ddy=-1; }
+    else if(idx===2){ f.cstate='dash'; f.ddx=0; f.ddy=-1;   // 掲げて突撃＋前方に扇状斬撃を繰り返し実演
+      f._slashPulse=(f._slashPulse||0)+frame; if(f._slashPulse>0.9){ const rr=f.r*3.2; world.slashes.push({x:f.x, y:f.y-rr*0.35, sang:-Math.PI/2, reach:rr, life:0.3, max:0.3, side:f.side}); f._slashPulse=0; } }
     else { f.cstate='walk'; f._atkPulse=(f._atkPulse||0)+frame; if(f._atkPulse>0.75){ f.atkAnim=ATK_ANIM; f._atkPulse=0; } }   // 攻撃を繰り返す
+    for(const s of world.slashes){ s.life-=frame; } world.slashes=world.slashes.filter(s=>s.life>0);   // stepWorldを回さないので斬撃を手で更新
     render();
     ctx.save(); ctx.font='bold 15px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
     const label=SAM_POSES[idx].name, tw=ctx.measureText(label).width+24;
@@ -3795,29 +3801,28 @@ const KAT_PIVX=0.24, KAT_PIVY=0.5;   // 刀スプライト内の「持ち手(回
 function drawDaifukuWeapon(u, S, cx, cy){
   const kat=SPRITES['daifuku_katana'], sh=SPRITES['daifuku_sheath'];
   if(!kat || !kat.complete || !kat.naturalWidth) return;
-  const SA=0.16;                                    // 鞘の角度（やや下向き）
-  const waistX=cx-S*0.02, waistY=cy+S*0.19;         // 腰＝鞘の位置
-  const handX=cx+S*0.05, handY=cy+S*0.03;           // 抜刀後に握る手（体の前）
-  const gripX=waistX-Math.cos(SA)*S*0.11, gripY=waistY-Math.sin(SA)*S*0.11;   // 納刀時の柄（鞘の入口）
+  const midY=cy+S*0.05;                             // 刀/鞘の高さ（体の中ほど＝横一文字）
+  const sheathX=cx+S*0.03, sheathY=midY;            // 鞘の位置（水平）
+  const gripX=cx-S*0.26, gripY=midY;                // 納刀時の柄（左）＝刀は水平に右へ伸びる
   const kW=S*0.92, kH=kW*(kat.naturalHeight/kat.naturalWidth);   // 刀の描画サイズ（アスペクト維持・大きめ）
   const drawKat=function(px,py,ang){ ctx.save(); ctx.translate(px,py); ctx.rotate(ang); ctx.imageSmoothingEnabled=false; ctx.drawImage(kat,-KAT_PIVX*kW,-KAT_PIVY*kH,kW,kH); ctx.restore(); };
-  const drawSheath=function(){ if(!sh||!sh.complete||!sh.naturalWidth) return; const sW=S*0.44, sH=sW*(sh.naturalHeight/sh.naturalWidth); ctx.save(); ctx.translate(waistX,waistY); ctx.rotate(SA); ctx.imageSmoothingEnabled=false; ctx.drawImage(sh,-0.5*sW,-0.5*sH,sW,sH); ctx.restore(); };
+  const drawSheath=function(){ if(!sh||!sh.complete||!sh.naturalWidth) return; const sW=S*0.44, sH=sW*(sh.naturalHeight/sh.naturalWidth); ctx.save(); ctx.translate(sheathX,sheathY); ctx.imageSmoothingEnabled=false; ctx.drawImage(sh,-0.5*sW,-0.5*sH,sW,sH); ctx.restore(); };   // 水平
   const st=u.cstate;
   let px, py, ang, behind=false;   // behind=true のとき 刀→鞘 の順（鞘が手前＝納刀/抜刀前）
   if(st==='dash'){                                  // 抜刀：刀を掲げて突撃（頭上に構える）
-    px=handX; py=handY-S*0.08; ang=-1.75;           // ≈ -100°（上やや後方へ掲げる）
-  } else if(st==='walk' && u.atkAnim>0){            // 通常攻撃：体の前で刀を振る（上段→前方へブン）
+    px=cx+S*0.03; py=cy-S*0.05; ang=-1.75;          // ≈ -100°（上やや後方へ掲げる）
+  } else if(st==='walk' && u.atkAnim>0){            // 通常攻撃：体の【左側】で振り下ろす（スケッチ準拠）
     const a=1-u.atkAnim/ATK_ANIM;                    // 0→1
-    px=handX; py=handY; ang=-1.55 + 2.5*a;           // 上段(-89°)→振り下ろし(+54°)
-  } else if(st==='walk'){                           // 抜刀済みの待機（体の前で軽く構える）
-    px=handX; py=handY; ang=-0.55;
-  } else if(st==='charge'){                         // 納刀してから → 溜め中に鞘から刀を少し出す
+    px=cx; py=cy; ang=-2.35 - 1.5*a;                 // 左上段→左へ振り下ろし（左側で弧を描く）
+  } else if(st==='walk'){                           // 抜刀済みの待機（左に軽く構える）
+    px=cx; py=cy; ang=-2.75;
+  } else if(st==='charge'){                         // 納刀してから → 鞘から【水平にスライド】して抜く
     behind=true;                                     // 鞘を手前に（刀は鞘の後ろから出る）
     const prog=u.chargeTime>0 ? Math.min(1,(u.chargeT||0)/u.chargeTime) : 0;
-    const out = prog<0.25 ? 0 : Math.min(1,(prog-0.25)/0.75);   // 前半は完全納刀→後半で少し抜く
-    px=gripX; py=gripY; ang=SA + (-0.85-SA)*out;     // 鞘に沿う→刃先が少し上に出る
-  } else {                                          // idle等＝納刀（鞘に収まっている）
-    behind=true; px=gripX; py=gripY; ang=SA;
+    const out = prog<0.25 ? 0 : Math.min(1,(prog-0.25)/0.75);   // 前半は完全納刀→後半で水平に抜く
+    px=gripX + out*S*0.34; py=gripY; ang=0;          // 水平のまま右へスライド
+  } else {                                          // idle等＝納刀（鞘に水平に収まっている）
+    behind=true; px=gripX; py=gripY; ang=0;
   }
   if(behind){ drawKat(px,py,ang); drawSheath(); }   // 納刀/抜刀前＝鞘が手前
   else { drawSheath(); drawKat(px,py,ang); }        // 抜刀後＝刀が手前
@@ -3845,6 +3850,18 @@ function render(){
     ctx.restore();
   }}
   for(const r of world.rings){ ctx.beginPath(); ctx.arc(r.x,r.y,Math.max(0,r.r),0,6.28); ctx.strokeStyle=r.color; ctx.globalAlpha=Math.max(0,r.life*2.5); ctx.lineWidth=3; ctx.stroke(); ctx.globalAlpha=1; }
+  // 扇状の斬撃エフェクト（大福の突撃ヒット）：進行方向へ広がる弧が外へ伸びながら消える
+  if(world.slashes) for(const s of world.slashes){
+    const pr=1-Math.max(0,Math.min(1,s.life/s.max));   // 0→1
+    const rr=(s.reach||40)*(0.5+0.8*pr), spread=1.05*(1-0.25*pr);
+    const a0=(s.sang||0)-spread, a1=(s.sang||0)+spread;
+    ctx.save(); ctx.lineCap='round';
+    ctx.globalAlpha=Math.max(0,1-pr)*0.95; ctx.strokeStyle=s.side==='e'?'#fff0e0':'#eaf6ff';
+    ctx.beginPath(); ctx.arc(s.x,s.y,rr,a0,a1); ctx.lineWidth=Math.max(1,7*(1-pr)); ctx.stroke();
+    ctx.globalAlpha*=0.55; ctx.strokeStyle='#fff';
+    ctx.beginPath(); ctx.arc(s.x,s.y,rr*0.72,a0+0.18,a1-0.18); ctx.lineWidth=Math.max(1,3.5*(1-pr)); ctx.stroke();
+    ctx.restore(); ctx.globalAlpha=1;
+  }
   for(const s of world.shots){
     if(s.boom){   // プリンのスプーン：くるくる回しながら飛ばす（影付き）
       ctx.beginPath(); ctx.ellipse(s.x,s.y+6,6,2.2,0,0,6.28); ctx.fillStyle='rgba(0,0,0,.22)'; ctx.fill();
@@ -4389,6 +4406,7 @@ function serializeWorld(world){
     shots:  world.shots.map(cloneP),
     parts:  battle ? world.parts.slice(0, 30).map(cloneP) : [],   // 粒子は戦闘中のみ・上限30（ドラフト中は送らない＝通信量削減）
     rings:  battle ? world.rings.map(cloneP) : [],
+    slashes: battle ? (world.slashes||[]).map(cloneP) : [],
     dmgs:  [],   // 子はダメージ数値を描かないので送らない（転送量・解析を節約）
     puddles:(world.puddles||[]).map(cloneP),
   };
@@ -4399,7 +4417,7 @@ function applySnapshot(snap, mirror){
   if(!snap) return null;
   const H = snap.H;
   const flipSide = s => s==='p' ? 'e' : (s==='e' ? 'p' : s);
-  const fixY = (o)=>{ if(o.y!=null) o.y = H - o.y; if(o.vy!=null) o.vy = -o.vy; if(o.sy!=null) o.sy = H - o.sy; if(o.ty!=null) o.ty = H - o.ty; if(o.atkDy!=null) o.atkDy = -o.atkDy; if(o.knocky!=null) o.knocky = -o.knocky; };   // dieDir(横倒れ方向)は上下反転で変えない
+  const fixY = (o)=>{ if(o.y!=null) o.y = H - o.y; if(o.vy!=null) o.vy = -o.vy; if(o.sy!=null) o.sy = H - o.sy; if(o.ty!=null) o.ty = H - o.ty; if(o.atkDy!=null) o.atkDy = -o.atkDy; if(o.knocky!=null) o.knocky = -o.knocky; if(o.sang!=null) o.sang = -o.sang; };   // dieDir(横倒れ方向)は上下反転で変えない／sang=斬撃の向きはY反転で符号反転
   const mapArr = (arr, isUnit)=> (arr||[]).map(o=>{ const c={...o}; if(mirror){ if(c.side) c.side = flipSide(c.side); fixY(c); } return c; });   // 弾(shots)も陣営色を反転＝子の画面でも玉/矢が自陣色に見える
   const w = createWorld(snap.W, snap.H);
   w.phase=snap.phase; w.t=snap.t; w.result=snap.result;
@@ -4408,6 +4426,7 @@ function applySnapshot(snap, mirror){
   w.shots  = mapArr(snap.shots, false);
   w.parts  = mapArr(snap.parts, false);
   w.rings  = mapArr(snap.rings, false);
+  w.slashes= mapArr(snap.slashes, false);
   w.dmgs   = mapArr(snap.dmgs, false);
   w.puddles= mapArr(snap.puddles, false);
   return w;
