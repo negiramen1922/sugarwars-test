@@ -3685,8 +3685,9 @@ function startLoop(){ cancelAnimationFrame(raf); lastT=performance.now(); raf=re
 let animTestOn=false, animTestRaf=0, animTestLastT=0, animTestKey='mangel', animTestLive=false, animTestSamurai=null, animTestResetT=0, animTestPhaseT=0;
 // 大福サムライの「ポーズ確認」用（各状態をゆっくり順番に見せる・ラベル付き）
 const SAM_POSES=[{name:'① 納刀（鞘に収める）',dur:1.6},{name:'② 抜刀（途中まで抜いて止める）',dur:2.0},{name:'③ 抜刀途中のまま突撃＋斬撃',dur:1.6},{name:'④ 通常攻撃（左で振る）',dur:2.2}];
-// テスト用キャラ一覧（test:true）＋動作確認用の追加キャラ（タレット/サムライ＝武器アニメ確認）
-const ANIM_TEST_EXTRA=['strawturret','daifuku'];
+// テスト用キャラ一覧（test:true）＋動作確認用の追加キャラ（タレット/サムライ/クッキー＝武器アニメ確認）
+const ANIM_TEST_EXTRA=['strawturret','daifuku','cookie'];
+const COOKIE_POSES=[{name:'① 待機（槍を上に）',dur:1.8},{name:'② 移動（槍を左に倒す）',dur:1.8},{name:'③ 攻撃（左へ突き出す）',dur:2.0}];
 function animTestUnits(){ return UNITS.filter(function(u){ return u.test; }).concat(ANIM_TEST_EXTRA.map(function(k){return UNIT_BY_KEY[k];}).filter(Boolean)); }
 function animTestValid(key){ const u=UNIT_BY_KEY[key]; return !!u && (u.test || ANIM_TEST_EXTRA.indexOf(key)>=0); }
 function startAnimTest(key){
@@ -3694,7 +3695,7 @@ function startAnimTest(key){
   closeMenu(); hideResultBanner();
   const list=animTestUnits();
   animTestKey = animTestValid(key) ? key : ((list[0]&&list[0].key)||'mangel'); animTestOn=true;
-  animTestLive = (animTestKey==='strawturret' || animTestKey==='daifuku');   // タレット/サムライは実動作（stepWorld）を見せる
+  animTestLive = (animTestKey==='strawturret' || animTestKey==='daifuku' || animTestKey==='cookie');   // タレット/サムライ/クッキーは実動作を見せる
   animTestSamurai=null; animTestResetT=0;   // 前回の参照をクリア
   show('play'); setupCanvas();
   ['draftPanel','offerOverlay','battlePanel','battleHead','scoreBar','lockBtn','skipBtn'].forEach(function(id){ const el=$(id); if(el) el.classList.add('hidden'); });
@@ -3718,10 +3719,10 @@ function startAnimTest(key){
       const e=makeFighters('cookie','e',CW,CH,'army')[0]; e.appear=1; e.speed=0; e.baseSpeed=0;
       e.hp=e.maxHp=e.baseMaxHp=1e9; e.x=x; e.y=CH*0.66-55; world.units.push(e);   // 射程80の内側(55px上)に固定
     });
-  } else if(animTestLive && animTestKey==='daifuku'){
-    // サムライの武器ポーズ確認：中央に1体だけ置き、animTestLoopが cstate を順番に切替えて
-    // 納刀→抜刀前→掲げて突撃→通常攻撃 を各ポーズごとにゆっくり見せる（ラベル表示・stepWorldは回さない）。
-    const f=makeFighters('daifuku','p',CW,CH,'army')[0]; f.appear=1; f.bob=0; f.x=CW*0.5; f.y=CH*0.5;
+  } else if(animTestLive && (animTestKey==='daifuku'||animTestKey==='cookie')){
+    // サムライ/クッキーの武器ポーズ確認：中央に1体だけ置き、animTestLoopが状態を順番に切替えて
+    // 各ポーズをゆっくり見せる（ラベル表示・stepWorldは回さない）。
+    const f=makeFighters(animTestKey,'p',CW,CH,'army')[0]; f.appear=1; f.bob=0; f.x=CW*0.5; f.y=CH*0.5;
     f.speed=0; f.baseSpeed=0; world.units.push(f); animTestSamurai=f; animTestPhaseT=0;
   } else {
     // 1カード分ずつ・その場に整列（動かない＝アニメだけをじっくり確認）。上=敵(赤)/下=味方(青)。
@@ -3736,28 +3737,35 @@ function startAnimTest(key){
 function animTestLoop(now){
   if(!animTestOn) return;
   let frame=(now-animTestLastT)/1000; animTestLastT=now; frame=Math.max(0,Math.min(frame,0.05));
-  if(animTestKey==='daifuku' && animTestSamurai){
-    // サムライ：ポーズを順番にゆっくり見せる（stepWorldは回さず cstate を手で切替）
+  if((animTestKey==='daifuku'||animTestKey==='cookie') && animTestSamurai){
+    // サムライ/クッキー：ポーズを順番にゆっくり見せる（stepWorldは回さず状態を手で切替）
     world.t += frame; animTestPhaseT += frame;
     const f=animTestSamurai; f.bob += frame*4; f.atkAnim=Math.max(0,(f.atkAnim||0)-frame);
-    const tot=SAM_POSES.reduce(function(s,p){return s+p.dur;},0);
+    const POSES = animTestKey==='daifuku' ? SAM_POSES : COOKIE_POSES;
+    const tot=POSES.reduce(function(s,p){return s+p.dur;},0);
     let t=animTestPhaseT % tot, idx=0, acc=0, pt=0;
-    for(let i=0;i<SAM_POSES.length;i++){ if(t < acc+SAM_POSES[i].dur){ idx=i; pt=t-acc; break; } acc+=SAM_POSES[i].dur; }
-    if(idx===0){ f.cstate='idle'; }
-    else if(idx===1){ f.cstate='charge'; f.chargeTime=1; f.chargeT=Math.min(1, pt/SAM_POSES[1].dur); }   // 納刀→抜刀前をゆっくり
-    else if(idx===2){ f.cstate='dash'; f.ddx=0; f.ddy=-1;   // 掲げて突撃＋前方に扇状斬撃を繰り返し実演
-      f._slashPulse=(f._slashPulse||0)+frame; if(f._slashPulse>0.9){ const rr=f.r*3.2; world.slashes.push({x:f.x, y:f.y-rr*0.35, sang:-Math.PI/2, reach:rr, life:0.3, max:0.3, side:f.side}); f._slashPulse=0; } }
-    else { f.cstate='walk'; f._atkPulse=(f._atkPulse||0)+frame; if(f._atkPulse>0.75){ f.atkAnim=ATK_ANIM; f._atkPulse=0; } }   // 攻撃を繰り返す
-    for(const s of world.slashes){ s.life-=frame; } world.slashes=world.slashes.filter(s=>s.life>0);   // stepWorldを回さないので斬撃を手で更新
+    for(let i=0;i<POSES.length;i++){ if(t < acc+POSES[i].dur){ idx=i; pt=t-acc; break; } acc+=POSES[i].dur; }
+    if(animTestKey==='daifuku'){
+      if(idx===0){ f.cstate='idle'; }
+      else if(idx===1){ f.cstate='charge'; f.chargeTime=1; f.chargeT=Math.min(1, pt/POSES[1].dur); }   // 納刀→抜刀前をゆっくり
+      else if(idx===2){ f.cstate='dash'; f.ddx=0; f.ddy=-1;   // 掲げて突撃＋前方に扇状斬撃を繰り返し実演
+        f._slashPulse=(f._slashPulse||0)+frame; if(f._slashPulse>0.9){ const rr=f.r*3.2; world.slashes.push({x:f.x, y:f.y-rr*0.35, sang:-Math.PI/2, reach:rr, life:0.3, max:0.3, side:f.side}); f._slashPulse=0; } }
+      else { f.cstate='walk'; f._atkPulse=(f._atkPulse||0)+frame; if(f._atkPulse>0.75){ f.atkAnim=ATK_ANIM; f._atkPulse=0; } }   // 攻撃を繰り返す
+      for(const s of world.slashes){ s.life-=frame; } world.slashes=world.slashes.filter(s=>s.life>0);   // stepWorldを回さないので斬撃を手で更新
+    } else {   // クッキー：待機(muster)=槍上／移動(battle)=左倒し／攻撃(atkAnim)=左突き
+      if(idx===0){ world.phase='muster'; }
+      else if(idx===1){ world.phase='battle'; }
+      else { world.phase='battle'; f._atkPulse=(f._atkPulse||0)+frame; if(f._atkPulse>0.8){ f.atkAnim=ATK_ANIM; f.atkDx=-1; f.atkDy=0; f._atkPulse=0; } }
+    }
     render();
     ctx.save(); ctx.font='bold 15px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    const label=SAM_POSES[idx].name, tw=ctx.measureText(label).width+24;
+    const label=POSES[idx].name, tw=ctx.measureText(label).width+24;
     ctx.fillStyle='rgba(20,16,26,.72)'; ctx.fillRect(CW/2-tw/2, 12, tw, 28);
     ctx.fillStyle='#ffe9a8'; ctx.fillText(label, CW/2, 27); ctx.restore();
   } else if(animTestLive){
     stepWorld(world, frame);   // タレットは実動作（連射）を見せる＝stepWorldを回す
   } else { world.t += frame; render(); }        // その他はアニメのため時間だけ進める（ユニットは動かない）
-  if(animTestLive && animTestKey!=='daifuku') render();
+  if(animTestLive && animTestKey!=='daifuku' && animTestKey!=='cookie') render();
   animTestRaf=requestAnimationFrame(animTestLoop);
 }
 function stopAnimTest(){ animTestOn=false; cancelAnimationFrame(animTestRaf); const b=$('animTestBack'); if(b) b.style.display='none'; const bar=$('animTestBar'); if(bar) bar.style.display='none'; goHome(); }
