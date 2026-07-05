@@ -80,6 +80,7 @@
 - **専用挙動**：`chargerStep`(大福) / `artilleryStep`(キャノン) / `vacuumStep`(ドーナッツ) / `spawnerStep`(ベーカリー：`spawnerId` で個体ごとに独立した召喚枠) / `evolvePancake`・`evolvedStep`(パンケーキ進化＋ジャンプ衝撃波) / ワープ(ゴースト) / `shellStep`(マカロン：殻スピン→スタン→通常／true返却でその場処理) / 氷弾のヒット時スローは `u.chillT`/`chillAmt`、炭酸沼は `world.puddles` を `stepWorld` で毎フレーム処理（DoT＋`slowMul`減速）。
 - **ドラフト/演出**：`beginDraft` / `nextPick` / `renderPickOffer` / `pickCardAnimated`（裏表フリップ）→ `pickCard` / `revealFoePick` / `aiPicks`（貪欲スコア）/ `lockAndFight`。
 - **カード選択の制限時間（放置対策）**：`PICK_TIME_LIMIT`(30秒)。カード提示のたびに `startPickTimer(autoPickLeftmost)` を起動し（`#pickTimer` に残り秒表示・残5秒で赤）、時間切れで `autoPickLeftmost()`＝**一番左（先頭）のカードを自動選択**。選択開始/開戦/待機で `stopPickTimer()`。**チュートリアル中は起動しない**（案内を邪魔しないため）。PVEは `renderPickOffer`、PVPは親=`pvpHostShowOffer`／子=`pvpGuestShowStep` にそれぞれ仕込む。PVPの親は、子がフリーズしてSTEPPICKを送れない場合に備え `pvpHostDraftStep` の待機に **+5秒の猶予つき代理タイムアウト**（`eOffer[0]`＝子に見せた一番左を代理選択。子が生きていれば子自身も同じ左端を送るので結果一致）。**ヘッドレス(test)は `setInterval` 不在を検知してタイマー自体を動かさない**（自動選択でテストが乱れない）。
+- **ドラフト中の盤面のぞき見**：offer-foot の「👁 盤面を見る」(`#draftPeekBtn`)で `toggleDraftPeek()`＝カードのボックスを一時的に `visibility:hidden` にして盤面を確認、画面下の「🃏 カードにもどる」(`#draftPeekBack`・`position:fixed`)で戻す（`_draftPeek`）。`showOfferCards`/`hideOfferCards` で状態リセット＝新ピックや待機のたびにカード表示へ戻る。制限時間タイマーは覗き見中も進む。PVE/PVP共通。
 - **隊列**：`arrangeFormation`（tierでグループ化し後方アンカーで整列）/ `centerMergedSlimes`。
 - **X2**：`doubleUnitsOnBoard` / `applyX2Replay` / `eligibleX2Specials` / `cloneFighter`。
 - **決着**：`beginOutro` / `outroStep`（溶けて砂糖に）。
