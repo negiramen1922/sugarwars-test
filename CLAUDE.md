@@ -265,6 +265,17 @@
 - **UI**：ホームメニュー「📅 ログインボーナス」＝`openLoginInfo()`→`showLoginModal(null)`（現在の連続/累計＋ロードマップ `loginRoadmapHTML()`）。日替わりの受け取りは起動時の自動ポップアップ（`#loginModal`）。
 - **調整**：`LOGIN_COIN_*`（コイン曲線）と `LOGIN_MILESTONES`（解禁日数・種類）＋各配列の `login:` 値。
 
+## 広告（リワード動画＝広告を見て🍬・受け皿のみ実装済み・`<script>`「13.52) 広告」）
+
+**方針**：一般向け。**任意で見るリワード動画のみ**（強制割り込みなし＝子ども向けでも受け入れやすく経済にも素直）。収益化の第一歩。**未設定なら一切表示しない＝CPU/PVP・既存プレイに完全無影響**（Firebase設定と同じ「キーを貼るだけ」方式）。テスト：test.js 116。
+
+- **設定**：`AD_CONFIG={network,id}`（既定は `PASTE_` プレースホルダ＝未設定）。ユーザーが広告ネットワーク（**方針＝Google AdSense H5 Games Ads を採用**。他に GameMonetize / GameDistribution）でアカウント作成→キーを貼る。**Web用H5広告なので Androidアプリ(TWA)・iOSブラウザ両方に同じコードで効く**（AdMobネイティブSDKはTWA/ブラウザ不可）。
+- **本番ホスト限定（環境分離）**：`AD_PROD_HOST`（既定 `PASTE_PROD_HOST`）＝本番の独自ドメイン名。広告は `adsEnabledHere()`＝`adsConfigured() && isAdProdHost()`（`location.hostname===AD_PROD_HOST`）が真のときだけ表示。**テスト環境（GitHub Pages `*.github.io`）やローカルでは常に広告OFF**＝AdSense等の未承認ドメイン表示・無効トラフィックを防ぐ。運用は「本番＝独自ドメイン(Cloudflare Pages等)／テスト＝GitHub Pages」。ドメイン購入後に `AD_PROD_HOST` と `<head>` OGP・`SHARE_URL` を本番ドメインへ差し替える（共有/招待リンクは実行時 `location` 生成なので差し替え不要）。
+- **SDK差し込み口**：`adNetworkPlay(onReward,onClose,onError)` の1箇所だけを各社に合わせて書き換える（未接続は `onError('SDK未ロード')`＝呼び出し側が「準備中」表示）。抽象は `showRewardedAd({onReward,onClose,onUnavailable})`＝ここにだけ対戦本体は依存しない。
+- **報酬と上限**：`AD_REWARD_COINS`(30)＝1本の🍬／`AD_REWARD_DAILY_CAP`(5)＝1日の上限回数（荒稼ぎ防止）。日次カウントは `myProfile.adReward={day,count}`（`grantAdReward` が付与・`todayKey()` で日替わりリセット）。純粋関数 `adRewardState(profile,today)`＝`{used,remaining,capped}`（テスト対象）。保存/クラウド同期は save/build/apply に統合（同日は大きいカウントを採用）。
+- **UI**：`#shopModal` の「🎬 広告を見て🍬をもらう」ボタン（`watchAdForCoins`／`renderAdButton` が残り回数表示・上限で無効化・未設定で非表示）。
+- **要ユーザー作業**：①広告ネットワークのアカウント作成→`AD_CONFIG` にキー、②`adNetworkPlay` にSDK呼び出しを実装、③（審査用に）独自ドメイン推奨。**性能・対戦バランスには一切関与しない（見た目/コインのみ＝対戦は常にフェア）**。
+
 ## キャラ解禁（スターター＋🍬シュガーコイン・実装済み・`<script>`「13.6) キャラ解禁」）
 
 **方針（①=全モード解禁制を採用）**：スターターを実用的な数にし、コインは無料で貯まる（指南クリア＋対戦報酬）ので、初心者でもすぐ4枚デッキを組めて、いつかは全員そろう＝格差を最小化。将来は課金でのコイン購入も想定。テスト：test.js 92。

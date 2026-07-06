@@ -11,15 +11,15 @@
 <meta property="og:site_name" content="SUGAR WARS">
 <meta property="og:title" content="SUGAR WARS — お菓子の国の戦争">
 <meta property="og:description" content="お菓子の兵士を集めて軍を編成し、リアルタイム自動戦闘で覇権を争う無料ブラウザゲーム。友達と対戦しよう！">
-<meta property="og:url" content="https://negiramen1922.github.io/sugarwars-test/">
-<meta property="og:image" content="https://negiramen1922.github.io/sugarwars-test/og-image.png">
+<meta property="og:url" content="https://sugar-wars.com/">
+<meta property="og:image" content="https://sugar-wars.com/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:locale" content="ja_JP">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="SUGAR WARS — お菓子の国の戦争">
 <meta name="twitter:description" content="お菓子の兵士を集めて軍を編成し、リアルタイム自動戦闘で覇権を争う無料ブラウザゲーム。友達と対戦しよう！">
-<meta name="twitter:image" content="https://negiramen1922.github.io/sugarwars-test/og-image.png">
+<meta name="twitter:image" content="https://sugar-wars.com/og-image.png">
 <!-- PWA（ホーム追加・オフライン起動） -->
 <meta name="theme-color" content="#14161f">
 <link rel="manifest" href="manifest.webmanifest">
@@ -713,6 +713,8 @@
       <button class="menu-row" onclick="startTestBattle()">⚔️ テスト対戦（開発用・βキャラ確認）</button>
       <div class="menu-row" style="cursor:default">🎵 BGM音量<input type="range" id="bgmVol" min="0" max="100" oninput="onBgmVol(this.value)" style="flex:1;margin-left:8px"></div>
       <div class="menu-row" style="cursor:default">🔔 効果音音量<input type="range" id="sfxVol" min="0" max="100" oninput="onSfxVol(this.value)" style="flex:1;margin-left:8px"></div>
+      <a class="menu-row" href="about.html" style="text-decoration:none;color:inherit">ℹ️ このゲームについて</a>
+      <a class="menu-row" href="privacy.html" style="text-decoration:none;color:inherit">📄 プライバシーポリシー</a>
       <div style="text-align:center;margin-top:8px"><button class="btn btn-ghost" onclick="closeMenu()">閉じる</button></div>
     </div>
   </div>
@@ -869,6 +871,7 @@
       <div style="text-align:center;font-size:16px;margin:2px 0 12px" id="shopCoins">🍬 <b>0</b> シュガーコイン</div>
       <button class="btn btn-primary shop-pull" id="buyPackBtn" onclick="buyPack()">パックを開ける<span class="shop-pull-cost">🍬 <span id="packCostLabel">120</span></span></button>
       <button class="btn shop-pull shop-pull11" id="buyPack11Btn" onclick="buyPack11()">11連を開ける<span class="shop-pull-cost">🍬 <span id="pack11CostLabel">1200</span>（1回ぶんお得！）</span></button>
+      <button class="btn shop-pull" id="watchAdBtn" onclick="watchAdForCoins()" style="display:none;background:linear-gradient(180deg,#5cc4d6,#43bd86)">🎬 広告を見て🍬をもらう</button>
       <div style="text-align:center;margin:12px 0 4px"><button class="btn btn-ghost" onclick="openPackPool()">📋 排出内容を見る</button></div>
       <div id="packResult" style="display:none"></div>
       <p style="font-size:11.5px;color:var(--muted);text-align:center;margin:6px 0 2px">見た目だけのごほうびです（対戦バランスには影響しません）。同じものが出たら、そのキャラの<b>熟練度XP</b>になります。装備は「👤プロフィール」から。</p>
@@ -4693,7 +4696,7 @@ function genRoomCode(){ const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; fo
    ・結果シェア：勝ち負けをSNSに投稿→友達が来る
    ・招待リンク：プライベート部屋の ?room=あいことば URLをタップするだけで参加
    純粋関数（shareResultText / roomInviteUrl / parseRoomCode）はヘッドレステスト対象。 */
-const SHARE_URL='https://negiramen1922.github.io/sugarwars-test/';   // 公開URL（head内OGPと合わせる。独自ドメイン移行時はこことメタを変更）
+const SHARE_URL='https://sugar-wars.com/';   // 本番の公開URL（head内OGPと合わせる。ドメイン変更時はこことメタを変更）
 let _lastResultWon=false;   // 直前の対戦の勝敗（決着画面のシェア文言用）。endGameで更新。
 // 実行時の実URL（クエリ/ハッシュ除去）。http(s)で開かれていればそれを使い、file:等ではSHARE_URLにフォールバック。
 function siteUrl(){
@@ -4763,7 +4766,7 @@ function pvpMaybeJoinFromUrl(){
    ============================================================ */
 let authUser=null;            // ログイン中のユーザー（未ログインはnull）
 let _cloudSaveT=0;            // クラウド保存のデバウンス用タイマ
-let myProfile={ name:'', avatar:'', trophies:1000, best:1000, wins:0, losses:0, mastery:{}, usage:{}, skins:{}, coins:0, collected:{}, frame:'', titlePre:'', titleSuf:'', nameColor:'', dailyWinKey:'', units:[], guideDone:[], login:{last:'',streak:0,best:0,total:0} };   // 名前＋アイコン＋トロフィー(=レート)＋最高＋戦績＋熟練度(key→XP)＋使用回数＋装備スキン＋通貨シュガーコイン(coins)＋所持コレクション(collected)＋装備中フレーム/称号/ネームカラー＋デイリー初勝利日(dailyWinKey)＋解禁済みキャラ(units)＋クリア済みレッスン(guideDone)＋継続ログイン(login={last,streak,best,total})
+let myProfile={ name:'', avatar:'', trophies:1000, best:1000, wins:0, losses:0, mastery:{}, usage:{}, skins:{}, coins:0, collected:{}, frame:'', titlePre:'', titleSuf:'', nameColor:'', dailyWinKey:'', units:[], guideDone:[], login:{last:'',streak:0,best:0,total:0}, adReward:{day:'',count:0} };   // 名前＋アイコン＋トロフィー(=レート)＋最高＋戦績＋熟練度(key→XP)＋使用回数＋装備スキン＋通貨シュガーコイン(coins)＋所持コレクション(collected)＋装備中フレーム/称号/ネームカラー＋デイリー初勝利日(dailyWinKey)＋解禁済みキャラ(units)＋クリア済みレッスン(guideDone)＋継続ログイン(login)＋広告リワードの日次カウント(adReward={day,count})
 /* 熟練度（キャラ経験値）で解禁する特別アバターアイコン。XPは【PVP対戦のみ】、勝ち=多め/負け=少なめで加算。
    ★重要：解禁は見た目（アイコン/スキン）だけにする。強化カード等ゲーム性能は熟練度で解禁しない＝対戦は常にフェア。 */
 const MASTERY_WIN_XP = 10;      // PVPで勝ったとき、デッキ各キャラに入る熟練度XP
@@ -4974,6 +4977,93 @@ function grantBattleReward(won){
 }
 
 /* ============================================================
+   13.52) 広告（リワード動画＝「広告を見て🍬をもらう」・受け皿）
+   ★方針：一般向け。任意で見るリワード動画のみ（強制割り込みなし）＝子ども向けでも受け入れやすく経済にも素直。
+     **未設定なら一切表示しない＝CPU/PVP対戦・既存プレイに完全に無影響**（Firebase設定と同じ「キーを貼るだけ」方式）。
+   実装は transport/Firebase と同じ抽象化：`showRewardedAd()` にだけ依存させ、広告ネットワークのSDK呼び出しは
+   `adNetworkPlay()` の1箇所に差し込む（下記コメント参照。GameMonetize / GameDistribution / AdSense等）。
+   調整する数値：AD_REWARD_COINS（1本の🍬）・AD_REWARD_DAILY_CAP（1日の上限回数）。純粋関数 adRewardState をテスト。
+   ============================================================ */
+// 広告ネットワークの識別子（ユーザーがアカウント作成後に貼る。既定は PASTE_ プレースホルダ＝未設定）。
+const AD_CONFIG = { network:'PASTE_AD_NETWORK', id:'PASTE_AD_ID' };
+// ★本番ホスト（＝独自ドメイン）。広告は【このホストでのみ】出す＝テスト環境(GitHub Pages: *.github.io)や
+//   ローカルでは広告を出さない（AdSense等は未承認ドメインでの表示が規約違反＋無効トラフィックの元になるため）。
+//   ドメイン購入後にここを本番ホスト名（例 'sugarwars.com'）へ差し替える。プレースホルダの間は広告OFF。
+const AD_PROD_HOST = 'sugar-wars.com';   // 本番ドメイン（Cloudflare Pages）。ここ以外（github.io等）では広告を出さない
+const AD_REWARD_COINS     = 30;   // 広告1本を見終えるともらえる🍬
+const AD_REWARD_DAILY_CAP = 5;    // 1日に広告で🍬をもらえる回数の上限（荒稼ぎ防止・後で調整可）
+// 広告キーが設定済みか（キー未設定なら false）
+function adsConfigured(){ return !!(AD_CONFIG && AD_CONFIG.id && String(AD_CONFIG.id).indexOf('PASTE_')<0 && String(AD_CONFIG.network).indexOf('PASTE_')<0); }
+// いま開いているホストが本番ドメインか（未設定 or location不明なら false＝テスト/ローカルでは広告を出さない）
+function isAdProdHost(){ try{ if(!AD_PROD_HOST || String(AD_PROD_HOST).indexOf('PASTE_')>=0) return false; if(typeof location==='undefined' || !location.hostname) return false; return location.hostname===AD_PROD_HOST; }catch(e){ return false; } }
+// ここで実際に広告を出してよいか＝キー設定済み かつ 本番ホスト（テスト環境では常に false）
+function adsEnabledHere(){ return adsConfigured() && isAdProdHost(); }
+// 今日の視聴状況（純粋関数・テスト対象）：{used, remaining, capped}
+function adRewardState(profile, today){
+  const a=(profile && profile.adReward) || {};
+  const used=(a.day===today) ? Math.max(0, a.count||0) : 0;
+  return { used:used, remaining:Math.max(0, AD_REWARD_DAILY_CAP-used), capped:used>=AD_REWARD_DAILY_CAP };
+}
+// 広告視聴完了時のコイン付与（1日上限つき）。付与した🍬を返す（上限到達なら0）。
+function grantAdReward(){
+  const today=todayKey();
+  if(!myProfile.adReward || typeof myProfile.adReward!=='object') myProfile.adReward={day:'',count:0};
+  if(myProfile.adReward.day!==today){ myProfile.adReward.day=today; myProfile.adReward.count=0; }
+  if(myProfile.adReward.count>=AD_REWARD_DAILY_CAP) return 0;
+  myProfile.adReward.count++;
+  myProfile.coins=myCoins()+AD_REWARD_COINS;
+  saveProfileLocal(); scheduleCloudSave();
+  try{ renderHomeCoins(); }catch(e){}
+  try{ renderShopCoins(); }catch(e){}
+  try{ track('ad_reward', { n:myProfile.adReward.count }); }catch(e){}
+  return AD_REWARD_COINS;
+}
+// ★広告ネットワークSDKの差し込み口（ここだけ各社に合わせて書き換える）。
+//   onReward=最後まで見た／onClose=閉じた／onError=出せなかった、を呼ぶこと。
+//   例）GameMonetize: window.sdk.showBanner() 相当の rewarded 呼び出し→完了コールバックで onReward。
+//       AdSense for games (H5): adBreak({type:'reward', beforeReward, adViewed, adDismissed})。
+//   未接続（SDK未ロード）なら onError('SDK未ロード') を返す＝呼び出し側で「準備中」表示。
+function adNetworkPlay(onReward, onClose, onError){
+  try{
+    // TODO: ここに実際の広告SDK呼び出しを差し込む。ロード済みグローバルがあれば使う。
+    // if(window.sdk && window.sdk.showRewarded){ window.sdk.showRewarded().then(onReward).catch(onError); return; }
+    onError && onError('SDK未ロード');
+  }catch(e){ onError && onError((e&&e.message)||'広告エラー'); }
+}
+// リワード広告を1本再生（未設定/上限/SDK無しは onUnavailable）。見終えたら🍬付与→onReward。
+function showRewardedAd(cb){
+  cb=cb||{};
+  if(!adsEnabledHere()){ cb.onUnavailable && cb.onUnavailable('未設定'); return; }   // 未設定 or テスト環境（本番ホスト以外）では出さない
+  const st=adRewardState(myProfile, todayKey());
+  if(st.capped){ cb.onUnavailable && cb.onUnavailable('本日の上限'); return; }
+  adNetworkPlay(
+    function(){ const g=grantAdReward(); cb.onReward && cb.onReward(g); },   // 視聴完了→付与
+    function(){ cb.onClose && cb.onClose(); },
+    function(err){ cb.onUnavailable && cb.onUnavailable(err||'再生できませんでした'); }
+  );
+}
+// ショップの「広告を見て🍬」ボタンから呼ぶ。
+function watchAdForCoins(){
+  try{ SFX.play('button'); }catch(e){}
+  showRewardedAd({
+    onReward:function(g){ try{ toast('🎬 広告視聴ありがとう！ 🍬 +'+(g||AD_REWARD_COINS)); }catch(e){} try{ renderShop(); }catch(e){} },
+    onUnavailable:function(why){ try{ toast(why==='本日の上限' ? '今日はもう上限です（また明日！）' : '広告は準備中です'); }catch(e){} }
+  });
+}
+// ショップの広告ボタンの表示/文言を更新（未設定なら非表示＝既存プレイに無影響）。
+function renderAdButton(){
+  const btn=$('watchAdBtn'); if(!btn) return;
+  if(!adsEnabledHere()){ btn.style.display='none'; return; }   // 未設定 or テスト環境（本番ホスト以外）ではボタン非表示
+  const st=adRewardState(myProfile, todayKey());
+  btn.style.display='';
+  btn.disabled=st.capped;
+  btn.style.opacity=st.capped?'.5':'1';
+  btn.innerHTML = st.capped
+    ? '🎬 今日はもう上限（また明日！）'
+    : '🎬 広告を見て🍬をもらう<span class="shop-pull-cost">🍬 +'+AD_REWARD_COINS+'（あと'+st.remaining+'回）</span>';
+}
+
+/* ============================================================
    13.55) 継続ログイン報酬（毎日ログインでコイン＋累計日数で見た目を解禁）
    ★方針：コインは【連続ログイン日数】でスケール（途切れたら1日目に戻る・7日で頭打ち）。
      見た目（フレーム/二つ名/ネームカラー/記念アイコン）のマイルストーンは【累計ログイン日数】で解禁
@@ -5174,13 +5264,13 @@ function displayProfile(){ return { name: (myProfile.name||'').trim() || default
 function saveDeckLocal(){ try{ localStorage.setItem('sw_deck', JSON.stringify(realDeck())); }catch(e){} }
 function loadDeckLocal(){ try{ const s=localStorage.getItem('sw_deck'); if(s){ const a=JSON.parse(s); if(Array.isArray(a)) applyProfile({deck:a}); } }catch(e){} }
 // トロフィー・戦績・使用回数・スキン＋経済（コイン/コレクション/装備/解禁/指南進捗）も端末に保存（ゲスト＝匿名でもリロードで消えないように。ログイン時のクラウドとの突き合わせにも使う）
-function saveProfileLocal(){ try{ localStorage.setItem('sw_profile', JSON.stringify({name:myProfile.name,avatar:myProfile.avatar,mastery:myProfile.mastery||{},trophies:myProfile.trophies,best:myProfile.best,wins:myProfile.wins,losses:myProfile.losses,usage:myProfile.usage||{},skins:myProfile.skins||{},coins:myProfile.coins||0,collected:myProfile.collected||{},frame:myProfile.frame||'',titlePre:myProfile.titlePre||'',titleSuf:myProfile.titleSuf||'',nameColor:myProfile.nameColor||'',dailyWinKey:myProfile.dailyWinKey||'',units:myProfile.units||[],guideDone:myProfile.guideDone||[],login:myLogin()})); }catch(e){} }
+function saveProfileLocal(){ try{ localStorage.setItem('sw_profile', JSON.stringify({name:myProfile.name,avatar:myProfile.avatar,mastery:myProfile.mastery||{},trophies:myProfile.trophies,best:myProfile.best,wins:myProfile.wins,losses:myProfile.losses,usage:myProfile.usage||{},skins:myProfile.skins||{},coins:myProfile.coins||0,collected:myProfile.collected||{},frame:myProfile.frame||'',titlePre:myProfile.titlePre||'',titleSuf:myProfile.titleSuf||'',nameColor:myProfile.nameColor||'',dailyWinKey:myProfile.dailyWinKey||'',units:myProfile.units||[],guideDone:myProfile.guideDone||[],login:myLogin(),adReward:myProfile.adReward||{day:'',count:0}})); }catch(e){} }
 function loadProfileLocal(){ try{ const s=localStorage.getItem('sw_profile'); if(s){ const o=JSON.parse(s); applyProfile(o); } }catch(e){} }
 // 編成変更時に呼ぶ：ローカル保存＋（ログイン中なら）クラウドへデバウンス保存
 function persistDeck(){ saveDeckLocal(); scheduleCloudSave(); }
 
 // --- 保存プロフィールの整形（純粋関数・テスト対象） ---
-function buildProfile(){ return { deck: realDeck().slice(0, CONFIG.deckSize), name: myProfile.name||'', avatar: myProfile.avatar||'', trophies: myTrophies(), best: Math.max(myProfile.best||0, myTrophies()), wins: myProfile.wins||0, losses: myProfile.losses||0, mastery: myProfile.mastery||{}, usage: myProfile.usage||{}, skins: myProfile.skins||{}, coins: myCoins(), collected: myProfile.collected||{}, frame: myProfile.frame||'', titlePre: myProfile.titlePre||'', titleSuf: myProfile.titleSuf||'', nameColor: myProfile.nameColor||'', dailyWinKey: myProfile.dailyWinKey||'', units: myProfile.units||[], guideDone: myProfile.guideDone||[], login: myLogin(), tutorialDone: tutSeen(), updatedAt: Date.now() }; }
+function buildProfile(){ return { deck: realDeck().slice(0, CONFIG.deckSize), name: myProfile.name||'', avatar: myProfile.avatar||'', trophies: myTrophies(), best: Math.max(myProfile.best||0, myTrophies()), wins: myProfile.wins||0, losses: myProfile.losses||0, mastery: myProfile.mastery||{}, usage: myProfile.usage||{}, skins: myProfile.skins||{}, coins: myCoins(), collected: myProfile.collected||{}, frame: myProfile.frame||'', titlePre: myProfile.titlePre||'', titleSuf: myProfile.titleSuf||'', nameColor: myProfile.nameColor||'', dailyWinKey: myProfile.dailyWinKey||'', units: myProfile.units||[], guideDone: myProfile.guideDone||[], login: myLogin(), adReward: myProfile.adReward||{day:'',count:0}, tutorialDone: tutSeen(), updatedAt: Date.now() }; }
 // クラウド/ローカルから読んだプロフィールをゲーム状態へ反映（不正キーは除外）
 function applyProfile(p){
   if(!p) return;
@@ -5207,6 +5297,14 @@ function applyProfile(p){
     const curTotal=Math.max(0,Math.round(cur.total||0)), incTotal=Math.max(0,Math.round(inc.total||0));
     const win = incTotal>curTotal ? inc : cur;   // より進んでいる方の last/streak を採用
     myProfile.login={ last:(typeof win.last==='string'?win.last:''), streak:Math.max(0,Math.round(win.streak||0)), best:Math.max(Math.round(cur.best||0),Math.round(inc.best||0)), total:Math.max(curTotal,incTotal) };
+  }
+  if(p.adReward && typeof p.adReward==='object'){   // 広告リワードの日次カウント：同じ日なら大きい方を採用（端末間で上限を共有寄りに）
+    if(!myProfile.adReward || typeof myProfile.adReward!=='object') myProfile.adReward={day:'',count:0};
+    const cur=myProfile.adReward, inc=p.adReward;
+    if(typeof inc.day==='string' && inc.day){
+      if(inc.day===cur.day) myProfile.adReward={ day:cur.day, count:Math.max(0,Math.round(cur.count||0), Math.round(inc.count||0)) };
+      else if(!cur.day || inc.day>cur.day) myProfile.adReward={ day:inc.day, count:Math.max(0,Math.round(inc.count||0)) };
+    }
   }
   if(Array.isArray(p.units)){ if(!Array.isArray(myProfile.units)) myProfile.units=[]; p.units.forEach(function(k){ if(UNIT_BY_KEY[k] && !UNIT_BY_KEY[k].summonOnly && STARTER_UNITS.indexOf(k)<0 && myProfile.units.indexOf(k)<0) myProfile.units.push(k); }); }   // 解禁済みキャラは和集合（進捗が消えない）
   if(Array.isArray(p.guideDone)){ if(!Array.isArray(myProfile.guideDone)) myProfile.guideDone=[]; p.guideDone.forEach(function(id){ if(typeof id==='string' && myProfile.guideDone.indexOf(id)<0) myProfile.guideDone.push(id); }); }   // クリア済みレッスンは和集合
@@ -5463,7 +5561,7 @@ function renderHomeCoins(){ const el=$('homeCoins'); if(el) el.textContent='🍬
 /* ===== ショップ＆コレクション（見た目だけ・対戦バランス不変） ===== */
 function openShop(){ try{ SFX.play('button'); }catch(e){} const mm=$('menuModal'); if(mm) mm.classList.add('hidden'); renderShop(); const m=$('shopModal'); if(m) m.classList.remove('hidden'); }
 function closeShop(e){ if(e && e.target!==e.currentTarget) return; const m=$('shopModal'); if(m) m.classList.add('hidden'); }
-function renderShop(){ const cl=$('packCostLabel'); if(cl) cl.textContent=PACK_COST; const c11=$('pack11CostLabel'); if(c11) c11.textContent=PACK11_COST; renderShopCoins(); }
+function renderShop(){ const cl=$('packCostLabel'); if(cl) cl.textContent=PACK_COST; const c11=$('pack11CostLabel'); if(c11) c11.textContent=PACK11_COST; renderShopCoins(); renderAdButton(); }
 function renderShopCoins(){ const el=$('shopCoins'); if(el) el.innerHTML='🍬 <b>'+myCoins()+'</b> シュガーコイン';
   const btn=$('buyPackBtn'); if(btn){ btn.disabled=myCoins()<PACK_COST; btn.style.opacity=btn.disabled?'.5':'1'; }
   const b11=$('buyPack11Btn'); if(b11){ b11.disabled=myCoins()<PACK11_COST; b11.style.opacity=b11.disabled?'.5':'1'; }
