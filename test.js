@@ -2642,6 +2642,7 @@ console.log('\n=== 90) 経済：カードパック＋通貨（見た目だけ＝
   check('プールにフレーム', ids.includes('frame_gold'));
   check('プールに二つ名（前半）', ids.includes('tp_party'));
   check('プールに二つ名（後半）', ids.includes('ts_cookie'));
+  check('プールにパンケーキ二つ名', ids.includes('ts_pancake'));
   check('プールにネームカラー', ids.includes('nc_gold'));
   check('アイコン(アバター)はガチャに出ない', !ids.includes('ava_daifuku') && !ids.includes('ava_cookie_free'));
   check('スキンはガチャに出ない', !ids.some(id=>API.SPECIAL_SKINS.some(s=>s.id===id)));
@@ -2676,6 +2677,12 @@ console.log('\n=== 90) 経済：カードパック＋通貨（見た目だけ＝
   API.equipTitleSuf('ts_cookie'); check('二つ名後半を装備', API.equippedTitleSuf()==='ts_cookie');
   check('二つ名テキストは前半＋後半（パーティークッキー）', API.titleText()==='パーティークッキー', API.titleText());
   check('titleTextOfで任意の組み合わせ', API.titleTextOf('tp_cool','ts_samurai')==='かっこいいサムライ');
+  // 完全自由化：前半/後半の区別なくどのパーツもどちらのスロットにも装備できる
+  API.equipTitlePre('ts_cookie'); check('後半パーツを1つ目スロットに装備できる', API.equippedTitlePre()==='ts_cookie', API.equippedTitlePre());
+  API.equipTitleSuf('tp_party');  check('前半パーツを2つ目スロットに装備できる', API.equippedTitleSuf()==='tp_party', API.equippedTitleSuf());
+  check('自由な並び（クッキーパーティー）', API.titleText()==='クッキーパーティー', API.titleText());
+  check('titleTextOfもパーツ位置自由（大福ちょんまげ）', API.titleTextOf('ts_daifuku','tp_topknot')==='大福ちょんまげ');
+  API.equipTitlePre('tp_party'); API.equipTitleSuf('ts_cookie');   // 後片付け（以降のテストのため元に戻す）
   API.equipNameColor('nc_gold'); check('ネームカラー装備', API.equippedNameColor()==='nc_gold');
   API.equipFrame('frame_berry'); check('未所持は装備できない', API.equippedFrame()==='');
   prof.frame='frame_gold'; prof.collected={};

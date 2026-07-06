@@ -2,7 +2,7 @@
    方針：HTML(本体)はネット優先→失敗時キャッシュ（更新が届きつつオフラインでも起動）。
         同一オリジンの静的（アイコン等）はキャッシュ優先。外部(フォント/Firebase)は素通し。
    バージョンを上げる（CACHE名を変える）と、activate時に古いキャッシュを破棄して更新される。 */
-const CACHE = 'sugarwars-v30';
+const CACHE = 'sugarwars-v31';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'og-image.png'];
 
 self.addEventListener('install', (e) => {
