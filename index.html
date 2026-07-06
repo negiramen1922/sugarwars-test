@@ -713,6 +713,8 @@
       <button class="menu-row" onclick="startTestBattle()">⚔️ テスト対戦（開発用・βキャラ確認）</button>
       <div class="menu-row" style="cursor:default">🎵 BGM音量<input type="range" id="bgmVol" min="0" max="100" oninput="onBgmVol(this.value)" style="flex:1;margin-left:8px"></div>
       <div class="menu-row" style="cursor:default">🔔 効果音音量<input type="range" id="sfxVol" min="0" max="100" oninput="onSfxVol(this.value)" style="flex:1;margin-left:8px"></div>
+      <a class="menu-row" href="about.html" style="text-decoration:none;color:inherit">ℹ️ このゲームについて</a>
+      <a class="menu-row" href="privacy.html" style="text-decoration:none;color:inherit">📄 プライバシーポリシー</a>
       <div style="text-align:center;margin-top:8px"><button class="btn btn-ghost" onclick="closeMenu()">閉じる</button></div>
     </div>
   </div>
@@ -4981,7 +4983,7 @@ const AD_CONFIG = { network:'PASTE_AD_NETWORK', id:'PASTE_AD_ID' };
 // ★本番ホスト（＝独自ドメイン）。広告は【このホストでのみ】出す＝テスト環境(GitHub Pages: *.github.io)や
 //   ローカルでは広告を出さない（AdSense等は未承認ドメインでの表示が規約違反＋無効トラフィックの元になるため）。
 //   ドメイン購入後にここを本番ホスト名（例 'sugarwars.com'）へ差し替える。プレースホルダの間は広告OFF。
-const AD_PROD_HOST = 'PASTE_PROD_HOST';
+const AD_PROD_HOST = 'sugar-wars.com';   // 本番ドメイン（Cloudflare Pages）。ここ以外（github.io等）では広告を出さない
 const AD_REWARD_COINS     = 30;   // 広告1本を見終えるともらえる🍬
 const AD_REWARD_DAILY_CAP = 5;    // 1日に広告で🍬をもらえる回数の上限（荒稼ぎ防止・後で調整可）
 // 広告キーが設定済みか（キー未設定なら false）
