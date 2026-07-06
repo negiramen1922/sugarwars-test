@@ -3556,6 +3556,27 @@ console.log('\n=== 117) ステージ（テーマ付き背景・ランダム） =
   check('pickStage は active から1つ選ぶ', picked && active.some(s => s.id === picked.id) && API.currentStage.id === picked.id);
 }
 
+console.log('\n=== 118) ユニットの向き（左右反転用 face） ===');
+{
+  API.resetState(); API.setupCanvas();
+  const W = API.CW_get() || 440, H = API.CH_get() || 760;
+  const w = API.createWorld(W, H); w.phase = 'battle'; w.intro = 0; API.world = w;
+  const pf = API.makeFighters('cookie', 'p', W, H, 'army')[0]; pf.appear = 1; pf.x = W * 0.3; pf.y = H * 0.7; w.units.push(pf);
+  const ef = API.makeFighters('cookie', 'e', W, H, 'army')[0]; ef.appear = 1; ef.x = W * 0.7; ef.y = H * 0.3; w.units.push(ef);
+  for (let i = 0; i < 60; i++) API.stepWorld(w, 1 / 60);
+  check('stepWorldで全ユニットに face(±1)が設定される', w.units.length > 0 && w.units.every(u => u.face === 1 || u.face === -1));
+  // face はスナップショットにも乗る（PVPの子へ伝わる）
+  const snap = API.serializeWorld(w);
+  check('スナップショットに face が含まれる', snap.units.length > 0 && snap.units.every(u => u.face === 1 || u.face === -1));
+  // 直接の向き判定：右に動かせば face=1、左なら -1（攻撃なし・移動のみ）
+  const w2 = API.createWorld(W, H); w2.phase = 'battle'; w2.intro = 0; API.world = w2;
+  const a = API.makeFighters('slime', 'p', W, H, 'army')[0]; a.appear = 1; a.x = W * 0.2; a.y = H * 0.6; w2.units.push(a);
+  const b = API.makeFighters('slime', 'e', W, H, 'army')[0]; b.appear = 1; b.x = W * 0.8; b.y = H * 0.4; w2.units.push(b);
+  for (let i = 0; i < 40; i++) API.stepWorld(w2, 1 / 60);
+  // p側は敵(右側)へ寄るので概ね右向き（face=1）になりやすい（厳密断定はせず±1であることを確認）
+  check('slimeも face が ±1 で設定される', a.face === 1 || a.face === -1);
+}
+
 Promise.resolve().then(() => {
   console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
   process.exit(fail ? 1 : 0);

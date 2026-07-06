@@ -3679,6 +3679,14 @@ function stepWorld(world, dt){
   if(world.slashes){ for(const s of world.slashes){ s.life-=dt; } world.slashes=world.slashes.filter(s=>s.life>0); }   // 扇状斬撃エフェクト（大福の突撃ヒット）
   resolveOverlaps(world);                                                       // ユニット同士が重ならないように押し分ける
   for(const u of world.units){ if(u.hp>0) clampToStage(u,world.W,world.H); }   // 盤面（クリーム枠）の内側に収める
+  // 向いてる方向（左右反転・見た目のみ）：攻撃中は狙う方向／通常は横移動の向き。u.px は前フレームのx（スナップショットには送らない）。
+  for(const u of world.units){ if(u.hp<=0){ continue; }
+    const fdx=u.x-(u.px!=null?u.px:u.x);
+    if(u.atkAnim>0 && Math.abs(u.atkDx||0)>0.25) u.face=u.atkDx>0?1:-1;
+    else if(Math.abs(fdx)>0.15) u.face=fdx>0?1:-1;
+    else if(u.face==null) u.face=1;
+    u.px=u.x;
+  }
   for(const u of world.units){ if(u.dying) u.dieT=(u.dieT||0)+dt; }             // 横倒し演出のタイマーを進める
   world.units=world.units.filter(u=> u.hp>0 || (u.dying && u.dieT < DIE_DUR) );  // 倒れた兵は演出が終わるまで残す
   // 決着判定は「戦える兵（＝攻撃しない守護天使 mangel を除く）」で数える＝残りがエンジェルだけになった側は負け（攻撃できず勝てないため）
@@ -4147,6 +4155,8 @@ function render(){
       const S=u.r*SPRITE_MUL*sc*vis; ctx.imageSmoothingEnabled=false;
       // ショートケーキの影は地面に固定（bob無し）。本体だけが上下に浮くので、影との隙間で浮遊感が出る。
       if(u.key==='shortcake' && SPRITES['shortcake_shadow'] && !u.melting){ ctx.drawImage(SPRITES['shortcake_shadow'], u.x-S/2, u.y-S*0.60, S, S); }
+      // 向いてる方向で左右反転（本体＋合成武器をまとめて、体の中心 _cx で水平ミラー）。HPバー等は外側なので影響なし。
+      const _cx=u.x+lungeX; ctx.save(); if(u.face<0){ ctx.translate(_cx*2,0); ctx.scale(-1,1); }
       if(u.shellPhase==='spin'){   // 殻スピン中はくるくる回転して描画
         ctx.save(); ctx.translate(u.x+lungeX, u.y+bob+lungeY); ctx.rotate(world.t*14*(u.side==='p'?1:-1)); ctx.drawImage(spr, -S/2, -S*0.55, S, S); ctx.restore();
       } else {
@@ -4163,6 +4173,7 @@ function render(){
         for(let i=0;i<3;i++){ const a=world.t*6+i*2.094; const sx=u.x+Math.cos(a)*9, sy=u.y+bob-S*0.42+Math.sin(a)*3;
           ctx.fillStyle='#ffe08a'; ctx.font='10px serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('★',sx,sy); }
       }
+      ctx.restore();   // 左右反転を解除（HPバー・✦バッジは反転しない）
     } else {
       if(u.flash>0){ ctx.beginPath(); ctx.arc(u.x+lungeX,u.y+bob+lungeY,u.r+2,0,6.28); ctx.fillStyle='rgba(255,255,255,.6)'; ctx.fill(); }
       ctx.font=(u.r*1.7*sc*vis)+'px serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(u.icon,u.x+lungeX,u.y+bob+lungeY);
@@ -4529,7 +4540,7 @@ const SNAP_UNIT_FIELDS = ['nid','key','side','x','y','r','hp','maxHp','icon',
   'dying','dieT','dieDir','melting','melt','appear','appearFx','bob','jumpH','spriteScale','flash',
   'atkAnim','atkDx','atkDy','warper','vanishing','vanP','invuln','isDecoy','raged','armed',
   'slime','merged','evolved','fizz','shoeBuff','cstate','chargeT','party','partyStage','wall','wallR',
-  'charger','cluster','fastEvo','chocoBuff','bakeryBuff','daifukuBuff','donutWall','shellPhase','icewizBuff','macaronBuff','spawnMini','cloneOn'];
+  'charger','cluster','fastEvo','chocoBuff','bakeryBuff','daifukuBuff','donutWall','shellPhase','icewizBuff','macaronBuff','spawnMini','cloneOn','face'];
 // 数値を丸めてJSONを小さくする（TURN中継時の通信量削減）。位置/サイズ/HPは整数、その他(演出値)は小数2桁。
 const SNAP_INT = {x:1,y:1,r:1,hp:1,maxHp:1,tx:1,ty:1,sx:1,sy:1,max:1,wallR:1};
 function snapNum(k,v){ return SNAP_INT[k] ? Math.round(v) : Math.round(v*100)/100; }
