@@ -11,15 +11,15 @@
 <meta property="og:site_name" content="SUGAR WARS">
 <meta property="og:title" content="SUGAR WARS — お菓子の国の戦争">
 <meta property="og:description" content="お菓子の兵士を集めて軍を編成し、リアルタイム自動戦闘で覇権を争う無料ブラウザゲーム。友達と対戦しよう！">
-<meta property="og:url" content="https://negiramen1922.github.io/sugarwars-test/">
-<meta property="og:image" content="https://negiramen1922.github.io/sugarwars-test/og-image.png">
+<meta property="og:url" content="https://sugar-wars.com/">
+<meta property="og:image" content="https://sugar-wars.com/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:locale" content="ja_JP">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="SUGAR WARS — お菓子の国の戦争">
 <meta name="twitter:description" content="お菓子の兵士を集めて軍を編成し、リアルタイム自動戦闘で覇権を争う無料ブラウザゲーム。友達と対戦しよう！">
-<meta name="twitter:image" content="https://negiramen1922.github.io/sugarwars-test/og-image.png">
+<meta name="twitter:image" content="https://sugar-wars.com/og-image.png">
 <!-- PWA（ホーム追加・オフライン起動） -->
 <meta name="theme-color" content="#14161f">
 <link rel="manifest" href="manifest.webmanifest">
@@ -4690,7 +4690,7 @@ function genRoomCode(){ const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; fo
    ・結果シェア：勝ち負けをSNSに投稿→友達が来る
    ・招待リンク：プライベート部屋の ?room=あいことば URLをタップするだけで参加
    純粋関数（shareResultText / roomInviteUrl / parseRoomCode）はヘッドレステスト対象。 */
-const SHARE_URL='https://negiramen1922.github.io/sugarwars-test/';   // 公開URL（head内OGPと合わせる。独自ドメイン移行時はこことメタを変更）
+const SHARE_URL='https://sugar-wars.com/';   // 本番の公開URL（head内OGPと合わせる。ドメイン変更時はこことメタを変更）
 let _lastResultWon=false;   // 直前の対戦の勝敗（決着画面のシェア文言用）。endGameで更新。
 // 実行時の実URL（クエリ/ハッシュ除去）。http(s)で開かれていればそれを使い、file:等ではSHARE_URLにフォールバック。
 function siteUrl(){
