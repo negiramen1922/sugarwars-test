@@ -84,6 +84,8 @@
 - **隊列**：`arrangeFormation`（tierでグループ化し後方アンカーで整列）/ `centerMergedSlimes`。
 - **X2**：`doubleUnitsOnBoard` / `applyX2Replay` / `eligibleX2Specials` / `cloneFighter`。
 - **決着**：`beginOutro` / `outroStep`（溶けて砂糖に）。
+- **ステージ背景（テーマ付き・ランダム）**：`STAGES`（`{id,name,key}`・現在4種＝キャンディキャンディマウンテン/ラムネソーダビーチ/ビスケットキャッスル/チョコレートフォレスト）。背景画像は `SPRITE_DATA['stage_<id>']`（Dola生成のドット絵を透かし除去・2:3・836×1254へ統一・WebP化して埋め込み）。`pickStage()` がバトル開始（`startGame`/`pvpStartAsHost`/`pvpGuestEnterPlay`）で **アクティブ（画像あり）なステージからランダム選択**→`render` が `currentStageImg()` を `imageSmoothingEnabled=false` で全面描画（画像0枚なら従来 `STAGE_BG_IMG` にフォールバック）。開始時に `#stageBanner`（`showStageBanner`・📍ステージ名・チュートリアル中は抑制）。新ステージは「Dola生成→透かし除去/2:3/836×1254/WebP化→`SPRITE_DATA` に `stage_<id>` 追加→`STAGES` に1行」。PVPは各自ランダム（背景は見た目のみ・同期は将来）。テスト：test.js 117。
+- **ユニットの向き（左右反転）**：`stepWorld` 末尾で各ユニットの `u.face`(±1) を決める＝**攻撃中は狙う方向(`atkDx`)／通常は横移動の向き**（`u.px`＝前フレームx・スナップショットには送らない）。`face` は `SNAP_UNIT_FIELDS` に含めてPVPの子へ伝える（x は反転しないので mirror でも符号そのまま）。`render` は本体＋合成武器（大福刀/クッキー槍/チョコ剣盾）を **体中心で水平ミラー**（`u.face<0` のとき `translate(cx*2,0);scale(-1,1)`）。HPバー・✦バッジは外側なので反転しない。テスト：test.js 118。
 
 ## スプライト（立ち絵）
 
