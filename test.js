@@ -88,6 +88,7 @@ code += `
   computeLoginUpdate, loginCoinReward, grantLoginMilestones, loginCheckin, myLoginTotal, myLoginStreak,
   get LOGIN_MILESTONES(){ return LOGIN_MILESTONES; }, get LOGIN_COIN_BASE(){ return LOGIN_COIN_BASE; }, get LOGIN_COIN_STEP(){ return LOGIN_COIN_STEP; }, get LOGIN_COIN_MAX(){ return LOGIN_COIN_MAX; },
   adsConfigured, isAdProdHost, adsEnabledHere, adRewardState, grantAdReward, get AD_REWARD_COINS(){ return AD_REWARD_COINS; }, get AD_REWARD_DAILY_CAP(){ return AD_REWARD_DAILY_CAP; },
+  get STAGES(){ return STAGES; }, activeStages, pickStage, get currentStage(){ return currentStage; }, get SPRITE_DATA(){ return SPRITE_DATA; },
   enhDisplay, specialCardIcon, abilitiesHTML, get UNIT_ABILITIES(){ return UNIT_ABILITIES; },
   pvpDecideIAmHost, pvpMatchupType, pvpGuestDisplayH, unitDamageType, unitAtkText, mostUsedUnit,
   spriteFor, get SPRITES(){ return SPRITES; },
@@ -3540,6 +3541,19 @@ console.log('\n=== 116) 広告リワード（広告を見て🍬・受け皿） 
   const coinsAtCap = API.myCoins();
   check('上限時は残高そのまま', API.grantAdReward() === 0 && API.myCoins() === coinsAtCap);
   prof.coins = 0; prof.adReward = { day: '', count: 0 };
+}
+
+console.log('\n=== 117) ステージ（テーマ付き背景・ランダム） ===');
+{
+  check('STAGES に4テーマ定義', API.STAGES.length === 4 && API.STAGES.some(s => s.id === 'candymtn' && s.name === 'キャンディキャンディマウンテン'));
+  check('全ステージに name と key がある', API.STAGES.every(s => s.name && s.key));
+  // 画像が用意できているステージだけ activeStages に入る（candymtn は埋め込み済み）
+  const active = API.activeStages();
+  check('candymtn は画像埋め込み済みで active', active.some(s => s.id === 'candymtn') && !!API.SPRITE_DATA['stage_candymtn']);
+  check('画像未用意のステージは active に含まれない', !active.some(s => !API.SPRITE_DATA[s.key]));
+  // pickStage は active のどれかを選ぶ
+  const picked = API.pickStage();
+  check('pickStage は active から1つ選ぶ', picked && active.some(s => s.id === picked.id) && API.currentStage.id === picked.id);
 }
 
 Promise.resolve().then(() => {
