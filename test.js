@@ -87,7 +87,7 @@ code += `
   shareResultText, roomInviteUrl, parseRoomCode, get SHARE_URL(){ return SHARE_URL; },
   computeLoginUpdate, loginCoinReward, grantLoginMilestones, loginCheckin, myLoginTotal, myLoginStreak,
   get LOGIN_MILESTONES(){ return LOGIN_MILESTONES; }, get LOGIN_COIN_BASE(){ return LOGIN_COIN_BASE; }, get LOGIN_COIN_STEP(){ return LOGIN_COIN_STEP; }, get LOGIN_COIN_MAX(){ return LOGIN_COIN_MAX; },
-  adsConfigured, adRewardState, grantAdReward, get AD_REWARD_COINS(){ return AD_REWARD_COINS; }, get AD_REWARD_DAILY_CAP(){ return AD_REWARD_DAILY_CAP; },
+  adsConfigured, isAdProdHost, adsEnabledHere, adRewardState, grantAdReward, get AD_REWARD_COINS(){ return AD_REWARD_COINS; }, get AD_REWARD_DAILY_CAP(){ return AD_REWARD_DAILY_CAP; },
   enhDisplay, specialCardIcon, abilitiesHTML, get UNIT_ABILITIES(){ return UNIT_ABILITIES; },
   pvpDecideIAmHost, pvpMatchupType, pvpGuestDisplayH, unitDamageType, unitAtkText, mostUsedUnit,
   spriteFor, get SPRITES(){ return SPRITES; },
@@ -3501,6 +3501,9 @@ console.log('\n=== 116) 広告リワード（広告を見て🍬・受け皿） 
 {
   // 未設定（PASTE_プレースホルダ）なら広告は無効＝ボタン非表示・showRewardedは影響なし
   check('未設定では adsConfigured=false（既存プレイに無影響）', API.adsConfigured() === false);
+  // 本番ホスト以外（テスト/ローカル）では広告を出さない安全装置
+  check('本番ホスト未設定では isAdProdHost=false', API.isAdProdHost() === false);
+  check('未設定 or テスト環境では adsEnabledHere=false', API.adsEnabledHere() === false);
 
   // adRewardState：純粋な日次カウント
   const today = '2026-7-6';

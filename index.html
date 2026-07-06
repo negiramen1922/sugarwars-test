@@ -4978,10 +4978,18 @@ function grantBattleReward(won){
    ============================================================ */
 // 広告ネットワークの識別子（ユーザーがアカウント作成後に貼る。既定は PASTE_ プレースホルダ＝未設定）。
 const AD_CONFIG = { network:'PASTE_AD_NETWORK', id:'PASTE_AD_ID' };
+// ★本番ホスト（＝独自ドメイン）。広告は【このホストでのみ】出す＝テスト環境(GitHub Pages: *.github.io)や
+//   ローカルでは広告を出さない（AdSense等は未承認ドメインでの表示が規約違反＋無効トラフィックの元になるため）。
+//   ドメイン購入後にここを本番ホスト名（例 'sugarwars.com'）へ差し替える。プレースホルダの間は広告OFF。
+const AD_PROD_HOST = 'PASTE_PROD_HOST';
 const AD_REWARD_COINS     = 30;   // 広告1本を見終えるともらえる🍬
 const AD_REWARD_DAILY_CAP = 5;    // 1日に広告で🍬をもらえる回数の上限（荒稼ぎ防止・後で調整可）
-// 広告が使える状態か（キー未設定なら false＝ボタン自体を出さない＝既存プレイに無影響）
+// 広告キーが設定済みか（キー未設定なら false）
 function adsConfigured(){ return !!(AD_CONFIG && AD_CONFIG.id && String(AD_CONFIG.id).indexOf('PASTE_')<0 && String(AD_CONFIG.network).indexOf('PASTE_')<0); }
+// いま開いているホストが本番ドメインか（未設定 or location不明なら false＝テスト/ローカルでは広告を出さない）
+function isAdProdHost(){ try{ if(!AD_PROD_HOST || String(AD_PROD_HOST).indexOf('PASTE_')>=0) return false; if(typeof location==='undefined' || !location.hostname) return false; return location.hostname===AD_PROD_HOST; }catch(e){ return false; } }
+// ここで実際に広告を出してよいか＝キー設定済み かつ 本番ホスト（テスト環境では常に false）
+function adsEnabledHere(){ return adsConfigured() && isAdProdHost(); }
 // 今日の視聴状況（純粋関数・テスト対象）：{used, remaining, capped}
 function adRewardState(profile, today){
   const a=(profile && profile.adReward) || {};
@@ -5017,7 +5025,7 @@ function adNetworkPlay(onReward, onClose, onError){
 // リワード広告を1本再生（未設定/上限/SDK無しは onUnavailable）。見終えたら🍬付与→onReward。
 function showRewardedAd(cb){
   cb=cb||{};
-  if(!adsConfigured()){ cb.onUnavailable && cb.onUnavailable('未設定'); return; }
+  if(!adsEnabledHere()){ cb.onUnavailable && cb.onUnavailable('未設定'); return; }   // 未設定 or テスト環境（本番ホスト以外）では出さない
   const st=adRewardState(myProfile, todayKey());
   if(st.capped){ cb.onUnavailable && cb.onUnavailable('本日の上限'); return; }
   adNetworkPlay(
@@ -5037,7 +5045,7 @@ function watchAdForCoins(){
 // ショップの広告ボタンの表示/文言を更新（未設定なら非表示＝既存プレイに無影響）。
 function renderAdButton(){
   const btn=$('watchAdBtn'); if(!btn) return;
-  if(!adsConfigured()){ btn.style.display='none'; return; }
+  if(!adsEnabledHere()){ btn.style.display='none'; return; }   // 未設定 or テスト環境（本番ホスト以外）ではボタン非表示
   const st=adRewardState(myProfile, todayKey());
   btn.style.display='';
   btn.disabled=st.capped;
