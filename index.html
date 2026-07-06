@@ -4879,10 +4879,14 @@ const TITLE_SUF = [
   { id:'ts_macaron',     name:'マカロン',     unit:'macaron' },
   { id:'ts_icecream',    name:'アイスクリーム', unit:'icewiz' },
   { id:'ts_cottoncandy', name:'わたあめ',     unit:'ghost'   },
+  { id:'ts_pancake',     name:'パンケーキ',   unit:'pancake' },
   { id:'ts_king',        name:'王さま',       unit:'cookie', login:30 },   // 継続ログイン30日で解禁（前半「まいにち」と合わせて「まいにち王さま」／ガチャ非排出）
 ];
 const TITLE_PRE_BY_ID = Object.fromEntries(TITLE_PRE.map(t=>[t.id,t]));
 const TITLE_SUF_BY_ID = Object.fromEntries(TITLE_SUF.map(t=>[t.id,t]));
+// 二つ名の「完全自由化」：前半/後半の区別なく、どのパーツも1つ目・2つ目どちらのスロットにも装備できる（組み合わせ自由）。
+const TITLE_PARTS = TITLE_PRE.concat(TITLE_SUF);
+const TITLE_PART_BY_ID = Object.fromEntries(TITLE_PARTS.map(t=>[t.id,t]));
 // ニックネームの色（CSS）。grad=trueならグラデ文字（background-clip:text）。unit=テーマ。
 const NAME_COLORS = [
   { id:'nc_berry',  name:'ストロベリー', css:'#ff5b7f',                                unit:'macaron' },
@@ -4938,14 +4942,14 @@ function openPackOnce(r){
 }
 // 装備中の（所持済み・有効な）フレーム/称号/ネームカラーid。未所持や不正は空＝なし。
 function equippedFrame(){ const id=myProfile.frame; return (id && FRAME_BY_ID[id] && ownsCollected(id))?id:''; }
-function equippedTitlePre(){ const id=myProfile.titlePre; return (id && TITLE_PRE_BY_ID[id] && ownsCollected(id))?id:''; }
-function equippedTitleSuf(){ const id=myProfile.titleSuf; return (id && TITLE_SUF_BY_ID[id] && ownsCollected(id))?id:''; }
+function equippedTitlePre(){ const id=myProfile.titlePre; return (id && TITLE_PART_BY_ID[id] && ownsCollected(id))?id:''; }   // どのパーツも1つ目スロットに装備可（前半/後半の区別なし）
+function equippedTitleSuf(){ const id=myProfile.titleSuf; return (id && TITLE_PART_BY_ID[id] && ownsCollected(id))?id:''; }   // どのパーツも2つ目スロットに装備可
 function equippedNameColor(){ const id=myProfile.nameColor; return (id && NAME_COLOR_BY_ID[id] && ownsCollected(id))?id:''; }
 function frameRing(id){ const f=FRAME_BY_ID[id]; return f?('box-shadow:'+f.ring+';'):''; }
 // 装備中の二つ名テキスト（前半＋後半・片方だけでも表示）
-function titleText(){ const p=TITLE_PRE_BY_ID[equippedTitlePre()], s=TITLE_SUF_BY_ID[equippedTitleSuf()]; return (p?p.name:'')+(s?s.name:''); }
-// 任意の(前半id,後半id)から二つ名テキストを作る（相手表示・プレビュー用）
-function titleTextOf(preId, sufId){ const p=TITLE_PRE_BY_ID[preId], s=TITLE_SUF_BY_ID[sufId]; return (p?p.name:'')+(s?s.name:''); }
+function titleText(){ const p=TITLE_PART_BY_ID[equippedTitlePre()], s=TITLE_PART_BY_ID[equippedTitleSuf()]; return (p?p.name:'')+(s?s.name:''); }
+// 任意の(1つ目id,2つ目id)から二つ名テキストを作る（相手表示・プレビュー用）。パーツは前半/後半どちらでも可
+function titleTextOf(preId, sufId){ const p=TITLE_PART_BY_ID[preId], s=TITLE_PART_BY_ID[sufId]; return (p?p.name:'')+(s?s.name:''); }
 // 名前要素に色/グラデを適用（グラデはbackground-clip:text）。id空でリセット。
 function applyNameColor(el, id){ if(!el) return;
   el.style.backgroundImage=''; el.style.webkitBackgroundClip=''; el.style.backgroundClip=''; el.style.color='';
@@ -6001,8 +6005,8 @@ function renderProfileCosmetics(){
     + '<div style="font-size:12px;font-weight:800;color:var(--muted);margin-bottom:2px">見た目（タップで開いて選ぶ）</div>'
     + '<div style="font-size:12px;margin:2px 0 6px">二つ名プレビュー：<b style="color:var(--brass)">'+preview+'</b></div>'
     + sec('frame', '🖼 フレーム', FRAMES, equippedFrame(), 'equipFrame')
-    + sec('pre', '🏷 二つ名（前半）', TITLE_PRE, equippedTitlePre(), 'equipTitlePre')
-    + sec('suf', '🏷 二つ名（後半）', TITLE_SUF, equippedTitleSuf(), 'equipTitleSuf')
+    + sec('pre', '🏷 二つ名（1つ目）', TITLE_PARTS, equippedTitlePre(), 'equipTitlePre')
+    + sec('suf', '🏷 二つ名（2つ目）', TITLE_PARTS, equippedTitleSuf(), 'equipTitleSuf')
     + sec('color', '🎨 ネームカラー', NAME_COLORS, equippedNameColor(), 'equipNameColor')
     + '</div>';
 }
