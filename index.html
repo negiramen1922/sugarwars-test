@@ -3905,7 +3905,7 @@ function drawChocoGear(u, S, cx, cy){
   // 盾（右手）：歩行中(battle)は上下に揺れる。強化(ビター装甲)は大盾で大きめ
   if(shield && shield.complete && shield.naturalWidth){
     const shW=S*(buffed?0.52:0.42), shH=shW*(shield.naturalHeight/shield.naturalWidth);
-    const by = (world && world.phase==='battle') ? Math.sin(u.bob)*S*0.07 : 0;
+    const by = (world && world.phase==='battle') ? Math.sin(u.bob)*S*(buffed?0.035:0.07) : 0;   // 大盾は重いので揺れ控えめ
     ctx.save(); ctx.translate(cx+S*(buffed?0.28:0.26), cy+S*0.05+by); ctx.imageSmoothingEnabled=false; ctx.drawImage(shield,-0.5*shW,-0.5*shH,shW,shH); ctx.restore();
   }
   // 剣（左手）：攻撃で左に倒して振り下ろす／待機は軽く左に傾けて上向き
