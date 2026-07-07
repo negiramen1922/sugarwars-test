@@ -1149,6 +1149,7 @@ const UNITS = [
   // スネイル型。イチゴを背負う立ち絵(shortcake_*)／タレット設置中はイチゴを下ろした立ち絵(shortcake_deploy_*)に切替。戦闘中は歩行2フレーム(*2_*)で下の足の並々が波打つ。青=ブルーベリー/赤=いちご。
   {key:'shortcake', name:'ショートケーキ', icon:'🍰', role:'fodder', tier:1.25, count:1, atk:10, hp:300, speed:50, range:30, cd:1.0, tag:'設置＋前進', short:'足元にイチゴタレットを置きつつ前進して殴る（1体）', text:'足元にイチゴタレットを設置したら、自分は前進して敵を殴りに行くケーキ。タレットは数秒で溶けるが、消えるとその時の足元にまた新しいタレットを置き直す。', deployTurret:true, turretKey:'strawturret', redeployDelay:0.5, test:true, beta:true},
   // イチゴタレット（ショートケーキ専用の召喚物・動かない短命の砲台）。summonOnly でロスター/ドラフト/CPU/X2/ピッカーから除外。turretLife 秒で消える。
+  // untargetable=狙われない＆当たり判定なし（分離/重なり解消の全ループで untargetable を素通し＝敵の前に置いても"無敵の盾"にならない）。
   {key:'strawturret', name:'イチゴタレット', icon:'🍓', role:'back', tier:2, count:1, atk:9, hp:70, speed:0, range:100, cd:0.15, tag:'タレット', short:'狙われずに近くの敵へ小さな粒を連射する砲台（時間/設置者で消滅）', text:'ショートケーキが設置する砲台。動かず近くの敵へ小さな粒（ベリー）を高速で連射する。敵からは狙われないが、設置したショートケーキが倒れる／時間が経つと壊れてしまう。', ranged:true, pellet:true, turretLife:4.0, untargetable:true, summonOnly:true},
 ];
 const UNIT_BY_KEY = Object.fromEntries(UNITS.map(u=>[u.key,u]));
@@ -3287,8 +3288,8 @@ function guardianStep(world, u, live, dt){
   let ax=0, ay=0;
   if(best){ const d=Math.sqrt(bd)||1; if(d>GUARDIAN_KEEP){ ax=(best.x-u.x)/d; ay=(best.y-u.y)/d; } }   // 近づきすぎず、少し離れたら寄る
   else { ay=(u.side==='p'? -1 : 1); }   // 味方が居なければ前方（敵陣方向）へ流れて次を探す
-  for(const o of (live||world.units)){ if(o===u || o.hp<=0) continue; const dx=u.x-o.x, dy=u.y-o.y, d2=dx*dx+dy*dy, rr=(u.r+o.r);
-    if(d2<rr*rr && d2>0.01){ const d=Math.sqrt(d2), f=(rr-d)/rr; ax+=dx/d*f*1.2; ay+=dy/d*f*1.2; } }   // 分離（重なり回避）
+  for(const o of (live||world.units)){ if(o===u || o.hp<=0 || o.untargetable) continue; const dx=u.x-o.x, dy=u.y-o.y, d2=dx*dx+dy*dy, rr=(u.r+o.r);
+    if(d2<rr*rr && d2>0.01){ const d=Math.sqrt(d2), f=(rr-d)/rr; ax+=dx/d*f*1.2; ay+=dy/d*f*1.2; } }   // 分離（重なり回避・タレット等 untargetable は素通し）
   const al=Math.hypot(ax,ay)||1;
   u.vx=ax/al*u.speed*(u.slowMul||1); u.vy=ay/al*u.speed*(u.slowMul||1);
   u.x+=u.vx*dt; u.y+=u.vy*dt;
@@ -3459,7 +3460,7 @@ function evolvedStep(world, u, tgt, dt){
   if(tgt){                                          // 接地時：敵へ寄り、射程内でクールが空けばジャンプ
     const dx=tgt.x-u.x,dy=tgt.y-u.y,d=Math.hypot(dx,dy)||1;
     if(d>u.shockR*0.55){ u.x+=dx/d*u.speed*(u.slowMul||1)*dt; u.y+=dy/d*u.speed*(u.slowMul||1)*dt; }
-    for(const o of world.units){ if(o===u||o.hp<=0) continue; const ox=u.x-o.x,oy=u.y-o.y,d2=ox*ox+oy*oy,rr=(u.r+o.r); if(d2<rr*rr&&d2>0.01){ const dl=Math.sqrt(d2),f=(rr-dl)/rr; u.x+=ox/dl*f*1.2; u.y+=oy/dl*f*1.2; } }
+    for(const o of world.units){ if(o===u||o.hp<=0||o.untargetable) continue; const ox=u.x-o.x,oy=u.y-o.y,d2=ox*ox+oy*oy,rr=(u.r+o.r); if(d2<rr*rr&&d2>0.01){ const dl=Math.sqrt(d2),f=(rr-dl)/rr; u.x+=ox/dl*f*1.2; u.y+=oy/dl*f*1.2; } }
     u.cool-=dt;
     if(u.cool<=0 && d<=u.shockR){ u.cool=u.cd; u.jumpT=u.jumpDur; SFX.play('atk_pancake_evo'); }   // 進化パンケーキ：ピョーン→ボワァン
   }
@@ -3659,7 +3660,7 @@ function vacuumStep(world, u, tgt, dt){
     const mt = nearestSuckable(world, u) || tgt;
     let ax=0,ay=0;
     if(mt){ const dx=mt.x-u.x,dy=mt.y-u.y,d=Math.hypot(dx,dy)||1; if(d>u.range-2){ ax+=dx/d; ay+=dy/d; } }
-    for(const o of world.units){ if(o===u||o.hp<=0) continue; const dx=u.x-o.x,dy=u.y-o.y,d2=dx*dx+dy*dy,rr=(u.r+o.r); if(d2<rr*rr&&d2>0.01){ const d=Math.sqrt(d2),f=(rr-d)/rr; ax+=dx/d*f*1.4; ay+=dy/d*f*1.4; } }
+    for(const o of world.units){ if(o===u||o.hp<=0||o.untargetable) continue; const dx=u.x-o.x,dy=u.y-o.y,d2=dx*dx+dy*dy,rr=(u.r+o.r); if(d2<rr*rr&&d2>0.01){ const d=Math.sqrt(d2),f=(rr-d)/rr; ax+=dx/d*f*1.4; ay+=dy/d*f*1.4; } }
     const al=Math.hypot(ax,ay)||1; u.x+=ax/al*u.speed*(u.slowMul||1)*dt; u.y+=ay/al*u.speed*(u.slowMul||1)*dt;
   }
   // 攻撃（低火力。射程内なら殴る）
@@ -3705,10 +3706,10 @@ function resolveOverlaps(world){
   const arr=world.units;
   for(let pass=0; pass<2; pass++){
     for(let i=0;i<arr.length;i++){
-      const u=arr[i]; if(u.hp<=0) continue;
+      const u=arr[i]; if(u.hp<=0 || u.untargetable) continue;   // タレット等 untargetable は当たり判定なし（素通し）
       const ru=Math.min(u.r, SEP_R);   // 分離用の半径は上限つき（隊列の密度に合わせ、開戦時に広がらない）
       for(let j=i+1;j<arr.length;j++){
-        const o=arr[j]; if(o.hp<=0) continue;
+        const o=arr[j]; if(o.hp<=0 || o.untargetable) continue;
         const rr=ru+Math.min(o.r, SEP_R);
         let ox=u.x-o.x, oy=u.y-o.y, d2=ox*ox+oy*oy;
         if(d2>=rr*rr) continue;
@@ -3854,7 +3855,7 @@ function stepWorld(world, dt){
     if(u.guardian){ guardianStep(world,u,live,dt); continue; }   // マシュマロエンジェル：攻撃せず、守る味方に追尾する
     let ax=0,ay=0;
     if(tgt){ const dx=tgt.x-u.x,dy=tgt.y-u.y,d=Math.hypot(dx,dy)||1; if(d>u.range-2){ ax+=dx/d; ay+=dy/d; } }
-    for(const o of live){ if(o===u) continue; const dx=u.x-o.x,dy=u.y-o.y,d2=dx*dx+dy*dy,rr=(u.r+o.r); if(d2<rr*rr&&d2>0.01){ const d=Math.sqrt(d2),f=(rr-d)/rr; ax+=dx/d*f*1.4; ay+=dy/d*f*1.4; } }
+    for(const o of live){ if(o===u||o.untargetable) continue; const dx=u.x-o.x,dy=u.y-o.y,d2=dx*dx+dy*dy,rr=(u.r+o.r); if(d2<rr*rr&&d2>0.01){ const d=Math.sqrt(d2),f=(rr-d)/rr; ax+=dx/d*f*1.4; ay+=dy/d*f*1.4; } }
     const al=Math.hypot(ax,ay)||1;
     u.vx=ax/al*u.speed*(u.slowMul||1); u.vy=ay/al*u.speed*(u.slowMul||1);
     if(u.warper && u.invuln>0){ u.vx=0; u.vy=0; }   // ワープ直後は無敵(invuln)が切れるまで動かない（攻撃はする＝その場で奇襲）

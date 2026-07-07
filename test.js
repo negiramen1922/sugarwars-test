@@ -3790,6 +3790,23 @@ console.log('\n=== 124) ゴーストはワープ後の無敵中は動かない =
   check('無敵が切れたら移動を再開する', Math.hypot(g.x - x0, g.y - y0) > 2);
 }
 
+console.log('\n=== 125) イチゴタレットは当たり判定なし（素通し・盾にならない） ===');
+{
+  API.resetState(); API.setupCanvas();
+  const W = API.CW_get() || 440, H = API.CH_get() || 760;
+  const w = API.createWorld(W, H); w.phase = 'battle'; w.intro = 0; API.world = w;
+  const turret = API.makeFighters('strawturret', 'p', W, H, 'army')[0]; turret.appear = 1;
+  turret.x = W * 0.5; turret.y = H * 0.5; w.units.push(turret);
+  // タレットに完全に重なる敵ユニット
+  const foe = API.makeFighters('cookie', 'e', W, H, 'army')[0]; foe.appear = 1;
+  foe.x = W * 0.5; foe.y = H * 0.5; w.units.push(foe);
+  const fx0 = foe.x, fy0 = foe.y, tx0 = turret.x, ty0 = turret.y;
+  check('タレットは untargetable フラグを持つ', turret.untargetable === true);
+  for (let i = 0; i < 4; i++) API.resolveOverlaps(w);
+  check('resolveOverlapsでタレットは敵を押し出さない', Math.hypot(foe.x - fx0, foe.y - fy0) < 0.5);
+  check('タレット自身も押されない（不動）', Math.hypot(turret.x - tx0, turret.y - ty0) < 0.5);
+}
+
 Promise.resolve().then(() => {
   console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
   process.exit(fail ? 1 : 0);
