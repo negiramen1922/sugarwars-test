@@ -3,6 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!-- 旧URL→本番ドメインへの引っ越しリダイレクト（ページ描画前に実行＝チラ見え防止）。
+     開発陣は URL に ?stay を付ければ残れる（以降そのタブは残留維持）。ローカル/LAN/file: は対象外。
+     ⚠️ 本番(DEST)が公開されてから PROD_REDIRECT を true にすること（未公開だと旧URLが死んだページへ飛ぶ）。 -->
+<script data-migrate="1">
+(function(){
+  try{
+    var PROD_REDIRECT = false;      // ★本番ドメイン公開後に true にすると強制リダイレクトが有効
+    var DEST = 'sugar-wars.com';    //  引っ越し先ドメイン（SHARE_URL / AD_PROD_HOST と揃える）
+    if(!PROD_REDIRECT) return;
+    if(location.protocol==='file:') return;
+    var h=location.hostname||'';
+    if(h===DEST || h==='www.'+DEST) return;                                   // 既に本番なら何もしない
+    if(h==='localhost'||h==='127.0.0.1'||h===''||/^192\.168\./.test(h)||/^10\./.test(h)||/^172\.(1[6-9]|2\d|3[01])\./.test(h)) return; // ローカル/LAN 開発
+    if(/[?&]stay\b/.test(location.search) || sessionStorage.getItem('sw_stay')==='1'){ try{ sessionStorage.setItem('sw_stay','1'); }catch(e){} return; } // 開発陣は残留
+    location.replace('https://'+DEST+'/'+location.search+location.hash);      // 招待コード(?room=)やハッシュは引き継ぐ
+  }catch(e){}
+})();
+</script>
 <title>SUGAR WARS — お菓子の国の戦争</title>
 <meta name="description" content="お菓子の兵士を集めて軍を編成し、リアルタイム自動戦闘で覇権を争うカードドラフト＆オートバトラー。">
 <!-- OGP / Twitterカード（SNSやLINEにURLを貼るとリッチなプレビュー＝画像＋説明が出る＝クリック率UP）。
