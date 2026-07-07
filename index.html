@@ -638,9 +638,9 @@
           <span class="mb-txt"><b>あいことば対戦</b><small>友だちと（つないだまま何度でも）</small></span>
           <span class="mb-arrow">›</span>
         </button>
-        <button class="menu-btn" onclick="startBoss()">
+        <button class="menu-btn hidden" id="bossModeBtn" onclick="startBoss()">
           <span class="mb-ico">🐲</span>
-          <span class="mb-txt"><b>ボス戦（PVE）</b><small>巨大ボスを軍で削り倒せ（HP持ち越し）</small></span>
+          <span class="mb-txt"><b>ボス戦（PVE・開発中）</b><small>巨大ボスを軍で削り倒せ（HP持ち越し）</small></span>
           <span class="mb-arrow">›</span>
         </button>
       </div>
@@ -1788,7 +1788,7 @@ function beginTestBattle(){
 
 /* ホーム/メニュー遷移 */
 function goHome(){ SFX.play('button'); hideDeckNote(); hideResultBanner(); rosterMode='you'; bossMode=false; renderBossBar(); if(guideMode||_guideDeckBackup){ guideMode=false; guideStageId=null; guideRestoreDeck(); }   /* 指南の途中離脱でも本来のデッキに戻す */ pvpPresenceSet('home'); show('home'); SFX.bgm('home'); }   // ホームでBGM再生
-function goBattleMenu(){ SFX.play('button'); show('battleMenu'); }
+function goBattleMenu(){ SFX.play('button'); const bb=$('bossModeBtn'); if(bb) bb.classList.toggle('hidden', !isDevMode()); show('battleMenu'); }   // ボス戦は開発モード(?dev)限定＝一般/本番には出さない
 // おまかせ対戦：PVPロビーを開いて即ランダムマッチ探索（相手が来るまで待つ／「今すぐCPU」で切替可）
 function omakaseMatch(){
   SFX.play('button');
