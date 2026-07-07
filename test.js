@@ -91,7 +91,7 @@ code += `
   get STAGES(){ return STAGES; }, activeStages, pickStage, get currentStage(){ return currentStage; }, get SPRITE_DATA(){ return SPRITE_DATA; },
   enhDisplay, specialCardIcon, abilitiesHTML, get UNIT_ABILITIES(){ return UNIT_ABILITIES; },
   pvpDecideIAmHost, pvpMatchupType, pvpGuestDisplayH, unitDamageType, unitAtkText, mostUsedUnit,
-  spriteFor, get SPRITES(){ return SPRITES; }, slimeHopPhase, slimeHopLift, SLIME_HOP_FPS:()=>SLIME_HOP_FPS,
+  spriteFor, get SPRITES(){ return SPRITES; }, slimeHopPhase, slimeHopLift, SLIME_HOP_FPS:()=>SLIME_HOP_FPS, BOMB_WALK_FPS:()=>BOMB_WALK_FPS,
   get myProfileRef(){ return myProfile; },
   burst, partCap, get LOW_FX(){ return LOW_FX; }, set LOW_FX(v){ LOW_FX=v; },
   get PART_CAP_HI(){ return PART_CAP_HI; }, get PART_CAP_LO(){ return PART_CAP_LO; },
@@ -3633,6 +3633,38 @@ console.log('\n=== 119) ゼリースライムのぽよんジャンプ移動 ==='
   check('8フレーム（通常/巨大×青赤×squash/up）が SPRITE_DATA に存在',
     ['slime_up_blue','slime_up_red','slime_squash_blue','slime_squash_red',
      'slime_bigup_blue','slime_bigup_red','slime_bigsquash_blue','slime_bigsquash_red'].every(k => !!API.SPRITE_DATA[k]));
+}
+
+console.log('\n=== 120) ポップコーンTNTの歩行アニメ（通常/強化） ===');
+{
+  API.resetState(); API.setupCanvas();
+  const W = API.CW_get() || 440, H = API.CH_get() || 760;
+  if (API.SPRITES['bomb_blue'] && API.SPRITES['bomb2_blue']) {
+    const w = API.createWorld(W, H); API.world = w;
+    const u = API.makeFighters('bomb', 'p', W, H, 'army')[0]; u.appear = 1; u.x = 0; u.y = H * 0.6;
+    // 戦闘中：world.t で walk1/walk2 を交互に
+    w.phase = 'battle';
+    w.t = 0;               // floor(0*7)%2=0 → walk1
+    check('通常: 戦闘中 位相0で walk1(bomb_blue)', API.spriteFor(u) === API.SPRITES['bomb_blue']);
+    w.t = 1 / API.BOMB_WALK_FPS();   // floor(1)%2=1 → walk2
+    check('通常: 戦闘中で walk2(bomb2_blue)に切替', API.spriteFor(u) === API.SPRITES['bomb2_blue']);
+    // 待機（非battle）は frame1
+    w.phase = 'muster'; w.t = 1 / API.BOMB_WALK_FPS();
+    check('通常: 待機中は frame1(bomb_blue)', API.spriteFor(u) === API.SPRITES['bomb_blue']);
+    // 強化（おかわり／spawnMini）は buff フレームで同じ2枚歩行
+    u.spawnMini = true; w.phase = 'battle';
+    w.t = 0;
+    check('強化: 戦闘中 位相0で buff walk1(bomb_buff_blue)', API.spriteFor(u) === API.SPRITES['bomb_buff_blue']);
+    w.t = 1 / API.BOMB_WALK_FPS();
+    check('強化: 戦闘中で buff walk2(bomb_buff2_blue)に切替', API.spriteFor(u) === API.SPRITES['bomb_buff2_blue']);
+    // 敵（赤）版も解決できる
+    const e = API.makeFighters('bomb', 'e', W, H, 'army')[0]; e.appear = 1; e.x = 0; e.y = H * 0.3;
+    w.t = 0;
+    check('敵: 戦闘中で赤 walk1(bomb_red)', API.spriteFor(e) === API.SPRITES['bomb_red']);
+  }
+  check('8フレーム（通常/強化×青赤×walk1/walk2）が SPRITE_DATA に存在',
+    ['bomb_blue','bomb_red','bomb2_blue','bomb2_red',
+     'bomb_buff_blue','bomb_buff_red','bomb_buff2_blue','bomb_buff2_red'].every(k => !!API.SPRITE_DATA[k]));
 }
 
 Promise.resolve().then(() => {
