@@ -3109,7 +3109,7 @@ console.log('\n=== 102) ショートケーキ: 前進しつつ短命タレット
   check('タレットは自分の位置に置かれる', Math.abs(turret.x - cake.x) < 30 && Math.abs(turret.y - cake.y) < 30);
   check('タレットは動かない(speed 0)', turret.speed === 0);
   check('タレットは遠距離(ranged)', turret.ranged === true);
-  check('タレットの射程は80', turret.range === 80);
+  check('タレットの射程は100', turret.range === 100);
   check('タレットは寿命を持つ(turretLife>0)', turret.turretLife > 0);
   // 寿命切れで消える
   API.expireTurret(wd, turret);
