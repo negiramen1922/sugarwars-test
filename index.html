@@ -1135,7 +1135,7 @@ const UNITS = [
   {key:'popcorn_mini', name:'小型ポップコーン', icon:'🍿', role:'fodder', tier:1, count:1, atk:0, hp:24, speed:132, range:22, cd:1.0, tag:'自爆', short:'TNTの爆発から飛び出してもう一度自爆する小型', text:'ポップコーンTNTの爆発から飛び出す小型。すぐに自爆する（さらに分裂はしない）。', suicide:true, blast:60, blastR:48, fuse:0.4, summonOnly:true, spriteScale:0.62},
   {key:'shoe',  name:'シュークリームアーチャー', icon:'🧁', role:'back', tier:1.5, count:4, atk:14, hp:44, speed:55, range:150, cd:1.0, tag:'後衛', short:'弓を放つシュークリーム', text:'後方から弓を放つシュークリームのアーチャー。矢の雨で近づく前に溶かしちゃう！', ranged:true},
   {key:'ghost', name:'わたあめゴースト', icon:'☁️', role:'back', tier:3.5, count:3, atk:16, hp:40, speed:95, range:28, cd:0.43, tag:'強襲', short:'敵の後衛を奇襲するおばけ', text:'敵の後衛にワープして奇襲するおばけ。背後をとって挟み撃ちにしよう。うらめしや！！', warper:true, warpDelay:1.5, target:'back'},
-  {key:'cannon',name:'キャンディキャノン', icon:'🎆', role:'back', tier:3, count:1, atk:0, hp:140, speed:0, range:9999, cd:4.2, tag:'迫撃', short:'最後尾から打ち込まれる強力な一撃', text:'最後尾から大ダメージの強力な一撃の迫撃をお見舞いする。', artillery:true, mortar:90, splash:35, shotSpeed:230, arcH:80, spriteScale:1.25},
+  {key:'cannon',name:'キャンディキャノン', icon:'🎆', role:'back', tier:3, count:1, atk:0, hp:140, speed:0, range:9999, cd:5.5, tag:'迫撃', short:'最後尾から打ち込まれる強力な一撃', text:'最後尾から大ダメージの強力な一撃の迫撃をお見舞いする。', artillery:true, mortar:90, splash:35, shotSpeed:230, arcH:80, spriteScale:1.25},
   {key:'icewiz', name:'アイスクリームウィザード', icon:'🍦', role:'back', tier:2.5, count:1, atk:20, hp:70, speed:60, range:190, cd:1.0, tag:'氷の魔導士', short:'小さな氷弾を放ち敵の進行を遅延するウィザード', text:'後方から小さな氷弾を放ち敵の進行を遅延するウィザード。', ranged:true, splash:32, slowHit:0.5, slowDur:0.5},
   {key:'macaron', name:'シェルマカロン', icon:'🟣', role:'tank', tier:-2.5, count:2, atk:12, hp:100, speed:70, range:28, cd:0.9, tag:'殻スピン', short:'殻にこもって突撃するマカロン', text:'マカロンの殻にこもり、回転しながら敵にタックルをする暴れん坊。こいつの殻を破るのは甘くない', shell:true},
   // マシュマロエンジェル（アニメ付き・開発テスト中）。test:true でロスター/ドラフト/CPUデッキからは除外。
@@ -1147,7 +1147,7 @@ const UNITS = [
   {key:'purin', name:'スプーンナイトプリン', icon:'🍮', role:'back', tier:1.1, count:1, atk:16, hp:80, speed:70, range:150, cd:1.6, tag:'ブーメランスプーン', short:'スプーンをブーメランのように投げるプリン', text:'スプーンをブーメランのように投げて攻撃するプリン。はいてるのはおむつじゃないよ！お皿だよ！', boomerang:true, boomDist:150, boomSp:300, boomR:15, anim:['purin_blue'], animRed:['purin_red'], animFps:1},
   // ショートケーキ（開発テスト中）。開幕に自分の位置へイチゴタレットを設置する。1枚=1体。立ち絵は青(ブルーベリー)/赤(いちご)＝spriteForで解決。
   // スネイル型。イチゴを背負う立ち絵(shortcake_*)／タレット設置中はイチゴを下ろした立ち絵(shortcake_deploy_*)に切替。戦闘中は歩行2フレーム(*2_*)で下の足の並々が波打つ。青=ブルーベリー/赤=いちご。
-  {key:'shortcake', name:'ショートケーキ', icon:'🍰', role:'fodder', tier:1.25, count:1, atk:10, hp:200, speed:50, range:30, cd:1.0, tag:'設置＋前進', short:'足元にイチゴタレットを置きつつ前進して殴る（1体）', text:'足元にイチゴタレットを設置したら、自分は前進して敵を殴りに行くケーキ。タレットは数秒で溶けるが、消えるとその時の足元にまた新しいタレットを置き直す。', deployTurret:true, turretKey:'strawturret', redeployDelay:0.5, test:true, beta:true},
+  {key:'shortcake', name:'ショートケーキ', icon:'🍰', role:'fodder', tier:1.25, count:1, atk:10, hp:300, speed:50, range:30, cd:1.0, tag:'設置＋前進', short:'足元にイチゴタレットを置きつつ前進して殴る（1体）', text:'足元にイチゴタレットを設置したら、自分は前進して敵を殴りに行くケーキ。タレットは数秒で溶けるが、消えるとその時の足元にまた新しいタレットを置き直す。', deployTurret:true, turretKey:'strawturret', redeployDelay:0.5, test:true, beta:true},
   // イチゴタレット（ショートケーキ専用の召喚物・動かない短命の砲台）。summonOnly でロスター/ドラフト/CPU/X2/ピッカーから除外。turretLife 秒で消える。
   {key:'strawturret', name:'イチゴタレット', icon:'🍓', role:'back', tier:2, count:1, atk:9, hp:70, speed:0, range:100, cd:0.15, tag:'タレット', short:'狙われずに近くの敵へ小さな粒を連射する砲台（時間/設置者で消滅）', text:'ショートケーキが設置する砲台。動かず近くの敵へ小さな粒（ベリー）を高速で連射する。敵からは狙われないが、設置したショートケーキが倒れる／時間が経つと壊れてしまう。', ranged:true, pellet:true, turretLife:4.0, untargetable:true, summonOnly:true},
 ];
@@ -3857,6 +3857,7 @@ function stepWorld(world, dt){
     for(const o of live){ if(o===u) continue; const dx=u.x-o.x,dy=u.y-o.y,d2=dx*dx+dy*dy,rr=(u.r+o.r); if(d2<rr*rr&&d2>0.01){ const d=Math.sqrt(d2),f=(rr-d)/rr; ax+=dx/d*f*1.4; ay+=dy/d*f*1.4; } }
     const al=Math.hypot(ax,ay)||1;
     u.vx=ax/al*u.speed*(u.slowMul||1); u.vy=ay/al*u.speed*(u.slowMul||1);
+    if(u.warper && u.invuln>0){ u.vx=0; u.vy=0; }   // ワープ直後は無敵(invuln)が切れるまで動かない（攻撃はする＝その場で奇襲）
     u.x+=(u.vx*dt)+u.knockx; u.y+=(u.vy*dt)+u.knocky; u.knockx*=0.6; u.knocky*=0.6;
     u.x=Math.max(u.r,Math.min(world.W-u.r,u.x)); u.y=Math.max(u.r,Math.min(world.H-u.r,u.y));
     if(u.flash>0) u.flash-=dt;
