@@ -61,6 +61,7 @@
     --berry:#ff4f79; --berry-dk:#c9224c; --gold:#ffb43a; --gold-dk:#c37a10; --grape:#a45fd6;
     --line:rgba(150,90,50,.16); --radius:16px; --shadow:0 8px 22px rgba(150,90,50,.20);
     --depth:0 6px 0 rgba(180,110,60,.26);
+    --px-edge:#4a2a12; --px-edge-gold:#7a3f10;   /* ドット風ボタンのハード枠色 */
   }
   *{box-sizing:border-box} html,body{margin:0;padding:0}
   body{background:radial-gradient(1100px 600px at 50% -8%, #ffd7a2 0%, transparent 60%), radial-gradient(820px 520px at 12% 10%, #ffc6d6 0%, transparent 55%), var(--bg);color:var(--ink);font-family:"Inter",system-ui,sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
@@ -73,7 +74,7 @@
   .brand h1 .clash{color:var(--accent2)}
   .brand .tag{font-size:12px;color:var(--muted);letter-spacing:.18em;text-transform:uppercase}
   .profile-chip-row{margin:6px 0 2px}
-  .profile-chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--ink);background:var(--panel-2);border:1px solid var(--line);border-radius:999px;padding:4px 13px;cursor:pointer;transition:border-color .15s;white-space:nowrap;max-width:100%}
+  .profile-chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--ink);background:var(--panel);border:2px solid var(--px-edge);border-radius:4px;padding:5px 13px;cursor:pointer;box-shadow:0 3px 0 var(--px-edge);transition:filter .12s;white-space:nowrap;max-width:100%}
   .profile-chip #profileChipName,.profile-chip #profileChipTitle{white-space:nowrap}
   .profile-chip:hover{border-color:var(--brass)}
   .profile-chip .pc-ico{font-size:16px;line-height:1}
@@ -90,11 +91,14 @@
   .stage{background:linear-gradient(180deg,var(--bg2),var(--bg));border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;min-height:340px}
   .stage-title{font-family:"Oswald",sans-serif;text-transform:uppercase;letter-spacing:.08em;font-size:15px;color:var(--muted);margin:0;font-weight:600}
   .stage-sub{font-size:13px;color:var(--muted);margin:6px 0 14px} .stage-sub b{color:var(--ink)}
-  .btn{font-family:"Oswald",sans-serif;text-transform:uppercase;letter-spacing:.06em;font-weight:600;font-size:15px;cursor:pointer;border:none;border-radius:10px;padding:12px 22px;transition:transform .08s ease, filter .15s ease}
-  .btn:active{transform:translateY(1px)}
-  .btn-primary{background:var(--brass);color:#fff} .btn-primary:hover{filter:brightness(1.05)}
+  /* ドット風ボタン：ハードな枠＋段差シャドウ（角丸ひかえめ・にじみ影なし＝レトロ） */
+  .btn{font-family:"Oswald",sans-serif;text-transform:uppercase;letter-spacing:.06em;font-weight:600;font-size:15px;cursor:pointer;
+    border:3px solid var(--px-edge);border-radius:4px;padding:11px 20px;image-rendering:pixelated;
+    box-shadow:0 5px 0 var(--px-edge);transition:transform .08s ease, filter .12s ease}
+  .btn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--px-edge)}
+  .btn-primary{background:var(--brass);color:#08331f} .btn-primary:hover{filter:brightness(1.05)}
   .btn-primary:disabled{opacity:.4;cursor:not-allowed;filter:none}
-  .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--line)} .btn-ghost:hover{color:var(--ink);border-color:var(--brass)}
+  .btn-ghost{background:var(--panel);color:var(--ink);border-color:var(--px-edge)} .btn-ghost:hover{filter:brightness(1.04)}
 
   .arena-wrap{display:flex;flex-direction:column;align-items:center;gap:8px}
   .battle-head{display:flex;align-items:center;justify-content:space-between;width:100%;max-width:440px;gap:10px}
@@ -141,16 +145,37 @@
   .result-banner.win{color:#7be08e} .result-banner.lose{color:#ff7a5c} .result-banner.draw{color:#ffd56a}
   .result-banner.show{animation:resultPop .45s cubic-bezier(.2,1.4,.4,1) both}
   @keyframes resultPop{0%{opacity:0;transform:translateY(-50%) scale(.4)}60%{opacity:1;transform:translateY(-50%) scale(1.12)}100%{opacity:1;transform:translateY(-50%) scale(1)}}
-  .offer-overlay{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);display:flex;justify-content:center;padding:0 8px;pointer-events:none;z-index:5}
+  /* ドラフト提示：盤面を覆わず、下から扇状に3枚（盤面は上に見えたまま） */
+  .offer-overlay{position:absolute;inset:0;display:flex;padding:0;pointer-events:none;z-index:5}
   .offer-overlay.hidden{display:none}
-  .offer-box{pointer-events:none;width:100%;max-width:420px;display:flex;flex-direction:column;align-items:stretch;gap:8px;background:rgba(16,14,20,.66);border:1px solid var(--line);border-radius:14px;padding:10px 10px 12px;box-shadow:0 10px 30px rgba(0,0,0,.5);backdrop-filter:blur(2px)}
-  .offer-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
-  .offer-foot{pointer-events:auto;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;text-align:center}
-  .draft-peek-btn{font-size:12px;padding:5px 10px}
+  .offer-box{pointer-events:none;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:8px;background:none;border:none;border-radius:0;padding:10px 8px 12px;box-shadow:none;backdrop-filter:none}
+  /* ピック見出しは上部に小さなピルで（盤面を邪魔しない） */
+  .offer-head{margin-bottom:auto;align-self:center;display:inline-flex;align-items:center;gap:12px;
+    background:rgba(16,14,20,.58);border-radius:999px;padding:5px 15px;backdrop-filter:blur(2px);pointer-events:auto}
+  .offer-head .stage-title{color:#ffe1b0} .offer-head .pick-status{color:#e7d3c4} .offer-head .pick-status b{color:#fff}
+  #comebackBanner{pointer-events:none;align-self:center;max-width:380px}
+  .offer-foot{pointer-events:auto;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;text-align:center;
+    background:rgba(16,14,20,.5);border-radius:12px;padding:5px 12px;backdrop-filter:blur(2px)}
+  .offer-foot .draft-hint,.offer-foot .pick-status{color:#f0e0d2}
+  .draft-peek-btn{display:none}       /* 盤面が常に見えるので覗き見ボタンは不要 */
   .draft-peek-back{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:60;pointer-events:auto;box-shadow:0 6px 18px rgba(0,0,0,.5)}
   .draft-peek-back.hidden{display:none}
-  .offer-overlay .offer{pointer-events:auto;width:100%;max-width:420px;gap:8px;margin:0}
-  .offer-overlay .card{padding:8px 7px 7px;box-shadow:0 6px 18px rgba(0,0,0,.55)}
+  /* 扇レイアウト＋「下からせり上がって割れる」ディール演出 */
+  .offer-overlay .offer{pointer-events:auto;display:flex;justify-content:center;align-items:flex-end;gap:3px;width:auto;max-width:100%;margin:0 auto}
+  .offer-overlay .offer .card{--rot:0deg;--ty:0px;width:106px;flex:0 0 auto;padding:8px 7px 7px;box-shadow:0 8px 20px rgba(0,0,0,.6);
+    transform:rotate(var(--rot)) translateY(var(--ty));transform-origin:50% 130%;transition:transform .14s ease;
+    animation:cardDeal .52s cubic-bezier(.2,1,.4,1) backwards}
+  .offer-overlay .offer .card:nth-child(1){--rot:-10deg;--ty:10px;animation-delay:.05s}
+  .offer-overlay .offer .card:nth-child(2){--rot:0deg;--ty:-8px;z-index:2}
+  .offer-overlay .offer .card:nth-child(3){--rot:10deg;--ty:10px;animation-delay:.05s}
+  .offer-overlay .offer .card:hover{--ty:-16px;transform:rotate(var(--rot)) translateY(var(--ty)) scale(1.05);z-index:3}
+  @keyframes cardDeal{
+    0%{transform:translateY(150px) rotate(0deg) scale(.9);opacity:0}
+    46%{transform:translateY(0) rotate(0deg) scale(1);opacity:1}
+    100%{transform:rotate(var(--rot)) translateY(var(--ty)) scale(1);opacity:1}
+  }
+  @media (prefers-reduced-motion:reduce){.offer-overlay .offer .card{animation:none}}
+  .offer-overlay .offer .card.spin{animation:cardFlip .46s ease both}   /* 選択時のフリップはディール演出より優先 */
   .offer-overlay .card .tagline{min-height:0}
   /* 選択時にカードを縦軸で裏返す（表→裏→表のフリップ） */
   .card.spin{animation:cardFlip .46s ease both;z-index:7;transform-origin:center center;will-change:transform}
@@ -242,27 +267,27 @@
   .home-v2{gap:0;padding:14px 6px 24px}
   /* 通貨HUD：絵文字を「つや玉」に額装して立体化 */
   .home-hud{display:flex;gap:9px;width:100%;max-width:400px;margin:0 auto}
-  .res-pill{flex:1;display:flex;align-items:center;gap:9px;padding:8px 12px;border-radius:15px;cursor:pointer;
-    background:var(--panel);border:2px solid #fff;box-shadow:0 4px 0 rgba(180,110,60,.24),var(--shadow);transition:transform .08s ease, filter .15s ease}
-  .res-pill:hover{filter:brightness(1.04)} .res-pill:active{transform:translateY(1px)}
-  .res-pill .rp-orb{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:16px;flex:0 0 auto;
-    box-shadow:inset 0 2px 4px rgba(255,255,255,.6),inset 0 -3px 5px rgba(0,0,0,.16)}
+  .res-pill{flex:1;display:flex;align-items:center;gap:9px;padding:8px 12px;border-radius:4px;cursor:pointer;image-rendering:pixelated;
+    background:var(--panel);border:3px solid var(--px-edge);box-shadow:0 4px 0 var(--px-edge);transition:transform .08s ease, filter .12s ease}
+  .res-pill:hover{filter:brightness(1.04)} .res-pill:active{transform:translateY(3px);box-shadow:0 1px 0 var(--px-edge)}
+  .res-pill .rp-orb{width:30px;height:30px;border-radius:3px;display:grid;place-items:center;font-size:16px;flex:0 0 auto;
+    box-shadow:inset 0 2px 0 rgba(255,255,255,.55),inset 0 -3px 0 rgba(0,0,0,.18)}
   .res-pill .rp-orb.tr{background:radial-gradient(circle at 38% 30%,#ffe08a,#f0a81f)}
   .res-pill .rp-orb.co{background:radial-gradient(circle at 38% 30%,#ff9bb4,#e8446e)}
   .res-pill .rp-txt{display:flex;flex-direction:column;line-height:1.05;text-align:left}
   .res-pill .rp-txt b{font-family:"Space Mono",monospace;font-weight:700;font-size:17px;color:var(--ink);font-variant-numeric:tabular-nums}
   .res-pill .rp-txt small{font-size:9.5px;font-weight:700;color:var(--muted);letter-spacing:.02em}
   /* オンライン状態ピル */
-  .home-live{display:inline-flex;align-items:center;gap:7px;margin:12px auto 0;padding:5px 13px;border-radius:999px;
-    background:rgba(46,193,142,.14);border:1.5px solid rgba(46,193,142,.5);font-size:12px;font-weight:800;color:var(--green)}
-  .home-live .hl-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px rgba(46,193,142,.26)}
+  .home-live{display:inline-flex;align-items:center;gap:7px;margin:12px auto 0;padding:5px 13px;border-radius:4px;
+    background:rgba(46,193,142,.16);border:2px solid var(--mint-dk,#178b63);font-size:12px;font-weight:800;color:var(--mint-dk,#178b63)}
+  .home-live .hl-dot{width:8px;height:8px;border-radius:2px;background:var(--green);box-shadow:0 0 0 3px rgba(46,193,142,.26)}
   /* ヒーロー：バトル（つやのある立体キャンディボタン） */
   .home-battle{position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;
-    width:min(94%,400px);margin:16px auto 2px;padding:22px 20px 20px;border-radius:22px;color:#5a2a06;
-    background:linear-gradient(180deg,#ffca55,#f68a1c);border:2px solid #ffe6a6;
-    box-shadow:0 10px 0 var(--gold-dk),0 18px 26px rgba(150,70,10,.34),inset 0 2px 4px rgba(255,255,255,.55);transition:transform .08s ease, filter .15s ease}
+    width:min(94%,400px);margin:16px auto 2px;padding:22px 20px 20px;border-radius:6px;color:#5a2a06;image-rendering:pixelated;
+    background:linear-gradient(180deg,#ffca55,#f68a1c);border:4px solid var(--px-edge-gold);
+    box-shadow:0 10px 0 var(--px-edge-gold),inset 0 3px 0 rgba(255,255,255,.5);transition:transform .08s ease, filter .15s ease}
   .home-battle:hover{filter:brightness(1.05)}
-  .home-battle:active{transform:translateY(6px);box-shadow:0 4px 0 var(--gold-dk),0 8px 14px rgba(150,70,10,.34),inset 0 2px 4px rgba(255,255,255,.55)}
+  .home-battle:active{transform:translateY(6px);box-shadow:0 4px 0 var(--px-edge-gold),inset 0 3px 0 rgba(255,255,255,.5)}
   .home-battle::after{content:"";position:absolute;top:0;left:-45%;width:45%;height:100%;transform:skewX(-18deg);pointer-events:none;
     background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent);animation:hbSheen 5s ease-in-out infinite}
   @keyframes hbSheen{0%,72%{left:-45%}86%,100%{left:135%}}
@@ -271,13 +296,13 @@
   .home-battle .hb-sub{font-size:12px;font-weight:800;opacity:.9;color:#7c3f10}
   /* ナビ：2×2 キャンディタイル（色分けの額＋共通の立体感で統一） */
   .home-nav-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:400px;margin:14px auto 0}
-  .home-nav-grid .hn-btn{display:flex;flex-direction:row;align-items:center;gap:11px;cursor:pointer;text-align:left;
-    background:var(--panel);border:2px solid #fff;border-radius:16px;padding:12px 12px;color:var(--ink);
-    box-shadow:0 6px 0 rgba(180,110,60,.24),var(--shadow);transition:transform .08s ease, filter .15s ease}
+  .home-nav-grid .hn-btn{display:flex;flex-direction:row;align-items:center;gap:11px;cursor:pointer;text-align:left;image-rendering:pixelated;
+    background:var(--panel);border:3px solid var(--px-edge);border-radius:4px;padding:11px 12px;color:var(--ink);
+    box-shadow:0 5px 0 var(--px-edge);transition:transform .08s ease, filter .12s ease}
   .home-nav-grid .hn-btn:hover{filter:brightness(1.05)}
-  .home-nav-grid .hn-btn:active{transform:translateY(2px);box-shadow:0 3px 0 rgba(180,110,60,.24),var(--shadow)}
-  .home-nav-grid .hn-btn .hn-ico{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-size:20px;flex:0 0 auto;
-    box-shadow:inset 0 2px 4px rgba(255,255,255,.5),inset 0 -3px 6px rgba(0,0,0,.14)}
+  .home-nav-grid .hn-btn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--px-edge)}
+  .home-nav-grid .hn-btn .hn-ico{width:38px;height:38px;border-radius:3px;display:grid;place-items:center;font-size:20px;flex:0 0 auto;
+    box-shadow:inset 0 2px 0 rgba(255,255,255,.45),inset 0 -3px 0 rgba(0,0,0,.16)}
   .home-nav-grid .hn-btn.gacha .hn-ico{background:radial-gradient(circle at 38% 30%,#f3a5e6,#b84fc0)}
   .home-nav-grid .hn-btn.char  .hn-ico{background:radial-gradient(circle at 38% 30%,#8fd6ea,#3593bd)}
   .home-nav-grid .hn-btn.guide .hn-ico{background:radial-gradient(circle at 38% 30%,#ffd38a,#e79a2c)}
@@ -380,22 +405,26 @@
   .modal-card .md-road-none{font-size:12px;color:var(--muted);padding:6px 2px}
   .modal-card .md-mastery-note{font-size:11px;color:var(--muted);margin-top:8px}
   .topbar-actions{display:flex;align-items:center;gap:8px}
-  .iconbtn{background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:8px 12px;font-size:18px;line-height:1;cursor:pointer;transition:border-color .15s,color .15s}
-  .iconbtn:hover{border-color:var(--brass);color:var(--brass)}
+  .iconbtn{background:var(--panel);border:2px solid var(--px-edge);color:var(--ink);border-radius:4px;padding:7px 11px;font-size:18px;line-height:1;cursor:pointer;box-shadow:0 3px 0 var(--px-edge);transition:filter .12s}
+  .iconbtn:hover{filter:brightness(1.05)}
+  .iconbtn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--px-edge)}
   .topbar-actions{align-self:flex-start}
   /* お知らせボタン：新着があると赤いドットを出す */
   .iconbtn.news{position:relative}
   .iconbtn.news .news-dot{position:absolute;top:-4px;right:-4px;width:11px;height:11px;border-radius:50%;background:#ef5350;border:2px solid var(--bg);display:none;box-shadow:0 1px 3px rgba(0,0,0,.25)}
   .iconbtn.news .news-dot.show{display:block}
   /* コミュニティ参加ボタン：他ボックスより横長・Discordカラー */
-  .iconbtn.community{display:inline-flex;align-items:center;gap:7px;background:#5865F2;border-color:#5865F2;color:#fff;font-size:12.5px;font-family:"Oswald",sans-serif;letter-spacing:.03em;padding:8px 13px;white-space:nowrap}
-  .iconbtn.community:hover{border-color:#fff;color:#fff;filter:brightness(1.07)}
+  .iconbtn.community{display:inline-flex;align-items:center;gap:7px;background:#5865F2;border-color:var(--px-edge);color:#fff;font-size:12.5px;font-family:"Oswald",sans-serif;letter-spacing:.03em;padding:8px 13px;white-space:nowrap}
+  .iconbtn.community:hover{filter:brightness(1.08)}
   .iconbtn.community svg{flex:0 0 auto}
   @media(max-width:400px){ .iconbtn.community span{display:none} .iconbtn.community{padding:8px 11px} }
   .menu-card h3,.modal-card h3{font-family:"Oswald",sans-serif;text-transform:uppercase;letter-spacing:.04em;text-align:center;margin:0 0 12px;font-size:20px;color:var(--ink)}
-  .menu-card .menu-row{display:flex;align-items:center;gap:10px;width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:13px 15px;color:var(--ink);font-size:15px;cursor:pointer;margin:8px 0;text-align:left;font-family:inherit;transition:border-color .15s}
-  .menu-card .menu-row:hover{border-color:var(--brass)}
+  .menu-card .menu-row{display:flex;align-items:center;gap:10px;width:100%;background:var(--panel);border:2px solid var(--px-edge);border-radius:4px;padding:12px 15px;color:var(--ink);font-size:15px;cursor:pointer;margin:7px 0;text-align:left;font-family:inherit;box-shadow:0 3px 0 var(--px-edge);transition:filter .12s}
+  .menu-card .menu-row:hover{filter:brightness(1.05)}
+  .menu-card .menu-row:active{transform:translateY(2px);box-shadow:0 1px 0 var(--px-edge)}
   .menu-card .menu-row--accent{background:linear-gradient(180deg,#eef9f1,#e0f3e6);border-color:var(--brass);box-shadow:0 0 10px rgba(70,193,135,.22);font-weight:600}
+  .menu-card .menu-sec-t{font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:15px 2px 3px}
+  .menu-card .menu-sec-t:first-of-type{margin-top:6px}
   .install-howto{color:var(--ink);font-size:14px;line-height:1.7}
   .install-howto ol,.install-howto ul{margin:6px 0 0;padding-left:20px}
   .install-howto li{margin:6px 0} .install-howto b{color:var(--brass)} .install-howto p{margin:6px 0;color:var(--muted)}
@@ -776,21 +805,36 @@
   <div id="menuModal" class="modal-overlay hidden" onclick="closeMenu(event)">
     <div class="modal-card menu-card" onclick="event.stopPropagation()">
       <h3>メニュー</h3>
+
+      <div class="menu-sec-t">アカウント</div>
       <button class="menu-row" id="accountRow" onclick="openAuth()">👤 ログイン / プロフィール設定</button>
-      <button class="menu-row menu-row--accent" id="installRow" onclick="installApp()">📲 ホームに追加（インストール）</button>
-      <button class="menu-row" id="discordRow" onclick="openDiscord()">💬 コミュニティ Discord に参加</button>
+
+      <div class="menu-sec-t">あそぶ</div>
       <button class="menu-row" onclick="startTutorial()">🎓 あそびかた（チュートリアル）</button>
       <button class="menu-row" onclick="openLoginInfo()">📅 ログインボーナス</button>
       <button class="menu-row" onclick="openNews()">📢 お知らせ</button>
+
+      <div class="menu-sec-t">音・表示</div>
       <button class="menu-row" id="muteRow" onclick="toggleSfx()">🔊 効果音 オン / オフ</button>
-      <button class="menu-row" id="lowFxRow" onclick="toggleLowFx()">⚡ 軽量モード（動作が重いとき）</button>
-      <button class="menu-row" onclick="startAnimTest('mangel')">🧪 アニメテスト（開発用）</button>
-      <button class="menu-row" onclick="startTestBattle()">⚔️ テスト対戦（開発用・βキャラ確認）</button>
       <div class="menu-row" style="cursor:default">🎵 BGM音量<input type="range" id="bgmVol" min="0" max="100" oninput="onBgmVol(this.value)" style="flex:1;margin-left:8px"></div>
       <div class="menu-row" style="cursor:default">🔔 効果音音量<input type="range" id="sfxVol" min="0" max="100" oninput="onSfxVol(this.value)" style="flex:1;margin-left:8px"></div>
+      <button class="menu-row" id="lowFxRow" onclick="toggleLowFx()">⚡ 軽量モード（動作が重いとき）</button>
+
+      <div class="menu-sec-t">アプリ・コミュニティ</div>
+      <button class="menu-row menu-row--accent" id="installRow" onclick="installApp()">📲 ホームに追加（インストール）</button>
+      <button class="menu-row" id="discordRow" onclick="openDiscord()">💬 コミュニティ Discord に参加</button>
+
+      <div class="menu-sec-t">情報</div>
       <a class="menu-row" href="about.html" style="text-decoration:none;color:inherit">ℹ️ このゲームについて</a>
       <a class="menu-row" href="privacy.html" style="text-decoration:none;color:inherit">📄 プライバシーポリシー</a>
-      <div style="text-align:center;margin-top:8px"><button class="btn btn-ghost" onclick="closeMenu()">閉じる</button></div>
+
+      <div id="devMenuSection" class="hidden">
+        <div class="menu-sec-t">開発用（?dev で表示）</div>
+        <button class="menu-row" onclick="startAnimTest('mangel')">🧪 アニメテスト</button>
+        <button class="menu-row" onclick="startTestBattle()">⚔️ テスト対戦（βキャラ確認）</button>
+      </div>
+
+      <div style="text-align:center;margin-top:12px"><button class="btn btn-ghost" onclick="closeMenu()">閉じる</button></div>
     </div>
   </div>
   <!-- 継続ログインボーナス モーダル -->
@@ -4369,7 +4413,16 @@ function renderNews(){
     `</div>`).join('');
 }
 function toggleNews(i){ try{ SFX.play('button'); }catch(e){} const it=$('newsItem'+i); if(it) it.classList.toggle('open'); }
-function toggleMenu(){ SFX.play('button'); const bv=$('bgmVol'), sv=$('sfxVol'); if(bv) bv.value=Math.round(SFX.bgmVol*100); if(sv) sv.value=Math.round(SFX.sfxVol*100); updateMuteRow(); updateLowFxRow(); updateInstallRow(); $('menuModal').classList.remove('hidden'); }
+// 開発用メニューは通常は隠す。?dev で表示（この端末に記憶／?dev=off で解除）
+function isDevMode(){
+  try{
+    const q=(typeof location!=='undefined' && location.search)||'';
+    if(/[?&]dev=off\b/.test(q)){ try{ localStorage.removeItem('sw_dev'); }catch(e){} return false; }
+    if(/[?&]dev\b/.test(q)){ try{ localStorage.setItem('sw_dev','1'); }catch(e){} return true; }
+    return (typeof localStorage!=='undefined' && localStorage.getItem('sw_dev')==='1');
+  }catch(e){ return false; }
+}
+function toggleMenu(){ SFX.play('button'); const bv=$('bgmVol'), sv=$('sfxVol'); if(bv) bv.value=Math.round(SFX.bgmVol*100); if(sv) sv.value=Math.round(SFX.sfxVol*100); updateMuteRow(); updateLowFxRow(); updateInstallRow(); const dev=$('devMenuSection'); if(dev) dev.classList.toggle('hidden', !isDevMode()); $('menuModal').classList.remove('hidden'); }
 // ===== PWA：ホームに追加（インストール）導線 =====
 let deferredInstallPrompt=null;
 if(typeof window!=='undefined'){
