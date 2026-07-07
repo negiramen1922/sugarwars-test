@@ -534,7 +534,7 @@
           <span class="rp-txt"><b id="homeCoins">0</b><small>シュガーコイン</small></span>
         </div>
       </div>
-      <div class="home-live"><span class="hl-dot"></span><span id="homeOnline">オンライン –人・対戦中 –人</span></div>
+      <div class="home-live"><span class="hl-dot"></span><span id="homeOnline">マッチ待ち –人 ・ 対戦中 –人</span></div>
       <button class="home-battle" onclick="goBattleMenu()">
         <span class="hb-ico">⚔</span>
         <span class="hb-label">バトル</span>
@@ -591,7 +591,7 @@
     <!-- PVP lobby（部屋づくり / 部屋に入る → WebRTC接続） -->
     <section id="pvpLobby" class="center hidden">
       <p class="big" style="font-size:clamp(22px,5vw,34px)">PVP対戦（β）</p>
-      <div id="pvpOnlineCount" style="font-size:13px;color:var(--green);margin:0 0 8px">🟢 オンライン –人・対戦中 –人</div>
+      <div id="pvpOnlineCount" style="font-size:13px;color:var(--green);margin:0 0 8px">🕹 マッチ待ち –人 ・ 対戦中 –人</div>
       <div id="pvpSetupWarn" class="comeback-banner hidden" style="max-width:360px;margin:0 auto 12px">
         ⚠ Firebaseが未設定です。<code>FIREBASE_CONFIG</code> を設定すると対人戦が使えます（<code>FIREBASE_SETUP.md</code> 参照）。
       </div>
@@ -6175,8 +6175,9 @@ function pvpInitVisibility(){
 }
 function renderPresence(){
   const txt='🟢 オンライン '+pvpPresenceCounts.online+'人・マッチ待ち '+(pvpPresenceCounts.matching||0)+'人・対戦中 '+pvpPresenceCounts.battling+'人';
-  const pl=$('pvpOnlineCount'); if(pl) pl.textContent=txt;
-  const h=$('homeOnline'); if(h) h.textContent='オンライン '+pvpPresenceCounts.online+'人 ・ 対戦中 '+pvpPresenceCounts.battling+'人';
+  const c=pvpPresenceCounts, mt=(c.matching||0), bt=(c.battling||0);
+  const pl=$('pvpOnlineCount'); if(pl) pl.textContent='🕹 マッチ待ち '+mt+'人 ・ 対戦中 '+bt+'人';
+  const h=$('homeOnline'); if(h) h.textContent='マッチ待ち '+mt+'人 ・ 対戦中 '+bt+'人';
 }
 
 // --- UI ---
