@@ -91,7 +91,7 @@ code += `
   get STAGES(){ return STAGES; }, activeStages, pickStage, get currentStage(){ return currentStage; }, get SPRITE_DATA(){ return SPRITE_DATA; },
   enhDisplay, specialCardIcon, abilitiesHTML, get UNIT_ABILITIES(){ return UNIT_ABILITIES; },
   pvpDecideIAmHost, pvpMatchupType, pvpGuestDisplayH, unitDamageType, unitAtkText, mostUsedUnit,
-  spriteFor, get SPRITES(){ return SPRITES; },
+  spriteFor, get SPRITES(){ return SPRITES; }, slimeHopPhase, slimeHopLift,
   get myProfileRef(){ return myProfile; },
   burst, partCap, get LOW_FX(){ return LOW_FX; }, set LOW_FX(v){ LOW_FX=v; },
   get PART_CAP_HI(){ return PART_CAP_HI; }, get PART_CAP_LO(){ return PART_CAP_LO; },
@@ -3575,6 +3575,50 @@ console.log('\n=== 118) ユニットの向き（左右反転用 face） ===');
   for (let i = 0; i < 40; i++) API.stepWorld(w2, 1 / 60);
   // p側は敵(右側)へ寄るので概ね右向き（face=1）になりやすい（厳密断定はせず±1であることを確認）
   check('slimeも face が ±1 で設定される', a.face === 1 || a.face === -1);
+}
+
+console.log('\n=== 119) ゼリースライムのぽよんジャンプ移動 ===');
+{
+  API.resetState(); API.setupCanvas();
+  const W = API.CW_get() || 440, H = API.CH_get() || 760;
+  // 移動するスライム（敵へ寄る）→ mv=true になり、ジャンプアニメの対象になる
+  const w = API.createWorld(W, H); w.phase = 'battle'; w.intro = 0; API.world = w;
+  const a = API.makeFighters('slime', 'p', W, H, 'army')[0]; a.appear = 1; a.x = W * 0.2; a.y = H * 0.6; w.units.push(a);
+  const b = API.makeFighters('slime', 'e', W, H, 'army')[0]; b.appear = 1; b.x = W * 0.8; b.y = H * 0.4; w.units.push(b);
+  for (let i = 0; i < 40; i++) API.stepWorld(w, 1 / 60);
+  check('移動中スライムに mv=true が立つ', a.mv === true);
+  // mv はスナップショットに乗る（PVPの子へ伝わる）
+  const snap = API.serializeWorld(w);
+  const sa = snap.units.find(u => u.slime && u.side === 'p');
+  check('スナップショットに mv が含まれる', !!sa && sa.mv === true);
+  // ジャンプ位相は [0,1)、持ち上げ量は [0,1]
+  const ph = API.slimeHopPhase(a);
+  check('slimeHopPhase は [0,1)', ph >= 0 && ph < 1);
+  const lift = API.slimeHopLift(a);
+  check('移動中の slimeHopLift は 0..1', lift >= 0 && lift <= 1);
+  // 停止スライムは mv=false → 持ち上げ 0（通常立ち絵）
+  const w2 = API.createWorld(W, H); w2.phase = 'battle'; w2.intro = 0; API.world = w2;
+  const s = API.makeFighters('slime', 'p', W, H, 'army')[0]; s.appear = 1; s.x = W * 0.5; s.y = H * 0.5;
+  s.speed = 0; w2.units.push(s);   // 敵不在＝動かない
+  for (let i = 0; i < 30; i++) API.stepWorld(w2, 1 / 60);
+  check('敵不在で動かないスライムは mv=false', !s.mv);
+  check('停止スライムの持ち上げは 0', API.slimeHopLift(s) === 0);
+  // 融合スライムは静止（跳ねない）
+  s.merged = true; s.mv = true;
+  check('融合スライムは持ち上げ 0（静止）', API.slimeHopLift(s) === 0);
+  // spriteFor：移動中は squash/up、停止は通常、融合は big に解決（SPRITESスタブは参照一致で判定）
+  if (API.SPRITES['slime_squash_blue'] && API.SPRITES['slime_up_blue']) {
+    API.world = w; a.merged = false; a.mv = true;
+    a.x = 0; w.t = 0;   // 位相=((0*2.2 + 0*0.03)%1) = 0 → squash
+    check('位相0付近では squash フレーム', API.spriteFor(a) === API.SPRITES['slime_squash_blue']);
+    a.x = 0; w.t = 0.5 / 2.2;   // 位相=(0.5)%1 = 0.5 → up（伸び）
+    check('位相0.5付近では up(伸び) フレーム', API.spriteFor(a) === API.SPRITES['slime_up_blue']);
+    a.mv = false;
+    check('停止スライムは通常フレーム', API.spriteFor(a) === API.SPRITES['slime_blue']);
+    a.merged = true; a.mv = true;
+    check('融合スライムは big フレーム', API.spriteFor(a) === API.SPRITES['slime_blue_big']);
+  }
+  check('4フレーム（青赤×squash/up）が SPRITE_DATA に存在', ['slime_up_blue','slime_up_red','slime_squash_blue','slime_squash_red'].every(k => !!API.SPRITE_DATA[k]));
 }
 
 Promise.resolve().then(() => {
