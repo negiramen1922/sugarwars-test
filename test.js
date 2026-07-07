@@ -91,7 +91,7 @@ code += `
   get STAGES(){ return STAGES; }, activeStages, pickStage, get currentStage(){ return currentStage; }, get SPRITE_DATA(){ return SPRITE_DATA; },
   enhDisplay, specialCardIcon, abilitiesHTML, get UNIT_ABILITIES(){ return UNIT_ABILITIES; },
   pvpDecideIAmHost, pvpMatchupType, pvpGuestDisplayH, unitDamageType, unitAtkText, mostUsedUnit,
-  spriteFor, get SPRITES(){ return SPRITES; }, slimeHopPhase, slimeHopLift, SLIME_HOP_FPS:()=>SLIME_HOP_FPS, BOMB_WALK_FPS:()=>BOMB_WALK_FPS, MAC_PAKA_FPS:()=>MAC_PAKA_FPS,
+  spriteFor, get SPRITES(){ return SPRITES; }, slimeHopPhase, slimeHopLift, SLIME_HOP_FPS:()=>SLIME_HOP_FPS, BOMB_WALK_FPS:()=>BOMB_WALK_FPS, MAC_PAKA_FPS:()=>MAC_PAKA_FPS, SODA_WALK_FPS:()=>SODA_WALK_FPS,
   get myProfileRef(){ return myProfile; },
   burst, partCap, get LOW_FX(){ return LOW_FX; }, set LOW_FX(v){ LOW_FX=v; },
   get PART_CAP_HI(){ return PART_CAP_HI; }, get PART_CAP_LO(){ return PART_CAP_LO; },
@@ -3693,8 +3693,48 @@ console.log('\n=== 121) シェルマカロンの殻ぱかぱか（移動中） =
     e.shellPhase = 'normal'; e.mv = true; w.t = 1 / API.MAC_PAKA_FPS();
     check('敵: normal移動中で 開(macaron_open_red)', API.spriteFor(e) === API.SPRITES['macaron_open_red']);
   }
-  check('2フレーム（macaron_open blue/red）が SPRITE_DATA に存在',
-    ['macaron_open_blue','macaron_open_red'].every(k => !!API.SPRITE_DATA[k]));
+  // 強化（マカロンアーマー）版もぱかぱか
+  if (API.SPRITES['macaron_buff_blue'] && API.SPRITES['macaron_open_buff_blue']) {
+    const w = API.createWorld(W, H); w.phase = 'battle'; API.world = w;
+    const u = API.makeFighters('macaron', 'p', W, H, 'army')[0]; u.appear = 1; u.x = 0; u.y = H * 0.6;
+    u.macaronBuff = true; u.shellPhase = 'normal'; u.mv = true;
+    w.t = 0;
+    check('強化: normal移動中 位相0で 閉(macaron_buff_blue)', API.spriteFor(u) === API.SPRITES['macaron_buff_blue']);
+    w.t = 1 / API.MAC_PAKA_FPS();
+    check('強化: normal移動中で 開(macaron_open_buff_blue)', API.spriteFor(u) === API.SPRITES['macaron_open_buff_blue']);
+    u.mv = false;
+    check('強化: 停止中は 閉(macaron_buff_blue)', API.spriteFor(u) === API.SPRITES['macaron_buff_blue']);
+  }
+  check('4フレーム（macaron_open 通常/強化×blue/red）が SPRITE_DATA に存在',
+    ['macaron_open_blue','macaron_open_red','macaron_open_buff_blue','macaron_open_buff_red'].every(k => !!API.SPRITE_DATA[k]));
+}
+
+console.log('\n=== 122) ランニングソーダの歩行アニメ（通常/強化） ===');
+{
+  API.resetState(); API.setupCanvas();
+  const W = API.CW_get() || 440, H = API.CH_get() || 760;
+  if (API.SPRITES['soda_blue'] && API.SPRITES['soda2_blue']) {
+    const w = API.createWorld(W, H); API.world = w;
+    const u = API.makeFighters('soda', 'p', W, H, 'army')[0]; u.appear = 1; u.x = 0; u.y = H * 0.6;
+    w.phase = 'battle'; w.t = 0;
+    check('通常: 戦闘中 位相0で walk1(soda_blue)', API.spriteFor(u) === API.SPRITES['soda_blue']);
+    w.t = 1 / API.SODA_WALK_FPS();
+    check('通常: 戦闘中で walk2(soda2_blue)に切替', API.spriteFor(u) === API.SPRITES['soda2_blue']);
+    w.phase = 'muster'; w.t = 1 / API.SODA_WALK_FPS();
+    check('通常: 待機中は frame1(soda_blue)', API.spriteFor(u) === API.SPRITES['soda_blue']);
+    // 強化（炭酸沼強化＝fizz）も専用2枚で歩行
+    u.fizz = true; w.phase = 'battle'; w.t = 0;
+    check('強化: 戦闘中 位相0で buff walk1(soda_buff_blue)', API.spriteFor(u) === API.SPRITES['soda_buff_blue']);
+    w.t = 1 / API.SODA_WALK_FPS();
+    check('強化: 戦闘中で buff walk2(soda_buff2_blue)', API.spriteFor(u) === API.SPRITES['soda_buff2_blue']);
+    // 敵（赤）
+    const e = API.makeFighters('soda', 'e', W, H, 'army')[0]; e.appear = 1; e.x = 0; e.y = H * 0.3;
+    w.t = 0;
+    check('敵: 戦闘中で赤 walk1(soda_red)', API.spriteFor(e) === API.SPRITES['soda_red']);
+  }
+  check('8フレーム（通常/強化×青赤×walk1/walk2）が SPRITE_DATA に存在',
+    ['soda_blue','soda_red','soda2_blue','soda2_red',
+     'soda_buff_blue','soda_buff_red','soda_buff2_blue','soda_buff2_red'].every(k => !!API.SPRITE_DATA[k]));
 }
 
 Promise.resolve().then(() => {
