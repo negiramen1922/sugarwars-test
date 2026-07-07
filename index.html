@@ -614,16 +614,21 @@
 
     <!-- battle mode select -->
     <section id="battleMenu" class="center hidden">
-      <p class="big" style="font-size:clamp(22px,5vw,34px)">バトルモードを選ぶ</p>
+      <p class="big" style="font-size:clamp(22px,5vw,34px)">バトル</p>
       <div class="menu-list">
-        <button class="menu-btn" onclick="goCpuMode()">
-          <span class="mb-ico">🤖</span>
-          <span class="mb-txt"><b>CPU対戦</b><small>AI のライバルと1本勝負</small></span>
+        <button class="menu-btn" onclick="omakaseMatch()" style="border-color:var(--brass);box-shadow:0 5px 0 var(--brass)">
+          <span class="mb-ico">⚡</span>
+          <span class="mb-txt"><b>おまかせ対戦</b><small>世界の誰かと今すぐ対戦（いなければ「今すぐCPU」でもOK）</small></span>
           <span class="mb-arrow">›</span>
         </button>
-        <button class="menu-btn" onclick="openPvpLobby()">
-          <span class="mb-ico">👥</span>
-          <span class="mb-txt"><b>PVP対戦</b><small>オンラインで対人戦（β）</small></span>
+        <button class="menu-btn" onclick="goCpuMode()">
+          <span class="mb-ico">🤖</span>
+          <span class="mb-txt"><b>CPUと対戦</b><small>デッキを選んで1本勝負</small></span>
+          <span class="mb-arrow">›</span>
+        </button>
+        <button class="menu-btn" onclick="privateMatch()">
+          <span class="mb-ico">🔒</span>
+          <span class="mb-txt"><b>あいことば対戦</b><small>友だちと（つないだまま何度でも）</small></span>
           <span class="mb-arrow">›</span>
         </button>
       </div>
@@ -669,7 +674,10 @@
         <div id="pvpMmSpinner" style="font-size:40px;margin:6px">🎲</div>
         <p class="stage-sub" id="pvpMmStatus">対戦相手を探しています…</p>
         <div id="pvpMmOpp" class="hidden" style="margin:10px 0;font-size:16px"></div>
-        <button class="btn btn-ghost" onclick="randomMatchCancel()" style="margin-top:6px">キャンセル</button>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:8px">
+          <button class="btn btn-primary" onclick="mmStartCpuNow()">🤖 今すぐCPUで始める</button>
+          <button class="btn btn-ghost" onclick="randomMatchCancel()">やめる</button>
+        </div>
       </div>
       <!-- 親：あいことば表示 -->
       <div id="pvpHostBox" class="hidden" style="text-align:center;margin-top:14px">
@@ -1671,6 +1679,31 @@ function beginTestBattle(){
 /* ホーム/メニュー遷移 */
 function goHome(){ SFX.play('button'); hideDeckNote(); hideResultBanner(); rosterMode='you'; if(guideMode||_guideDeckBackup){ guideMode=false; guideStageId=null; guideRestoreDeck(); }   /* 指南の途中離脱でも本来のデッキに戻す */ pvpPresenceSet('home'); show('home'); SFX.bgm('home'); }   // ホームでBGM再生
 function goBattleMenu(){ SFX.play('button'); show('battleMenu'); }
+// おまかせ対戦：PVPロビーを開いて即ランダムマッチ探索（相手が来るまで待つ／「今すぐCPU」で切替可）
+function omakaseMatch(){
+  SFX.play('button');
+  if(needFullDeckForPvp()) return;
+  pvpResetLobby(); $('pvpSetupWarn').classList.toggle('hidden', firebaseConfigured()); show('pvpLobby');
+  if(firebaseConfigured()) randomMatchStart();   // 未設定ならロビーに警告だけ出す
+}
+// あいことば対戦：直接「部屋を作る／入る」へ
+function privateMatch(){
+  SFX.play('button');
+  if(needFullDeckForPvp()) return;
+  pvpResetLobby(); $('pvpSetupWarn').classList.toggle('hidden', firebaseConfigured()); show('pvpLobby');
+  pvpShowPrivate();
+}
+// マッチ待ちをやめて、今すぐCPU戦（おまかせデッキ）を始める
+function mmStartCpuNow(){
+  SFX.play('button');
+  mmCleanup();
+  try{ if(pvpPC) pvpPC.close(); }catch(e){}
+  pvpPC=null; pvpRole=null; pvpMode=false;
+  foeCtl = makeCpuFoeController();
+  cpuDeckMode='auto';
+  pvpPresenceSet('home');
+  startGame();
+}
 // CPU対戦：まず「おまかせ / デッキ選択」の二択
 function goCpuMode(){ SFX.play('button'); show('cpuMode'); }
 
@@ -6628,7 +6661,7 @@ function pvpSendTest(){
    - claimした側＝親(host・部屋を作る)／claimされた側＝子(guest)。matches/<guestUid> で部屋コードを通知。
    - 接続後は既存の createWebRTCTransport → pvpOnConnected フローに合流（CPU/手動対戦は不変）。
    ============================================================ */
-let mmActive=false, mmUid='', mmQueueRef=null, mmMyMatchRef=null, mmStartedConn=false;
+let mmActive=false, mmUid='', mmQueueRef=null, mmMyMatchRef=null, mmStartedConn=false, mmTsTimer=null;
 const MM_STALE_MS = 30000;   // この秒数より古い待機者は無効として無視（取り残し対策）
 
 // 待機列から「自分以外・期限内で最も古い」待機者キーを返す（純粋関数・テスト対象）
@@ -6698,7 +6731,11 @@ function randomMatchStart(){
       if(!mmActive) return;
       if(err || !committed){ mmShow('混み合っています。もう一度お試しください'); return; }
       if(claimed){ mmBecomeHost(claimed); }
-      else { try{ mmQueueRef.child(uid).onDisconnect().remove(); mmMyMatchRef.onDisconnect().remove(); }catch(e){} }   // 待機登録：切断時に自動で外す
+      else {   // 待機登録：切断時に自動で外す＋tsを定期更新（古い扱いで無視されるのを防ぐ）
+        try{ mmQueueRef.child(uid).onDisconnect().remove(); mmMyMatchRef.onDisconnect().remove(); }catch(e){}
+        try{ clearInterval(mmTsTimer); }catch(e){}
+        mmTsTimer = setInterval(function(){ try{ if(mmActive && mmQueueRef && mmUid) mmQueueRef.child(mmUid).child('ts').set(Date.now()); }catch(e){} }, 10000);
+      }
     });
   }).catch(function(err){ mmShow('エラー: '+(err&&err.message||err)); });
 }
@@ -6726,6 +6763,7 @@ function mmGuestFromAssignment(m){
 // マッチング用ノード/リスナの後始末（対戦には使わない。部屋データはpvpLeaveで掃除）
 function mmCleanup(){
   mmActive=false;
+  try{ clearInterval(mmTsTimer); }catch(e){} mmTsTimer=null;
   try{ if(mmMyMatchRef){ mmMyMatchRef.off(); mmMyMatchRef.onDisconnect().cancel(); mmMyMatchRef.remove().catch(()=>{}); } }catch(e){}
   try{ if(mmQueueRef && mmUid){ mmQueueRef.child(mmUid).onDisconnect().cancel(); mmQueueRef.child(mmUid).remove().catch(()=>{}); } }catch(e){}
   mmMyMatchRef=null; mmQueueRef=null;
