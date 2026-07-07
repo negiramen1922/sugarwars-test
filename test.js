@@ -91,7 +91,7 @@ code += `
   get STAGES(){ return STAGES; }, activeStages, pickStage, get currentStage(){ return currentStage; }, get SPRITE_DATA(){ return SPRITE_DATA; },
   enhDisplay, specialCardIcon, abilitiesHTML, get UNIT_ABILITIES(){ return UNIT_ABILITIES; },
   pvpDecideIAmHost, pvpMatchupType, pvpGuestDisplayH, unitDamageType, unitAtkText, mostUsedUnit,
-  spriteFor, get SPRITES(){ return SPRITES; }, slimeHopPhase, slimeHopLift,
+  spriteFor, get SPRITES(){ return SPRITES; }, slimeHopPhase, slimeHopLift, SLIME_HOP_FPS:()=>SLIME_HOP_FPS,
   get myProfileRef(){ return myProfile; },
   burst, partCap, get LOW_FX(){ return LOW_FX; }, set LOW_FX(v){ LOW_FX=v; },
   get PART_CAP_HI(){ return PART_CAP_HI; }, get PART_CAP_LO(){ return PART_CAP_LO; },
@@ -3609,10 +3609,12 @@ console.log('\n=== 119) ゼリースライムのぽよんジャンプ移動 ==='
   // spriteFor：移動中は squash/up、停止は通常、融合は big に解決（SPRITESスタブは参照一致で判定）
   if (API.SPRITES['slime_squash_blue'] && API.SPRITES['slime_up_blue']) {
     API.world = w; a.merged = false; a.mv = true;
-    a.x = 0; w.t = 0;   // 位相=((0*2.2 + 0*0.03)%1) = 0 → squash
+    a.x = 0; w.t = 0;   // 位相0 → 接地＝squash
     check('位相0付近では squash フレーム', API.spriteFor(a) === API.SPRITES['slime_squash_blue']);
-    a.x = 0; w.t = 0.5 / 2.2;   // 位相=(0.5)%1 = 0.5 → up（伸び）
-    check('位相0.5付近では up(伸び) フレーム', API.spriteFor(a) === API.SPRITES['slime_up_blue']);
+    a.x = 0; w.t = 0.25 / API.SLIME_HOP_FPS();   // 位相≈0.25 → 上昇＝up（伸び）
+    check('位相0.25付近では up(伸び) フレーム', API.spriteFor(a) === API.SPRITES['slime_up_blue']);
+    a.x = 0; w.t = 0.50 / API.SLIME_HOP_FPS();   // 位相≈0.5 → 頂点＝通常（伸びも潰れもしない）
+    check('位相0.5(頂点)では通常フレーム', API.spriteFor(a) === API.SPRITES['slime_blue']);
     a.mv = false;
     check('停止スライムは通常フレーム', API.spriteFor(a) === API.SPRITES['slime_blue']);
     a.merged = true; a.mv = true;
