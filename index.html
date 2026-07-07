@@ -9,7 +9,7 @@
 <script data-migrate="1">
 (function(){
   try{
-    var PROD_REDIRECT = false;      // ★本番ドメイン公開後に true にすると強制リダイレクトが有効
+    var PROD_REDIRECT = true;       // ★本番ドメイン公開後に true にすると強制リダイレクトが有効
     var DEST = 'sugar-wars.com';    //  引っ越し先ドメイン（SHARE_URL / AD_PROD_HOST と揃える）
     if(!PROD_REDIRECT) return;
     if(location.protocol==='file:') return;
