@@ -3603,24 +3603,36 @@ console.log('\n=== 119) ゼリースライムのぽよんジャンプ移動 ==='
   for (let i = 0; i < 30; i++) API.stepWorld(w2, 1 / 60);
   check('敵不在で動かないスライムは mv=false', !s.mv);
   check('停止スライムの持ち上げは 0', API.slimeHopLift(s) === 0);
-  // 融合スライムは静止（跳ねない）
-  s.merged = true; s.mv = true;
-  check('融合スライムは持ち上げ 0（静止）', API.slimeHopLift(s) === 0);
-  // spriteFor：移動中は squash/up、停止は通常、融合は big に解決（SPRITESスタブは参照一致で判定）
+  // 融合スライムも移動中は跳ねる（持ち上げ >0 になりうる）
+  s.merged = true; s.mv = true; s.x = 0; w2.t = 0.25 / API.SLIME_HOP_FPS();
+  check('移動中の融合スライムは持ち上げ >0', API.slimeHopLift(s) > 0);
+  s.mv = false;
+  check('停止した融合スライムの持ち上げは 0', API.slimeHopLift(s) === 0);
+  // spriteFor：通常スライムは squash/up/通常、融合スライムは big の squash/up/巨大 に解決（参照一致で判定）
   if (API.SPRITES['slime_squash_blue'] && API.SPRITES['slime_up_blue']) {
     API.world = w; a.merged = false; a.mv = true;
     a.x = 0; w.t = 0;   // 位相0 → 接地＝squash
-    check('位相0付近では squash フレーム', API.spriteFor(a) === API.SPRITES['slime_squash_blue']);
+    check('通常: 位相0付近では squash フレーム', API.spriteFor(a) === API.SPRITES['slime_squash_blue']);
     a.x = 0; w.t = 0.25 / API.SLIME_HOP_FPS();   // 位相≈0.25 → 上昇＝up（伸び）
-    check('位相0.25付近では up(伸び) フレーム', API.spriteFor(a) === API.SPRITES['slime_up_blue']);
-    a.x = 0; w.t = 0.50 / API.SLIME_HOP_FPS();   // 位相≈0.5 → 頂点＝通常（伸びも潰れもしない）
-    check('位相0.5(頂点)では通常フレーム', API.spriteFor(a) === API.SPRITES['slime_blue']);
+    check('通常: 位相0.25付近では up(伸び) フレーム', API.spriteFor(a) === API.SPRITES['slime_up_blue']);
+    a.x = 0; w.t = 0.50 / API.SLIME_HOP_FPS();   // 位相≈0.5 → 頂点＝通常
+    check('通常: 位相0.5(頂点)では通常フレーム', API.spriteFor(a) === API.SPRITES['slime_blue']);
     a.mv = false;
-    check('停止スライムは通常フレーム', API.spriteFor(a) === API.SPRITES['slime_blue']);
+    check('通常: 停止スライムは通常フレーム', API.spriteFor(a) === API.SPRITES['slime_blue']);
+    // 融合スライムの3フレーム
     a.merged = true; a.mv = true;
-    check('融合スライムは big フレーム', API.spriteFor(a) === API.SPRITES['slime_blue_big']);
+    a.x = 0; w.t = 0;
+    check('融合: 位相0付近では bigsquash フレーム', API.spriteFor(a) === API.SPRITES['slime_bigsquash_blue']);
+    a.x = 0; w.t = 0.25 / API.SLIME_HOP_FPS();
+    check('融合: 位相0.25付近では bigup(伸び) フレーム', API.spriteFor(a) === API.SPRITES['slime_bigup_blue']);
+    a.x = 0; w.t = 0.50 / API.SLIME_HOP_FPS();
+    check('融合: 位相0.5(頂点)では巨大立ち絵', API.spriteFor(a) === API.SPRITES['slime_blue_big']);
+    a.mv = false;
+    check('融合: 停止スライムは巨大立ち絵', API.spriteFor(a) === API.SPRITES['slime_blue_big']);
   }
-  check('4フレーム（青赤×squash/up）が SPRITE_DATA に存在', ['slime_up_blue','slime_up_red','slime_squash_blue','slime_squash_red'].every(k => !!API.SPRITE_DATA[k]));
+  check('8フレーム（通常/巨大×青赤×squash/up）が SPRITE_DATA に存在',
+    ['slime_up_blue','slime_up_red','slime_squash_blue','slime_squash_red',
+     'slime_bigup_blue','slime_bigup_red','slime_bigsquash_blue','slime_bigsquash_red'].every(k => !!API.SPRITE_DATA[k]));
 }
 
 Promise.resolve().then(() => {
