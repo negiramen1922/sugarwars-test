@@ -36,13 +36,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#f3faf4; --bg2:#e6f5ea; --panel:#ffffff; --panel-2:#ecf7ef;
-    --ink:#4f4a44; --muted:#93a397; --parch:#fff8ec; --parch-dk:#f0e3c4;
-    --brass:#43bd86; --accent2:#f2b50a; --steel:#5cc4d6; --rust:#ff9a8a; --green:#56c598;
-    --line:rgba(70,110,90,.14); --radius:16px; --shadow:0 8px 22px rgba(120,180,150,.22);
+    /* お菓子の国＝温かいキャンディ配色（旧・淡いミントより高彩度＆高コントラスト） */
+    --bg:#fff1dd; --bg2:#ffe4c4; --panel:#fffaf3; --panel-2:#fff0dc;
+    --ink:#4a2a1c; --muted:#a9785e; --parch:#fff8ec; --parch-dk:#f0e3c4;
+    --brass:#37b98a; --accent2:#f5a310; --steel:#38a7cc; --rust:#ff7a68; --green:#2ec18e;
+    --berry:#ff4f79; --berry-dk:#c9224c; --gold:#ffb43a; --gold-dk:#c37a10; --grape:#a45fd6;
+    --line:rgba(150,90,50,.16); --radius:16px; --shadow:0 8px 22px rgba(150,90,50,.20);
+    --depth:0 6px 0 rgba(180,110,60,.26);
   }
   *{box-sizing:border-box} html,body{margin:0;padding:0}
-  body{background:radial-gradient(1100px 600px at 50% -8%, #d7f3e0 0%, transparent 60%), radial-gradient(820px 520px at 88% 10%, #f6f0cf 0%, transparent 55%), var(--bg);color:var(--ink);font-family:"Inter",system-ui,sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+  body{background:radial-gradient(1100px 600px at 50% -8%, #ffd7a2 0%, transparent 60%), radial-gradient(820px 520px at 12% 10%, #ffc6d6 0%, transparent 55%), var(--bg);color:var(--ink);font-family:"Inter",system-ui,sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
   .wrap{max-width:760px;margin:0 auto;padding:18px 16px 60px}
   header.topbar{display:flex;flex-direction:column;gap:10px;margin-bottom:18px}
   .topbar-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
@@ -217,16 +220,55 @@
   .menu-btn .mb-arrow{font-size:24px;color:var(--muted);flex:0 0 auto}
   .menu-btn.disabled{cursor:not-allowed;opacity:.5;filter:grayscale(.4)}
   .menu-btn.disabled:hover{border-color:var(--line);filter:grayscale(.4)}
-  /* ホーム：クラロワ風（中央に大きくバトル＋下部に横並びナビ） */
-  .home-battle{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;
-    width:min(90%,340px);margin:12px auto 2px;padding:24px 20px;border-radius:22px;color:#2a1606;
-    background:linear-gradient(180deg,#ffd873,#f5a623);border:2px solid #ffe9a8;
-    box-shadow:0 8px 0 #b9770f,0 12px 22px rgba(0,0,0,.35);transition:transform .08s ease, filter .15s ease}
+  /* ホーム：キャンディ王国（通貨HUD＋大きなバトル＋2×2キャンディナビ） */
+  .home-v2{gap:0;padding:14px 6px 24px}
+  /* 通貨HUD：絵文字を「つや玉」に額装して立体化 */
+  .home-hud{display:flex;gap:9px;width:100%;max-width:400px;margin:0 auto}
+  .res-pill{flex:1;display:flex;align-items:center;gap:9px;padding:8px 12px;border-radius:15px;cursor:pointer;
+    background:var(--panel);border:2px solid #fff;box-shadow:0 4px 0 rgba(180,110,60,.24),var(--shadow);transition:transform .08s ease, filter .15s ease}
+  .res-pill:hover{filter:brightness(1.04)} .res-pill:active{transform:translateY(1px)}
+  .res-pill .rp-orb{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:16px;flex:0 0 auto;
+    box-shadow:inset 0 2px 4px rgba(255,255,255,.6),inset 0 -3px 5px rgba(0,0,0,.16)}
+  .res-pill .rp-orb.tr{background:radial-gradient(circle at 38% 30%,#ffe08a,#f0a81f)}
+  .res-pill .rp-orb.co{background:radial-gradient(circle at 38% 30%,#ff9bb4,#e8446e)}
+  .res-pill .rp-txt{display:flex;flex-direction:column;line-height:1.05;text-align:left}
+  .res-pill .rp-txt b{font-family:"Space Mono",monospace;font-weight:700;font-size:17px;color:var(--ink);font-variant-numeric:tabular-nums}
+  .res-pill .rp-txt small{font-size:9.5px;font-weight:700;color:var(--muted);letter-spacing:.02em}
+  /* オンライン状態ピル */
+  .home-live{display:inline-flex;align-items:center;gap:7px;margin:12px auto 0;padding:5px 13px;border-radius:999px;
+    background:rgba(46,193,142,.14);border:1.5px solid rgba(46,193,142,.5);font-size:12px;font-weight:800;color:var(--green)}
+  .home-live .hl-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px rgba(46,193,142,.26)}
+  /* ヒーロー：バトル（つやのある立体キャンディボタン） */
+  .home-battle{position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;
+    width:min(94%,400px);margin:16px auto 2px;padding:22px 20px 20px;border-radius:22px;color:#5a2a06;
+    background:linear-gradient(180deg,#ffca55,#f68a1c);border:2px solid #ffe6a6;
+    box-shadow:0 10px 0 var(--gold-dk),0 18px 26px rgba(150,70,10,.34),inset 0 2px 4px rgba(255,255,255,.55);transition:transform .08s ease, filter .15s ease}
   .home-battle:hover{filter:brightness(1.05)}
-  .home-battle:active{transform:translateY(4px);box-shadow:0 4px 0 #b9770f,0 6px 12px rgba(0,0,0,.35)}
-  .home-battle .hb-ico{font-size:38px;line-height:1}
-  .home-battle .hb-label{font-family:"Oswald",sans-serif;text-transform:uppercase;letter-spacing:.06em;font-size:clamp(28px,7vw,38px);font-weight:700;line-height:1}
-  .home-battle .hb-sub{font-size:12px;font-weight:700;opacity:.82}
+  .home-battle:active{transform:translateY(6px);box-shadow:0 4px 0 var(--gold-dk),0 8px 14px rgba(150,70,10,.34),inset 0 2px 4px rgba(255,255,255,.55)}
+  .home-battle::after{content:"";position:absolute;top:0;left:-45%;width:45%;height:100%;transform:skewX(-18deg);pointer-events:none;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent);animation:hbSheen 5s ease-in-out infinite}
+  @keyframes hbSheen{0%,72%{left:-45%}86%,100%{left:135%}}
+  .home-battle .hb-ico{font-size:34px;line-height:1}
+  .home-battle .hb-label{font-family:"Oswald",sans-serif;text-transform:uppercase;letter-spacing:.05em;font-size:clamp(30px,8vw,40px);font-weight:700;line-height:1;text-shadow:0 2px 0 rgba(255,255,255,.35)}
+  .home-battle .hb-sub{font-size:12px;font-weight:800;opacity:.9;color:#7c3f10}
+  /* ナビ：2×2 キャンディタイル（色分けの額＋共通の立体感で統一） */
+  .home-nav-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:400px;margin:14px auto 0}
+  .home-nav-grid .hn-btn{display:flex;flex-direction:row;align-items:center;gap:11px;cursor:pointer;text-align:left;
+    background:var(--panel);border:2px solid #fff;border-radius:16px;padding:12px 12px;color:var(--ink);
+    box-shadow:0 6px 0 rgba(180,110,60,.24),var(--shadow);transition:transform .08s ease, filter .15s ease}
+  .home-nav-grid .hn-btn:hover{filter:brightness(1.05)}
+  .home-nav-grid .hn-btn:active{transform:translateY(2px);box-shadow:0 3px 0 rgba(180,110,60,.24),var(--shadow)}
+  .home-nav-grid .hn-btn .hn-ico{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-size:20px;flex:0 0 auto;
+    box-shadow:inset 0 2px 4px rgba(255,255,255,.5),inset 0 -3px 6px rgba(0,0,0,.14)}
+  .home-nav-grid .hn-btn.gacha .hn-ico{background:radial-gradient(circle at 38% 30%,#f3a5e6,#b84fc0)}
+  .home-nav-grid .hn-btn.char  .hn-ico{background:radial-gradient(circle at 38% 30%,#8fd6ea,#3593bd)}
+  .home-nav-grid .hn-btn.guide .hn-ico{background:radial-gradient(circle at 38% 30%,#ffd38a,#e79a2c)}
+  .home-nav-grid .hn-btn.rank  .hn-ico{background:radial-gradient(circle at 38% 30%,#ffb0c2,#e8557a)}
+  .home-nav-grid .hn-btn .hn-tt{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .home-nav-grid .hn-btn .hn-txt{font-family:"Oswald",sans-serif;letter-spacing:.02em;font-size:14px;font-weight:700;white-space:nowrap;color:var(--ink)}
+  .home-nav-grid .hn-btn .hn-sub{font-size:9.5px;font-weight:700;color:var(--muted);white-space:nowrap}
+  @media (prefers-reduced-motion:reduce){.home-battle::after{animation:none}}
+  /* 旧・横並びナビ（他画面で使用時のフォールバック） */
   .home-nav{display:flex;gap:10px;width:100%;max-width:460px;margin:12px auto 0}
   .home-nav .hn-btn{flex:1 1 0;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;
     background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:14px;
@@ -463,24 +505,28 @@
 
   <main class="stage">
     <!-- home -->
-    <section id="home" class="center">
-      <p class="big home-title">Sugar <span class="clash">Wars</span></p>
-      <div id="homeTrophies" style="font-size:18px;font-weight:700;color:var(--brass);margin:2px 0 2px;cursor:pointer" onclick="openRanking()" title="ランキングを見る">🏆 1000</div>
-      <div style="display:flex;gap:14px;justify-content:center;margin:0 0 2px">
-        <span id="homeCoins" style="font-size:14px;font-weight:700;color:var(--accent2);cursor:pointer" onclick="openShop()" title="ガチャを開く">🍬 0 シュガーコイン</span>
+    <section id="home" class="center home-v2">
+      <div class="home-hud">
+        <div class="res-pill tr" onclick="openRanking()" title="ランキングを見る">
+          <span class="rp-orb tr">🏆</span>
+          <span class="rp-txt"><b id="homeTrophies">1000</b><small>トロフィー</small></span>
+        </div>
+        <div class="res-pill co" onclick="openShop()" title="ショップを開く">
+          <span class="rp-orb co">🍬</span>
+          <span class="rp-txt"><b id="homeCoins">0</b><small>シュガーコイン</small></span>
+        </div>
       </div>
-      <div id="homeOnline" style="font-size:12px;color:var(--green);margin:0 0 6px">🟢 オンライン –人・対戦中 –人</div>
-      <p>お菓子の兵士を集めて軍を編成し、リアルタイム自動戦闘で王国の覇権を争うカードドラフト＆オートバトラー。</p>
+      <div class="home-live"><span class="hl-dot"></span><span id="homeOnline">オンライン –人・対戦中 –人</span></div>
       <button class="home-battle" onclick="goBattleMenu()">
         <span class="hb-ico">⚔</span>
         <span class="hb-label">バトル</span>
         <span class="hb-sub">AI と対戦して勝ち進む</span>
       </button>
-      <nav class="home-nav">
-        <button class="hn-btn" onclick="openShop()"><span class="hn-ico">🎁</span><span class="hn-txt">ガチャ</span></button>
-        <button class="hn-btn" onclick="goRoster()"><span class="hn-ico">📋</span><span class="hn-txt">キャラ</span></button>
-        <button class="hn-btn" onclick="openGuide()"><span class="hn-ico">🎓</span><span class="hn-txt">戦術指南</span></button>
-        <button class="hn-btn" onclick="openRanking()"><span class="hn-ico">🏆</span><span class="hn-txt">ランキング</span></button>
+      <nav class="home-nav-grid">
+        <button class="hn-btn gacha" onclick="openShop()"><span class="hn-ico">🎁</span><span class="hn-tt"><span class="hn-txt">ガチャ</span><span class="hn-sub">見た目をあつめる</span></span></button>
+        <button class="hn-btn char" onclick="goRoster()"><span class="hn-ico">🧁</span><span class="hn-tt"><span class="hn-txt">キャラ</span><span class="hn-sub">デッキを編成</span></span></button>
+        <button class="hn-btn guide" onclick="openGuide()"><span class="hn-ico">🎓</span><span class="hn-tt"><span class="hn-txt">戦術指南</span><span class="hn-sub">レッスンで解禁</span></span></button>
+        <button class="hn-btn rank" onclick="openRanking()"><span class="hn-ico">🏆</span><span class="hn-tt"><span class="hn-txt">ランキング</span><span class="hn-sub">世界と競う</span></span></button>
       </nav>
     </section>
 
@@ -5608,8 +5654,8 @@ function leaderboardSubmit(){
   try{ db.ref('leaderboard/'+authUser.uid).set({ name:dp.name, avatar:dp.avatar, trophies:myTrophies(), wins:myProfile.wins||0, ts:Date.now() }); }catch(e){ console.warn('LB保存失敗',e); }
 }
 // ホームのトロフィー表示を更新
-function renderHomeTrophies(){ const el=$('homeTrophies'); if(el) el.textContent='🏆 '+myTrophies(); }
-function renderHomeCoins(){ const el=$('homeCoins'); if(el) el.textContent='🍬 '+myCoins()+' シュガーコイン'; }
+function renderHomeTrophies(){ const el=$('homeTrophies'); if(el) el.textContent=myTrophies(); }
+function renderHomeCoins(){ const el=$('homeCoins'); if(el) el.textContent=myCoins(); }
 
 /* ===== ショップ＆コレクション（見た目だけ・対戦バランス不変） ===== */
 function openShop(){ try{ SFX.play('button'); }catch(e){} const mm=$('menuModal'); if(mm) mm.classList.add('hidden'); renderShop(); const m=$('shopModal'); if(m) m.classList.remove('hidden'); }
@@ -6111,7 +6157,8 @@ function pvpInitVisibility(){
 }
 function renderPresence(){
   const txt='🟢 オンライン '+pvpPresenceCounts.online+'人・マッチ待ち '+(pvpPresenceCounts.matching||0)+'人・対戦中 '+pvpPresenceCounts.battling+'人';
-  ['pvpOnlineCount','homeOnline'].forEach(function(id){ const el=$(id); if(el) el.textContent=txt; });
+  const pl=$('pvpOnlineCount'); if(pl) pl.textContent=txt;
+  const h=$('homeOnline'); if(h) h.textContent='オンライン '+pvpPresenceCounts.online+'人 ・ 対戦中 '+pvpPresenceCounts.battling+'人';
 }
 
 // --- UI ---
