@@ -1147,7 +1147,7 @@ const UNITS = [
   {key:'purin', name:'スプーンナイトプリン', icon:'🍮', role:'back', tier:1.1, count:1, atk:16, hp:80, speed:70, range:150, cd:1.6, tag:'ブーメランスプーン', short:'スプーンをブーメランのように投げるプリン', text:'スプーンをブーメランのように投げて攻撃するプリン。はいてるのはおむつじゃないよ！お皿だよ！', boomerang:true, boomDist:150, boomSp:300, boomR:15, anim:['purin_blue'], animRed:['purin_red'], animFps:1},
   // ショートケーキ（開発テスト中）。開幕に自分の位置へイチゴタレットを設置する。1枚=1体。立ち絵は青(ブルーベリー)/赤(いちご)＝spriteForで解決。
   // スネイル型。イチゴを背負う立ち絵(shortcake_*)／タレット設置中はイチゴを下ろした立ち絵(shortcake_deploy_*)に切替。戦闘中は歩行2フレーム(*2_*)で下の足の並々が波打つ。青=ブルーベリー/赤=いちご。
-  {key:'shortcake', name:'ショートケーキ', icon:'🍰', role:'fodder', tier:1.25, count:1, atk:10, hp:230, speed:50, range:30, cd:1.0, tag:'設置＋前進', short:'足元にイチゴタレットを置きつつ前進して殴る（1体）', text:'足元にイチゴタレットを設置したら、自分は前進して敵を殴りに行くケーキ。タレットは数秒で溶けるが、消えるとその時の足元にまた新しいタレットを置き直す。', deployTurret:true, turretKey:'strawturret', redeployDelay:0.5, test:true, beta:true},
+  {key:'shortcake', name:'ショートケーキ', icon:'🍰', role:'fodder', tier:1.75, count:1, atk:10, hp:200, speed:45, range:30, cd:1.0, tag:'設置＋前進', short:'足元にイチゴタレットを置きつつ前進して殴る（1体）', text:'足元にイチゴタレットを設置したら、自分は前進して敵を殴りに行くケーキ。タレットは数秒で溶けるが、消えるとその時の足元にまた新しいタレットを置き直す。', deployTurret:true, turretKey:'strawturret', redeployDelay:0.5, test:true, beta:true},
   // イチゴタレット（ショートケーキ専用の召喚物・動かない短命の砲台）。summonOnly でロスター/ドラフト/CPU/X2/ピッカーから除外。turretLife 秒で消える。
   // untargetable=狙われない＆当たり判定なし（分離/重なり解消の全ループで untargetable を素通し＝敵の前に置いても"無敵の盾"にならない）。
   {key:'strawturret', name:'イチゴタレット', icon:'🍓', role:'back', tier:2, count:1, atk:9, hp:70, speed:0, range:100, cd:0.15, tag:'タレット', short:'狙われずに近くの敵へ小さな粒を連射する砲台（時間/設置者で消滅）', text:'ショートケーキが設置する砲台。動かず近くの敵へ小さな粒（ベリー）を高速で連射する。敵からは狙われないが、設置したショートケーキが倒れる／時間が経つと壊れてしまう。', ranged:true, pellet:true, turretLife:4.0, untargetable:true, summonOnly:true},
