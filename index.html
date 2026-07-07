@@ -114,6 +114,13 @@
     font-family:"Oswald",sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
     font-size:clamp(46px,15vw,84px);line-height:1;text-shadow:0 4px 0 rgba(0,0,0,.45),0 0 18px rgba(0,0,0,.5);-webkit-text-stroke:2px rgba(20,12,4,.55)}
   .result-banner.hidden{display:none}
+  /* ボスHPバー（PVEボス戦・上部） */
+  .boss-bar{position:absolute;left:8px;right:8px;top:8px;z-index:7;pointer-events:none;
+    background:rgba(16,14,20,.62);border:2px solid var(--px-edge,#4a2a12);border-radius:5px;padding:5px 8px 6px;backdrop-filter:blur(2px)}
+  .boss-bar.hidden{display:none}
+  .boss-bar .bb-label{font-family:"Oswald",sans-serif;font-weight:700;font-size:12px;color:#ffd9a3;letter-spacing:.03em;margin-bottom:4px;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+  .boss-bar .bb-track{height:12px;background:rgba(0,0,0,.5);border-radius:3px;overflow:hidden;border:1px solid rgba(0,0,0,.4)}
+  .boss-bar .bb-fill{height:100%;width:100%;background:linear-gradient(180deg,#ff7a7a,#c9224c);transition:width .25s}
   /* ステージ名バナー（開始時に一瞬） */
   .stage-banner{position:absolute;left:0;right:0;top:14%;text-align:center;pointer-events:none;z-index:8;
     font-family:"Oswald","Hiragino Kaku Gothic ProN",sans-serif;font-weight:700;letter-spacing:.04em;
@@ -631,6 +638,11 @@
           <span class="mb-txt"><b>あいことば対戦</b><small>友だちと（つないだまま何度でも）</small></span>
           <span class="mb-arrow">›</span>
         </button>
+        <button class="menu-btn" onclick="startBoss()">
+          <span class="mb-ico">🐲</span>
+          <span class="mb-txt"><b>ボス戦（PVE）</b><small>巨大ボスを軍で削り倒せ（HP持ち越し）</small></span>
+          <span class="mb-arrow">›</span>
+        </button>
       </div>
       <button class="btn btn-ghost" onclick="goHome()">← ホームへ戻る</button>
     </section>
@@ -755,6 +767,10 @@
         <div class="arena-stage">
           <canvas id="arena" class="arena-canvas"></canvas>
           <div class="stage-banner hidden" id="stageBanner"></div>
+          <div class="boss-bar hidden" id="bossBar">
+            <div class="bb-label" id="bossBarLabel">🐲 ボス</div>
+            <div class="bb-track"><div class="bb-fill" id="bossBarFill"></div></div>
+          </div>
           <div class="foe-pick hidden" id="foePick"></div>
           <div class="result-banner hidden" id="resultBanner"></div>
           <div class="offer-overlay hidden" id="offerOverlay">
@@ -1124,6 +1140,8 @@ const UNITS = [
   {key:'donut', name:'バキュームドーナッツ', icon:'🍩', role:'tank', tier:-1, count:1, atk:6, hp:430, speed:50, range:32, cd:1.1, tag:'吸引タンク', short:'敵を吸い込むドーナツ', text:'眼の前の敵を吸い寄せるドーナツ。食べるわけではないがとりあえず吸い寄せる　ｷｭｳｳｳｳｳ', vacuum:true, pullR:155, pullForce:150, vacOn:2.4, vacOff:1.6, heavy:true, kbResist:true, spriteScale:1.0},
   {key:'bakery', name:'ジンジャーベーカリー', icon:'🏠', role:'back', tier:2, count:1, atk:0, hp:230, speed:0, range:0, cd:1, tag:'生産工場', short:'後方からジンジャーを作り続ける後方支援', text:'動かない工場。焼き立てのジンジャーを後方から作り続ける工場。焼き立てのジンジャーはいかが！？', spawner:true, spawnKey:'ginger', spawnCd:2.0, spawnCount:3, spawnCap:30, spriteScale:1.1},
   {key:'ginger', name:'ジンジャーソルジャー', icon:'🍪', role:'fodder', tier:0, count:1, atk:10, hp:25, speed:112, range:22, cd:0.55, tag:'召喚', short:'ベーカリーが焼く足の速い小さな兵士', text:'ジンジャーベーカリーが焼き上げる小さな兵士。脆いが足が速く、数で押し寄せる。', summonOnly:true},
+  // PVEボス（案A・巨大な単体ボス。HPはラウンド持ち越し。仮スプライト=絵文字。summonOnlyでドラフト/編成/CPUに出ない）
+  {key:'boss1', name:'グミドラゴン', icon:'🐲', role:'front', tier:0, count:1, atk:26, hp:14000, speed:22, range:26, cd:1.0, tag:'ボス', short:'王国を襲う巨大なグミの魔物', text:'PVEボス。巨大なHPと重い一撃で軍を薙ぎ払う。毎ラウンド軍を増やして数で囲み、削り倒せ。', summonOnly:true, heavy:true, kbResist:true, spriteScale:3.0},
   {key:'popcorn_mini', name:'小型ポップコーン', icon:'🍿', role:'fodder', tier:1, count:1, atk:0, hp:24, speed:132, range:22, cd:1.0, tag:'自爆', short:'TNTの爆発から飛び出してもう一度自爆する小型', text:'ポップコーンTNTの爆発から飛び出す小型。すぐに自爆する（さらに分裂はしない）。', suicide:true, blast:60, blastR:48, fuse:0.4, summonOnly:true, spriteScale:0.62},
   {key:'shoe',  name:'シュークリームアーチャー', icon:'🧁', role:'back', tier:1.5, count:4, atk:14, hp:44, speed:55, range:150, cd:1.0, tag:'後衛', short:'弓を放つシュークリーム', text:'後方から弓を放つシュークリームのアーチャー。矢の雨で近づく前に溶かしちゃう！', ranged:true},
   {key:'ghost', name:'わたあめゴースト', icon:'☁️', role:'back', tier:3.5, count:3, atk:16, hp:44, speed:95, range:28, cd:0.43, tag:'強襲', short:'敵の後衛を奇襲するおばけ', text:'敵の後衛にワープして奇襲するおばけ。背後をとって挟み撃ちにしよう。うらめしや！！', warper:true, warpDelay:1.5, target:'back'},
@@ -1624,6 +1642,33 @@ function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.fl
 function capArmy(keys){ return keys.length>CONFIG.armyCap ? keys.slice(keys.length-CONFIG.armyCap) : keys; }
 
 function randomFoeDeck(){ return shuffle(UNITS.filter(u=>!u.summonOnly && !u.test).map(u=>u.key)).slice(0,CONFIG.deckSize); }
+// ===== PVEボス戦（案A：巨大ボス1体・HPラウンド持ち越し） =====
+let bossMode=false;
+function startBoss(){
+  SFX.play('button');
+  if(needPlayerDeck()) return;                    // デッキ4枚必須
+  resetState();
+  bossMode=true;
+  state.bossMaxHP = (UNIT_BY_KEY['boss1']||{}).hp || 4200;
+  state.bossHP = state.bossMaxHP;
+  pickStage(); showStageBanner();
+  state.loadout = myDeck.slice();
+  state.foeLoadout = [];                           // ボスはデッキを持たない
+  trackBattleStart('boss');
+  renderScore(); renderBossBar();
+  beginDraft();
+}
+// ボスを1体だけ敵陣（上部中央）に、持ち越しHPで出す
+function spawnBoss(world, W, H){
+  const f = makeFighters('boss1','e',W,H,'army')[0];
+  if(!f) return;
+  f.boss=true;
+  f.hp=state.bossHP; f.maxHp=state.bossMaxHP; f.baseMaxHp=state.bossMaxHP;
+  f.x=W*0.5; f.y=playT(H)+H*0.10;
+  f.r=26; f.baseR=26;
+  f.appear=1;
+  world.units.push(f);
+}
 function startGame(){
   resetState();
   pickStage(); showStageBanner();                                   // このバトルのステージをランダム決定＋名前バナー
@@ -1682,7 +1727,7 @@ function beginTestBattle(){
 }
 
 /* ホーム/メニュー遷移 */
-function goHome(){ SFX.play('button'); hideDeckNote(); hideResultBanner(); rosterMode='you'; if(guideMode||_guideDeckBackup){ guideMode=false; guideStageId=null; guideRestoreDeck(); }   /* 指南の途中離脱でも本来のデッキに戻す */ pvpPresenceSet('home'); show('home'); SFX.bgm('home'); }   // ホームでBGM再生
+function goHome(){ SFX.play('button'); hideDeckNote(); hideResultBanner(); rosterMode='you'; bossMode=false; renderBossBar(); if(guideMode||_guideDeckBackup){ guideMode=false; guideStageId=null; guideRestoreDeck(); }   /* 指南の途中離脱でも本来のデッキに戻す */ pvpPresenceSet('home'); show('home'); SFX.bgm('home'); }   // ホームでBGM再生
 function goBattleMenu(){ SFX.play('button'); show('battleMenu'); }
 // おまかせ対戦：PVPロビーを開いて即ランダムマッチ探索（相手が来るまで待つ／「今すぐCPU」で切替可）
 function omakaseMatch(){
@@ -2738,8 +2783,9 @@ function beginDraft(){
   if(state.youKumaBuff) applyKumaGrowth(world,'p');   // コグマの成長を再適用（永続・1回限り）
   if(state.youPurinBuff) applyPurinBuff(world,'p');   // ダブルスプーンを再適用（永続・1回限り）
   arrangeFormation(world,'p',true);
-  // 敵の引き継ぎ軍も上に並べる（ドラフト中から見える）
-  capArmy(state.foeArmy).forEach(k=> makeFighters(k,'e',CW,CH,'army').forEach(f=>{ f.appear=1; world.units.push(f); }));
+  // 敵の引き継ぎ軍も上に並べる（ドラフト中から見える）／ボス戦はボス1体を出す
+  if(bossMode){ spawnBoss(world,CW,CH); }
+  else capArmy(state.foeArmy).forEach(k=> makeFighters(k,'e',CW,CH,'army').forEach(f=>{ f.appear=1; world.units.push(f); }));
   arrangeFormation(world,'e',true);
   for(let i=0;i<state.foeMerges;i++){ if(!mergeOneSlimeGroup(world,'e')) break; }
   arrangeFormation(world,'e',true);
@@ -2762,8 +2808,8 @@ function beginDraft(){
   if(state.foePurinBuff) applyPurinBuff(world,'e');   // 敵のダブルスプーンを再適用（永続・1回限り）
   arrangeFormation(world,'e',true);
   // 敵の今回ピックを準備（プレイヤーが1枚選ぶたびに1枚ずつ上に召喚して公開）
-  state.foePickTotal = picksFor(state.foeLostLast, state.lostLast);
-  state.foeRoundPicks = foeCtl.picks(state.foeLoadout, state.foePickTotal);   // 敵の選択は「敵コントローラ」が供給（CPU＝貪欲AI／将来はPVPの相手）
+  state.foePickTotal = bossMode ? 0 : picksFor(state.foeLostLast, state.lostLast);
+  state.foeRoundPicks = bossMode ? [] : foeCtl.picks(state.foeLoadout, state.foePickTotal);   // 敵の選択は「敵コントローラ」が供給（ボスはドラフトしない）
   state.foeRevealIdx = 0;
   if(tutorial){ state.pickTotal=1; state.foePickTotal=1; state.foeRoundPicks=['ginger']; }   // チュートリアル：1ピック・弱い相手（必ず勝てる）
   // 逆転ボーナスの「先に選ぶ」分を計算
@@ -3898,7 +3944,10 @@ function stepWorld(world, dt){
   // 決着判定は「戦える兵（＝攻撃しない守護天使 mangel を除く）」で数える＝残りがエンジェルだけになった側は負け（攻撃できず勝てないため）
   const p=world.units.filter(u=>u.side==='p'&&u.hp>0&&!u.noAttack).length, e=world.units.filter(u=>u.side==='e'&&u.hp>0&&!u.noAttack).length;
   if(p===0||e===0){ beginOutro(world, (p>0&&e===0)?'win':(e>0&&p===0)?'lose':'draw'); }
-  else if(world.t>=CONFIG.timeLimit){ const ph=world.units.filter(u=>u.side==='p').reduce((s,u)=>s+u.hp,0), eh=world.units.filter(u=>u.side==='e').reduce((s,u)=>s+u.hp,0); beginOutro(world, ph>eh?'win':eh>ph?'lose':'draw'); }
+  else if(world.t>=CONFIG.timeLimit){
+    if(bossMode){ beginOutro(world,'draw'); }   // ボス生存で時間切れ＝削り継続（ライフは減らさない）
+    else { const ph=world.units.filter(u=>u.side==='p').reduce((s,u)=>s+u.hp,0), eh=world.units.filter(u=>u.side==='e').reduce((s,u)=>s+u.hp,0); beginOutro(world, ph>eh?'win':eh>ph?'lose':'draw'); }
+  }
 }
 
 /* 戦闘終了：残ユニットを砂糖にとかし、エフェクトを消してから完了する */
@@ -4058,6 +4107,7 @@ function loop(now){
   const snapEvery = (world.phase==='battle') ? 100 : 340;
   if(pvpMode && pvpHostObj && (now-pvpLastSnap)>snapEvery){ pvpLastSnap=now; try{ pvpHostObj.sendSnapshot(world); }catch(e){} }
   if(world.phase==='battle') updateRemain();
+  if(bossMode) renderBossBar();   // ボスHPバーをライブ更新
   if(world.phase==='outro' && !world._bannerShown){ showResultBanner(world.result); world._bannerShown=true; }   // 決着の瞬間に画面上へWIN/LOSE表示
   if(world.done){ endBattle(world.result); return; }
   raf=requestAnimationFrame(loop);
@@ -4581,6 +4631,7 @@ function closeNews(e){ if(e && e.target!==e.currentTarget) return; SFX.play('but
 function endBattle(result){
   cancelAnimationFrame(raf);
   $('skipBtn').classList.add('hidden');
+  if(bossMode){ endBattleBoss(result); return; }   // ボス戦は専用処理（HP持ち越し・撃破で勝利）
   track('battle_end', { mode: pvpMode?'pvp':(tutorial?'tutorial':'cpu'), result: result });   // 計測：決着（勝敗）
   showResultBanner(result);   // 画面上に WIN / LOSE / DRAW（敵が倒れきって味方だけになったタイミング）
   if(result==='win'){ state.foeLives--; state.lostLast=false; state.foeLostLast=true; }
@@ -4605,8 +4656,39 @@ function endBattle(result){
   else setTimeout(nextRound,1800);
 }
 function nextRound(){ state.round++; if(pvpMode){ pvpTrace('host nextRound -> round '+state.round); pvpHostStartRound(); } else { beginDraft(); } }
+// ボスHPバーの表示更新（戦闘/決着中のみ表示。ライブHPはボス個体から読む）
+function renderBossBar(){
+  const el = (typeof $==='function') ? $('bossBar') : null; if(!el) return;
+  const showBar = bossMode && world && (world.phase==='battle'||world.phase==='outro');
+  if(!showBar){ el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  let hp=state.bossHP; const b=world.units.find(u=>u.side==='e'&&u.boss); if(b) hp=b.hp;
+  const pct = state.bossMaxHP ? Math.max(0,Math.min(100, 100*hp/state.bossMaxHP)) : 0;
+  const fill=$('bossBarFill'); if(fill) fill.style.width=pct+'%';
+  const lab=$('bossBarLabel'); if(lab) lab.textContent='🐲 '+((UNIT_BY_KEY['boss1']||{}).name||'ボス')+'　'+Math.max(0,Math.ceil(hp))+' / '+state.bossMaxHP;
+}
+// ボス戦の決着処理：ボス残HPを持ち越し／撃破で勝利／軍全滅でライフ-1／時間切れは削り継続
+function endBattleBoss(result){
+  const boss = world && world.units.find(u=>u.side==='e'&&u.boss);
+  state.bossHP = boss ? Math.max(0, Math.round(boss.hp)) : 0;
+  renderBossBar();
+  if(state.bossHP<=0){   // ボス撃破＝勝利
+    track('battle_end',{mode:'boss',result:'win'});
+    showResultBanner('win'); state.foeLives=0; renderScore();
+    setTimeout(endGame,1400); return;
+  }
+  if(result==='lose'){   // 自軍が全滅＝ライフ-1
+    track('battle_end',{mode:'boss',result:'lose'});
+    state.youLives--; state.lostLast=true; state.foeLostLast=false; renderScore(); showResultBanner('lose');
+    if(state.youLives<=0){ setTimeout(endGame,1400); return; }
+  } else {   // 時間切れ両者生存＝削り継続（ライフ据え置き）
+    state.lostLast=false; state.foeLostLast=false; showResultBanner('draw');
+  }
+  setTimeout(nextRound,1800);
+}
 function endGame(){
   cancelAnimationFrame(raf);
+  const wasBoss = bossMode; bossMode=false; renderBossBar();
   const wasPvp = pvpMode;
   const privateRoom = wasPvp && !pvpRanked && !!pvpConn;   // プライベート部屋＝接続を保って再戦できる（ランダム/CPUは従来どおり片付ける）
   pvpMode=false;
@@ -4633,7 +4715,7 @@ function endGame(){
   if(wasPvp) awardMasteryXp(won);   // 熟練度XPはPVPのみ（CPU戦は除外）・勝ち多め/負け少なめ
   let trophyLine='';
   if(wasPvp && pvpRanked){ const d=applyTrophyResult(won, pvpOppProfile&&pvpOppProfile.trophies); trophyLine='🏆 '+(d>=0?'+':'')+d+'（合計 '+myTrophies()+'）'; renderHomeTrophies(); }   // ランダムマッチのみトロフィー増減（あいことば/CPUは非変動）
-  $('overTitle').textContent=won?'勝利！':'敗北…';
+  $('overTitle').textContent=won?(wasBoss?'ボス撃破！ 🎉':'勝利！'):'敗北…';
   $('overTitle').style.color=won?'var(--green)':'var(--rust)';
   const base=won?`${state.round} ラウンドで決着。${state.youArmy.length} 体の軍を率いて勝利しました。`:`${state.round} ラウンドで力尽きました。デッキの相性を見直してみましょう。`;
   const rw=grantBattleReward(won); const coinLine='🍬 +'+rw.gain+(rw.first?'（デイリー初勝利ボーナス込み！）':''); renderHomeCoins();   // 対戦報酬（CPU/PVP共通・チュートリアル除外）
