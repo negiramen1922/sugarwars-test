@@ -3298,10 +3298,12 @@ function guardianStep(world, u, live, dt){
 }
 // プリン（ブーメラン）：スプーンを敵の方向へ投げる。行き（out）→折り返し→帰り（owner へ戻る）で経路上の敵を薙ぐ。
 function throwBoomerang(world, u, tgt, spread){
-  const dx=tgt.x-u.x, dy=tgt.y-u.y, d=Math.hypot(dx,dy)||1; let nx=dx/d, ny=dy/d;
-  if(spread){ const a=spread*0.28, cs=Math.cos(a), sn=Math.sin(a); const rx=nx*cs-ny*sn, ry=nx*sn+ny*cs; nx=rx; ny=ry; }   // ダブルスプーンは±約16°に扇状に投げる
+  const dx=tgt.x-u.x, dy=tgt.y-u.y, d=Math.hypot(dx,dy)||1; const nx=dx/d, ny=dy/d;
+  // ダブルスプーンは向きは正面(tgt方向)のまま発射位置だけを左右に平行ずらし2本投げる。角度をつけると距離比例で横にズレ遠い正面の敵に両方外れる(射程150で±42px)。平行ずらし(14<hitR15)なら正面の敵にも必ず当たる。
+  let sx=u.x, sy=u.y;
+  if(spread){ const off=spread*14; sx=u.x+(-ny)*off; sy=u.y+nx*off; }
   u.spoonsOut=(u.spoonsOut||0)+1; u.spoonOut=true;   // 投げている間は手ぶらの立ち絵に
-  world.shots.push({ boom:true, x:u.x, y:u.y, ox:u.x, oy:u.y, dx:nx, dy:ny,
+  world.shots.push({ boom:true, x:sx, y:sy, ox:u.x, oy:u.y, dx:nx, dy:ny,
     sp:u.boomSp||300, maxDist:u.boomDist||u.range||150, travel:0, out:true,
     side:u.side, owner:u, atk:u.atk, hitR:u.boomR||15, hit:new Set(), spin:0, sprite:'spoon' });
 }
