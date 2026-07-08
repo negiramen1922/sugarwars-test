@@ -17,6 +17,7 @@
     if(h===DEST || h==='www.'+DEST) return;                                   // 既に本番なら何もしない
     if(h==='localhost'||h==='127.0.0.1'||h===''||/^192\.168\./.test(h)||/^10\./.test(h)||/^172\.(1[6-9]|2\d|3[01])\./.test(h)) return; // ローカル/LAN 開発
     if(/[?&]stay\b/.test(location.search) || sessionStorage.getItem('sw_stay')==='1'){ try{ sessionStorage.setItem('sw_stay','1'); }catch(e){} return; } // 開発陣は残留
+    try{ var q=location.search; if(!/[?&]dev=off\b/.test(q) && (/[?&]dev\b/.test(q) || localStorage.getItem('sw_dev')==='1')) return; }catch(e){} // 開発モード(?dev / sw_dev)はこのドメインに残留＝github.io(常に最新)でテスト可
     location.replace('https://'+DEST+'/'+location.search+location.hash);      // 招待コード(?room=)やハッシュは引き継ぐ
   }catch(e){}
 })();
