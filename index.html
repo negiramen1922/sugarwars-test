@@ -1098,7 +1098,10 @@ const SODA_WALK_FPS = 8;      // ランニングソーダの歩行2フレーム(
 const SHORTCAKE_WALK_FPS = 4; // ショートケーキスネイルの歩行2フレーム（足の並々が波打つ）切替速度
 const MOLE_DIVE_DELAY = 2.0;     // カヌレモーラー：開幕この秒数だけ地上→その後 土に潜る
 const MOLE_EMERGE_R = 40;        // 敵にこの距離まで近づいたら浮上して近接戦へ
-const MOLE_DIG_SPEED_MUL = 1.35; // 潜行中の移動速度倍率（掘り進むので少し速い）
+const MOLE_REDIG_R = 150;        // 浮上後、最も近い敵がこの距離より遠ければ再び土に潜って近づく（ヒステリシス）
+const CANULE_BUFF_HP = 200;      // 固有強化「ジャイアントクロー」後のHP（通常130）
+const CANULE_BUFF_ATK = 30;      // 強化後の攻撃力（通常20）
+const CANULE_EMERGE_DMG = 40;    // 強化後、土から出る瞬間に近くの敵1体へ与えるダメージ
 const SEP_R = 10.5;       // 分離（重なり防止）に使う当たり半径の上限(px)。隊列の段間隔 rowGap=21 の半分に合わせてあり、
                           // 開戦前の隊列の密度では押し合いが起きない＝バトル開始時に一気に広がらない。大型ユニットもこの半径で判定。
 const HEAVY_PUSH = 0.16;  // heavy(ドーナッツ等)が重なり分離で押される割合。小さいほど大勢に押し負けない（1=通常／0=不動）
@@ -1150,7 +1153,7 @@ const UNITS = [
   {key:'kumagumi', name:'クマグミ', icon:'🐻', role:'fodder', tier:0.75, count:4, atk:8, hp:50, speed:100, range:24, cd:0.5, tag:'仲間化', short:'倒した敵を味方にしちゃうグミ', text:'お前もグミにならないか？倒した敵を味方のクマグミにかえちゃいます！わお！コワイ！ 素のちからは弱いので、硬い前衛（タンク）と一緒に出してあげよう。', anim:['kumagumi_blue'], animRed:['kumagumi_red'], animFps:1, recruit:true},
   // プリン（開発テスト中）。スプーンをブーメランのように投げ、往復で経路上の敵を薙ぐ。1枚=1体。立ち絵は青/赤の陣営色（anim1枚）。
   {key:'purin', name:'スプーンナイトプリン', icon:'🍮', role:'back', tier:1.1, count:1, atk:16, hp:80, speed:70, range:150, cd:1.6, tag:'ブーメランスプーン', short:'スプーンをブーメランのように投げるプリン', text:'スプーンをブーメランのように投げて攻撃するプリン。はいてるのはおむつじゃないよ！お皿だよ！', boomerang:true, boomDist:150, boomSp:300, boomR:15, anim:['purin_blue'], animRed:['purin_red'], animFps:1, spriteScale:1.31},
-  {key:'canule', name:'カヌレモーラー', icon:'🦫', role:'fodder', tier:0, count:2, atk:16, hp:110, speed:95, range:28, cd:0.9, tag:'潜行強襲', short:'土に潜って敵に近づく2体のモグラ', text:'開幕2秒で土に潜り、無敵のまま敵へ掘り進む。土の中は攻撃を受けず狙われもしない。敵に近づくと飛び出して爪で殴る！', burrow:true, test:true, beta:true},
+  {key:'canule', name:'カヌレモーラー', icon:'🦫', role:'fodder', tier:1.25, count:2, atk:20, hp:130, speed:50, digSpeed:90, range:28, cd:0.7, tag:'潜行強襲', short:'土に潜って敵に近づく2体のモグラ', text:'開幕2秒で土に潜り、無敵のまま敵へ掘り進む。土の中は攻撃を受けず狙われもしない。敵に近づくと飛び出して爪で殴る！離れた敵には再び潜って追いかける。', burrow:true, test:true, beta:true},
   // ショートケーキ（開発テスト中）。開幕に自分の位置へイチゴタレットを設置する。1枚=1体。立ち絵は青(ブルーベリー)/赤(いちご)＝spriteForで解決。
   // スネイル型。イチゴを背負う立ち絵(shortcake_*)／タレット設置中はイチゴを下ろした立ち絵(shortcake_deploy_*)に切替。戦闘中は歩行2フレーム(*2_*)で下の足の並々が波打つ。青=ブルーベリー/赤=いちご。
   {key:'shortcake', name:'ショートケーキ', icon:'🍰', role:'fodder', tier:1.75, count:1, atk:10, hp:200, speed:45, range:30, cd:1.0, tag:'設置＋前進', spriteScale:0.89, short:'足元にイチゴタレットを置きつつ前進して殴る（1体）', text:'足元にイチゴタレットを設置したら、自分は前進して敵を殴りに行くケーキ。タレットは数秒で溶けるが、消えるとその時の足元にまた新しいタレットを置き直す。', deployTurret:true, turretKey:'strawturret', redeployDelay:0.5, test:true, beta:true},
@@ -1377,6 +1380,10 @@ SPECIALS['buff_shortcake'] = {
   key:'buff_shortcake', name:'練乳ベリー', icon:'🍓', upgrade:true, shortcakeBuff:true, target:'shortcake', evoSprite:'shortcake_buff_blue',
   text:'背負ってるベリーに練乳をかけてタレットをアップグレード！攻撃力と連射速度が上がる。',
 };
+SPECIALS['buff_canule'] = {
+  key:'buff_canule', name:'ジャイアントクロー', icon:'🦫', upgrade:true, canuleBuff:true, target:'canule', evoSprite:'canule_buff_blue',
+  text:'腕・シッポ・爪が大きく育つ！HPと攻撃力が上がり、土から飛び出す瞬間に近くの敵1体へ不意打ちダメージを与える。',
+};
 function isSpecial(key){ return !!SPECIALS[key]; }
 
 /* ===== 効果音（お菓子のポップな感じ）。Web Audioで合成＝単一ファイル維持・外部ファイル不要 =====
@@ -1537,6 +1544,7 @@ function iconHTML(u, side){
   if(u.key==='shoe' && SPRITE_DATA['shoe_aim_'+c]) return img('shoe_aim_'+c);   // カード立ち絵＝構え（矢あり）
   if(u.key==='shoe' && SPRITE_DATA['shoe_'+c]) return img('shoe_'+c);
   if(u.key==='purin' && SPRITE_DATA['purin_'+c]) return img('purin_'+c);
+  if(u.key==='canule' && SPRITE_DATA['canule_'+c]) return img('canule_'+c);
   if(u.key==='mangel' && SPRITE_DATA['mangel_1']) return img(side==='e'?'mangel_red_1':'mangel_1');
   if(u.key==='kumagumi' && SPRITE_DATA['kumagumi_blue']) return img(side==='e'?'kumagumi_red':'kumagumi_blue');
   if(u.key==='daifuku' && SPRITE_DATA['daifuku_'+c]) return img('daifuku_'+c);
@@ -1602,7 +1610,7 @@ function resetState(){
 }
 let _pendingNoX2 = false;   // 次に始める対戦でX2を無効化するか（beginTestBattleで立てる）
 let _tbForceBuffs = false;   // テスト対戦：自分の強化を最初から全適用（beginTestBattleで設定→startGameで1回消費）
-const TB_BUFF_FLAGS = ["youParty","youChocoBuff","youBombSplit","youDaifukuBuff","youGhostClone","youCannonCluster","youSodaFizz","youDonutWall","youPancakeFast","youShoeBuff","youBakeryBuff","youIcewizBuff","youMacaronBuff","youMangelBuff","youKumaBuff","youPurinBuff","youShortcakeBuff"];
+const TB_BUFF_FLAGS = ["youParty","youChocoBuff","youBombSplit","youDaifukuBuff","youGhostClone","youCannonCluster","youSodaFizz","youDonutWall","youPancakeFast","youShoeBuff","youBakeryBuff","youIcewizBuff","youMacaronBuff","youMangelBuff","youKumaBuff","youPurinBuff","youShortcakeBuff","youCanuleBuff"];
 const $ = id => document.getElementById(id);
 // ドラフトの提示ボックス（見出し「ドラフト/ピック」＋カード3枚＋下のヒント）の表示制御。
 // ヒント(draftHint)はボックス内にあるので、待機メッセージを見せたいときは「カードだけ」隠してボックスは残す。
@@ -1988,7 +1996,7 @@ function toggleAbilityInfo(btn){ const row=btn.closest('.ab-row'); const d=row&&
 /* キャラ詳細用：そのキャラの「進化」と「固有強化」を表示用にまとめる（強化後ステータスは定数から再計算）。 */
 const UNIT_ENH = { cookie:'party_cookie', choco:'buff_choco', bomb:'split_bomb', daifuku:'buff_daifuku',
   ghost:'clone_ghost', cannon:'cluster_cannon', soda:'fizz_soda', donut:'wall_donut',
-  pancake:'fast_pancake', shoe:'buff_shoe', bakery:'last_bake', icewiz:'buff_icewiz', macaron:'buff_macaron', mangel:'buff_mangel', kumagumi:'buff_kumagumi', purin:'buff_purin' };
+  pancake:'fast_pancake', shoe:'buff_shoe', bakery:'last_bake', icewiz:'buff_icewiz', macaron:'buff_macaron', mangel:'buff_mangel', kumagumi:'buff_kumagumi', purin:'buff_purin', canule:'buff_canule' };
 function enhDisplay(u){
   const out=[];
   // 進化（パンケーキの自動進化）。固有強化とは別の常設メカ。
@@ -2010,6 +2018,7 @@ function enhDisplay(u){
     else if(u.key==='mangel')  stats={hp:MANGEL_BUFF_HP,                   atk:u.atk};
     else if(u.key==='kumagumi') stats={hp:KUMA_BUFF_HP,                    atk:KUMA_BUFF_ATK};
     else if(u.key==='icewiz')  stats={hp:u.hp,                             atk:ICEWIZ_ATK};
+    else if(u.key==='canule')  stats={hp:CANULE_BUFF_HP,                  atk:CANULE_BUFF_ATK};
     out.push({ kind:'強化', name:s.name, sprite:s.evoSprite||'', stats:stats, text:s.text });
   }
   // スライムは「融合」(SPECIALS.up_slime)が実質の強化。合体後のステータスを再計算して表示する。
@@ -2090,7 +2099,7 @@ function makeFighters(key, side, W, H, slot){
       deployTurret:!!u.deployTurret, turretKey:u.turretKey||'', redeployDelay:u.redeployDelay||0.5, turretT:0, myTurret:null, turretLife:u.turretLife||0,   // ショートケーキ：タレットが消えたら足元へ再設置／タレット側は turretLife秒で消える
       x:xMin+Math.random()*(xMax-xMin), y:yMin+Math.random()*(yMax-yMin),
       vx:0, vy:0, r, baseR:r, hp, maxHp:hp, baseMaxHp:hp, atk, baseAtk:atk,
-      speed:u.speed*SPEED_MUL, baseSpeed:u.speed*SPEED_MUL, range:u.range, cd:u.cd, cool:Math.random()*u.cd,
+      speed:u.speed*SPEED_MUL, baseSpeed:u.speed*SPEED_MUL, digSpeed:(u.digSpeed||u.speed)*SPEED_MUL, range:u.range, cd:u.cd, cool:Math.random()*u.cd,
       party:false, partyStage:0,
       ranged:!!u.ranged, pellet:!!u.pellet, splash:u.splash||0, blast:u.blast||0, blastR:u.blastR||0,
       slowHit:u.slowHit||0, slowDur:u.slowDur||0, chillT:0, chillAmt:0,   // 氷弾のヒット時スロー（アイスウィザード）
@@ -2108,7 +2117,7 @@ function makeFighters(key, side, W, H, slot){
       vacActive:true, vacT:0, vacOn:u.vacOn||2.4, vacOff:u.vacOff||1.6,
       spawner:!!u.spawner, spawnKey:u.spawnKey||'', spawnCd:u.spawnCd||2, spawnCount:u.spawnCount||1, spawnCap:u.spawnCap||6, spawnT:(u.spawnCd||2)*0.4,
       warper:!!u.warper, warped:false, warpT:0, warpDelay:u.warpDelay||1.0, vanishing:false, vanP:0, appearFx:0, invuln:0,
-      burrow:!!u.burrow, moleState:'', diveT:0,   // カヌレモーラー：潜行ステート（surface→dig→attack）
+      burrow:!!u.burrow, moleState:'', diveT:0, canuleBuff:false,   // カヌレモーラー：潜行ステート（surface→dig→attack）＋固有強化
 
       slime:!!u.slime, merged:false,
       weight:(WEIGHT[key]!=null?WEIGHT[key]:WEIGHT_DEFAULT),   // 重量（吸引のされやすさ）
@@ -2352,6 +2361,15 @@ function applyPurinBuff(world, side){
 function applyShortcakeBuff(world, side){
   return eachBuffTarget(world, side, 'shortcake', u=>{ u.shortcakeBuff = true; });
 }
+/* ---- ジャイアントクロー（カヌレモーラー固有強化）---- */
+// 指定陣営のカヌレモーラー全員にHP/攻撃の強化＋浮上ダメージフラグを付与（基準値へ絶対代入で冪等・毎ラウンド再適用）
+function applyCanuleBuff(world, side){
+  return eachBuffTarget(world, side, 'canule', u=>{
+    u.maxHp = CANULE_BUFF_HP; u.baseMaxHp = CANULE_BUFF_HP; u.hp = u.maxHp;   // 再適用で全回復（choco等と同じ）
+    u.atk = CANULE_BUFF_ATK; u.baseAtk = CANULE_BUFF_ATK;
+    u.canuleBuff = true;
+  });
+}
 
 /* ---- コグマの成長（クマグミ固有強化）---- */
 // 盤面のクマグミ（本体＋仲間化コグマ）を強化値(HP60/攻撃9)に底上げ＝取った瞬間から確実に少し強い（刺さらない相手でも腐らない）。
@@ -2369,7 +2387,7 @@ function applyKumaGrowth(world, side){
 // このユニットが何らかの固有強化を受けているか（盤面の「強化中」バッジ用）。おとり分身は除外。
 function isBuffed(u){
   if(u.isDecoy) return false;
-  return !!(u.chocoBuff||u.donutWall||u.shoeBuff||u.bakeryBuff||u.daifukuBuff||u.cloneOn||u.cluster||u.fizz||u.spawnMini||u.fastEvo||u.party||u.icewizBuff||u.macaronBuff||u.mangelBuff||u.kumaBuff||u.purinBuff||u.shortcakeBuff);
+  return !!(u.chocoBuff||u.donutWall||u.shoeBuff||u.bakeryBuff||u.daifukuBuff||u.cloneOn||u.cluster||u.fizz||u.spawnMini||u.fastEvo||u.party||u.icewizBuff||u.macaronBuff||u.mangelBuff||u.kumaBuff||u.purinBuff||u.shortcakeBuff||u.canuleBuff);
 }
 // プレイヤーが取得済みの強化（融合・X2・各固有強化）を、表示用の{icon,name}配列で返す
 function acquiredBuffs(){
@@ -2424,6 +2442,7 @@ function foeEnhanceCandidates(){
   if(!state.foeKumaBuff     && countSideKey('e','kumagumi')>=KUMA_MIN)   cands.push({key:'buff_kumagumi', fn:function(){ state.foeKumaBuff=true;      setBuffCount('e','kumagumi',countSideKey('e','kumagumi')); applyKumaGrowth(world,'e'); }});
   if(!state.foePurinBuff    && countSideKey('e','purin')  >=PURIN_MIN)   cands.push({key:'buff_purin',    fn:function(){ state.foePurinBuff=true;     setBuffCount('e','purin',countSideKey('e','purin'));     applyPurinBuff(world,'e'); }});
   if(!state.foeShortcakeBuff && countSideKey('e','shortcake')>=SHORTCAKE_MIN) cands.push({key:'buff_shortcake', fn:function(){ state.foeShortcakeBuff=true; setBuffCount('e','shortcake',countSideKey('e','shortcake')); applyShortcakeBuff(world,'e'); }});
+  if(!state.foeCanuleBuff && countSideKey('e','canule')>=1) cands.push({key:'buff_canule', fn:function(){ state.foeCanuleBuff=true; setBuffCount('e','canule',countSideKey('e','canule')); applyCanuleBuff(world,'e'); }});
   return cands;
 }
 // 永続フラグ系の強化（X2/融合以外）を、指定陣営の現在の盤面へ再適用する。
@@ -2447,6 +2466,7 @@ function applyFlagBuffs(world, side){
   if(p?state.youKumaBuff:state.foeKumaBuff)           applyKumaGrowth(world,side);
   if(p?state.youPurinBuff:state.foePurinBuff)         applyPurinBuff(world,side);
   if(p?state.youShortcakeBuff:state.foeShortcakeBuff) applyShortcakeBuff(world,side);
+  if(p?state.youCanuleBuff:state.foeCanuleBuff)       applyCanuleBuff(world,side);
 }
 // プレイヤーが強化/X2カードを取った瞬間に、CPUも1つ強化して同時に公開する（敵味方同時＝同数を保つ）
 function foeMatchEnhance(){
@@ -2713,6 +2733,7 @@ function eligibleSpecials(){
   if(!state.youKumaBuff && countSideKey('p','kumagumi')>=KUMA_MIN) list.push('buff_kumagumi');   // 1回限り：未取得かつクマグミがいれば出る
   if(!state.youPurinBuff && countSideKey('p','purin')>=PURIN_MIN) list.push('buff_purin');   // 1回限り：未取得かつプリンがいれば出る
   if(!state.youShortcakeBuff && countSideKey('p','shortcake')>=SHORTCAKE_MIN) list.push('buff_shortcake');
+  if(!state.youCanuleBuff && countSideKey('p','canule')>=1) list.push('buff_canule');
   return list.concat(eligibleX2Specials());
 }
 
@@ -2816,6 +2837,7 @@ function beginDraft(){
   if(state.youKumaBuff) applyKumaGrowth(world,'p');   // コグマの成長を再適用（永続・1回限り）
   if(state.youPurinBuff) applyPurinBuff(world,'p');   // ダブルスプーンを再適用（永続・1回限り）
   if(state.youShortcakeBuff) applyShortcakeBuff(world,'p');   // タレット強化を再適用（永続・1回限り）
+  if(state.youCanuleBuff) applyCanuleBuff(world,'p');   // ジャイアントクローを再適用（永続）
   arrangeFormation(world,'p',true);
   // 敵の引き継ぎ軍も上に並べる（ドラフト中から見える）
   capArmy(state.foeArmy).forEach(k=> makeFighters(k,'e',CW,CH,'army').forEach(f=>{ f.appear=1; world.units.push(f); }));
@@ -2840,6 +2862,7 @@ function beginDraft(){
   if(state.foeKumaBuff) applyKumaGrowth(world,'e');   // 敵のコグマの成長を再適用（永続・1回限り）
   if(state.foePurinBuff) applyPurinBuff(world,'e');   // 敵のダブルスプーンを再適用（永続・1回限り）
   if(state.foeShortcakeBuff) applyShortcakeBuff(world,'e');   // 敵のタレット強化を再適用（永続・1回限り）
+  if(state.foeCanuleBuff) applyCanuleBuff(world,'e');   // 敵のジャイアントクローを再適用（永続）
   arrangeFormation(world,'e',true);
   // 敵の今回ピックを準備（プレイヤーが1枚選ぶたびに1枚ずつ上に召喚して公開）
   state.foePickTotal = picksFor(state.foeLostLast, state.lostLast);
@@ -2962,7 +2985,7 @@ function renderPickOffer(){
       const s=SPECIALS[key];
       el.className='card upgrade';
       const ico = specialCardIcon(s);
-      const tag = s.x2 ? '×2' : s.party ? 'パーティー' : s.chocoBuff ? '装甲' : s.bombSplit ? 'おかわり' : s.daifukuBuff ? '特大' : s.ghostClone ? '分身' : s.cannonCluster ? '花火' : s.sodaFizz ? '炭酸' : s.donutWall ? '鉄壁' : s.pancakeFast ? 'はや焼き' : s.shoeBuff ? '特盛り' : s.bakeryBuff ? 'ラスト焼き' : s.icewizBuff ? '氷嵐' : s.macaronBuff ? '大殻' : s.mangelBuff ? '加護' : s.kumaBuff ? '成長' : s.purinBuff ? '二刀' : s.shortcakeBuff ? '練乳' : '融合';
+      const tag = s.x2 ? '×2' : s.party ? 'パーティー' : s.chocoBuff ? '装甲' : s.bombSplit ? 'おかわり' : s.daifukuBuff ? '特大' : s.ghostClone ? '分身' : s.cannonCluster ? '花火' : s.sodaFizz ? '炭酸' : s.donutWall ? '鉄壁' : s.pancakeFast ? 'はや焼き' : s.shoeBuff ? '特盛り' : s.bakeryBuff ? 'ラスト焼き' : s.icewizBuff ? '氷嵐' : s.macaronBuff ? '大殻' : s.mangelBuff ? '加護' : s.kumaBuff ? '成長' : s.purinBuff ? '二刀' : s.shortcakeBuff ? '練乳' : s.canuleBuff ? '剛腕' : '融合';
       el.innerHTML=`<div class="up-badge">強化</div>
         <div class="icon">${ico}</div>
         <div class="cname">${s.name}</div>
@@ -3132,6 +3155,13 @@ function pickCard(key){
       const sc = world.units.filter(u=>u.side==='p'&&u.key==='shortcake'&&u.hp>0);
       if(sc.length){ const cx=sc.reduce((s,u)=>s+u.x,0)/sc.length, cy=sc.reduce((s,u)=>s+u.y,0)/sc.length;
         burst(world,cx,cy,'#ffd0e0',20,120); world.rings.push({x:cx,y:cy,r:4,max:52,life:0.42,color:'#ff9ec2'}); }
+    } else if(SPECIALS[key].canuleBuff){
+      state.youCanuleBuff = true;   // 以降カヌレモーラーが大きく育つ＋浮上ダメージ（burrowStepが参照）
+      setBuffCount('p','canule', countSideKey('p','canule'));
+      applyCanuleBuff(world,'p');
+      const cn = world.units.filter(u=>u.side==='p'&&u.key==='canule'&&u.hp>0);
+      if(cn.length){ const cx=cn.reduce((s,u)=>s+u.x,0)/cn.length, cy=cn.reduce((s,u)=>s+u.y,0)/cn.length;
+        burst(world,cx,cy,'#e8c79a',20,120); world.rings.push({x:cx,y:cy,r:4,max:52,life:0.42,color:'#c8955a'}); }
     }
     foeMatchEnhance();   // 敵味方同時：プレイヤーが強化を取ったらCPUも1つ強化して同時に公開
     state.pickStep++;
@@ -3540,6 +3570,18 @@ function daifukuCleave(world, u, dmg, reach, fxn, fyn){
 }
 // カヌレモーラー：開幕2秒で土に潜る→無敵&非ターゲットのまま敵へ掘り進む→接近したら浮上して近接戦。
 // 戻り値 true=このフレームは専用処理で完結（通常移動/攻撃をスキップ）／false=浮上済み＝通常の近接戦闘に任せる。
+function moleEmerge(world, u, tgt){
+  u.moleState='attack'; u.invuln=0; u.noCollide=false;   // 浮上＝以降は通常の近接戦
+  burst(world,u.x,u.y,'#a5744a',20,170); world.rings.push({x:u.x,y:u.y,r:3,max:u.r+24,life:0.45,color:'#c8895a'});
+  // 強化「ジャイアントクロー」＝浮上の一撃で近くの敵1体へダメージ（不意打ち）
+  if(u.canuleBuff && tgt && tgt.hp>0){
+    const dx=tgt.x-u.x, dy=tgt.y-u.y;
+    if(Math.hypot(dx,dy) <= MOLE_EMERGE_R + (tgt.r||0) + 6){
+      applyHit(world, u, tgt, CANULE_EMERGE_DMG);
+      burst(world,tgt.x,tgt.y,'#ffd28a',14,150); world.rings.push({x:tgt.x,y:tgt.y,r:3,max:(tgt.r||8)+20,life:0.35,color:'#ffbf66'});
+    }
+  }
+}
 function burrowStep(world, u, tgt, dt){
   if(!u.moleState) u.moleState='surface';
   if(u.moleState==='surface'){
@@ -3552,19 +3594,24 @@ function burrowStep(world, u, tgt, dt){
     u.invuln=0.5; u.noCollide=true;   // 潜行＝無敵&非ターゲット&すり抜け
     if(tgt){
       const dx=tgt.x-u.x, dy=tgt.y-u.y, d=Math.hypot(dx,dy)||1;
-      if(d <= MOLE_EMERGE_R + (tgt.r||0)){
-        u.moleState='attack'; u.invuln=0; u.noCollide=false;   // 浮上＝以降は通常の近接戦
-        burst(world,u.x,u.y,'#a5744a',20,170); world.rings.push({x:u.x,y:u.y,r:3,max:u.r+24,life:0.45,color:'#c8895a'});
-        return false;
-      }
-      const sp=u.speed*(u.slowMul||1)*MOLE_DIG_SPEED_MUL;
+      if(d <= MOLE_EMERGE_R + (tgt.r||0)){ moleEmerge(world,u,tgt); return false; }
+      const sp=u.digSpeed*(u.slowMul||1);   // 土の中の移動速度（地上より速い）
       u.x+=dx/d*sp*dt; u.y+=dy/d*sp*dt;
       if(Math.random()<dt*8) burst(world,u.x,u.y+u.r*0.5,'#6b4a2f',2,40);   // 掘り進む土けむり
     } else {
-      u.y += (u.side==='p'?-1:1)*u.speed*MOLE_DIG_SPEED_MUL*dt;   // 敵不在は敵陣方向へ
+      u.y += (u.side==='p'?-1:1)*u.digSpeed*dt;   // 敵不在は敵陣方向へ
     }
     clampToStage(u,world.W,world.H);
     return true;
+  }
+  // attack：地上で近接戦闘。ただし狙う敵が MOLE_REDIG_R より遠ざかったら再び土に潜って追う。
+  if(u.moleState==='attack' && tgt){
+    const dd=Math.hypot(tgt.x-u.x, tgt.y-u.y);
+    if(dd > MOLE_REDIG_R){
+      u.moleState='dig'; u.invuln=0.5; u.noCollide=true;
+      burst(world,u.x,u.y+u.r*0.6,'#7a5433',14,120); world.rings.push({x:u.x,y:u.y+u.r*0.6,r:3,max:u.r+18,life:0.4,color:'#8a6038'});
+      return true;
+    }
   }
   return false;   // attack：通常の近接戦闘に任せる
 }
@@ -4891,7 +4938,7 @@ const SNAP_UNIT_FIELDS = ['nid','key','side','x','y','r','hp','maxHp','icon',
   'dying','dieT','dieDir','melting','melt','appear','appearFx','bob','jumpH','spriteScale','flash',
   'atkAnim','atkDx','atkDy','warper','vanishing','vanP','invuln','isDecoy','raged','armed',
   'slime','merged','evolved','fizz','shoeBuff','cstate','chargeT','party','partyStage','wall','wallR',
-  'charger','cluster','fastEvo','chocoBuff','bakeryBuff','daifukuBuff','donutWall','shellPhase','icewizBuff','macaronBuff','spawnMini','cloneOn','face','shoeSt','mv','shortcakeBuff','burrow','moleState'];
+  'charger','cluster','fastEvo','chocoBuff','bakeryBuff','daifukuBuff','donutWall','shellPhase','icewizBuff','macaronBuff','spawnMini','cloneOn','face','shoeSt','mv','shortcakeBuff','burrow','moleState','canuleBuff'];
 // 数値を丸めてJSONを小さくする（TURN中継時の通信量削減）。位置/サイズ/HPは整数、その他(演出値)は小数2桁。
 const SNAP_INT = {x:1,y:1,r:1,hp:1,maxHp:1,tx:1,ty:1,sx:1,sy:1,max:1,wallR:1};
 function snapNum(k,v){ return SNAP_INT[k] ? Math.round(v) : Math.round(v*100)/100; }
@@ -7223,6 +7270,7 @@ function applyPvpSpecial(world, side, key){
       buff_kumagumi:['KumaBuff','kumagumi',applyKumaGrowth],
       buff_purin:['PurinBuff','purin',applyPurinBuff],
       buff_shortcake:['ShortcakeBuff','shortcake',applyShortcakeBuff],
+      buff_canule:['CanuleBuff','canule',applyCanuleBuff],
       last_bake:['BakeryBuff','bakery',applyBakeryBuff],
     };
     const m = FLAG[key]; if(!m) return;
@@ -7245,7 +7293,7 @@ function pvpCardHTML(key){
   if(isSpecial(key)){
     const s=SPECIALS[key];
     const ico=specialCardIcon(s);
-    const tag=s.x2?'×2':s.party?'パーティー':s.chocoBuff?'装甲':s.bombSplit?'おかわり':s.daifukuBuff?'特大':s.ghostClone?'分身':s.cannonCluster?'花火':s.sodaFizz?'炭酸':s.donutWall?'鉄壁':s.pancakeFast?'はや焼き':s.shoeBuff?'特盛り':s.bakeryBuff?'ラスト焼き':s.icewizBuff?'氷嵐':s.macaronBuff?'大殻':s.mangelBuff?'加護':s.kumaBuff?'成長':s.purinBuff?'二刀':s.shortcakeBuff?'練乳':'融合';
+    const tag=s.x2?'×2':s.party?'パーティー':s.chocoBuff?'装甲':s.bombSplit?'おかわり':s.daifukuBuff?'特大':s.ghostClone?'分身':s.cannonCluster?'花火':s.sodaFizz?'炭酸':s.donutWall?'鉄壁':s.pancakeFast?'はや焼き':s.shoeBuff?'特盛り':s.bakeryBuff?'ラスト焼き':s.icewizBuff?'氷嵐':s.macaronBuff?'大殻':s.mangelBuff?'加護':s.kumaBuff?'成長':s.purinBuff?'二刀':s.shortcakeBuff?'練乳':s.canuleBuff?'剛腕':'融合';
     return {cls:'card upgrade', html:`<div class="up-badge">強化</div><div class="icon">${ico}</div><div class="cname">${s.name}</div><div class="tagline">${s.text}</div><div class="stats"><span class="up-tag">${tag}</span></div>`};
   }
   const u=UNIT_BY_KEY[key];

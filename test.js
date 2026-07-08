@@ -65,6 +65,7 @@ code += `
   get ICEWIZ_ATK(){ return ICEWIZ_ATK; }, get ICEWIZ_SLOW(){ return ICEWIZ_SLOW; }, get ICEWIZ_SLOW_DUR(){ return ICEWIZ_SLOW_DUR; }, get ICEWIZ_DECAY(){ return ICEWIZ_DECAY; },
   recruitKuma, guardSoak, throwBoomerang, stepBoomerang, deployTurret, expireTurret, applyPurinBuff,
   applyShortcakeBuff, SHORTCAKE_TURRET_ATK:()=>SHORTCAKE_TURRET_ATK, SHORTCAKE_TURRET_CD:()=>SHORTCAKE_TURRET_CD,
+  applyCanuleBuff, iconHTML, get CANULE_BUFF_HP(){ return CANULE_BUFF_HP; }, get CANULE_BUFF_ATK(){ return CANULE_BUFF_ATK; },
   get PURIN_BUFF_CD(){ return PURIN_BUFF_CD; },
   get KUMA_BOARD_CAP(){ return KUMA_BOARD_CAP; },
   get MANGEL_R(){ return MANGEL_R; }, get MANGEL_SOAK(){ return MANGEL_SOAK; },
@@ -3894,6 +3895,47 @@ console.log('\n=== 127) カヌレモーラー：潜行→浮上の潜行強襲 =
   // moleState はスナップショットに乗る（PVPの子が掘り跡を描ける）
   const snap = API.serializeWorld(w); const sm = snap.units.find(u => u.key === 'canule');
   check('moleState/burrow がスナップショットに乗る', !!sm && sm.burrow === true && typeof sm.moleState === 'string');
+  m.canuleBuff = true; const snap2 = API.serializeWorld(w); const sm2 = snap2.units.find(u => u.key === 'canule');
+  check('canuleBuff がスナップショットに乗る', sm2 && sm2.canuleBuff === true);
+  // 浮上後、敵が遠ざかったら再び潜行(dig)して追いかける（ヒステリシス MOLE_REDIG_R）
+  e.x = W * 0.5; e.y = H * 0.02;   // 敵をうんと遠ざける（MOLE_REDIG_R=150 超）
+  for (let i = 0; i < 20 && m.moleState === 'attack'; i++) API.stepWorld(w, 1 / 60);
+  check('浮上後、敵が遠いと再潜行(dig)', m.moleState === 'dig' && m.invuln > 0);
+}
+console.log('\n=== 127b) カヌレモーラー：数値・隊列・iconHTML ===');
+{
+  const cu = API.UNIT_BY_KEY['canule'];
+  check('HP130', cu.hp === 130);
+  check('攻撃20', cu.atk === 20);
+  check('攻撃間隔0.7', cu.cd === 0.7);
+  check('地上速度50', cu.speed === 50);
+  check('土中速度90（digSpeed）', cu.digSpeed === 90);
+  check('隊列tierはパンケーキ(1)より後ろ', cu.tier > API.UNIT_BY_KEY['pancake'].tier);
+  // makeFighters が digSpeed を SPEED_MUL 込みで持つ
+  const mf = API.makeFighters('canule', 'p', 440, 760, 'army')[0];
+  check('makeFighters: digSpeed>speed（土中の方が速い）', mf.digSpeed > mf.speed);
+  // カードは絵文字でなくモグラ立ち絵
+  const html = API.iconHTML(cu, 'p');
+  check('iconHTMLがcanule立ち絵の<img>', /<img/.test(html) && html.indexOf('🦫') < 0);
+}
+console.log('\n=== 127c) カヌレモーラー固有強化：ジャイアントクロー ===');
+{
+  API.resetState(); API.setupCanvas();
+  const W = API.CW_get() || 440, H = API.CH_get() || 760;
+  check('SPECIALS.buff_canule が定義済み', !!API.SPECIALS['buff_canule'] && API.SPECIALS['buff_canule'].canuleBuff === true);
+  const w = API.createWorld(W, H); w.phase = 'battle'; w.intro = 0; API.world = w;
+  const m = API.makeFighters('canule', 'p', W, H, 'army')[0]; m.appear = 1; m.x = W * 0.5; m.y = H * 0.6; w.units.push(m);
+  API.applyCanuleBuff(w, 'p');
+  check('強化でHP200', m.maxHp === 200 && m.hp === 200);
+  check('強化で攻撃30', m.atk === 30);
+  check('canuleBuff フラグが立つ', m.canuleBuff === true);
+  // 浮上ダメージ：dig状態から接近して浮上する瞬間、近くの敵1体にダメージ
+  const w2 = API.createWorld(W, H); w2.phase = 'battle'; w2.intro = 0; API.world = w2;
+  const m2 = API.makeFighters('canule', 'p', W, H, 'army')[0]; m2.appear = 1; m2.x = W * 0.5; m2.y = H * 0.5; m2.canuleBuff = true; m2.moleState = 'dig'; m2.invuln = 0.5; m2.noCollide = true; w2.units.push(m2);
+  const e2 = API.makeFighters('choco', 'e', W, H, 'army')[0]; e2.appear = 1; e2.x = W * 0.5; e2.y = H * 0.5 - 20; e2.hp = e2.maxHp = e2.baseMaxHp = 1e9; e2.speed = 0; e2.baseSpeed = 0; w2.units.push(e2);
+  const hp0 = e2.hp;
+  for (let i = 0; i < 30 && m2.moleState === 'dig'; i++) API.stepWorld(w2, 1 / 60);
+  check('強化カヌレ浮上で敵にダメージ', m2.moleState === 'attack' && e2.hp < hp0);
 }
 
 Promise.resolve().then(() => {
