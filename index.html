@@ -3263,7 +3263,8 @@ function popDmg(world,x,y,txt,color){ world.dmgs.push({x,y,vy:-26,life:0.8,txt,c
 function nearestEnemy(u, world){
   let best=null, bd=1e9;
   for(const o of world.units){
-    if(o.side===u.side || o.hp<=0 || (o.invuln||0)>0) continue;   // 無敵中(ワープ直後のゴースト等)は標的にしない＝サムライ等が吊られない
+    if(o.side===u.side || o.hp<=0) continue;
+    if((o.invuln||0)>0 && !(u.burrow && o.burrow)) continue;   // 無敵中(ワープ直後のゴースト等)は標的にしない＝サムライ等が吊られない。ただしカヌレ同士は地中(潜行=invuln)の相手も察知できる
     if(o.untargetable) continue;   // 狙われないユニット(イチゴタレット)＝誰の標的にもならない（時間/設置者死亡で壊れる）
     if(o.fly && !(u.ranged||u.artillery)) continue;   // 浮遊ユニット(マシュマロエンジェル)は近接では狙えない＝遠距離/迫撃だけが直接ヒット
     let d=(o.x-u.x)**2+(o.y-u.y)**2;
