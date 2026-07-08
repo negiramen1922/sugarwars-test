@@ -114,6 +114,13 @@
 ユーザーのPNG（`Dola AI` 透かし入り・チェッカー背景）を透過処理して `SPRITE_DATA` に注入する。手順：四隅/外周から背景色検出＋薄いグレーキー(mx>205 & mx-mn<18) → 連結成分で「外周連結 or 一定サイズ以上」を透明化 → 右下の透かし除去 →（必要なら）足元の影除去(`strip_bottom_shadow=True`) → 小さな内部穴埋め → クロップ → 正方パディング → 128×128 NEAREST → base64。**注入前に必ず暗背景プレビュー（`_prev_*.png`）を目視確認**してから、`SPRITE_DATA` を json.loads→更新→json.dumps で書き戻す。`spriteFor`/`iconHTML` の分岐追加も忘れずに。
 依存：`pip install pillow scipy numpy`。
 
+## 効果音・BGM（Web Audioで合成・単一ファイル維持）
+
+- **`SFX`（IIFE）**：`AudioContext` で合成。外部音源ファイルなし。`SFX.play(name)` はヘッドレス/未対応環境では安全に無音（`ctx()`が`null`）。頻発音は`throttle`で重なり防止。音量は`sfxBus`/`bgmBus`の2系統（`sw_sfxvol`/`sw_bgmvol`・端末保存＝クラウド同期しない）。
+- **キャラ攻撃音**：`SFX.play('atk_'+u.key)` を汎用攻撃コード（近接/遠距離/ブーメラン）で自動発火＝**`S`マップに`atk_<key>`を定義するだけで鳴る**（未定義は無音）。マカロン以降の新キャラ＝`atk_macaron`(コッ＝殻体当たり・`shellStep`のram＋通常)/`atk_icewiz`(キィン＝氷弾)/`atk_kumagumi`(もぐっ)/`atk_purin`(ひゅん＝スプーン投げ)/`atk_strawturret`(ぴゅっ＝ベリー弾)/`atk_canule`(ザッ＝爪)/`atk_ginger`(ぽこ)を追加。イベント音＝`mole_dig`(ズモッ＝カヌレの潜行/浮上・`burrowStep`/`moleEmerge`)/`deployTurret`(ポンッ＝タレット設置・`deployTurret`)/`mangelGuard`(ふぁ＝天使の身代わり・`guardSoak`)/`recruit`(ぱぁ＝クマグミ仲間化・`recruitKuma`)。
+- **勝敗SE（最終決着）**：`gameWin`(短いファンファーレ)/`gameLose`(しょんぼり)を`endGame`（ホスト＝勝敗、PVP子＝`pvpGuestOnGameover`）と指南クリアで再生。各ラウンド決着の`win`/`lose`（`beginOutro`）は従来どおり別音。
+- **BGM**：`bgmStart(name)`＝`setInterval`スケジューラでループ。`home`＝サーカス風ワルツ（3/4）。**`battle`＝軽快な行進曲（4/4・`MARCH_BASS/FIFTH/MEL`・音量控えめでほのか）**。`bgmScheduleBeat`が`bgmName`で分岐（`battle`→`bgmBeatMarch`）。**`show('play')`で`bgm('battle')`開始／`show('over')`で停止**（決着SEを立たせる）。ホーム復帰は`goHome`が`bgm('home')`。調整＝各音の`blip/noise`引数・行進曲の`MARCH_*`配列・`BEAT`(0.40)。
+
 ## ヘッドレステスト（同梱の `test.js`）
 
 `node test.js` で実行。HTMLから `<script>` を抽出し Node の `vm` でDOM/Image等をスタブした sandbox に流し込み、`globalThis.__API` 経由で関数を取り出して検証する。観点：隊列順・各ユニット挙動・ミラー対戦が約50%（左右対称）・詰まり/残骸ゼロ・ドラフト/編成フロー・新機能の単体検証。**コード変更のたびに全パスを確認**。仕様変更でテストが古くなったら新仕様に合わせて更新する。依存：Node.js。
