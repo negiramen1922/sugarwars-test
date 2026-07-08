@@ -361,6 +361,76 @@
 - **招待リンク**：プライベート部屋のホスト画面に「🔗 招待リンクをシェア」＝`pvpShareInvite()`。`roomInviteUrl(base,code)`＝`base?room=CODE`。受け取った人がリンクを開くと起動時 `pvpMaybeJoinFromUrl()` が `parseRoomCode(location.search)`（4文字[A-Z0-9]のみ有効）で拾い、デッキ4枚チェック→プライベート参加フローへ直行して自動接続（チュートリアル中・Firebase未設定・URL掃除まで面倒を見る）。
 - 純粋関数 `shareResultText`/`roomInviteUrl`/`parseRoomCode` はヘッドレス検証（test.js 114）。実シェア/実接続は要実機。
 
+## リリース待ち：カヌレモーラー／ベリーケーキスネイル（カミングスーン中・いつでも出せる状態）
+
+**方針：この2キャラは下ごしらえ完了。ただしユーザーが「タイミングを見てリリース」したいので、指示があるまでフリップしない（カミングスーンのまま）。** ゲーム内NEWS・Discord告知を整えてからリリース予定。
+
+### 現状（2キャラとも `test:true, beta:true`＝通常プレイ非登場）
+- **カヌレモーラー**（key `canule`・潜行強襲）：HP130/atk20/cd0.7・地上速度50/土中`digSpeed`90・tier1.25・1枚2体。挙動＝`burrowStep`（開幕2秒地上→潜行=無敵&`noCollide`で最寄り敵へ→`MOLE_EMERGE_R`30で浮上近接→離れたら`MOLE_REDIG_R`60で再潜行・待機なし）。固有強化「ジャイアントクロー」(`buff_canule`/`applyCanuleBuff`/HP200/atk30/浮上時に近くの敵へ`CANULE_EMERGE_DMG`40)。カヌレ同士は地中の相手も察知（`nearestEnemy`が`u.burrow&&o.burrow`で無敵スキップ免除）。SFX＝`atk_canule`/`mole_dig`。
+- **ベリーケーキスネイル**（key `shortcake`・旧「ショートケーキ」・設置＋前進）：足元にイチゴタレット（`strawturret`=untargetable/狙われない・速射）を置きつつ低速前進。固有強化「練乳ベリー」(`buff_shortcake`/タレットatk9→11・cd0.15→0.11)。SFX＝`atk_strawturret`/`deployTurret`。
+- 見た目＝キャラ一覧末尾（自分の編成のみ）と指南のキャラ一覧末尾に、`COMING_SOON=[{sil:'sil_canule'},{sil:'sil_shortcake'}]` のシルエット＋「🔜 カミングスーン」だけ。
+- **下ごしらえ済み**：スプライト（`canule_*`/`canule_buff_*`/スネイル4枚/`strawturret_*`/`sil_*`）・説明文（tag/short/text）・`UNIT_ABILITIES`（canule=土潜1つ／shortcake=イチゴタレット1つ）・`GUIDE_INTRO`（両キャラのクッキーじいセリフ）・固有強化の全配線・`SNAP_UNIT_FIELDS`・SFX・devアニメテスト。テキストは口調調整済み（他キャラに合わせた短め・説明口調NG）。
+
+### リリース手順（フリップ・検証済み＝この手順で `node test.js` を通した）
+1. `UNITS` の `canule`/`shortcake` から `test:true` を外す（`beta:true` は残してβ表示のままでOK）。
+2. `COMING_SOON` を `[]` にする。
+3. `GUIDE_STAGES` に下記4エントリ（各キャラ2レッスン）を追加。
+4. **test.js を更新**（2体とも `test:true` を外すと落ちる既知の5件）：
+   - 「canule は test:true」「shortcake は test:true」→ 解禁できる/通常登場の判定へ。
+   - 「x2_shortcake は自動生成されない」→ リリース後は生成されるので期待反転。
+   - 「UNITSにtestキャラは居る」「テスト用キャラが1体以上（アニメテスト）」の2件は、test:trueキャラが0になるので**別のβ/testキャラを1体用意するか判定を緩める**。
+   - test.js 93（全非スターターがレッスンで解禁できる）はこの2キャラを含めても**フリップ状態でパス済み**＝レッスン配線は正しい。
+5. `sw.js` の `CACHE` を上げる。`node test.js` 全パス確認。
+6. （任意）ゲーム内NEWS（`NEWS` 配列）＋Discord告知。
+
+### 追加する GUIDE_STAGES（コピペ用・確定済み）
+```js
+  { id:'dig1', title:'撃たれずに踏み込む①', theme:'潜行 / 無敵接近（体験）', arc:'canule', coins:50,
+    easyFoe:true, winRounds:1, forceUnit:'canule',
+    tip:'ふつうの近接は敵に近づく間に弓兵に撃たれてしまう。でもカヌレモーラーは土に潜って撃たれずに安全に近づける！ 前衛（チョコ）に正面を任せて、カヌレで踏み込もう。まずは相手から1ライフ取ればクリア！',
+    deck:['canule','choco','cookie'], foe:['choco','shoe'] },
+  { id:'dig2', title:'撃たれずに踏み込む②', theme:'潜行 / 無敵接近（実戦）', unit:'canule', arc:'canule', coins:100,
+    tip:'相手は砲台・弓兵つきの本格編成。カヌレは土に潜って弾をかいくぐり、撃たれずに敵へ踏み込む。飛び出したあと相手が逃げても、すぐまた潜って追いかける。前衛で正面を支えつつカヌレでかき回そう！勝てばカヌレモーラーが仲間になる。',
+    deck:['canule','choco','shoe','cookie'], foe:['cannon','choco','daifuku','shoe'] },
+  { id:'turret1', title:'タレットでゴーストを封じる①', theme:'設置 / メタ（体験）', arc:'shortcake', coins:50,
+    easyFoe:true, winRounds:1, forceUnit:'shortcake',
+    tip:'わたあめゴーストは後ろへワープして後衛を狩る厄介者。でもベリーケーキスネイルのイチゴタレットは「狙われない」ので、ゴーストに壊されず逆に撃ち落とす天敵！ タレットを置きながら前進しよう。まずは相手から1ライフ取ればクリア！',
+    deck:['shortcake','choco','cookie'], foe:['ghost','choco'] },
+  { id:'turret2', title:'数の有利で押し切る②', theme:'メタ / 数の有利（実戦）', unit:'shortcake', arc:'shortcake', coins:100,
+    tip:'相手はゴースト・弓兵・自爆ポップコーンの本格編成。イチゴタレットはゴーストに強く、置き続けるほど数の有利ができる。本体は足が遅いので自爆ポップコーンにも巻き込まれにくい。タレットで数を作って押し切ろう！勝てばベリーケーキスネイルが仲間になる。',
+    deck:['shortcake','choco','shoe','cookie'], foe:['ghost','choco','shoe','bomb'] },
+```
+
+## このセッションの更新まとめ（引き継ぎ用チェンジログ）
+
+直近のマージ済みPR（新しい順・`negiramen1922/sugarwars-test`）：
+- #159 クッキーじいセリフ末尾「ほっほっ」削除＋読点調整
+- #158 セリフ書き出しの「〜かい」除去（おばあちゃん口調解消）
+- #157 2キャラのテキストを他キャラの口調に調整（説明口調NG）
+- #156 「ショートケーキ」→「ベリーケーキスネイル」改名＋説明/能力/セリフ整備
+- #155 カヌレの説明を「攻撃されずに近づける」主軸に修正
+- #154 カヌレの説明文・能力欄・クッキーじいセリフ整備（リリース準備）
+- #153 キャラ一覧・指南に「カミングスーン」シルエット追加（`COMING_SOON`/`sil_*`）
+- #152 効果音拡充（新キャラSE＋最終決着`gameWin`/`gameLose`＋戦闘中BGM=行進曲`bgmBeatMarch`）
+- #151 カヌレ同士は地中の敵も察知
+- #150 カヌレ HP130/atk20 に戻す（浮上距離30据え置き）
+- #149 カヌレ弱体化（HP110/atk17・浮上距離40→30）※#150で数値だけ戻す
+- #148 カヌレ 再潜行の判断距離60＋再潜行は待機なし
+- #147 カヌレ本調整＋固有「ジャイアントクロー」追加
+- #146 新キャラ カヌレモーラー追加
+- #145 練乳ベリー（旧スーパーストロベリー）改名＋強化立ち絵
+- #144/#143 カタツムリ固有強化「練乳ベリー」追加＋数値調整
+- #142 devモードは本番ドメインへの強制リダイレクト回避
+- #141 テスト対戦「強化を最初から全部適用」トグル（dev）
+- #140 プリンのダブルスプーンが正面に当たらない問題を修正
+
+現状の `sw.js` CACHE は **v67**。`node test.js` は **986 passed**。
+
+## 次にやりたいこと（ユーザー方針）
+- ゲーム内NEWS・Discordの更新告知文を整理 → タイミングを見てカヌレ／スネイルをリリース（上記フリップ手順）。
+- （リリースまではカミングスーンのまま維持）
+
+
 ## 次の候補タスク（未着手・要相談）
 
 - **経済Phase 3（コインショップ）**：全キャラはレッスンで無料解禁できるので、🍬の用途は「**近道**」。UI（`buyUnit` を呼ぶ「先に解禁」ボタン＝まだ到達していないレッスンのキャラを🍬で先取り）を足すだけ。
