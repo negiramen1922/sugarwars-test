@@ -3898,9 +3898,10 @@ console.log('\n=== 127) カヌレモーラー：潜行→浮上の潜行強襲 =
   m.canuleBuff = true; const snap2 = API.serializeWorld(w); const sm2 = snap2.units.find(u => u.key === 'canule');
   check('canuleBuff がスナップショットに乗る', sm2 && sm2.canuleBuff === true);
   // 浮上後、敵が遠ざかったら再び潜行(dig)して追いかける（ヒステリシス MOLE_REDIG_R）
-  e.x = W * 0.5; e.y = H * 0.02;   // 敵をうんと遠ざける（MOLE_REDIG_R=150 超）
-  for (let i = 0; i < 20 && m.moleState === 'attack'; i++) API.stepWorld(w, 1 / 60);
-  check('浮上後、敵が遠いと再潜行(dig)', m.moleState === 'dig' && m.invuln > 0);
+  e.x = W * 0.5; e.y = H * 0.02;   // 敵をうんと遠ざける（MOLE_REDIG_R=60 超）
+  const attackY = m.y;
+  API.stepWorld(w, 1 / 60);   // 1フレームで即潜行（初回の溜め=MOLE_DIVE_DELAY は再潜行では不要）
+  check('浮上後、敵が遠いと即座に再潜行(dig)＝待機なし', m.moleState === 'dig' && m.invuln > 0);
 }
 console.log('\n=== 127b) カヌレモーラー：数値・隊列・iconHTML ===');
 {
