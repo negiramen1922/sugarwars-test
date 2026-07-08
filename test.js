@@ -3906,8 +3906,8 @@ console.log('\n=== 127) カヌレモーラー：潜行→浮上の潜行強襲 =
 console.log('\n=== 127b) カヌレモーラー：数値・隊列・iconHTML ===');
 {
   const cu = API.UNIT_BY_KEY['canule'];
-  check('HP110', cu.hp === 110);
-  check('攻撃17', cu.atk === 17);
+  check('HP130', cu.hp === 130);
+  check('攻撃20', cu.atk === 20);
   check('攻撃間隔0.7', cu.cd === 0.7);
   check('地上速度50', cu.speed === 50);
   check('土中速度90（digSpeed）', cu.digSpeed === 90);
