@@ -1052,6 +1052,7 @@
       <div id="tbYouGrid" class="tbgrid"></div>
       <div style="font-weight:700;font-size:13px;margin:10px 0 2px">🔴 相手CPUのデッキ（<span id="tbFoeCount">0</span>/4）</div>
       <div id="tbFoeGrid" class="tbgrid"></div>
+      <div style="text-align:center;margin-top:8px;font-size:13px"><label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="tbForceBuff"> 🔧 自分の強化を最初から全部適用（ダブルスプーン等の確認用）</label></div>
       <div style="text-align:center;margin-top:12px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
         <button class="btn btn-ghost" onclick="closeTestBattle()">閉じる</button>
         <button class="btn btn-primary" id="tbStartBtn" onclick="beginTestBattle()">対戦開始 ⚔</button>
@@ -1588,6 +1589,8 @@ function resetState(){
   state.noX2 = X2_OFF || _pendingNoX2; _pendingNoX2 = false;   // 【β1.5】X2_OFFで全モードX2オフ／テスト対戦は個別に無効化。全経路(eligibleX2Specials/foeEnhanceCandidates/PVP)が state.noX2 を見る
 }
 let _pendingNoX2 = false;   // 次に始める対戦でX2を無効化するか（beginTestBattleで立てる）
+let _tbForceBuffs = false;   // テスト対戦：自分の強化を最初から全適用（beginTestBattleで設定→startGameで1回消費）
+const TB_BUFF_FLAGS = ["youParty","youChocoBuff","youBombSplit","youDaifukuBuff","youGhostClone","youCannonCluster","youSodaFizz","youDonutWall","youPancakeFast","youShoeBuff","youBakeryBuff","youIcewizBuff","youMacaronBuff","youMangelBuff","youKumaBuff","youPurinBuff"];
 const $ = id => document.getElementById(id);
 // ドラフトの提示ボックス（見出し「ドラフト/ピック」＋カード3枚＋下のヒント）の表示制御。
 // ヒント(draftHint)はボックス内にあるので、待機メッセージを見せたいときは「カードだけ」隠してボックスは残す。
@@ -1635,6 +1638,7 @@ function capArmy(keys){ return keys.length>CONFIG.armyCap ? keys.slice(keys.leng
 function randomFoeDeck(){ return shuffle(UNITS.filter(u=>!u.summonOnly && !u.test).map(u=>u.key)).slice(0,CONFIG.deckSize); }
 function startGame(){
   resetState();
+  if(_tbForceBuffs){ TB_BUFF_FLAGS.forEach(function(k){ state[k]=true; }); _tbForceBuffs=false; }   // 【開発】テスト対戦の「強化を最初から適用」
   pickStage(); showStageBanner();                                   // このバトルのステージをランダム決定＋名前バナー
   state.loadout = myDeck.slice();                                   // 編成画面で作ったデッキを使用
   // ライバルのデッキは「敵コントローラ」が決める（CPU＝従来どおり／将来はPVPの相手プレイヤー）
@@ -1686,6 +1690,7 @@ function beginTestBattle(){
   tutorial=false; guideMode=false; guideStageId=null;
   foeCtl = makeGuideFoeController(testFoeDeck.slice());   // 相手は選んだ編成を確実に出す（round-robin）
   _pendingNoX2 = true;   // テスト対戦ではX2(2倍)カードを出さない（運要素を排して純粋な性能テスト）
+  _tbForceBuffs = !!($('tbForceBuff') && $('tbForceBuff').checked);   // 「強化を最初から適用」トグル
   SFX.play('button');
   startGame();
 }
