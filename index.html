@@ -7223,6 +7223,9 @@ let pvpMode=false, pvpHostObj=null, pvpGuestObj=null, pvpRemoteFoe=null;
 let pvpRanked=false;   // ランダムマッチのみtrue＝トロフィー変動対象。あいことば(手動)PVPとCPU戦はfalse。
 let pvpGuestDeck=null, pvpGuestActive=false, pvpGuestRaf=0, pvpGuestPicking=false, pvpLastSnap=0;
 let pvpSnapBuf=[];   // 子：受信スナップショットのバッファ（時刻つき）。少し過去の2フレーム間を補間してなめらかに描く
+const PVP_SNAP_DELAY = 130;   // 子：受信から何ms過去を描くか（送信約10Hzでも常に2点を挟めてカクつかない）
+const PVP_MAX_EXTRAP = 120;   // 子：受信が追いつかない瞬間に「最新2点の速度」で先読み外挿する上限ms（フリーズ→カクつき防止・ワープは除外）
+const PVP_JUMP_EPS = 90;      // これ以上の1フレーム移動はワープ/ラウンド切替とみなし補間・外挿しない（瞬間移動を素通し）
 let pvpGuestLastPhase=null;   // 子：直前のphase（開戦の合図を1回だけ鳴らす用）
 function pvpTrace(s){ try{ console.log('[PVP]', s); }catch(e){} }   // 進行の記録（F12コンソールで確認用・読むだけ）
 
@@ -7559,7 +7562,8 @@ function pvpGuestLoop(){
   cancelAnimationFrame(pvpGuestRaf);
   let lastR=0;
   const tick=(now)=>{ if(!pvpGuestActive) return; now=now||0;
-    if(now-lastR>=28){ lastR=now;   // 約30fpsに制限（観戦側なので補間で十分なめらか・非力端末の負荷半減）
+    const minFrame = LOW_FX ? 28 : 16;   // 低負荷モードON=約30fps（非力端末の負荷半減）／OFF=約60fps（補間で中間フレームが埋まりなめらか）
+    if(now-lastR>=minFrame){ lastR=now;
       const w=pvpGuestInterpolate(now); if(w){ world=w; try{ render(); if(world.phase==='battle') updateRemain(); }catch(e){} }
     }
     pvpGuestRaf=requestAnimationFrame(tick);
@@ -7567,27 +7571,45 @@ function pvpGuestLoop(){
   pvpGuestRaf=requestAnimationFrame(tick);
 }
 // 子：描画は受信より少し過去(DELAY)を見て、その時刻を挟む2スナップショット間を線形補間（なめらか）。
-function pvpGuestInterpolate(now){
-  const buf=pvpSnapBuf; if(!buf.length) return null;
+// 純粋関数（buf/now を引数）＝ヘッドレステスト可。buf=[{t,w},…]（時刻昇順）。
+//   ・2点を挟めるとき＝線形補間
+//   ・受信が追いつかず未来側が無いとき＝最新2点の速度で maxExtrap ms だけ先読み外挿（フリーズ→カクつき防止）
+//   ・ワープ/ラウンド切替の大ジャンプ(>PVP_JUMP_EPS)は補間・外挿とも素通し（瞬間移動）
+function pvpInterpFrame(buf, now, delay, maxExtrap){
+  if(!buf || !buf.length) return null;
   if(buf.length===1) return buf[0].w;
-  const DELAY=130;                       // 130ms過去を描く（送信約12Hzでも常に2点を挟めてカクつかない）
-  const rt = now - DELAY;
+  delay = (delay==null)?PVP_SNAP_DELAY:delay;
+  maxExtrap = (maxExtrap==null)?PVP_MAX_EXTRAP:maxExtrap;
+  const rt = now - delay;
   let s0=null, s1=null;
   for(let i=0;i<buf.length;i++){ if(buf[i].t<=rt) s0=buf[i]; else { s1=buf[i]; break; } }
-  if(!s0) return buf[0].w;                // 過去すぎ→最古
-  if(!s1) return buf[buf.length-1].w;     // 未来側は外挿しない→最新
+  if(!s0) return buf[0].w;                // 過去すぎ→最古（外挿しない）
+  if(!s1){                                // 未来側なし＝受信が追いつかない→最新2点の速度で少しだけ外挿
+    const last=buf[buf.length-1], prev=buf[buf.length-2];
+    const dt=last.t-prev.t; if(dt<=0) return last.w;
+    const e=Math.min(rt-last.t, maxExtrap); if(e<=0) return last.w;
+    const by0={}; for(const u of prev.w.units){ if(u.nid!=null) by0[u.nid]=u; }
+    const units=last.w.units.map(u1=>{
+      const u0=(u1.nid!=null)?by0[u1.nid]:null; if(!u0) return u1;
+      const dx=u1.x-u0.x, dy=u1.y-u0.y;
+      if(Math.hypot(dx,dy)>PVP_JUMP_EPS) return u1;   // ワープは外挿しない
+      return Object.assign({}, u1, { x:u1.x+(dx/dt)*e, y:u1.y+(dy/dt)*e });
+    });
+    return Object.assign({}, last.w, { units });
+  }
   let a=(rt-s0.t)/((s1.t-s0.t)||1); a=Math.max(0,Math.min(1,a));
   const by0={}; for(const u of s0.w.units){ if(u.nid!=null) by0[u.nid]=u; }
   const units=s1.w.units.map(u1=>{
     const u0=(u1.nid!=null)?by0[u1.nid]:null;
     if(!u0) return u1;
     const dx=u1.x-u0.x, dy=u1.y-u0.y;
-    if(Math.hypot(dx,dy)>90) return u1;    // ワープ/ラウンド切替の大ジャンプは補間しない
+    if(Math.hypot(dx,dy)>PVP_JUMP_EPS) return u1;    // ワープ/ラウンド切替の大ジャンプは補間しない
     const bob=(u0.bob!=null&&u1.bob!=null)?u0.bob+(u1.bob-u0.bob)*a:u1.bob;
     return Object.assign({}, u1, { x:u0.x+dx*a, y:u0.y+dy*a, bob });
   });
   return Object.assign({}, s1.w, { units });
 }
+function pvpGuestInterpolate(now){ return pvpInterpFrame(pvpSnapBuf, now, PVP_SNAP_DELAY, PVP_MAX_EXTRAP); }
 // 子の表示高さ＝表示幅(availを440上限)×親のアスペクト比（純粋関数・テスト対象）。
 // 親が小さい端末でも、子は自分の画面幅いっぱいに拡大表示する（座標系は親のまま）。
 function pvpGuestDisplayH(availW, worldW, worldH){ const dispW=Math.min(availW||440, 440); return Math.round(dispW*(worldH/Math.max(1,worldW||1))); }
