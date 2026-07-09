@@ -169,9 +169,13 @@
   .spell-btn .sp-name{font-size:11px;font-weight:700}
   .spell-btn .sp-left{font-size:10px;opacity:.9;font-family:"Space Mono",monospace}
   .spell-btn.disabled{background:linear-gradient(180deg,#4a4552,#38343f);color:#9a94a4;cursor:default;box-shadow:none;opacity:.7}
-  /* 🔄カードリロール：カードを配り直すアニメ（シャッと出直す） */
-  @keyframes cardRedeal{0%{transform:translateY(-16px) rotateY(85deg);opacity:0}55%{opacity:1}100%{transform:none;opacity:1}}
-  .card.redeal{animation:cardRedeal .30s cubic-bezier(.2,.9,.3,1) both}
+  .spell-btn.used{position:relative}
+  .spell-btn.used .sp-check{position:absolute;top:-6px;right:-6px;background:#3ea36a;color:#fff;font-size:11px;font-weight:800;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 5px rgba(0,0,0,.45)}
+  .spell-lbl2{font-family:"Oswald",sans-serif;font-size:11px;letter-spacing:.08em;color:#e6c6ff;margin-left:6px}
+  .spellchip{background:linear-gradient(180deg,#6a3fb0,#4a2a86)!important;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+  /* 🔄カードリロール：カードを配り直すアニメ（ゆっくり・順にめくれて出直す） */
+  @keyframes cardRedeal{0%{transform:translateY(-22px) rotateY(90deg) scale(.9);opacity:0}45%{opacity:.5}70%{transform:translateY(0) rotateY(-8deg) scale(1.02);opacity:1}100%{transform:none;opacity:1}}
+  .card.redeal{animation:cardRedeal .5s cubic-bezier(.2,.85,.3,1) both}
   .draft-peek-btn{display:none}       /* 盤面が常に見えるので覗き見ボタンは不要 */
   .draft-peek-back{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:60;pointer-events:auto;box-shadow:0 6px 18px rgba(0,0,0,.5)}
   .draft-peek-back.hidden{display:none}
@@ -1200,8 +1204,10 @@ const SPECIALS = {
 const SPELL_THUNDER_TARGETS = 5;   // ⚡雷おこし：落雷する敵の最大数
 const SPELL_THUNDER_DMG = 60;      // ⚡雷おこし：1体あたりの落雷ダメージ
 const SPELLS = {
-  thunder: { id:'thunder', name:'雷おこし', icon:'⚡', uses:2, kind:'attack',
-    text:'ランダムな敵'+SPELL_THUNDER_TARGETS+'体に落雷ダメージ（1ピック消費）。' },
+  // oncePerRound:true ＝ 戦闘に影響する系（攻撃/バフ/召喚）は「そのラウンド中は1回だけ」＝重ねがけ不可。
+  //   干渉系（カードリロール）は oncePerRound なし＝残り回数の範囲で同ラウンド中も何度でも使える。
+  thunder: { id:'thunder', name:'雷おこし', icon:'⚡', uses:2, kind:'attack', oncePerRound:true,
+    text:'ランダムな敵'+SPELL_THUNDER_TARGETS+'体に落雷ダメージ（1ピック消費・1ラウンド1回）。' },
   reroll:  { id:'reroll', name:'カードリロール', icon:'🔄', uses:3, kind:'interfere', keepPick:true,
     text:'いまの提示3枚を引き直す（ピックは消費しない）。' },
 };
@@ -1688,6 +1694,7 @@ function resetState(){
   state.spellUses = {};                                         // 呪文id→残り回数（1試合＝全ラウンド通し）
   for(const id of SPELL_ORDER){ state.spellUses[id] = SPELLS[id].uses; }
   state.thunderPending = 0;                                     // ⚡雷おこしの予約数（次の開戦直前にまとめて落雷）
+  state.spellRoundUsed = {};                                    // このラウンドで使った呪文id→回数（oncePerRoundの重ねがけ防止＋使用アイコン表示。beginDraftで毎ラウンドリセット）
 }
 let _pendingNoX2 = false;   // 次に始める対戦でX2を無効化するか（beginTestBattleで立てる）
 let _spellsTest = false;    // 次に始める対戦で呪文を有効にするか（beginTestBattleで設定→startGameで1回消費）
@@ -2893,6 +2900,7 @@ function picksFor(iLost, theyLost){
 function beginDraft(){
   if(pvpMode) pvpTrace('host 自分のドラフト開始 r'+state.round+'（親で3枚タップして開戦）');
   state.pickTotal = picksFor(state.lostLast, state.foeLostLast);
+  state.spellRoundUsed = {};   // このラウンドの呪文使用をリセット（oncePerRoundは毎ラウンド復活）
   state.pickStep = 0; state.roundPicks = [];
   picking=false; hideFoePick(); hideResultBanner();
 
@@ -2998,6 +3006,11 @@ function renderLoadoutMini(){
   if(bs.length){
     html += `<span class="lbl buff-lbl">強化</span>` + bs.map(b=>`<span class="chip buffchip" title="${b.name}">${b.icon}</span>`).join('');
   }
+  // このラウンドで使った呪文アイコン（使ったのが一目で分かるように）
+  const cast = SPELL_ORDER.filter(id=> spellUsedThisRound(id));
+  if(cast.length){
+    html += `<span class="lbl spell-lbl2">呪文</span>` + cast.map(id=>`<span class="chip spellchip" title="${SPELLS[id].name} を使用">${SPELLS[id].icon}</span>`).join('');
+  }
   el.innerHTML = html;
 }
 function nextPick(){
@@ -3031,10 +3044,12 @@ function nextPick(){
 // ===== 呪文（スペル）：ドラフト中に使う使い切りアクション（現状テスト対戦限定・プレイヤーのみ） =====
 function spellsActive(){ return !!(state && state.spellsOn) && !tutorial && !pvpMode && !pvpGuestActive; }
 function spellRemaining(id){ return (state && state.spellUses && state.spellUses[id]) || 0; }
+function spellUsedThisRound(id){ return !!(state && state.spellRoundUsed && state.spellRoundUsed[id]); }
 // このピックで呪文を使えるか（プレイヤーの通常ピック提示中のみ・残り回数あり）
 function canCastSpell(id){
   if(!spellsActive() || picking) return false;
   if(spellRemaining(id) <= 0) return false;
+  if(SPELLS[id] && SPELLS[id].oncePerRound && spellUsedThisRound(id)) return false;   // 戦闘系は1ラウンド1回（重ねがけ不可）
   if(!world || world.phase !== 'muster') return false;   // ドラフト提示中（開戦前）のみ
   if(state.pickStep >= state.pickTotal) return false;     // 全ピック終了後は不可
   return true;
@@ -3047,16 +3062,21 @@ function renderSpellBar(){
   bar.classList.remove('hidden');
   bar.innerHTML = '<span class="spell-lbl">じゅもん</span>' + SPELL_ORDER.map(id=>{
     const s = SPELLS[id]; const left = spellRemaining(id); const ok = canCastSpell(id);
-    return `<button class="spell-btn${ok?'':' disabled'}"${ok?'':' disabled'} onclick="castSpell('${id}')" title="${s.text}">`
-      + `<span class="sp-ico">${s.icon}</span><span class="sp-name">${s.name}</span><span class="sp-left">残り${left}</span></button>`;
+    const usedRound = s.oncePerRound && spellUsedThisRound(id);   // このラウンドは使用済み
+    const sub = usedRound ? 'このラウンド済' : ('残り'+left);
+    return `<button class="spell-btn${ok?'':' disabled'}${usedRound?' used':''}"${ok?'':' disabled'} onclick="castSpell('${id}')" title="${s.text}">`
+      + `<span class="sp-ico">${s.icon}</span><span class="sp-name">${s.name}</span><span class="sp-left">${sub}</span>${usedRound?'<span class="sp-check">✓</span>':''}</button>`;
   }).join('');
 }
 function castSpell(id){
   if(!canCastSpell(id)) return;
   const s = SPELLS[id]; if(!s) return;
   state.spellUses[id] = spellRemaining(id) - 1;   // 使用回数を1消費
+  state.spellRoundUsed = state.spellRoundUsed || {};
+  state.spellRoundUsed[id] = (state.spellRoundUsed[id]||0) + 1;   // このラウンドで使った記録（重ねがけ防止＋使用アイコン表示）
   if(id==='thunder') castThunder();
   else if(id==='reroll') castReroll();
+  renderLoadoutMini();   // デッキ帯に「使った呪文」アイコンを反映
   if(!s.keepPick){
     // 1ピック消費タイプ：キャラを取らずにこのピックを終える（敵の公開もキャラピックと同じ歩調で進める）
     stopPickTimer();
@@ -3181,7 +3201,7 @@ function renderPickOffer(){
         <div class="stats"><span class="atk">⚔ ${u.atk}</span><span class="hp">✚ ${u.hp}</span></div>`;
       attachCardHold(el,key);
     }
-    if(redeal && el.classList){ el.classList.add('redeal'); el.style.animationDelay=(_idx*0.06)+'s'; }   // 順番にシャッと配り直す
+    if(redeal && el.classList){ el.classList.add('redeal'); el.style.animationDelay=(_idx*0.14)+'s'; }   // 順番にゆっくり配り直す（左→右）
     wrap.appendChild(el);
   });
   $('draftHint').textContent = '3枚から1枚えらぼう';
