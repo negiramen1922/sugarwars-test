@@ -158,6 +158,17 @@
   .offer-foot{pointer-events:auto;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;text-align:center;
     background:rgba(16,14,20,.5);border-radius:12px;padding:5px 12px;backdrop-filter:blur(2px)}
   .offer-foot .draft-hint,.offer-foot .pick-status{color:#f0e0d2}
+  /* 呪文ボタン欄（ドラフト中・使い切りアクション） */
+  .spell-bar{pointer-events:auto;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .spell-bar.hidden{display:none}
+  .spell-bar .spell-lbl{font-family:"Oswald",sans-serif;font-size:11px;letter-spacing:.12em;color:#e6c6ff;opacity:.85}
+  .spell-btn{display:inline-flex;flex-direction:column;align-items:center;gap:1px;min-width:78px;padding:5px 10px;border:none;border-radius:12px;cursor:pointer;
+    background:linear-gradient(180deg,#6a3fb0,#4a2a86);color:#fff;box-shadow:0 3px 8px rgba(0,0,0,.4);transition:transform .08s}
+  .spell-btn:active{transform:scale(.94)}
+  .spell-btn .sp-ico{font-size:19px;line-height:1}
+  .spell-btn .sp-name{font-size:11px;font-weight:700}
+  .spell-btn .sp-left{font-size:10px;opacity:.9;font-family:"Space Mono",monospace}
+  .spell-btn.disabled{background:linear-gradient(180deg,#4a4552,#38343f);color:#9a94a4;cursor:default;box-shadow:none;opacity:.7}
   .draft-peek-btn{display:none}       /* 盤面が常に見えるので覗き見ボタンは不要 */
   .draft-peek-back{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:60;pointer-events:auto;box-shadow:0 6px 18px rgba(0,0,0,.5)}
   .draft-peek-back.hidden{display:none}
@@ -774,6 +785,7 @@
                 <span class="pick-status" id="draftHint">3枚から1枚えらぼう</span>
                 <button class="btn btn-primary hidden" id="lockBtn" onclick="lockAndFight()">開戦 ⚔</button>
               </div>
+              <div class="spell-bar hidden" id="spellBar"></div>
             </div>
           </div>
           <button class="btn btn-primary draft-peek-back hidden" id="draftPeekBack" onclick="toggleDraftPeek()">🃏 カードにもどる</button>
@@ -1056,6 +1068,7 @@
       <div style="font-weight:700;font-size:13px;margin:10px 0 2px">🔴 相手CPUのデッキ（<span id="tbFoeCount">0</span>/4）</div>
       <div id="tbFoeGrid" class="tbgrid"></div>
       <div style="text-align:center;margin-top:8px;font-size:13px"><label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="tbForceBuff"> 🔧 自分の強化を最初から全部適用（ダブルスプーン等の確認用）</label></div>
+      <div style="text-align:center;margin-top:6px;font-size:13px"><label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="tbSpells" checked> 🪄 呪文を使う（ドラフト中に⚡雷おこし・🔄カードリロール）</label></div>
       <div style="text-align:center;margin-top:12px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
         <button class="btn btn-ghost" onclick="closeTestBattle()">閉じる</button>
         <button class="btn btn-primary" id="tbStartBtn" onclick="beginTestBattle()">対戦開始 ⚔</button>
@@ -1173,6 +1186,23 @@ const SPECIALS = {
     text:'近くにゼリーがいるとくっついちゃう！！最大3体がまとまって巨大なスライムになる。巨大状態で倒されると元の3体にもどる。',
   },
 };
+/* ============================================================
+   呪文（スペル）— カードドラフト中に発動する使い切りアクション。【下準備フェーズ】
+   ・各呪文は1試合（全ラウンド通し）で使える回数が決まっている（state.spellUses[id]）。
+   ・現状は【テスト環境（テスト対戦）限定】で有効（state.spellsOn）。通常CPU/PVP/既存プレイには一切影響しない。
+   ・プレイヤーのみが使う（CPUは使わない）。CPU/PVPパリティは方向確定後に別途。
+   ・keepPick:true の呪文はピックを消費しない（提示を引き直すなど）。未指定=1ピック消費してそのピックを終える。
+   ・新しい呪文は SPELLS に1行＋SPELL_ORDER に追加＋castSpell の分岐だけで足せる。
+   ============================================================ */
+const SPELL_THUNDER_TARGETS = 5;   // ⚡雷おこし：落雷する敵の最大数
+const SPELL_THUNDER_DMG = 60;      // ⚡雷おこし：1体あたりの落雷ダメージ
+const SPELLS = {
+  thunder: { id:'thunder', name:'雷おこし', icon:'⚡', uses:2, kind:'attack',
+    text:'ランダムな敵'+SPELL_THUNDER_TARGETS+'体に落雷ダメージ（1ピック消費）。' },
+  reroll:  { id:'reroll', name:'カードリロール', icon:'🔄', uses:3, kind:'interfere', keepPick:true,
+    text:'いまの提示3枚を引き直す（ピックは消費しない）。' },
+};
+const SPELL_ORDER = ['thunder','reroll'];   // 呪文ボタンの並び順
 /* ★X2強化カードの調整値（ここをいじればバランス調整できる） */
 const X2_OFF = true;             // 【β1.5 試験導入】2倍(×2)カードを全モードでオフ（運要素を抑える）。falseに戻せば従来どおりX2復活
 const X2_MIN = 3;                 // 盤面にこの数以上いる種類にX2カードが出る（2→3で厳しめに）
@@ -1642,8 +1672,12 @@ function resetState(){
     foeRoundPicks:[], foeRevealIdx:0, foePickTotal:CONFIG.picksBase, playerExtra:0,
   };
   state.noX2 = X2_OFF || _pendingNoX2; _pendingNoX2 = false;   // 【β1.5】X2_OFFで全モードX2オフ／テスト対戦は個別に無効化。全経路(eligibleX2Specials/foeEnhanceCandidates/PVP)が state.noX2 を見る
+  state.spellsOn = false;                                       // 呪文（テスト対戦でのみ true。startGame が _spellsTest を反映）
+  state.spellUses = {};                                         // 呪文id→残り回数（1試合＝全ラウンド通し）
+  for(const id of SPELL_ORDER){ state.spellUses[id] = SPELLS[id].uses; }
 }
 let _pendingNoX2 = false;   // 次に始める対戦でX2を無効化するか（beginTestBattleで立てる）
+let _spellsTest = false;    // 次に始める対戦で呪文を有効にするか（beginTestBattleで設定→startGameで1回消費）
 let _tbForceBuffs = false;   // テスト対戦：自分の強化を最初から全適用（beginTestBattleで設定→startGameで1回消費）
 const TB_BUFF_FLAGS = ["youParty","youChocoBuff","youBombSplit","youDaifukuBuff","youGhostClone","youCannonCluster","youSodaFizz","youDonutWall","youPancakeFast","youShoeBuff","youBakeryBuff","youIcewizBuff","youMacaronBuff","youMangelBuff","youKumaBuff","youPurinBuff","youShortcakeBuff","youCanuleBuff"];
 // 近日登場（キャラ一覧・指南にシルエット＋カミングスーンだけ出す）。実装が済んだら test:true を外して各配列/レッスンに載せる。
@@ -1651,8 +1685,8 @@ const COMING_SOON = [ {sil:'sil_canule'}, {sil:'sil_shortcake'} ];
 const $ = id => document.getElementById(id);
 // ドラフトの提示ボックス（見出し「ドラフト/ピック」＋カード3枚＋下のヒント）の表示制御。
 // ヒント(draftHint)はボックス内にあるので、待機メッセージを見せたいときは「カードだけ」隠してボックスは残す。
-function showOfferCards(){ const o=$('offerOverlay'); if(o){ o.classList.remove('hidden'); o.style.visibility=''; } const c=$('offer'); if(c) c.classList.remove('hidden'); const pb=$('draftPeekBtn'); if(pb) pb.classList.remove('hidden'); const bk=$('draftPeekBack'); if(bk) bk.classList.add('hidden'); _draftPeek=false; }
-function hideOfferCards(){ setDraftPeek(false); const o=$('offerOverlay'); if(o) o.classList.remove('hidden'); const c=$('offer'); if(c) c.classList.add('hidden'); const pb=$('draftPeekBtn'); if(pb) pb.classList.add('hidden'); }   // カードだけ隠し、見出し/ヒントは残す（待機表示用）
+function showOfferCards(){ const o=$('offerOverlay'); if(o){ o.classList.remove('hidden'); o.style.visibility=''; } const c=$('offer'); if(c) c.classList.remove('hidden'); const pb=$('draftPeekBtn'); if(pb) pb.classList.remove('hidden'); const bk=$('draftPeekBack'); if(bk) bk.classList.add('hidden'); _draftPeek=false; if(typeof renderSpellBar==='function') renderSpellBar(); }
+function hideOfferCards(){ setDraftPeek(false); const o=$('offerOverlay'); if(o) o.classList.remove('hidden'); const c=$('offer'); if(c) c.classList.add('hidden'); const pb=$('draftPeekBtn'); if(pb) pb.classList.add('hidden'); const sb=$('spellBar'); if(sb){ sb.classList.add('hidden'); } }   // カードだけ隠し、見出し/ヒントは残す（待機表示用・呪文欄も隠す）
 function hideOfferBox(){ setDraftPeek(false); const o=$('offerOverlay'); if(o) o.classList.add('hidden'); }   // ボックスごと隠す（開戦時など）
 // ドラフト中：一度カードを閉じて盤面を確認できる（👁）。再度押すとカードに戻る。放置タイマーは動き続ける。
 let _draftPeek=false;
@@ -1695,6 +1729,7 @@ function capArmy(keys){ return keys.length>CONFIG.armyCap ? keys.slice(keys.leng
 function randomFoeDeck(){ return shuffle(UNITS.filter(u=>!u.summonOnly && !u.test).map(u=>u.key)).slice(0,CONFIG.deckSize); }
 function startGame(){
   resetState();
+  state.spellsOn = _spellsTest; _spellsTest = false;   // 呪文はテスト対戦でのみ有効（通常CPU/PVPには出さない）
   if(_tbForceBuffs){ TB_BUFF_FLAGS.forEach(function(k){ state[k]=true; }); _tbForceBuffs=false; }   // 【開発】テスト対戦の「強化を最初から適用」
   pickStage(); showStageBanner();                                   // このバトルのステージをランダム決定＋名前バナー
   state.loadout = myDeck.slice();                                   // 編成画面で作ったデッキを使用
@@ -1748,6 +1783,7 @@ function beginTestBattle(){
   foeCtl = makeGuideFoeController(testFoeDeck.slice());   // 相手は選んだ編成を確実に出す（round-robin）
   _pendingNoX2 = true;   // テスト対戦ではX2(2倍)カードを出さない（運要素を排して純粋な性能テスト）
   _tbForceBuffs = !!($('tbForceBuff') && $('tbForceBuff').checked);   // 「強化を最初から適用」トグル
+  _spellsTest = !$('tbSpells') || $('tbSpells').checked;   // 「呪文を使う」トグル（既定ON）
   SFX.play('button');
   startGame();
 }
@@ -2977,6 +3013,71 @@ function nextPick(){
   if(state.pickStep < (state.playerExtra||0)){
     $('draftHint').textContent = '逆転ボーナス！ 先に1枚多く選べる（相手は待機中）';
   }
+  renderSpellBar();   // ピックのたびに呪文ボタン欄を更新（有効時のみ表示）
+}
+// ===== 呪文（スペル）：ドラフト中に使う使い切りアクション（現状テスト対戦限定・プレイヤーのみ） =====
+function spellsActive(){ return !!(state && state.spellsOn) && !tutorial && !pvpMode && !pvpGuestActive; }
+function spellRemaining(id){ return (state && state.spellUses && state.spellUses[id]) || 0; }
+// このピックで呪文を使えるか（プレイヤーの通常ピック提示中のみ・残り回数あり）
+function canCastSpell(id){
+  if(!spellsActive() || picking) return false;
+  if(spellRemaining(id) <= 0) return false;
+  if(!world || world.phase !== 'muster') return false;   // ドラフト提示中（開戦前）のみ
+  if(state.pickStep >= state.pickTotal) return false;     // 全ピック終了後は不可
+  return true;
+}
+// 呪文ボタン欄を描画（有効時のみ表示・カード非表示中＝待機中は隠す）
+function renderSpellBar(){
+  const bar = $('spellBar'); if(!bar) return;
+  const cardsHidden = $('offer') && $('offer').classList && $('offer').classList.contains('hidden');
+  if(!spellsActive() || cardsHidden){ bar.classList.add('hidden'); bar.innerHTML=''; return; }
+  bar.classList.remove('hidden');
+  bar.innerHTML = '<span class="spell-lbl">じゅもん</span>' + SPELL_ORDER.map(id=>{
+    const s = SPELLS[id]; const left = spellRemaining(id); const ok = canCastSpell(id);
+    return `<button class="spell-btn${ok?'':' disabled'}"${ok?'':' disabled'} onclick="castSpell('${id}')" title="${s.text}">`
+      + `<span class="sp-ico">${s.icon}</span><span class="sp-name">${s.name}</span><span class="sp-left">残り${left}</span></button>`;
+  }).join('');
+}
+function castSpell(id){
+  if(!canCastSpell(id)) return;
+  const s = SPELLS[id]; if(!s) return;
+  state.spellUses[id] = spellRemaining(id) - 1;   // 使用回数を1消費
+  SFX.play('special');
+  if(id==='thunder') castThunder();
+  else if(id==='reroll') castReroll();
+  if(!s.keepPick){
+    // 1ピック消費タイプ：キャラを取らずにこのピックを終える（敵の公開もキャラピックと同じ歩調で進める）
+    stopPickTimer();
+    state.pickStep++;
+    maybeRevealFoe();
+    nextPick();
+  } else {
+    renderSpellBar();   // 提示を残すタイプ：回数バッジだけ更新（castReroll側でrenderPickOffer→再描画済み）
+  }
+}
+// ⚡雷おこし：ランダムな敵最大5体に落雷ダメージ（無敵・狙えない対象は除外）
+function castThunder(){
+  const foes = world.units.filter(u=> u.side==='e' && u.hp>0 && (u.invuln||0)<=0 && !u.untargetable);
+  const targets = shuffle(foes).slice(0, SPELL_THUNDER_TARGETS);
+  targets.forEach(tgt=>{
+    const caster = { side:'p', x:tgt.x, y:0, recruit:false, hp:1, _dead:false };   // 真上からの落雷（applyHitで無敵/身代わり/撃破処理を再利用）
+    applyHit(world, caster, tgt, SPELL_THUNDER_DMG);
+    burst(world, tgt.x, tgt.y, '#bfe3ff', 14, 130);
+    world.rings.push({x:tgt.x, y:tgt.y, r:3, max:34, life:0.36, color:'#e6f4ff'});
+  });
+  if(targets.length){ world.shake = Math.max(world.shake||0, 7); }
+  return targets.length;
+}
+// 🔄カードリロール：いまのピックの提示3枚を引き直す（強化カード差し替え抽選も再実行・ピックは消費しない）
+function castReroll(){
+  state.offer3 = shuffle(state.loadout).slice(0, CONFIG.offerPerPick);
+  const specials = eligibleSpecials();
+  if(!tutorial && !pvpMode && specials.length && Math.random() < SPECIAL_OFFER_CHANCE){
+    const sp = specials[Math.floor(Math.random()*specials.length)];
+    const i = Math.floor(Math.random()*state.offer3.length);
+    state.offer3[i] = sp;
+  }
+  renderPickOffer();   // 引き直した提示を再描画（放置タイマーもリセット）＋renderSpellBar
 }
 // --- カード選択の制限時間（放置対策）：制限時間内に選ばなければ一番左のカードを自動選択 ---
 const PICK_TIME_LIMIT = 30;   // 秒。PVP/PVE共通のカード選択の持ち時間
