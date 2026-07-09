@@ -59,20 +59,22 @@
 | `picksAfterWin` | 3 | 前回勝った側（=通常） |
 | `armyCap` | 30 | 軍の上限 |
 | `timeLimit` | 24 | 1戦の制限秒 |
-| `X2_MIN` | 3 | この数以上いるキャラにX2カードが出る |
-| `SPECIAL_OFFER_CHANCE` | 0.3 | 強化カード(融合/X2)が枠に出る確率 |
-| `FOE_X2_CHANCE` | 0.4 | CPUがX2を使う確率 |
-| `X2_BOARD_CAP` | 40 | X2で増やせる盤面上限 |
+| `X2_OFF` | true | **【現在オフ】2倍(×2)カードを全モードで無効化**（β1.5・運要素を抑える）。`false` に戻せば従来どおりX2復活。以下のX2系定数はオフ中は未使用 |
+| `X2_MIN` | 3 | （X2有効時）この数以上いるキャラにX2カードが出る |
+| `SPECIAL_OFFER_CHANCE` | 0.3 | 強化カード(融合/固有強化)が枠に出る確率。※X2はオフ中は含まない |
+| `FOE_X2_CHANCE` | 0.4 | （X2有効時）CPUがX2を使う確率 |
+| `X2_OFFER_CAP` | 15 | （X2有効時）盤面にこの数以上いる種類にはX2を出さない |
+| `X2_BOARD_CAP` | 120 | （X2有効時）X2で増やせる盤面上限（40→120に緩和済み） |
 
 キャラ個別の調整値は各 `UNITS` 行（atk/hp/speed/blast/puddle*/evo*/shock*/spawn* など）。
 
 ## 強化カード・特殊システム
 
 - **スライム融合**（`SPECIALS.up_slime`）：未融合スライム3体以上で出現。3体ずつ巨大化、倒れると3体に分裂。`state.youMerges` で永続。
-- **X2カード**（各キャラ `x2_<key>` を自動生成）：対象キャラが3体以上（`X2_MIN`）で専用カードが出現。ただし**多すぎる種類（`X2_OFFER_CAP`=15体以上）には出ない**（増えすぎ防止）。選ぶとそのキャラを今いる数だけ倍に増殖。`state.youX2` で永続。スライムは除外。
+- **X2カード**（各キャラ `x2_<key>` を自動生成）＝**現在オフ（`X2_OFF=true`）**：⚠ **β1.5でゲームバランス調整のため全モードで無効化**。`resetState` が `state.noX2 = X2_OFF || _pendingNoX2` を立て、**全経路**（`eligibleX2Specials` / `foeEnhanceCandidates` / PVP `applyPvpSpecial`）が `state.noX2` を見て提示・適用を止める。**コード（`doubleUnitsOnBoard`/`applyX2Replay` 等）は残置**＝`X2_OFF=false` に戻せば従来どおり復活（対象キャラが3体以上=`X2_MIN`で出現・今いる数だけ倍に増殖・`state.youX2` で永続・スライム除外・`X2_OFFER_CAP`=15以上は非提示）。
 - **逆転ボーナス（敗者先行）**：負けた側は4回ピック、勝った側は3回。**敗者の+1枚は最初の選択で単独で行い、その間は相手が待機**（`picksFor()` と `maybeRevealFoe()`、`state.playerExtra`）。
 - **固有強化**（各キャラ1種・`apply*Buff`／フラグ系）：取得すると永続・毎ラウンド再適用（`applyFlagBuffs`/`reapplyEnhancements`）。例：ビター装甲(choco)・特盛り(shoe)・メガ炭酸沼(soda)・**ブリザード(icewiz＝氷弾の爆風拡大＋鈍足強化／`applyIcewizBuff`)** など。`eligibleSpecials`/`foeEnhanceCandidates` で資格判定、`pickCard`/`applyPvpSpecial` で適用。
-- 敵（CPU）も融合・X2・逆転ボーナスを確率で使う（パリティ）。
+- 敵（CPU）も融合・逆転ボーナスを確率で使う（パリティ）。**X2はオフ中はCPUも使わない**（`state.noX2`）。
 
 ## アーキテクチャ（単一 `<script>` 内の主な関数）
 
@@ -84,7 +86,7 @@
 - **カード選択の制限時間（放置対策）**：`PICK_TIME_LIMIT`(30秒)。カード提示のたびに `startPickTimer(autoPickLeftmost)` を起動し（`#pickTimer` に残り秒表示・残5秒で赤）、時間切れで `autoPickLeftmost()`＝**一番左（先頭）のカードを自動選択**。選択開始/開戦/待機で `stopPickTimer()`。**チュートリアル中は起動しない**（案内を邪魔しないため）。PVEは `renderPickOffer`、PVPは親=`pvpHostShowOffer`／子=`pvpGuestShowStep` にそれぞれ仕込む。PVPの親は、子がフリーズしてSTEPPICKを送れない場合に備え `pvpHostDraftStep` の待機に **+5秒の猶予つき代理タイムアウト**（`eOffer[0]`＝子に見せた一番左を代理選択。子が生きていれば子自身も同じ左端を送るので結果一致）。**ヘッドレス(test)は `setInterval` 不在を検知してタイマー自体を動かさない**（自動選択でテストが乱れない）。
 - **ドラフト中の盤面のぞき見**：offer-foot の「👁 盤面を見る」(`#draftPeekBtn`)で `toggleDraftPeek()`＝カードのボックスを一時的に `visibility:hidden` にして盤面を確認、画面下の「🃏 カードにもどる」(`#draftPeekBack`・`position:fixed`)で戻す（`_draftPeek`）。`showOfferCards`/`hideOfferCards` で状態リセット＝新ピックや待機のたびにカード表示へ戻る。制限時間タイマーは覗き見中も進む。PVE/PVP共通。
 - **隊列**：`arrangeFormation`（tierでグループ化し後方アンカーで整列）/ `centerMergedSlimes`。
-- **X2**：`doubleUnitsOnBoard` / `applyX2Replay` / `eligibleX2Specials` / `cloneFighter`。
+- **X2**（**現在オフ＝`X2_OFF=true`**・コードは残置）：`doubleUnitsOnBoard` / `applyX2Replay` / `eligibleX2Specials` / `cloneFighter`。オフ中は `state.noX2` で全経路が提示・適用をスキップ。
 - **決着**：`beginOutro` / `outroStep`（溶けて砂糖に）。
 - **ステージ背景（テーマ付き・ランダム）**：`STAGES`（`{id,name,key}`・現在4種＝キャンディキャンディマウンテン/ラムネソーダビーチ/ビスケットキャッスル/チョコレートフォレスト）。背景画像は `SPRITE_DATA['stage_<id>']`（Dola生成のドット絵を透かし除去・2:3・836×1254へ統一・WebP化して埋め込み）。`pickStage()` がバトル開始（`startGame`/`pvpStartAsHost`/`pvpGuestEnterPlay`）で **アクティブ（画像あり）なステージからランダム選択**→`render` が `currentStageImg()` を `imageSmoothingEnabled=false` で全面描画（画像0枚なら従来 `STAGE_BG_IMG` にフォールバック）。開始時に `#stageBanner`（`showStageBanner`・📍ステージ名・チュートリアル中は抑制）。新ステージは「Dola生成→透かし除去/2:3/836×1254/WebP化→`SPRITE_DATA` に `stage_<id>` 追加→`STAGES` に1行」。PVPは各自ランダム（背景は見た目のみ・同期は将来）。テスト：test.js 117。
 - **ユニットの向き（左右反転）**：`stepWorld` 末尾で各ユニットの `u.face`(±1) を決める＝**攻撃中は狙う方向(`atkDx`)／通常は横移動の向き**（`u.px`＝前フレームx・スナップショットには送らない）。`face` は `SNAP_UNIT_FIELDS` に含めてPVPの子へ伝える（x は反転しないので mirror でも符号そのまま）。`render` は本体＋合成武器（大福刀/クッキー槍/チョコ剣盾）を **体中心で水平ミラー**（`u.face<0` のとき `translate(cx*2,0);scale(-1,1)`）。HPバー・✦バッジは外側なので反転しない。テスト：test.js 118。
@@ -192,8 +194,9 @@
 - テスト：test.js 48（オーケストレーション往復）＋49（リモート敵が実フローを駆動）。CPU対戦は不変。
 - **要・実機確認**：2台（または同端末2タブ）での対戦通しはこのリポジトリ環境ではテスト不可。手元で確認する。
 
-### F2-③（PVP強化カード フェーズ1）— 実装済み（倍カード＋強化カード）
+### F2-③（PVP強化カード フェーズ1）— 実装済み（強化カード。※X2は現在オフ）
 
+- ⚠ **X2は `X2_OFF=true` で全モードオフ**（PVPでも `state.noX2` により提示・適用されない）。以下のX2に関する記述は `X2_OFF=false` に戻したとき有効。融合・固有強化は引き続き有効。
 - **バージョン照合で自動切替**：`PVP_PROTO`（現在2）を HELLO/START でやり取りし、**両者が新版のときだけ** `pvpEnh=true` で強化カードを有効化。
   片方が旧版（cache/旧タブ）なら自動で従来のv1（強化なし）に落ちる＝**既存プレイヤーに影響なし**。
 - **ホスト権威で提示生成**：親が自分('p')と相手('e')双方の提示3枚を作る。'p'=`eligibleSpecials()`／'e'=`foeEnhanceCandidates()` で資格判定。子の提示は STEP の `offer3` で配る。旧版の親は `offer3` を送らず、子は自前生成にフォールバック。
@@ -423,6 +426,8 @@
 - #142 devモードは本番ドメインへの強制リダイレクト回避
 - #141 テスト対戦「強化を最初から全部適用」トグル（dev）
 - #140 プリンのダブルスプーンが正面に当たらない問題を修正
+
+**バランス調整メモ**：X2（2倍カード）は **`X2_OFF=true`（index.html 冒頭）で全モードオフ**にしている（運要素を抑える試験導入・β1.5）。コードは残置なので `false` で復活可。
 
 現状の `sw.js` CACHE は **v67**。`node test.js` は **986 passed**。
 
