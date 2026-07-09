@@ -192,7 +192,7 @@
 - `pvpOnConnected` が接続後に親=子デッキ待ち→開始／子=デッキ送信→START待ち、に分岐。`openPvpLobby` は `needPlayerDeck()` で編成を要求。
 - **VSカットイン**：対戦開始時（`pvpStartAsHost`/`pvpGuestEnterPlay` 冒頭）に `pvpShowVsCutin()`→`showVsCutin(foe,you)`。全画面 `#vsCutin`（上=相手・赤／下=自分・青／間に斜めライン、アイコン大＋横に**二つ名**/名前/レート縦並び）を約2秒アニメ表示。**見た目（フレーム/二つ名/名前の色）も両陣営に反映**＝`showVsCutin` は `{name,avatar,frame,titlePre,titleSuf,nameColor,rate}` を受け取り `avatarHTML(avatar,78,frame)`＋`applyNameColor`＋`titleTextOf` で描画。相手の見た目は**ハンドシェイクで共有**（`pvpNetProfile()` に frame/titlePre/titleSuf/nameColor を載せ `pvpOppProfile` で受信。旧版は各フィールド無しで見た目なしにフォールバック）。`pointer-events:none`・自動で消える。
 - テスト：test.js 48（オーケストレーション往復）＋49（リモート敵が実フローを駆動）。CPU対戦は不変。
-- **要・実機確認**：2台（または同端末2タブ）での対戦通しはこのリポジトリ環境ではテスト不可。手元で確認する。
+- **✅ 実機確認済み**：2台での対戦通し（接続→ドラフト→戦闘→盤面ミラー→決着）が実対戦で成立。※ヘッドレステスト不可なのはこのリポジトリ環境の制約で、実機では確認済み。
 
 ### F2-③（PVP強化カード フェーズ1）— 実装済み（強化カード。※X2は現在オフ）
 
@@ -219,7 +219,8 @@
 - **ロビーは2段**：PVP →「ランダムマッチ / プライベート対戦」（`pvpShowPrivate`/`pvpBackToChoice`）→ プライベートは「部屋を作る / 部屋に入る」。
 - **presence**：ペア成立後（`mmBecomeHost`/`mmGuestFromAssignment`）とプライベート部屋のホスト/参加（`pvpHost`/`pvpJoin`）は `'connecting'`＝「マッチ待ち」に数えない。実際に待機列に並ぶ人だけが `matching`。
 - **再戦**：プライベート部屋（`pvpRanked===false` かつ `pvpConn` あり）は決着後も**接続を切らず**、over画面に「🔁 もう一度／🚪 部屋を出る」（`pvpSetupOverButtons`）。両者が「もう一度」を押すと親が同じ接続で `pvpStartAsHost()` を再実行＝新しい対戦（**編成=`myDeck`/`pvpGuestDeck` は維持**、子が編成を変えていれば `REMATCH` に添えた新デッキを反映）。`PVP_MSG.REMATCH`／`pvpRematchClick`/`pvpRematchTryStart`/`pvpRematchUpdateUI`。子の再戦は親の `START` で開始。テスト：test.js 78。
-- **限界**：対戦間（over画面）に相手が抜けた場合の即時検知はしない（`pvpMatchActive()`＝対戦中のみ再接続監視）。要2台実機確認。
+- **✅ 実機確認済み**：接続を保ったままの再戦（🔁もう一度）が2台で成立。
+- **限界**：対戦間（over画面）に相手が抜けた場合の即時検知はしない（`pvpMatchActive()`＝対戦中のみ再接続監視）。この離脱エッジケースのみ未確認。
 
 ### F3 — 自動マッチング（ランダムマッチ）— 実装済み（`<script>`「12.5) ランダムマッチ」）
 
@@ -228,8 +229,8 @@
 - `mmQueueRef.transaction` で**待機者を1人だけclaim**（奪い合い防止）。`mmPickWaiter(queue,uid,now,staleMs)`＝自分以外・期限内で最古を選ぶ純粋関数（test.js 70）。
 - **claimした側＝親(host)／claimされた側＝子(guest)**。親が部屋を作り `matchmaking/matches/<guestUid>` にコードを通知→子は `waitOffer:true` で親のオファーを待って接続。
 - 切断/キャンセルは `onDisconnect().remove()` と `mmCleanup()` で待機列を掃除。相手プロフィール（名前/アイコン）はマッチ割当て経由で表示（`mmShowOpponent`・textContentで安全表示）。
-- **要設定**：匿名認証の有効化＋RTDBルールに `matchmaking`（`auth!=null`）。手順は `FIREBASE_SETUP.md`「ランダムマッチ」。
-- **要実機確認**：2台/2タブでのペアリング〜対戦通しはこの環境ではテスト不可。`mmPickWaiter` のみヘッドレス検証。
+- **要設定**：匿名認証の有効化＋RTDBルールに `matchmaking`（`auth!=null`）。手順は `FIREBASE_SETUP.md`「ランダムマッチ」→**設定済み・稼働中**。
+- **✅ 実機確認済み**：2台でのペアリング〜対戦成立を確認（別回線でもCloudflare TURN中継で接続）。決着後のトロフィー増減も反映。`mmPickWaiter` はヘッドレス検証（test.js 70）。
 
 ### PVP 再接続（瞬断救済）— 実装済み（`<script>`「12.6) PVP 再接続」）
 
