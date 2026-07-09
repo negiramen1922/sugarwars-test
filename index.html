@@ -169,6 +169,9 @@
   .spell-btn .sp-name{font-size:11px;font-weight:700}
   .spell-btn .sp-left{font-size:10px;opacity:.9;font-family:"Space Mono",monospace}
   .spell-btn.disabled{background:linear-gradient(180deg,#4a4552,#38343f);color:#9a94a4;cursor:default;box-shadow:none;opacity:.7}
+  /* 🔄カードリロール：カードを配り直すアニメ（シャッと出直す） */
+  @keyframes cardRedeal{0%{transform:translateY(-16px) rotateY(85deg);opacity:0}55%{opacity:1}100%{transform:none;opacity:1}}
+  .card.redeal{animation:cardRedeal .30s cubic-bezier(.2,.9,.3,1) both}
   .draft-peek-btn{display:none}       /* 盤面が常に見えるので覗き見ボタンは不要 */
   .draft-peek-back{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:60;pointer-events:auto;box-shadow:0 6px 18px rgba(0,0,0,.5)}
   .draft-peek-back.hidden{display:none}
@@ -1510,6 +1513,15 @@ const SFX = (function(){
       [[392,0.10],[392,0.10],[523,0.12],[784,0.34]].forEach(([f,d],i)=>{ blip(t+i*0.12,f,d,{type:'sawtooth',vol:0.32}); });
       blip(t,131,0.5,{type:'sine',vol:0.28,slide:0.9});   // 低音のドン
       noise(t+0.36,0.18,{vol:0.12,hp:1200}); },           // 締めのシャッ
+    // --- 呪文 ---
+    spell_thunder(){ const a=ctx(); if(!a)return; const t=a.currentTime;   // ⚡雷おこし発動：遠雷のゴロゴロ
+      noise(t,0.6,{vol:0.11,hp:110}); noise(t+0.18,0.5,{vol:0.09,hp:85}); noise(t+0.38,0.4,{vol:0.07,hp:70});
+      blip(t,68,0.6,{type:'sine',vol:0.17,slide:0.85}); blip(t+0.22,52,0.5,{type:'triangle',vol:0.12,slide:1.25}); },
+    spell_crack(){ if(!throttle('spell_crack',45))return; const a=ctx(); if(!a)return; const t=a.currentTime;   // 落雷の直撃：バリッ！
+      noise(t,0.13,{vol:0.32,hp:2800}); blip(t,1900,0.10,{type:'sawtooth',vol:0.24,slide:0.18});
+      blip(t,90,0.26,{type:'sine',vol:0.26,slide:0.5}); },
+    spell_reroll(){ const a=ctx(); if(!a)return; const t=a.currentTime;   // 🔄リロール：カードを切るシャッシャシャ
+      [0,0.06,0.12,0.18].forEach((d)=> noise(t+d,0.05,{vol:0.17,hp:2600})); blip(t+0.19,640,0.05,{type:'triangle',vol:0.09,slide:1.2}); },
     // ガチャ：パックを破く「ビリッ」（紙/フォイルの引き裂き＝ノイズのラスプ＋下降）
     packRip(){ const a=ctx(); if(!a)return; const t=a.currentTime;
       noise(t,0.20,{vol:0.34,hp:1500});                    // ビリ…
@@ -1675,6 +1687,7 @@ function resetState(){
   state.spellsOn = false;                                       // 呪文（テスト対戦でのみ true。startGame が _spellsTest を反映）
   state.spellUses = {};                                         // 呪文id→残り回数（1試合＝全ラウンド通し）
   for(const id of SPELL_ORDER){ state.spellUses[id] = SPELLS[id].uses; }
+  state.thunderPending = 0;                                     // ⚡雷おこしの予約数（次の開戦直前にまとめて落雷）
 }
 let _pendingNoX2 = false;   // 次に始める対戦でX2を無効化するか（beginTestBattleで立てる）
 let _spellsTest = false;    // 次に始める対戦で呪文を有効にするか（beginTestBattleで設定→startGameで1回消費）
@@ -3042,7 +3055,6 @@ function castSpell(id){
   if(!canCastSpell(id)) return;
   const s = SPELLS[id]; if(!s) return;
   state.spellUses[id] = spellRemaining(id) - 1;   // 使用回数を1消費
-  SFX.play('special');
   if(id==='thunder') castThunder();
   else if(id==='reroll') castReroll();
   if(!s.keepPick){
@@ -3055,20 +3067,37 @@ function castSpell(id){
     renderSpellBar();   // 提示を残すタイプ：回数バッジだけ更新（castReroll側でrenderPickOffer→再描画済み）
   }
 }
-// ⚡雷おこし：ランダムな敵最大5体に落雷ダメージ（無敵・狙えない対象は除外）
+// ⚡雷おこし：発動時はゴロゴロ鳴らして「開戦の瞬間の落雷」を予約（敵全軍が揃う開戦直前にまとめて落とす＝わかりやすく威力が出る）
 function castThunder(){
-  const foes = world.units.filter(u=> u.side==='e' && u.hp>0 && (u.invuln||0)<=0 && !u.untargetable);
-  const targets = shuffle(foes).slice(0, SPELL_THUNDER_TARGETS);
-  targets.forEach(tgt=>{
-    const caster = { side:'p', x:tgt.x, y:0, recruit:false, hp:1, _dead:false };   // 真上からの落雷（applyHitで無敵/身代わり/撃破処理を再利用）
-    applyHit(world, caster, tgt, SPELL_THUNDER_DMG);
-    burst(world, tgt.x, tgt.y, '#bfe3ff', 14, 130);
-    world.rings.push({x:tgt.x, y:tgt.y, r:3, max:34, life:0.36, color:'#e6f4ff'});
-  });
-  if(targets.length){ world.shake = Math.max(world.shake||0, 7); }
-  return targets.length;
+  state.thunderPending = (state.thunderPending||0) + 1;
+  SFX.play('spell_thunder');   // ゴロゴロ（遠雷）
+  try{ toast('⚡ 開戦の瞬間、敵に黄色い雷が落ちる！'); }catch(e){}
+}
+// 開戦直前に予約ぶんの落雷を敵へ落とす（lockAndFight から呼ぶ）。strikes回×最大5体。
+function fireThunderStrikes(world, strikes){
+  let total = 0;
+  for(let s=0; s<strikes; s++){
+    const foes = world.units.filter(u=> u.side==='e' && u.hp>0 && (u.invuln||0)<=0 && !u.untargetable);
+    const targets = shuffle(foes).slice(0, SPELL_THUNDER_TARGETS);
+    targets.forEach(tgt=> spawnThunderBolt(world, tgt));
+    total += targets.length;
+  }
+  if(strikes>0){ world.shake = Math.max(world.shake||0, 9); world.flash = Math.max(world.flash||0, 0.42); }   // 画面が一瞬まぶしく光る
+  return total;
+}
+// 1発ぶん：対象へ黄色い稲妻を落とす演出＋ダメージ（applyHitで無敵/身代わり/撃破を再利用）
+function spawnThunderBolt(world, tgt){
+  const segs = 6, pts = [];
+  for(let i=0;i<=segs;i++){ const f=i/segs; const y=(tgt.y)*f; const jit=(i===0||i===segs)?0:(Math.random()-0.5)*26; pts.push({x:tgt.x+jit, y}); }
+  (world.bolts||(world.bolts=[])).push({ x:tgt.x, y:tgt.y, life:0.6, max:0.6, pts });
+  burst(world, tgt.x, tgt.y, '#ffe94a', 18, 150);
+  world.rings.push({x:tgt.x, y:tgt.y, r:4, max:42, life:0.4, color:'#fff6b0'});
+  SFX.play('spell_crack');   // バリッ！
+  const caster = { side:'p', x:tgt.x, y:0, recruit:false, hp:1, _dead:false };
+  applyHit(world, caster, tgt, SPELL_THUNDER_DMG);
 }
 // 🔄カードリロール：いまのピックの提示3枚を引き直す（強化カード差し替え抽選も再実行・ピックは消費しない）
+let _rerollAnim = false;   // 次のrenderPickOfferで「配り直し」アニメを付ける一発フラグ
 function castReroll(){
   state.offer3 = shuffle(state.loadout).slice(0, CONFIG.offerPerPick);
   const specials = eligibleSpecials();
@@ -3077,7 +3106,9 @@ function castReroll(){
     const i = Math.floor(Math.random()*state.offer3.length);
     state.offer3[i] = sp;
   }
-  renderPickOffer();   // 引き直した提示を再描画（放置タイマーもリセット）＋renderSpellBar
+  SFX.play('spell_reroll');   // シャッシャシャ（カードを切る）
+  _rerollAnim = true;         // カードを配り直すアニメ
+  renderPickOffer();          // 引き直した提示を再描画（放置タイマーもリセット）＋renderSpellBar
 }
 // --- カード選択の制限時間（放置対策）：制限時間内に選ばなければ一番左のカードを自動選択 ---
 const PICK_TIME_LIMIT = 30;   // 秒。PVP/PVE共通のカード選択の持ち時間
@@ -3127,7 +3158,8 @@ function renderPickOffer(){
   setDraftPeek(false);   // 新しいピックのたびに盤面覗きを解除（カード表示に戻す）
   showOfferCards();
   const wrap=$('offer'); wrap.innerHTML='';
-  state.offer3.forEach(key=>{
+  const redeal = _rerollAnim; _rerollAnim=false;   // リロール直後だけ「配り直し」アニメを付ける
+  state.offer3.forEach((key,_idx)=>{
     const el=document.createElement('div');
     if(isSpecial(key)){
       const s=SPECIALS[key];
@@ -3149,6 +3181,7 @@ function renderPickOffer(){
         <div class="stats"><span class="atk">⚔ ${u.atk}</span><span class="hp">✚ ${u.hp}</span></div>`;
       attachCardHold(el,key);
     }
+    if(redeal && el.classList){ el.classList.add('redeal'); el.style.animationDelay=(_idx*0.06)+'s'; }   // 順番にシャッと配り直す
     wrap.appendChild(el);
   });
   $('draftHint').textContent = '3枚から1枚えらぼう';
@@ -3392,6 +3425,8 @@ function lockAndFight(){
   arrangeFormation(world,'p',true);    // 自軍もきっちり整列
   // 開戦
   world.phase='battle'; world.intro=1.0; world.t=0; world.done=false;
+  // ⚡雷おこしの予約ぶんを開戦直前に敵全軍へ落とす（FIGHT!の1秒の間に黄色い雷が落ちてダメージ）
+  if(state.thunderPending>0){ fireThunderStrikes(world, state.thunderPending); state.thunderPending=0; }
   hideFoePick();
   $('draftPanel').classList.add('hidden');
   $('offerOverlay').classList.add('hidden');
@@ -3405,7 +3440,7 @@ function lockAndFight(){
 /* ============================================================
    6) ワールド & ステップ（純粋ロジック）
    ============================================================ */
-function createWorld(W,H){ return { W,H, units:[], shots:[], dmgs:[], parts:[], rings:[], slashes:[], puddles:[], shake:0, t:0, done:false, result:null, intro:0, phase:'muster' }; }
+function createWorld(W,H){ return { W,H, units:[], shots:[], dmgs:[], parts:[], rings:[], slashes:[], bolts:[], puddles:[], shake:0, t:0, done:false, result:null, intro:0, phase:'muster' }; }
 function burst(world,x,y,color,n,spd){ if(LOW_FX) n=Math.ceil(n*0.5); const cap=partCap(); for(let i=0;i<n;i++){ if(world.parts.length>=cap) break; const a=Math.random()*6.28,s=spd*(0.4+Math.random());world.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.5+Math.random()*0.4,color,size:1.5+Math.random()*2.5});} }
 function popDmg(world,x,y,txt,color){ world.dmgs.push({x,y,vy:-26,life:0.8,txt,color}); }
 function nearestEnemy(u, world){
@@ -4041,6 +4076,8 @@ function shellStep(world, u, tgt, dt){
 function stepWorld(world, dt){
   world.t += dt;
   if(world.shake>0) world.shake=Math.max(0,world.shake-dt*30);   // 揺れ減衰はどのフェーズでも進める（強化の揺れがドラフト中ずっと残るバグ防止）
+  if(world.bolts && world.bolts.length){ for(const b of world.bolts) b.life-=dt; world.bolts=world.bolts.filter(b=>b.life>0); }   // ⚡落雷の稲妻演出（開戦のFIGHT!中に落ちるのでintro中も減衰させる）
+  if(world.flash>0) world.flash=Math.max(0, world.flash-dt*1.6);   // ⚡落雷の画面フラッシュ減衰（intro中も進める）
   if(world.phase==='muster'){ musterStep(world,dt); return; }
   if(world.phase==='outro'){ outroStep(world,dt); return; }   // 戦闘後：砂糖にとける演出
   if(world.intro>0){ world.intro-=dt; return; }
@@ -4538,6 +4575,21 @@ function render(){
     ctx.beginPath(); ctx.arc(s.x,s.y,rr,a0,a1); ctx.lineWidth=Math.max(1,10*(1-pr)); ctx.stroke();
     ctx.globalAlpha=Math.max(0,1-pr)*0.9; ctx.strokeStyle='#fff';
     ctx.beginPath(); ctx.arc(s.x,s.y,rr,a0+0.12,a1-0.12); ctx.lineWidth=Math.max(1,4*(1-pr)); ctx.stroke();
+    ctx.restore(); ctx.globalAlpha=1;
+  }
+  // ⚡雷おこし：着弾の瞬間、画面全体が黄色くまぶしく光る
+  if(world.flash>0){ ctx.save(); ctx.globalAlpha=Math.min(0.55, world.flash); ctx.fillStyle='#fff3a0'; ctx.fillRect(0,0,CW,CH); ctx.restore(); ctx.globalAlpha=1; }
+  // ⚡雷おこしの黄色い稲妻（上から対象へ）：太い黄グロー＋白い芯＋着弾フラッシュ
+  if(world.bolts) for(const b of world.bolts){
+    const a=Math.max(0,Math.min(1,b.life/b.max)); if(!b.pts||b.pts.length<2) continue;
+    ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
+    ctx.globalAlpha=a; ctx.strokeStyle='#ffe94a'; ctx.lineWidth=6; ctx.shadowColor='#ffdf2e'; ctx.shadowBlur=18;
+    ctx.beginPath(); b.pts.forEach((p,i)=> i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke();
+    ctx.globalAlpha=Math.min(1,a*1.2); ctx.strokeStyle='#fffbe0'; ctx.lineWidth=2.2; ctx.shadowBlur=6;
+    ctx.beginPath(); b.pts.forEach((p,i)=> i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke();
+    // 着弾のまぶしいフラッシュ
+    ctx.globalAlpha=a*0.85; ctx.shadowBlur=24; ctx.fillStyle='#fff6b0';
+    ctx.beginPath(); ctx.arc(b.x,b.y,7+8*(1-a),0,6.28); ctx.fill();
     ctx.restore(); ctx.globalAlpha=1;
   }
   for(const s of world.shots){
