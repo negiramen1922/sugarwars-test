@@ -1162,7 +1162,7 @@ const UNITS = [
   {key:'popcorn_mini', name:'小型ポップコーン', icon:'🍿', role:'fodder', tier:1, count:1, atk:0, hp:24, speed:132, range:22, cd:1.0, tag:'自爆', short:'TNTの爆発から飛び出してもう一度自爆する小型', text:'ポップコーンTNTの爆発から飛び出す小型。すぐに自爆する（さらに分裂はしない）。', suicide:true, blast:60, blastR:48, fuse:0.4, summonOnly:true, spriteScale:0.62},
   {key:'shoe',  name:'シュークリームアーチャー', icon:'🧁', role:'back', tier:1.5, count:4, atk:14, hp:44, speed:55, range:150, cd:1.0, tag:'後衛', short:'弓を放つシュークリーム', text:'後方から弓を放つシュークリームのアーチャー。矢の雨で近づく前に溶かしちゃう！', ranged:true},
   {key:'ghost', name:'わたあめゴースト', icon:'☁️', role:'back', tier:3.5, count:3, atk:16, hp:44, speed:95, range:28, cd:0.43, tag:'強襲', short:'敵の後衛を奇襲するおばけ', text:'敵の後衛にワープして奇襲するおばけ。背後をとって挟み撃ちにしよう。うらめしや！！', warper:true, warpDelay:1.5, target:'back'},
-  {key:'cannon',name:'キャンディキャノン', icon:'🎆', role:'back', tier:3, count:1, atk:0, hp:140, speed:0, range:9999, cd:4.8, tag:'迫撃', short:'最後尾から打ち込まれる強力な一撃', text:'最後尾から大ダメージの強力な一撃の迫撃をお見舞いする。', artillery:true, mortar:90, splash:35, shotSpeed:230, arcH:80, spriteScale:1.25},
+  {key:'cannon',name:'キャンディキャノン', icon:'🎆', role:'back', tier:3, count:1, atk:0, hp:140, speed:0, range:9999, cd:5.0, tag:'迫撃', short:'最後尾から打ち込まれる強力な一撃', text:'最後尾から大ダメージの強力な一撃の迫撃をお見舞いする。', artillery:true, mortar:90, splash:35, shotSpeed:230, arcH:80, spriteScale:1.25},
   {key:'icewiz', name:'アイスクリームウィザード', icon:'🍦', role:'back', tier:2.5, count:1, atk:20, hp:70, speed:60, range:190, cd:1.0, tag:'氷の魔導士', short:'小さな氷弾を放ち敵の進行を遅延するウィザード', text:'後方から小さな氷弾を放ち敵の進行を遅延するウィザード。', ranged:true, splash:32, slowHit:0.5, slowDur:0.5},
   {key:'macaron', name:'シェルマカロン', icon:'🟣', role:'tank', tier:-2.5, count:2, atk:12, hp:100, speed:70, range:28, cd:0.9, tag:'殻スピン', short:'殻にこもって突撃するマカロン', text:'マカロンの殻にこもり、回転しながら敵にタックルをする暴れん坊。こいつの殻を破るのは甘くない', shell:true},
   // マシュマロエンジェル（アニメ付き・開発テスト中）。test:true でロスター/ドラフト/CPUデッキからは除外。
@@ -4855,7 +4855,7 @@ const NEWS = [
     '<b class="news-h">3. サウンド＆演出を強化</b>',
     '各キャラの攻撃音やアクション音を大幅に追加。試合の決着に勝利・敗北の演出音、戦闘中には軽快なBGMが流れるようになりました（音量は設定から調整できます）。',
     '<b class="news-h">4. バランス調整</b>',
-    '・キャンディキャノン … 攻撃間隔を 4.2秒 → 4.8秒 に延長し、連射力を下げました。',
+    '・キャンディキャノン … 攻撃間隔を 4.2秒 → 5.0秒 に延長し、連射力を下げました。',
     '・わたあめゴースト … ワープ直後の無敵中は移動しないようにしました（以前は無敵のまま前進できたため。HP等の数値は変更なし）。',
     '・スプーンナイトプリン … 「ダブルスプーン」で2本のスプーンが遠くの正面の敵に当たらないことがある不具合を修正しました。',
     'まだβ版です。あそんで気づいたことをぜひ教えてください。',
