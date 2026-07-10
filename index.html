@@ -173,9 +173,6 @@
   .spell-btn.used .sp-check{position:absolute;top:-6px;right:-6px;background:#3ea36a;color:#fff;font-size:11px;font-weight:800;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 5px rgba(0,0,0,.45)}
   .spell-lbl2{font-family:"Oswald",sans-serif;font-size:11px;letter-spacing:.08em;color:#e6c6ff;margin-left:6px}
   .spellchip{background:linear-gradient(180deg,#6a3fb0,#4a2a86)!important;box-shadow:0 2px 6px rgba(0,0,0,.35)}
-  /* 🔄カードリロール：カードを配り直すアニメ（ゆっくり・順にめくれて出直す） */
-  @keyframes cardRedeal{0%{transform:translateY(-22px) rotateY(90deg) scale(.9);opacity:0}45%{opacity:.5}70%{transform:translateY(0) rotateY(-8deg) scale(1.02);opacity:1}100%{transform:none;opacity:1}}
-  .card.redeal{animation:cardRedeal .5s cubic-bezier(.2,.85,.3,1) both}
   .draft-peek-btn{display:none}       /* 盤面が常に見えるので覗き見ボタンは不要 */
   .draft-peek-back{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:60;pointer-events:auto;box-shadow:0 6px 18px rgba(0,0,0,.5)}
   .draft-peek-back.hidden{display:none}
@@ -3116,9 +3113,10 @@ function spawnThunderBolt(world, tgt){
   const caster = { side:'p', x:tgt.x, y:0, recruit:false, hp:1, _dead:false };
   applyHit(world, caster, tgt, SPELL_THUNDER_DMG);
 }
-// 🔄カードリロール：いまのピックの提示3枚を引き直す（強化カード差し替え抽選も再実行・ピックは消費しない）
-let _rerollAnim = false;   // 次のrenderPickOfferで「配り直し」アニメを付ける一発フラグ
+// 🔄カードリロール：いまのピックの提示3枚を引き直す（ピック消費なし）。
+// 演出＝3枚が中央でひとつにまとまって下へ消える → 下から1枚出てきて3つに分かれる（デッキを切って配り直すイメージ）。
 function castReroll(){
+  // 新しい提示を即確定（状態はここで更新＝ヘッドレステストもここまでで完結）
   state.offer3 = shuffle(state.loadout).slice(0, CONFIG.offerPerPick);
   const specials = eligibleSpecials();
   if(!tutorial && !pvpMode && specials.length && Math.random() < SPECIAL_OFFER_CHANCE){
@@ -3127,8 +3125,31 @@ function castReroll(){
     state.offer3[i] = sp;
   }
   SFX.play('spell_reroll');   // シャッシャシャ（カードを切る）
-  _rerollAnim = true;         // カードを配り直すアニメ
-  renderPickOffer();          // 引き直した提示を再描画（放置タイマーもリセット）＋renderSpellBar
+  const wrap = $('offer');
+  // ヘッドレス/簡易DOMはレイアウト計測できないので演出なしで即差し替え
+  if(!wrap || typeof wrap.getBoundingClientRect!=='function' || typeof requestAnimationFrame!=='function' || !wrap.children || !wrap.children.length){
+    renderPickOffer(); return;
+  }
+  rerollShuffleAnim(wrap);
+}
+// 旧3枚を中央でひとつにまとめて下へ落とす → 新カードを配り直して「下から1枚→3つに分かれる」
+function rerollShuffleAnim(wrap){
+  picking = true; stopPickTimer();   // 演出中は選択・放置タイマーを止める
+  const wr = wrap.getBoundingClientRect(), cx = wr.left + wr.width/2;
+  const olds = Array.from(wrap.children).map(c=>{ const r=c.getBoundingClientRect(); return { c, dx: cx-(r.left+r.width/2) }; });
+  olds.forEach(({c,dx})=>{ c.style.willChange='transform,opacity'; c.style.zIndex='6'; c.style.transition='transform .16s cubic-bezier(.4,0,.6,1)'; c.style.transform='translateX('+dx+'px)'; });   // 中央へ集める
+  setTimeout(()=>{ olds.forEach(({c,dx})=>{ c.style.transition='transform .22s cubic-bezier(.5,0,.9,.4), opacity .22s ease-in'; c.style.transform='translateX('+dx+'px) translateY(165%) scale(.85)'; c.style.opacity='0'; }); }, 160);   // ひとつになって下へ落ちて消える
+  setTimeout(()=>{ renderPickOffer(); rerollRiseSplit($('offer')); }, 380);   // 新カードを配り直して下から出す
+}
+function rerollRiseSplit(wrap){
+  if(!wrap || !wrap.children || !wrap.children.length){ picking=false; renderSpellBar(); return; }
+  const wr = wrap.getBoundingClientRect(), cx = wr.left + wr.width/2;
+  const news = Array.from(wrap.children).map(c=>{ const r=c.getBoundingClientRect(); return { c, dx: cx-(r.left+r.width/2) }; });
+  news.forEach(({c,dx})=>{ c.style.willChange='transform'; c.style.zIndex='6'; c.style.transition='none'; c.style.transform='translateX('+dx+'px) translateY(175%) scale(.9)'; });   // 初期：中央に重ねて画面下（＝1枚に見える）
+  void wrap.offsetWidth;   // reflow
+  requestAnimationFrame(()=>{ news.forEach(({c,dx})=>{ c.style.transition='transform .22s cubic-bezier(.2,.7,.3,1.1)'; c.style.transform='translateX('+dx+'px) translateY(0) scale(1)'; }); });   // 下から中央へ（重なったまま浮上＝1枚）
+  setTimeout(()=>{ news.forEach(({c})=>{ c.style.transition='transform .28s cubic-bezier(.2,.8,.35,1.05)'; c.style.transform='translateX(0) translateY(0)'; }); SFX.play('spell_reroll'); }, 240);   // 3つに分かれる
+  setTimeout(()=>{ news.forEach(({c})=>{ c.style.transition=''; c.style.transform=''; c.style.zIndex=''; c.style.willChange=''; }); picking=false; renderSpellBar(); }, 560);   // 後片付け＋選択解禁
 }
 // --- カード選択の制限時間（放置対策）：制限時間内に選ばなければ一番左のカードを自動選択 ---
 const PICK_TIME_LIMIT = 30;   // 秒。PVP/PVE共通のカード選択の持ち時間
@@ -3178,7 +3199,6 @@ function renderPickOffer(){
   setDraftPeek(false);   // 新しいピックのたびに盤面覗きを解除（カード表示に戻す）
   showOfferCards();
   const wrap=$('offer'); wrap.innerHTML='';
-  const redeal = _rerollAnim; _rerollAnim=false;   // リロール直後だけ「配り直し」アニメを付ける
   state.offer3.forEach((key,_idx)=>{
     const el=document.createElement('div');
     if(isSpecial(key)){
@@ -3201,7 +3221,6 @@ function renderPickOffer(){
         <div class="stats"><span class="atk">⚔ ${u.atk}</span><span class="hp">✚ ${u.hp}</span></div>`;
       attachCardHold(el,key);
     }
-    if(redeal && el.classList){ el.classList.add('redeal'); el.style.animationDelay=(_idx*0.14)+'s'; }   // 順番にゆっくり配り直す（左→右）
     wrap.appendChild(el);
   });
   $('draftHint').textContent = '3枚から1枚えらぼう';
