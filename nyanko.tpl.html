@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>SUGAR MARCH（にゃんこ風・試作）</title>
+<style>
+  :root{ --bg1:#2a1a3a; --bg2:#12203a; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; background:#0d0a16; color:#fff;
+    font-family:system-ui,"Segoe UI",Roboto,"Hiragino Kaku Gothic ProN",sans-serif; overflow:hidden; }
+  #wrap{ width:100%; height:100%; display:flex; flex-direction:column; align-items:center; }
+  #top{ width:100%; max-width:960px; padding:6px 10px 0; }
+  .bars{ display:flex; gap:10px; align-items:center; }
+  .castle{ flex:1; }
+  .clabel{ font-size:12px; opacity:.85; display:flex; justify-content:space-between; }
+  .track{ height:12px; border-radius:7px; background:#00000055; overflow:hidden; box-shadow:inset 0 0 0 1px #ffffff22; }
+  .fill{ height:100%; width:100%; transition:width .12s linear; }
+  .p .fill{ background:linear-gradient(90deg,#43c6ff,#2a7bff); }
+  .e .fill{ background:linear-gradient(90deg,#ff7b7b,#ff3a3a); }
+  #money{ text-align:center; font-weight:800; font-size:15px; margin:5px 0 2px;
+    text-shadow:0 1px 2px #000; }
+  #money b{ color:#ffdf6b; font-size:18px; }
+  #stage{ width:100%; max-width:960px; flex:1; min-height:0; display:flex; align-items:center; justify-content:center; padding:4px 6px; }
+  canvas{ width:100%; height:auto; max-height:100%; border-radius:12px; display:block;
+    image-rendering:pixelated; box-shadow:0 8px 28px #0008; touch-action:manipulation; }
+  #dock{ width:100%; max-width:960px; display:flex; gap:8px; padding:8px 10px 12px; }
+  .btn{ position:relative; flex:1; border:none; border-radius:12px; padding:8px 4px 6px;
+    background:#241a33; color:#fff; cursor:pointer; overflow:hidden; user-select:none;
+    box-shadow:0 3px 0 #0006, inset 0 0 0 1px #ffffff18; }
+  .btn:active{ transform:translateY(2px); box-shadow:0 1px 0 #0006, inset 0 0 0 1px #ffffff18; }
+  .btn .ic{ width:46px; height:46px; margin:0 auto; display:block; image-rendering:pixelated; }
+  .btn .nm{ font-size:11px; opacity:.9; margin-top:2px; }
+  .btn .co{ font-size:13px; font-weight:800; color:#ffdf6b; }
+  .btn .cd{ position:absolute; left:0; right:0; bottom:0; top:0; background:#000a;
+    transform-origin:bottom; transform:scaleY(0); pointer-events:none; }
+  .btn.off{ filter:grayscale(.6) brightness(.7); }
+  .btn.rdy{ box-shadow:0 3px 0 #0006, inset 0 0 0 2px #ffd23f; }
+  #overlay{ position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+    background:#000b; z-index:20; }
+  #overlay .card{ background:#20152e; border-radius:18px; padding:26px 28px; text-align:center;
+    box-shadow:0 12px 40px #000a, inset 0 0 0 1px #ffffff1a; max-width:88vw; }
+  #overlay h1{ margin:0 0 6px; font-size:34px; }
+  #overlay p{ margin:0 0 16px; opacity:.85; }
+  #overlay button{ border:none; border-radius:12px; padding:12px 22px; font-size:16px; font-weight:800;
+    background:linear-gradient(90deg,#ff9f43,#ff6b9d); color:#fff; cursor:pointer;
+    box-shadow:0 4px 0 #0006; }
+  #hint{ position:fixed; top:8px; left:50%; transform:translateX(-50%); z-index:5;
+    background:#000a; padding:5px 12px; border-radius:20px; font-size:12px; opacity:.9; pointer-events:none;
+    transition:opacity .5s; }
+  .title{ font-size:13px; font-weight:800; letter-spacing:.5px; opacity:.9; margin-top:2px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="top">
+    <div class="title">🍭 SUGAR MARCH <span style="opacity:.5;font-weight:400">— にゃんこ風・試作</span></div>
+    <div class="bars">
+      <div class="castle p"><div class="clabel"><span>🏰 じぶんのお城</span><span id="phpTxt"></span></div><div class="track"><div class="fill" id="php"></div></div></div>
+      <div class="castle e"><div class="clabel"><span id="ehpTxt"></span><span>敵のお城 🏰</span></div><div class="track"><div class="fill" id="ehp"></div></div></div>
+    </div>
+    <div id="money">🍬 <b id="moneyTxt">0</b> <span style="opacity:.6;font-size:12px">/ 貯まる速さ +<span id="rateTxt">0</span>/秒</span></div>
+  </div>
+  <div id="stage"><canvas id="cv" width="960" height="440"></canvas></div>
+  <div id="dock"></div>
+</div>
+<div id="hint">🍬を貯めて下のボタンでなかまを出撃！ 敵のお城を落とそう</div>
+<div id="overlay"><div class="card"><h1 id="ovT"></h1><p id="ovP"></p><button onclick="restart()">もういちど</button></div></div>
+
+<script>
+"use strict";
+/* ============================================================
+   SUGAR MARCH — SUGAR WARS のキャラを流用した「にゃんこ大戦争風」1レーン試作
+   ・本家 index.html とは独立した単一ファイル（スプライトは index.html から流用）。
+   ・コアループ：🍬が時間で貯まる → ボタンでユニット出撃 → 右へ歩いて自動戦闘 → 敵の城を破壊で勝利。
+   ・数値は仮。バランス調整は各 DEFS / CONF をいじるだけ。
+   ============================================================ */
+const SPRITE_DATA = /*__SPRITES__*/ {};
+const SPRITES = {};
+for(const k in SPRITE_DATA){ const im = new Image(); im.src = SPRITE_DATA[k]; SPRITES[k] = im; }
+
+/* --- 設定（ここを触ればバランス調整できる） --- */
+const CONF = {
+  W: 960, H: 440,
+  groundY: 372,          // 地面のライン（この上に立つ）
+  laneTop: 300,          // ユニットのy散らしの上端
+  castleHP: 1600,        // 両陣営のお城HP
+  moneyStart: 160,       // 開始🍬
+  moneyRate: 26,         // 🍬/秒（貯まる速さ）
+  moneyCap: 700,         // 🍬上限
+  castleAtkRange: 40,    // お城への攻撃が届く距離
+  maxUnitsPerSide: 60,   // 片side上限（暴走防止）
+  enemyStartCd: 3.6,     // 敵の出撃間隔（開始）
+  enemyMinCd: 1.5,       // 敵の出撃間隔（最短）
+  enemyRampSec: 70,      // この秒数かけて最短まで詰める
+};
+
+/* --- ユニット定義（本家 UNITS の抜粋＋にゃんこ用の出撃コスト/リチャージ） ---
+   role: melee=近接 / ranged=射手 / bomber=自爆
+   cost=出撃🍬 / rc=リチャージ秒 / num=1回で出る数 / scale=描画倍率 */
+const DEFS = {
+  cookie: {name:'クッキー',   role:'melee',  atk:14, hp:50,  speed:118, range:26, cd:0.35, scale:0.80,
+           cost:50,  rc:2.0, num:2, spr:'cookie'},
+  choco:  {name:'チョコ',     role:'melee',  atk:20, hp:230, speed:60,  range:32, cd:0.95, scale:1.05,
+           cost:130, rc:7.0, num:1, spr:'choco'},
+  shoe:   {name:'シュー',     role:'ranged', atk:14, hp:46,  speed:56,  range:170, cd:1.0, scale:0.86,
+           cost:90,  rc:4.0, num:1, spr:'shoe_aim'},
+  bomb:   {name:'ポップコーン',role:'bomber', atk:0,  hp:55,  speed:132, range:30, cd:1.0, scale:0.86,
+           blast:120, blastR:64, cost:60, rc:3.0, num:1, spr:'bomb'},
+};
+const ORDER = ['cookie','choco','shoe','bomb'];
+
+/* --- 状態 --- */
+let world, money, php, ehp, cd, enemyCd, elapsed, running, lastT, hintFade=0;
+
+function reset(){
+  world = { units:[], shots:[], parts:[], nextId:1 };
+  money = CONF.moneyStart;
+  php = ehp = CONF.castleHP;
+  cd = {};                              // key -> 残りリチャージ秒
+  for(const k of ORDER) cd[k] = 0;
+  enemyCd = 1.2;                        // 最初の敵まで
+  elapsed = 0;
+  running = true;
+}
+
+/* --- ユニット生成 --- */
+function spawn(key, side){
+  const D = DEFS[key];
+  const arr = world.units.filter(u=>u.side===side);
+  if(arr.length >= CONF.maxUnitsPerSide) return;
+  const n = D.num || 1;
+  for(let i=0;i<n;i++){
+    const baseX = side==='p' ? 46 : CONF.W-46;
+    const y = CONF.laneTop + Math.random()*(CONF.groundY-CONF.laneTop);
+    world.units.push({
+      id: world.nextId++, key, side, U:D,
+      x: baseX + (side==='p'?1:-1)*(i*14 + Math.random()*8),
+      y, hp:D.hp, maxHp:D.hp, atk:D.atk, speed:D.speed, range:D.range, cd:D.cd,
+      cool: Math.random()*0.2, dir: side==='p'?1:-1, bob:Math.random()*6.28,
+      fuseT:-1, dead:false,
+    });
+  }
+}
+
+/* --- 近くの敵を探す（x距離が最小） --- */
+function nearestEnemy(u){
+  let best=null, bd=1e9;
+  for(const o of world.units){
+    if(o.side===u.side || o.dead) continue;
+    const d = Math.abs(o.x - u.x);
+    if(d<bd){ bd=d; best=o; }
+  }
+  return best ? {o:best, d:bd} : null;
+}
+
+/* --- 爆発（bomber / bomb） --- */
+function explode(x, y, side, blast, blastR){
+  for(const o of world.units){
+    if(o.side===side || o.dead) continue;
+    const d = Math.hypot(o.x-x, o.y-y);
+    if(d<=blastR){
+      const fall = 1 - 0.5*(d/blastR);
+      o.hp -= blast*fall;
+    }
+  }
+  // お城への直撃
+  if(side==='p' && (CONF.W-x)<=blastR+CONF.castleAtkRange) ehp -= blast;
+  if(side==='e' && x<=blastR+CONF.castleAtkRange) php -= blast;
+  for(let i=0;i<14;i++){
+    const a=Math.random()*6.28, s=40+Math.random()*120;
+    world.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-30,life:0.5,max:0.5,c:'#ffd23f',r:3+Math.random()*3});
+  }
+  SFX_boom();
+}
+
+/* --- 弾（射手） --- */
+function fireShot(u, target){
+  world.shots.push({ x:u.x, y:u.y-14, side:u.side, dmg:u.atk, sp:340, r:12,
+    tid:target.id, tx:target.x, ty:target.y-14, ang:0 });
+}
+
+/* --- 1フレーム進める --- */
+function step(dt){
+  elapsed += dt;
+  // 🍬の自動チャージ
+  money = Math.min(CONF.moneyCap, money + CONF.moneyRate*dt);
+  for(const k of ORDER) if(cd[k]>0) cd[k]=Math.max(0, cd[k]-dt);
+
+  // 敵の出撃（時間で圧が上がる）
+  enemyCd -= dt;
+  if(enemyCd<=0){
+    enemySpawn();
+    const p = Math.min(1, elapsed/CONF.enemyRampSec);
+    enemyCd = CONF.enemyStartCd + (CONF.enemyMinCd-CONF.enemyStartCd)*p;
+  }
+
+  // ユニット思考
+  for(const u of world.units){
+    if(u.dead) continue;
+    u.bob += dt*10;
+    const D = u.U;
+    const near = nearestEnemy(u);
+    const castleX = u.side==='p' ? CONF.W : 0;
+    const castleDist = Math.abs(castleX - u.x) - 6;
+    const enemyInRange = near && near.d <= u.range;
+    const castleInRange = castleDist <= (u.range<CONF.castleAtkRange?CONF.castleAtkRange:u.range);
+
+    if(u.fuseT>=0){                       // 導火中（bomber）
+      u.fuseT -= dt;
+      if(u.fuseT<=0){
+        explode(u.x, u.y, u.side, D.blast, D.blastR);
+        u.dead = true;
+      }
+      continue;
+    }
+
+    if(D.role==='bomber' && (enemyInRange || castleInRange)){
+      u.fuseT = 0.28;                     // 起爆準備
+      continue;
+    }
+
+    if(enemyInRange || castleInRange){
+      // 攻撃
+      u.cool -= dt;
+      if(u.cool<=0){
+        u.cool = u.cd;
+        if(D.role==='ranged' && enemyInRange){
+          fireShot(u, near.o); SFX_shot();
+        }else if(enemyInRange){
+          near.o.hp -= u.atk; SFX_hit();
+        }else if(castleInRange){
+          if(u.side==='p') ehp -= u.atk; else php -= u.atk;
+          SFX_hit();
+        }
+      }
+    }else{
+      // 前進（ただし敵城/敵より先には行かない）
+      let nx = u.x + u.dir*u.speed*dt;
+      if(u.side==='p') nx = Math.min(nx, CONF.W-CONF.castleAtkRange);
+      else nx = Math.max(nx, CONF.castleAtkRange);
+      u.x = nx;
+    }
+  }
+
+  // 弾の移動
+  for(const s of world.shots){
+    if(s.dead) continue;
+    // 標的追尾（生きていれば座標更新）
+    const t = world.units.find(u=>u.id===s.tid && !u.dead);
+    if(t){ s.tx=t.x; s.ty=t.y-14; }
+    const dx=s.tx-s.x, dy=s.ty-s.y, d=Math.hypot(dx,dy);
+    s.ang = Math.atan2(dy,dx);
+    if(d < s.sp*dt + s.r){
+      if(t) t.hp -= s.dmg;
+      s.dead = true;
+    }else{ s.x += dx/d*s.sp*dt; s.y += dy/d*s.sp*dt; }
+  }
+
+  // 死亡処理
+  for(const u of world.units){
+    if(!u.dead && u.hp<=0){ u.dead=true; deathBurst(u); }
+  }
+  world.units = world.units.filter(u=>!u.dead);
+  world.shots = world.shots.filter(s=>!s.dead);
+
+  // 粒子
+  for(const p of world.parts){ p.life-=dt; p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=260*dt; }
+  world.parts = world.parts.filter(p=>p.life>0);
+
+  // 決着
+  if(ehp<=0){ running=false; win(true); }
+  else if(php<=0){ running=false; win(false); }
+}
+
+function deathBurst(u){
+  for(let i=0;i<6;i++){
+    const a=Math.random()*6.28, s=20+Math.random()*70;
+    world.parts.push({x:u.x,y:u.y-10,vx:Math.cos(a)*s,vy:-Math.random()*80,life:0.4,max:0.4,
+      c: u.side==='p'?'#8fd0ff':'#ffb0b0', r:2+Math.random()*2});
+  }
+}
+
+/* --- 敵の出撃AI（時間経過で強い編成も混ぜる） --- */
+function enemySpawn(){
+  const p = Math.min(1, elapsed/CONF.enemyRampSec);
+  let pool;
+  if(p<0.25)      pool = ['cookie','cookie','bomb','shoe'];
+  else if(p<0.6)  pool = ['cookie','shoe','bomb','choco'];
+  else            pool = ['cookie','choco','shoe','bomb','choco'];
+  const key = pool[(Math.random()*pool.length)|0];
+  spawn(key, 'e');
+}
+
+/* --- プレイヤー出撃 --- */
+function deploy(key){
+  if(!running) return;
+  const D = DEFS[key];
+  if(cd[key]>0 || money < D.cost) return;
+  money -= D.cost;
+  cd[key] = D.rc;
+  spawn(key, 'p');
+  SFX_deploy();
+  hideHint();
+}
+
+/* ============================================================
+   描画
+   ============================================================ */
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+function drawCastle(x, side){
+  const g = CONF.groundY;
+  ctx.save();
+  ctx.translate(x, 0);
+  const col = side==='p' ? '#3b7bd6' : '#d64a4a';
+  const col2= side==='p' ? '#2a5aa8' : '#a83030';
+  // 土台
+  ctx.fillStyle = col2; ctx.fillRect(-26, g-70, 52, 70);
+  ctx.fillStyle = col;  ctx.fillRect(-22, g-64, 44, 64);
+  // 屋根
+  ctx.fillStyle = col2;
+  ctx.beginPath(); ctx.moveTo(-30,g-64); ctx.lineTo(0,g-92); ctx.lineTo(30,g-64); ctx.closePath(); ctx.fill();
+  // 窓
+  ctx.fillStyle = '#ffe9a8';
+  ctx.fillRect(-8, g-44, 16, 18);
+  ctx.restore();
+}
+
+function drawUnit(u){
+  const D = u.U;
+  const key = D.spr + '_' + (u.side==='p'?'blue':'red');
+  const im = SPRITES[key];
+  const S = 60 * (D.scale||1);
+  const cx = u.x, cy = u.y;
+  // 影
+  ctx.save();
+  ctx.globalAlpha = 0.28; ctx.fillStyle='#000';
+  ctx.beginPath(); ctx.ellipse(cx, CONF.groundY+2, S*0.30, S*0.11, 0,0,6.28); ctx.fill();
+  ctx.restore();
+  const bobY = Math.sin(u.bob)*2;
+  ctx.save();
+  ctx.translate(cx, cy+bobY);
+  if(u.side==='e') ctx.scale(-1,1);   // 敵は左向き
+  if(u.fuseT>=0){                      // 起爆前フラッシュ
+    ctx.globalAlpha = 0.6 + 0.4*Math.sin(elapsed*40);
+  }
+  if(im && im.complete && im.naturalWidth){
+    ctx.drawImage(im, -S/2, -S+6, S, S);
+  }else{
+    ctx.font = (S*0.7)+'px serif'; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+    ctx.fillText('🍬', 0, 0);
+  }
+  ctx.restore();
+  // HPバー
+  if(u.hp < u.maxHp){
+    const w=S*0.5, h=4, bx=cx-w/2, by=cy-S+2;
+    ctx.fillStyle='#0008'; ctx.fillRect(bx,by,w,h);
+    ctx.fillStyle = u.side==='p'?'#6fd66f':'#ff8a5a';
+    ctx.fillRect(bx,by,w*Math.max(0,u.hp/u.maxHp),h);
+  }
+}
+
+function drawShot(s){
+  const key = 'arrow_' + (s.side==='p'?'blue':'red');
+  const im = SPRITES[key];
+  ctx.save();
+  ctx.translate(s.x, s.y);
+  ctx.rotate(s.ang);
+  if(im && im.complete && im.naturalWidth){ ctx.drawImage(im, -14, -14, 28, 28); }
+  else { ctx.fillStyle = s.side==='p'?'#7fd0ff':'#ff9090'; ctx.fillRect(-6,-2,12,4); }
+  ctx.restore();
+}
+
+function render(){
+  const W=CONF.W, H=CONF.H, g=CONF.groundY;
+  // 背景（お菓子っぽいグラデ）
+  const bg = ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#3a2a55'); bg.addColorStop(0.6,'#2a3a66'); bg.addColorStop(1,'#243a5c');
+  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+  // 遠景の丘
+  ctx.fillStyle='#ffffff12';
+  for(let i=0;i<4;i++){ ctx.beginPath(); ctx.ellipse(120+i*260, g+20, 200, 90, 0,0,6.28); ctx.fill(); }
+  // 地面
+  ctx.fillStyle='#e7b57a'; ctx.fillRect(0,g,W,H-g);
+  ctx.fillStyle='#d59f63'; ctx.fillRect(0,g,W,6);
+  // お城
+  drawCastle(24,'p'); drawCastle(W-24,'e');
+  // ユニット（奥→手前：y昇順）
+  const us = world.units.slice().sort((a,b)=>a.y-b.y);
+  for(const u of us) drawUnit(u);
+  for(const s of world.shots) drawShot(s);
+  // 粒子
+  for(const p of world.parts){
+    ctx.globalAlpha = Math.max(0, p.life/p.max);
+    ctx.fillStyle = p.c;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,6.28); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* --- HUD更新 --- */
+function hud(){
+  document.getElementById('moneyTxt').textContent = Math.floor(money);
+  document.getElementById('rateTxt').textContent = CONF.moneyRate;
+  const pv = Math.max(0, php/CONF.castleHP), ev = Math.max(0, ehp/CONF.castleHP);
+  document.getElementById('php').style.width = (pv*100)+'%';
+  document.getElementById('ehp').style.width = (ev*100)+'%';
+  document.getElementById('phpTxt').textContent = Math.max(0,Math.ceil(php));
+  document.getElementById('ehpTxt').textContent = Math.max(0,Math.ceil(ehp));
+  for(const k of ORDER){
+    const el = btnEls[k]; if(!el) continue;
+    const D = DEFS[k];
+    const onCd = cd[k]>0;
+    const poor = money < D.cost;
+    el.classList.toggle('off', onCd||poor);
+    el.classList.toggle('rdy', !onCd && !poor);
+    el._cd.style.transform = 'scaleY('+(onCd? cd[k]/D.rc : 0)+')';
+  }
+}
+
+/* --- メインループ --- */
+function loop(t){
+  if(!lastT) lastT=t;
+  let dt = (t-lastT)/1000; lastT=t;
+  if(dt>0.05) dt=0.05;            // タブ復帰などの巨大dt対策
+  if(running) step(dt);
+  render(); hud();
+  requestAnimationFrame(loop);
+}
+
+/* --- 決着 --- */
+function win(youWon){
+  const ov = document.getElementById('overlay');
+  document.getElementById('ovT').textContent = youWon ? '🎉 しょうり！' : '💥 まけ…';
+  document.getElementById('ovP').textContent = youWon ? '敵のお城を落とした！' : 'お城が落ちてしまった…';
+  ov.style.display='flex';
+  youWon ? SFX_win() : SFX_lose();
+}
+function restart(){
+  document.getElementById('overlay').style.display='none';
+  reset();
+  showHint();
+}
+
+/* --- ボタンUI --- */
+const dock = document.getElementById('dock');
+const btnEls = {};
+function buildDock(){
+  dock.innerHTML='';
+  for(const k of ORDER){
+    const D = DEFS[k];
+    const b = document.createElement('button'); b.className='btn';
+    const cdEl = document.createElement('div'); cdEl.className='cd';
+    const img = document.createElement('img'); img.className='ic';
+    img.src = SPRITE_DATA[D.spr+'_blue'] || '';
+    const nm = document.createElement('div'); nm.className='nm'; nm.textContent=D.name;
+    const co = document.createElement('div'); co.className='co'; co.textContent='🍬'+D.cost;
+    b.appendChild(cdEl); b.appendChild(img); b.appendChild(nm); b.appendChild(co);
+    b.addEventListener('click', ()=>deploy(k));
+    b._cd = cdEl;
+    dock.appendChild(b); btnEls[k]=b;
+  }
+}
+
+let hintT;
+function showHint(){ const h=document.getElementById('hint'); h.style.opacity='0.9'; clearTimeout(hintT); hintT=setTimeout(hideHint,6000); }
+function hideHint(){ document.getElementById('hint').style.opacity='0'; }
+
+/* ============================================================
+   効果音（Web Audio・軽量合成。未対応なら無音）
+   ============================================================ */
+let AC=null;
+function ac(){ if(AC===null){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ AC=false; } } return AC||null; }
+function blip(freq, dur, type, vol){
+  const c=ac(); if(!c) return;
+  const o=c.createOscillator(), g=c.createGain();
+  o.type=type||'square'; o.frequency.value=freq;
+  g.gain.value=vol||0.06; o.connect(g); g.connect(c.destination);
+  const t=c.currentTime; o.start(t);
+  g.gain.setValueAtTime(g.gain.value,t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.stop(t+dur);
+}
+let lastHit=0;
+function SFX_hit(){ const n=performance.now(); if(n-lastHit<40)return; lastHit=n; blip(220+Math.random()*60,0.05,'square',0.03); }
+function SFX_shot(){ blip(720,0.06,'triangle',0.03); }
+function SFX_deploy(){ blip(520,0.08,'sine',0.06); setTimeout(()=>blip(780,0.08,'sine',0.05),60); }
+function SFX_boom(){ const c=ac(); if(!c)return; const b=c.createBuffer(1,c.sampleRate*0.2,c.sampleRate); const d=b.getChannelData(0); for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,2); const s=c.createBufferSource(); const g=c.createGain(); g.gain.value=0.14; s.buffer=b; s.connect(g); g.connect(c.destination); s.start(); }
+function SFX_win(){ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>blip(f,0.18,'square',0.06),i*110)); }
+function SFX_lose(){ [392,330,262].forEach((f,i)=>setTimeout(()=>blip(f,0.24,'sawtooth',0.05),i*160)); }
+
+/* --- 起動 --- */
+buildDock();
+reset();
+showHint();
+requestAnimationFrame(loop);
+
+/* ヘッドレステスト用に主要関数を公開（node のスモークテスト） */
+if(typeof globalThis!=='undefined') globalThis.__NYANKO = { CONF, DEFS, ORDER,
+  reset, spawn, step, deploy, nearestEnemy, explode,
+  get world(){return world;}, get money(){return money;}, get php(){return php;}, get ehp(){return ehp;},
+  set money(v){money=v;}, set php(v){php=v;}, set ehp(v){ehp=v;} };
+</script>
+</body>
+</html>
