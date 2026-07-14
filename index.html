@@ -1176,10 +1176,10 @@ const UNITS = [
   // ショートケーキ（開発テスト中）。開幕に自分の位置へイチゴタレットを設置する。1枚=1体。立ち絵は青(ブルーベリー)/赤(いちご)＝spriteForで解決。
   // スネイル型。イチゴを背負う立ち絵(shortcake_*)／タレット設置中はイチゴを下ろした立ち絵(shortcake_deploy_*)に切替。戦闘中は歩行2フレーム(*2_*)で下の足の並々が波打つ。青=ブルーベリー/赤=いちご。
   {key:'shortcake', name:'ベリーケーキスネイル', icon:'🍰', role:'fodder', tier:1.75, count:1, atk:10, hp:200, speed:45, range:30, cd:1.0, tag:'設置＋前進', spriteScale:0.89, short:'イチゴのタレットを背負ったカタツムリ', text:'背負ったイチゴのタレットを設置して敵を迎撃するカタツムリ。タレットが壊れたら直ぐに設置できる優秀なエンジニア。', deployTurret:true, turretKey:'strawturret', redeployDelay:0.5, beta:true},
-  // エクレアドッグ（開発テスト中）。複数・高速の突撃犬。走り2フレーム(anim/animRed)＝味方青/敵赤。挙動は素の高速スウォーム（固有ギミック無し）。
-  {key:'eclairdog', name:'エクレアドッグ', icon:'🌭', role:'fodder', tier:0.4, count:4, atk:10, hp:38, speed:150, range:24, cd:0.5, tag:'高速スウォーム', short:'群れで走る足の速い犬', text:'チョコまみれで走りまわるエクレアの犬。足がとにかく速い！みんなで一気に敵に噛みつきに行くぞ。ワン！', anim:['eclairdog_blue','eclairdog_run_blue'], animRed:['eclairdog_red','eclairdog_run_red'], animFps:8, test:true, beta:true},
+  // エクレアドッグ（開発テスト中）。複数・高速の突撃犬。走り2フレーム(anim/animRed)＝味方青/敵赤。firstHit=最初の噛みつきだけ強力(20)。見た目はワッフルランサーのマウントに合わせ spriteScale で大きめ。
+  {key:'eclairdog', name:'エクレアドッグ', icon:'🌭', role:'fodder', tier:0.4, count:4, atk:10, hp:30, speed:150, range:24, cd:0.3, firstHit:20, spriteScale:1.6, tag:'高速スウォーム', short:'群れで走る足の速い犬', text:'チョコまみれで走りまわるエクレアの犬。足がとにかく速い！最初のひと噛みは特に強烈。みんなで一気に敵に噛みつきに行くぞ。ワン！', anim:['eclairdog_blue','eclairdog_run_blue'], animRed:['eclairdog_red','eclairdog_run_red'], animFps:8, test:true, beta:true},
   // ワッフルランサー（開発テスト中）。大福の charger を下敷きに、pierce=貫通突撃で数体を単体ダメージで貫きながら敵陣に食い込む。武器合成：槍なし本体(wafflelancer_body_*)＋槍(wafflelancer_lance)を render で状態別に合成（待機=上に構え/突撃=前に倒す）。
-  {key:'wafflelancer', name:'ワッフルランサー', icon:'🧇', role:'fodder', tier:-0.3, count:1, atk:20, hp:175, speed:90, range:30, cd:0.9, tag:'突撃騎兵', short:'エクレア馬で敵陣に食い込む槍騎兵', text:'エクレアの馬にまたがったワッフルの騎士。チョコの槍を構えて助走から突撃し、数体を貫きながら敵陣に食い込む。ゆけ！', charger:true, pierce:3, dashDamage:70, dashSpeed:300, chargeTime:0.9, dashFar:110, dashRange:26, test:true, beta:true},
+  {key:'wafflelancer', name:'ワッフルランサー', icon:'🧇', role:'fodder', tier:-0.3, count:1, atk:30, hp:250, speed:90, range:30, cd:0.9, tag:'突撃騎兵', short:'エクレア馬で敵陣に食い込む槍騎兵', text:'エクレアの馬にまたがったワッフルの騎士。チョコの槍を構えて助走から突撃し、数体を貫きながら敵陣に食い込む。ゆけ！', charger:true, pierce:3, dashDamage:120, dashSpeed:300, chargeTime:0.9, dashFar:110, dashRange:26, test:true, beta:true},
   // イチゴタレット（ショートケーキ専用の召喚物・動かない短命の砲台）。summonOnly でロスター/ドラフト/CPU/X2/ピッカーから除外。turretLife 秒で消える。
   // untargetable=狙われない＆当たり判定なし（分離/重なり解消の全ループで untargetable を素通し＝敵の前に置いても"無敵の盾"にならない）。
   {key:'strawturret', name:'イチゴタレット', icon:'🍓', role:'back', tier:2, count:1, atk:9, hp:70, speed:0, range:100, cd:0.15, tag:'タレット', short:'狙われずに近くの敵へ小さな粒を連射する砲台（時間/設置者で消滅）', text:'ショートケーキが設置する砲台。動かず近くの敵へ小さな粒（ベリー）を高速で連射する。敵からは狙われないが、設置したショートケーキが倒れる／時間が経つと壊れてしまう。', ranged:true, pellet:true, turretLife:4.0, untargetable:true, summonOnly:true},
@@ -2197,6 +2197,8 @@ function makeFighters(key, side, W, H, slot){
     const hp=u.hp, atk=u.atk, r=Math.max(5,Math.min(11,5+hp*0.028));   // 当たり判定を小さめに（密集して陣地に食い込みにくく）
     arr.push({
       side, key, name:u.name, icon:u.icon, slot, role:u.role, tier:u.tier||0, spriteScale:u.spriteScale||1,
+      firstHit:u.firstHit||0, bitten:false,   // 最初の噛みつきだけ強力（エクレアドッグ）：firstHit>0 なら初撃だけこのダメージ
+
       fly:!!u.fly, guardian:!!u.guardian, recruit:!!u.recruit, noAttack:!!u.noAttack, untargetable:!!u.untargetable,   // 浮遊(近接無敵)／守護天使／仲間化／攻撃しない(エンジェル)／狙われない(タレット)
       noCollide:!!(u.untargetable||u.noCollide),   // 当たり判定なし＝分離/重なりを素通し（タレット＝untargetable由来／マシュマロエンジェル＝noCollide）
       boomerang:!!u.boomerang, boomDist:u.boomDist||150, boomSp:u.boomSp||300, boomR:u.boomR||15,   // プリン：スプーンをブーメラン投げ
@@ -4262,7 +4264,7 @@ function stepWorld(world, dt){
           // タレットは矢ではなく小さな粒（ベリー）を直線・高速で連射（sprite指定なし＝丸い粒で描画）
           world.shots.push({x:u.x,y:u.y,sx:u.x,sy:u.y,tx:tgt.x,ty:tgt.y,total:dtot,target:tgt,owner:u,side:u.side,atk:u.atk,splash:u.splash,sp:ice?300:pel?460:340,color:ice?'#8fd8ff':pel?(u.side==='p'?'#6f7dff':'#ff5a7a'):(u.splash?'#b98cff':'#ffe08a'),sprite:ice?'ice':pel?'pellet':'arrow',arcH:ice?34:pel?0:SHOE_ARC,chill:u.slowHit||0,chillDur:u.slowDur||0});
           SFX.play(ice?'atk_icewiz':'atk_'+u.key); }   // 氷弾＝アイスウィザード／粒＝タレット／矢＝シュー等
-        else { u.knockx-=(tgt.x-u.x)/(dist||1)*0.9; u.knocky-=(tgt.y-u.y)/(dist||1)*0.9; applyHit(world,u,tgt,u.atk); SFX.play('atk_'+u.key); }   // 近接：キャラ別の攻撃音（cookie/choco/slime/ghost/pancake等）
+        else { u.knockx-=(tgt.x-u.x)/(dist||1)*0.9; u.knocky-=(tgt.y-u.y)/(dist||1)*0.9; const dmg=(u.firstHit&&!u.bitten)?u.firstHit:u.atk; u.bitten=true; applyHit(world,u,tgt,dmg); SFX.play('atk_'+u.key); }   // 近接：最初の噛みつきだけ強力(firstHit)／キャラ別の攻撃音（cookie/choco/slime/ghost/pancake等）
       }
     }
   }
