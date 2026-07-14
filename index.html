@@ -1185,7 +1185,7 @@ const UNITS = [
   // バウムクーヘンゴーレム（開発テスト中）。クッキーの前に立つ超硬タンク（隊列tier-0.7＝cookieより前）。重量＋KB耐性で押されない壁。立ち絵は後日（暫定=絵文字）。
   {key:'baumgolem', name:'バウムクーヘンゴーレム', icon:'🟤', role:'tank', tier:-0.7, count:1, atk:12, hp:600, speed:45, range:30, cd:1.2, tag:'超硬タンク', short:'前線を支える年輪の巨人', text:'バウムクーヘンの年輪でできた巨人。とにかく硬く、前線に立ちはだかる動く壁。押しても動かない。', heavy:true, kbResist:true, spriteScale:1.35, test:true, beta:true},
   // ラムネ大砲（開発テスト中）。チョコナイトの後ろの列に置く建設物（不動・tier0.5）。遠距離から小範囲のラムネ弾を撃つ砲台。立ち絵は後日（暫定=絵文字）。
-  {key:'ramunecannon', name:'ラムネ大砲', icon:'🔵', role:'back', tier:0.5, count:1, atk:30, hp:160, speed:0, range:220, cd:2.0, tag:'建設物/大砲', short:'後方から撃つラムネの大砲', text:'チョコの後ろに据える不動の大砲。遠くの敵へラムネ弾を撃ち込み、着弾で小さく弾ける。動けないので前衛に守ってもらおう。', ranged:true, splash:28, test:true, beta:true},
+  {key:'ramunecannon', name:'ラムネ大砲', icon:'🔵', role:'back', tier:0.5, count:1, atk:60, hp:160, speed:0, range:220, cd:1.0, tag:'建設物/大砲', short:'後方から撃つラムネの大砲', text:'チョコの後ろに据える不動の大砲。遠くの敵へラムネ弾を撃ち込み、着弾で小さく弾ける。動けないので前衛に守ってもらおう。', ranged:true, splash:28, test:true, beta:true},
   // イチゴタレット（ショートケーキ専用の召喚物・動かない短命の砲台）。summonOnly でロスター/ドラフト/CPU/X2/ピッカーから除外。turretLife 秒で消える。
   // untargetable=狙われない＆当たり判定なし（分離/重なり解消の全ループで untargetable を素通し＝敵の前に置いても"無敵の盾"にならない）。
   {key:'strawturret', name:'イチゴタレット', icon:'🍓', role:'back', tier:2, count:1, atk:9, hp:70, speed:0, range:100, cd:0.15, tag:'タレット', short:'狙われずに近くの敵へ小さな粒を連射する砲台（時間/設置者で消滅）', text:'ショートケーキが設置する砲台。動かず近くの敵へ小さな粒（ベリー）を高速で連射する。敵からは狙われないが、設置したショートケーキが倒れる／時間が経つと壊れてしまう。', ranged:true, pellet:true, turretLife:4.0, untargetable:true, summonOnly:true},
