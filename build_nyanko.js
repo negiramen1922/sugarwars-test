@@ -11,7 +11,10 @@ const all = JSON.parse(m[1]);
 // nyanko.html で使うスプライトだけ（青/赤）
 const NEED = [
   'cookie_blue','cookie_red',
+  'slime_blue','slime_red',
+  'daifuku_blue','daifuku_red',
   'choco_blue','choco_red',
+  'donut_blue','donut_red',
   'shoe_aim_blue','shoe_aim_red',
   'bomb_blue','bomb_red',
   'arrow_blue','arrow_red',
