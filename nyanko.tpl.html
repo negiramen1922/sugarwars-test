@@ -86,12 +86,11 @@ for(const k in SPRITE_DATA){ const im = new Image(); im.src = SPRITE_DATA[k]; SP
 const CONF = {
   W: 960, H: 440,
   groundY: 384,          // 地面のライン（足元がここに乗る）
-  rowBand: 28,           // ユニットを縦に散らす幅（奥行き表現・浮かないよう小さめ）
+  rowBand: 36,           // ユニットを縦に散らす幅（重なっても見分けやすいよう・浮かない範囲で）
   castleHP: 1600,        // 両陣営のお城HP
   moneyStart: 160,       // 開始🍬
   moneyRate: 26,         // 🍬/秒（お財布Lv0）
   moneyCap: 700,         // 🍬上限（お財布Lv0）
-  spacing: 30,           // 前線の押し合い：味方の後ろに並ぶ間隔(px)
   castleAtkRange: 40,    // お城への攻撃が届く距離
   maxUnitsPerSide: 60,   // 片side上限（暴走防止）
   enemyStartCd: 3.6,     // 敵の出撃間隔（開始）
@@ -222,7 +221,6 @@ function step(dt){
     u.bob += dt*10;
     const D = u.U;
     const fe = frontUnit(u,false);          // 前方の敵
-    const fa = frontUnit(u,true);           // 前方の味方
     const castleX = u.side==='p' ? CONF.W : 0;
     const castleGap = Math.abs(castleX - u.x);
     const enemyInRange  = fe && fe.gap <= u.range;
@@ -249,18 +247,14 @@ function step(dt){
       continue;
     }
 
-    // 前進：前線の押し合い（味方の後ろに並ぶ／敵の手前で止まる）
-    const blockAlly = (D.role!=='bomber') && fa && fa.gap <= CONF.spacing;  // bomberは味方をすり抜けて前へ
-    if(blockAlly) continue;
+    // 前進：味方どうしは重なってOK（にゃんこ風に前線で団子になる）。敵の手前でだけ止まる。
     let nx = u.x + u.dir*u.speed*dt;
     if(u.side==='p'){
       nx = Math.min(nx, CONF.W - CONF.castleAtkRange);
-      if(fe) nx = Math.min(nx, fe.o.x - u.range);
-      if(D.role!=='bomber' && fa) nx = Math.min(nx, fa.o.x - CONF.spacing);
+      if(fe) nx = Math.min(nx, fe.o.x - u.range);   // 前方の敵の射程手前で停止
     }else{
       nx = Math.max(nx, CONF.castleAtkRange);
       if(fe) nx = Math.max(nx, fe.o.x + u.range);
-      if(D.role!=='bomber' && fa) nx = Math.max(nx, fa.o.x + CONF.spacing);
     }
     u.x = nx;
   }
