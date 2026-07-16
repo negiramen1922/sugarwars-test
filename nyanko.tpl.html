@@ -129,24 +129,37 @@ const CONF = {
    role: melee=近接 / ranged=射手 / bomber=自爆
    cost=出撃🍬 / rc=リチャージ秒 / num=1回で出る数 / scale=描画倍率 / spr=スプライト名 */
 const DEFS = {
+  // 量産（特殊なし・安い数押し）
   cookie: {name:'クッキー',   role:'melee',  atk:14, hp:50,  speed:118, range:26, cd:0.35, scale:0.80,
-           cost:50,  rc:2.0, num:2, spr:'cookie',
-           party:true, partyR:80, partyStep:0.25, partyMax:4},   // 近くのクッキー数で攻撃UP（最大+100%）
-  slime:  {name:'スライム',   role:'melee',  atk:8,  hp:90,  speed:82,  range:26, cd:0.6,  scale:0.92,
-           cost:70,  rc:3.2, num:2, spr:'slime',
-           split:2, splitHp:0.45, splitAtk:0.6, splitScale:0.66},  // 倒れると小スライム2体に分裂
-  daifuku:{name:'大福',       role:'melee',  atk:24, hp:170, speed:66,  range:30, cd:0.85, scale:0.98,
-           cost:110, rc:5.5, num:1, spr:'daifuku'},
-  choco:  {name:'チョコ',     role:'melee',  atk:20, hp:230, speed:60,  range:32, cd:0.95, scale:1.05,
-           cost:130, rc:7.0, num:1, spr:'choco', dr:0.40},        // 装甲：被ダメージ-40%の硬い壁
-  donut:  {name:'ドーナッツ', role:'melee',  atk:8,  hp:460, speed:48,  range:32, cd:1.1,  scale:1.12,
-           cost:210, rc:13.0,num:1, spr:'donut'},
-  shoe:   {name:'シュー',     role:'ranged', atk:14, hp:46,  speed:56,  range:170, cd:1.0, scale:0.86,
+           cost:50,  rc:2.0, num:2, spr:'cookie'},
+  // 支援：一定間隔で頭上にミラーボール→近くの味方の攻撃UP（クッキーはさらにUP）
+  partycookie:{name:'パーティークッキー', role:'melee', atk:8, hp:90, speed:100, range:26, cd:0.6, scale:0.86,
+           cost:140, rc:8.0, num:1, spr:'cookie_party',
+           disco:{cd:4.5, dur:2.5, r:110, mul:1.35, cookieMul:1.9}},
+  // 巨大スライム：倒れるとスライム2体→さらにチビ2体に分裂（2段チェーン）
+  bigslime:{name:'巨大スライム', role:'melee', atk:14, hp:280, speed:76, range:28, cd:0.7, scale:1.30,
+           cost:160, rc:9.0, num:1, spr:'slimebig', split:{key:'slime', n:2}},
+  slime:  {name:'スライム',   role:'melee',  atk:8,  hp:90,  speed:84,  range:26, cd:0.6, scale:0.92,
+           spr:'slime', split:{key:'chibi', n:2}},                // 分裂専用（デプロイ不可）
+  chibi:  {name:'チビスライム', role:'melee', atk:5,  hp:30,  speed:98,  range:24, cd:0.5, scale:0.60,
+           spr:'slime'},                                          // 分裂専用（これ以上は分裂しない）
+  // 突撃：出た直後に突撃して初撃で大ダメージ（以降は通常近接）
+  daifuku:{name:'大福',       role:'melee',  atk:18, hp:160, speed:66,  range:30, cd:0.85, scale:0.98,
+           cost:120, rc:6.5, num:1, spr:'daifuku', charge:{dmg:140, spd:2.6, r:42}},
+  // ただ硬い壁
+  choco:  {name:'チョコ',     role:'melee',  atk:20, hp:240, speed:60,  range:32, cd:0.95, scale:1.05,
+           cost:130, rc:7.0, num:1, spr:'choco'},
+  // 妨害：送風で正面の敵を吹き飛ばす（自身は超硬タンク）
+  donut:  {name:'ドーナッツ', role:'melee',  atk:6,  hp:460, speed:48,  range:32, cd:1.1,  scale:1.12,
+           cost:210, rc:13.0,num:1, spr:'donut', blow:{cd:2.0, kb:95, r:130}},
+  // 後衛射手（矢）
+  shoe:   {name:'シュー',     role:'ranged', atk:16, hp:46,  speed:56,  range:175, cd:1.0, scale:0.86,
            cost:90,  rc:4.0, num:1, spr:'shoe_aim'},
+  // 自爆
   bomb:   {name:'ポップコーン',role:'bomber', atk:0,  hp:55,  speed:132, range:30, cd:1.0, scale:0.86,
            blast:120, blastR:64, cost:60, rc:3.0, num:1, spr:'bomb'},
 };
-const ORDER = ['cookie','slime','daifuku','choco','donut','shoe','bomb'];
+const ORDER = ['cookie','partycookie','bigslime','daifuku','choco','donut','shoe','bomb'];
 
 /* --- 敵＝カビ軍団（画像素材なし・canvasで手描き。mold=描画形状 / col,col2=配色） ---
    ステータスは対応するお菓子とほぼ同じ＝バランスは据え置き。見た目と名前だけカビ化。 */
@@ -182,25 +195,33 @@ function reset(){
   running = true;
 }
 
-/* --- ユニット生成 --- */
+/* --- ユニットオブジェクトを作る（デプロイ・分裂で共用） --- */
+function defOf(key, side){ return side==='p' ? (DEFS[key]||FOE_DEFS[key]) : (FOE_DEFS[key]||DEFS[key]); }
+function newUnit(key, side, x, y){
+  const D = defOf(key, side);
+  return {
+    id: world.nextId++, key, side, U:D, x, y,
+    hp:D.hp, maxHp:D.hp, atk:D.atk, speed:D.speed, range:D.range, cd:D.cd,
+    cool: Math.random()*0.2, dir: side==='p'?-1:1, bob:Math.random()*6.28,
+    fuseT:-1, dead:false,
+    charging: !!D.charge,                 // 大福＝出た直後は突撃状態
+    blowT: 0,                             // ドーナッツ送風タイマー
+    discoT: D.disco ? D.disco.cd*0.4 : 0, // パーティークッキーのミラーボール発生タイマー
+    auraT: 0, buffMul: 1,
+  };
+}
+
+/* --- ユニット生成（デプロイ／敵湧き） --- */
 function spawn(key, side){
-  const D = side==='p' ? DEFS[key] : (FOE_DEFS[key] || DEFS[key]);   // 敵はカビ軍団の定義を優先
-  const arr = world.units.filter(u=>u.side===side);
-  if(arr.length >= CONF.maxUnitsPerSide) return;
+  const D = defOf(key, side);
+  if(world.units.filter(u=>u.side===side).length >= CONF.maxUnitsPerSide) return;
   const n = D.num || 1;
   for(let i=0;i<n;i++){
-    // 味方(p)は右端から出て左へ進む／敵(e)は左端から出て右へ進む。
-    // 湧きは城のふち（spawnInset）＝城に張り付いた相手より内側に出る＝張り付き組を真っ先に迎撃できる
+    // 味方(p)は右端ふちから出て左へ／敵(e)は左端ふちから出て右へ（張り付き組を優先迎撃できる湧き位置）
     const baseX = side==='p' ? CONF.W-CONF.spawnInset : CONF.spawnInset;
     const dir = side==='p' ? -1 : 1;
-    const y = CONF.groundY - Math.random()*CONF.rowBand;   // 足元は地面付近の狭い帯
-    world.units.push({
-      id: world.nextId++, key, side, U:D,
-      x: baseX + dir*(i*14 + Math.random()*8),
-      y, hp:D.hp, maxHp:D.hp, atk:D.atk, speed:D.speed, range:D.range, cd:D.cd,
-      cool: Math.random()*0.2, dir, bob:Math.random()*6.28,
-      fuseT:-1, dead:false,
-    });
+    const y = CONF.groundY - Math.random()*CONF.rowBand;
+    world.units.push(newUnit(key, side, baseX + dir*(i*14 + Math.random()*8), y));
   }
 }
 
@@ -227,18 +248,57 @@ function nearestEnemy(u){
 /* --- ダメージ適用（装甲=被ダメ軽減をここで一本化） --- */
 function hurt(o, dmg){ o.hp -= dmg * (1 - (o.U.dr||0)); }
 
-/* --- 分裂（スライム）：倒れた場所に小さい個体を生む --- */
-function spawnMini(u){
-  const D = u.U, n = D.split||0;
-  for(let i=0;i<n;i++){
-    world.units.push({
-      id:world.nextId++, key:u.key, side:u.side, U:D, mini:true,
-      x:u.x + (i? 12 : -12), y:u.y,
-      hp:D.hp*(D.splitHp||0.45), maxHp:D.hp*(D.splitHp||0.45), atk:D.atk*(D.splitAtk||0.6),
-      speed:u.speed, range:u.range, cd:u.cd, cool:Math.random()*0.2, dir:u.dir,
-      bob:Math.random()*6.28, fuseT:-1, dead:false, sMul:D.splitScale||0.66,
-    });
+/* --- 分裂：倒れた場所に子ユニット（別の種類）を生む。
+   split={key,n} で子の種類と数を指定＝巨大スライム→スライム→チビ の多段チェーン --- */
+function splitOnDeath(u){
+  const sp = u.U.split; if(!sp) return;
+  for(let i=0;i<sp.n;i++){
+    const c = newUnit(sp.key, u.side, u.x + (i? 14 : -14), u.y);
+    world.units.push(c);
   }
+}
+
+/* --- パーティークッキー：ミラーボールで近くの味方の攻撃UP（クッキーはさらにUP） ---
+   各ユニットの u.buffMul（攻撃倍率）を毎フレーム再計算する。 */
+function updateBuffs(dt){
+  for(const u of world.units){
+    if(u.U.disco){
+      u.discoT -= dt;
+      if(u.discoT<=0){ u.discoT = u.U.disco.cd; u.auraT = u.U.disco.dur; SFX_disco(); }
+      if(u.auraT>0) u.auraT -= dt;
+    }
+    u.buffMul = 1;
+  }
+  for(const a of world.units){
+    const dz = a.U.disco; if(!dz || a.dead || !(a.auraT>0)) continue;
+    for(const o of world.units){
+      if(o.dead || o.side!==a.side) continue;
+      if(Math.abs(o.x-a.x) <= dz.r){
+        const m = (o.key==='cookie'||o.key==='partycookie') ? dz.cookieMul : dz.mul;
+        if(m > o.buffMul) o.buffMul = m;
+      }
+    }
+  }
+}
+
+/* --- ドーナッツの送風：正面（進行方向の先）の敵を吹き飛ばす --- */
+function blowAway(u, blow){
+  for(const o of world.units){
+    if(o.side===u.side || o.dead) continue;
+    const ahead = u.dir>0 ? o.x>u.x : o.x<u.x;
+    if(!ahead || Math.abs(o.x-u.x) > blow.r) continue;
+    o.x = Math.max(CONF.castleAtkRange, Math.min(CONF.W-CONF.castleAtkRange, o.x + Math.sign(o.x-u.x)*blow.kb));
+  }
+  // 風のエフェクト（前方へ流れる粒）
+  for(let i=0;i<10;i++){ const spd=120+Math.random()*160;
+    world.parts.push({x:u.x, y:u.y-20-Math.random()*30, vx:u.dir*spd, vy:(Math.random()-0.5)*40, life:0.4, max:0.4, c:'#cfe8ff', r:2+Math.random()*2}); }
+  SFX_blow();
+}
+
+/* --- 大福の居合の斬撃エフェクト --- */
+function slashFx(u){
+  for(let i=0;i<12;i++){ const a=Math.random()*6.28, s=60+Math.random()*160;
+    world.parts.push({x:u.x, y:u.y-18, vx:Math.cos(a)*s, vy:Math.sin(a)*s-40, life:0.35, max:0.35, c:'#fff2c4', r:2+Math.random()*3}); }
 }
 
 /* --- 爆発（bomber） --- */
@@ -278,20 +338,25 @@ function step(dt){
     enemyCd = CONF.enemyStartCd + (CONF.enemyMinCd-CONF.enemyStartCd)*p;
   }
 
+  updateBuffs(dt);   // パーティークッキーのミラーボール→味方の攻撃バフ(u.buffMul)を先に計算
+
   for(const u of world.units){
     if(u.dead) continue;
     u.bob += dt*10;
     const D = u.U;
-    // クッキーパーティー：近くの味方クッキー数だけ攻撃UP
-    if(D.party){
-      let c=0; for(const o of world.units){ if(!o.dead && o.side===u.side && o.key===u.key && Math.abs(o.x-u.x)<=D.partyR) c++; }
-      u.buffMul = 1 + Math.min(D.partyMax, c-1)*D.partyStep;
-    }
     const fe = frontUnit(u,false);          // 前方の敵
     const castleX = u.side==='p' ? 0 : CONF.W;   // 攻撃対象は相手の城（味方=左の敵城 / 敵=右の味方城）
     const castleGap = Math.abs(castleX - u.x);
     const enemyInRange  = fe && fe.gap <= u.range;
     const castleInRange = castleGap <= Math.max(u.range, CONF.castleAtkRange);
+
+    // ドーナッツの送風：一定間隔で正面の敵を吹き飛ばす
+    if(D.blow){
+      u.blowT -= dt;
+      if(u.blowT<=0 && fe && fe.gap <= D.blow.r){
+        u.blowT = D.blow.cd; blowAway(u, D.blow);
+      }
+    }
 
     // 導火中（bomber）
     if(u.fuseT>=0){
@@ -301,6 +366,17 @@ function step(dt){
     }
     // 自爆準備
     if(D.role==='bomber' && (enemyInRange || castleInRange)){ u.fuseT=0.28; continue; }
+
+    // 大福の突撃：出た直後の初撃だけ大ダメージ（範囲）。突撃中は移動が速い
+    if(u.charging && (enemyInRange || castleInRange)){
+      if(enemyInRange){
+        for(const o of world.units){ if(o.side===u.side || o.dead) continue;   // 敵だけに当てる
+          if(Math.abs(o.x-u.x) <= D.charge.r) hurt(o, D.charge.dmg); }
+        slashFx(u);
+      }else{ if(u.side==='p') ehp -= D.charge.dmg; else php -= D.charge.dmg; }
+      u.charging=false; u.cool=u.cd; SFX_hit();
+      continue;
+    }
 
     // 攻撃（射程内なら足を止めて攻撃＝前線ができる）
     if(enemyInRange || castleInRange){
@@ -316,7 +392,8 @@ function step(dt){
     }
 
     // 前進：味方どうしは重なってOK（にゃんこ風に前線で団子になる）。敵の手前でだけ止まる。
-    let nx = u.x + u.dir*u.speed*dt;
+    const sp = u.speed * (u.charging ? D.charge.spd : 1);   // 突撃中は加速
+    let nx = u.x + u.dir*sp*dt;
     if(u.side==='p'){            // 左へ進む・敵城は左(0)
       nx = Math.max(nx, CONF.castleAtkRange);
       if(fe) nx = Math.max(nx, fe.o.x + u.range);   // 前方の敵の射程手前で停止
@@ -338,7 +415,7 @@ function step(dt){
     else{ s.x += dx/d*s.sp*dt; s.y += dy/d*s.sp*dt; }
   }
 
-  for(const u of world.units){ if(!u.dead && u.hp<=0){ u.dead=true; deathBurst(u); if(u.U.split && !u.mini) spawnMini(u); } }
+  for(const u of world.units){ if(!u.dead && u.hp<=0){ u.dead=true; deathBurst(u); splitOnDeath(u); } }
   world.units = world.units.filter(u=>!u.dead);
   world.shots = world.shots.filter(s=>!s.dead);
 
@@ -442,6 +519,28 @@ function drawUnit(u){
     ctx.fillStyle='#0008'; ctx.fillRect(bx,by,w,h);
     ctx.fillStyle = u.side==='p'?'#6fd66f':'#b6e06a'; ctx.fillRect(bx,by,w*Math.max(0,u.hp/u.maxHp),h);
   }
+  // パーティークッキー：頭上のミラーボール
+  if(u.U.disco && u.auraT>0) drawMirrorBall(cx, footY-S-6, elapsed);
+  // 攻撃バフ中の味方：小さな♪キラキラ
+  if(u.buffMul>1 && !(u.U.disco)){
+    ctx.fillStyle='#ffe27a'; ctx.font='11px sans-serif'; ctx.textAlign='center';
+    ctx.globalAlpha=0.7+0.3*Math.sin(elapsed*8+u.x); ctx.fillText('♪', cx+S*0.3, footY-S+2); ctx.globalAlpha=1;
+  }
+}
+
+/* ミラーボール（キラキラ回転する球） */
+function drawMirrorBall(x, y, t){
+  ctx.save(); ctx.translate(x,y);
+  // 吊り紐
+  ctx.strokeStyle='#888'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(0,-18); ctx.lineTo(0,-9); ctx.stroke();
+  // 球（市松のミラー）
+  ctx.fillStyle='#bcd2e8'; ctx.beginPath(); ctx.arc(0,0,9,0,6.28); ctx.fill();
+  for(let i=0;i<10;i++){ const a=i*0.9+t*3; ctx.fillStyle=(i%2)?'#ffffff':'#7fa8d8';
+    ctx.fillRect(Math.cos(a)*3-1.5, Math.sin(a)*3-1.5, 3,3); }
+  // キラッ
+  ctx.globalAlpha=0.5+0.5*Math.sin(t*10); ctx.fillStyle='#fff';
+  ctx.fillRect(-1,-14,2,4); ctx.fillRect(-14,-1,4,2); ctx.fillRect(10,-1,4,2);
+  ctx.globalAlpha=1; ctx.restore();
 }
 
 /* --- カビ敵の手描き（プレースホルダ／画像素材なし） ---
@@ -631,6 +730,10 @@ let lastHit=0;
 function SFX_hit(){ const n=(typeof performance!=='undefined'?performance.now():0); if(n-lastHit<40)return; lastHit=n; blip(220+Math.random()*60,0.05,'square',0.03); }
 function SFX_shot(){ blip(720,0.06,'triangle',0.03); }
 function SFX_tower(){ blip(180,0.05,'sawtooth',0.08); setTimeout(()=>blip(90,0.35,'sawtooth',0.10),40); setTimeout(()=>SFX_boom(),60); }
+function SFX_disco(){ [660,880,990].forEach((f,i)=>setTimeout(()=>blip(f,0.1,'triangle',0.04),i*70)); }
+function SFX_blow(){ const c=ac(); if(!c)return; const b=c.createBuffer(1,c.sampleRate*0.25,c.sampleRate); const d=b.getChannelData(0);
+  for(let i=0;i<d.length;i++){ const e=i/d.length; d[i]=(Math.random()*2-1)*Math.sin(e*Math.PI)*0.5; }
+  const s=c.createBufferSource(), g=c.createGain(); g.gain.value=0.08; s.buffer=b; s.connect(g); g.connect(c.destination); s.start(); }
 function SFX_deploy(){ blip(520,0.08,'sine',0.06); setTimeout(()=>blip(780,0.08,'sine',0.05),60); }
 function SFX_boom(){ const c=ac(); if(!c)return; const b=c.createBuffer(1,c.sampleRate*0.2,c.sampleRate); const d=b.getChannelData(0);
   for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,2);
