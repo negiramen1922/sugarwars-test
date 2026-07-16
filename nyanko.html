@@ -180,6 +180,7 @@ const CONF = {
   moneyStart: 130,       // 開始🍬
   moneyRate: 24,         // 🍬/秒（お財布Lv0）
   moneyCap: 300,         // 🍬上限（お財布Lv0）＝低めで早く頭打ち→お財布UPが効く
+  atkCdMul: 1.45,        // 全体の攻撃間隔の倍率（大きいほどゆっくり殴る＝せわしなさ解消）
   arrowSize: 70,         // シューの矢の描画サイズ(px)。大きいほど大量に飛ぶ迫力が出る
   castleAtkRange: 60,    // お城への攻撃が届く距離（大きいほど手前で殴れる＝城にめり込まない）
   spawnInset: 18,        // ユニットの湧き位置（城のふち＝端からの距離）。castleAtkRangeより内側にして
@@ -241,7 +242,43 @@ const DEFS = {
            blast:120, blastR:64, cost:60, rc:3.0, num:1, spr:'bomb',
            anim:{walk:['bomb','bomb2'], idle:'bomb', fps:4}},
 };
-const ORDER = ['cookie','partycookie','slime','bigslime','daifuku','choco','donut','shoe','bomb'];
+// ※ポップコーン(bomb)は「爆発など特殊なものはとりあえずなし」の方針でロスターから除外（DEFSは温存＝将来復活可）
+const ORDER = ['cookie','partycookie','slime','bigslime','daifuku','choco','donut','shoe'];
+
+/* ============================================================
+   ゲーム基盤：スターター／ステージ／編成／進行（localStorage保存）
+   ・キャラ追加＝DEFS/ORDERに足す。ステージ追加＝STAGESに1行足すだけ。
+   ============================================================ */
+const STARTERS = ['cookie'];           // 最初から使えるのはクッキー1体だけ（にゃんこ風）
+const LOADOUT_MAX = 6;                  // 編成に持ち込める最大数
+// coins=そのステージ初回クリアの🍬キャンディコイン報酬（再挑戦は少額）
+const STAGES = [
+  { id:1, name:'はじまりの小道（練習）', enemyHP:500, spawnStart:6.0, spawnMin:4.5, ramp:60, coins:150, tutorial:true,
+    pools:[[1,['m_swarm']]] },   // チュートリアル：弱いアオカビが少しだけ。クッキーだけで勝てる
+  { id:2, name:'ねばねば湿地',     enemyHP:1400, spawnStart:3.4, spawnMin:1.9, ramp:80, coins:200,
+    pools:[[0.3,['m_swarm','m_swarm','m_phage']],[0.6,['m_swarm','m_tank','m_puff']],[1,['m_swarm','m_tank','m_phage','m_puff']]] },
+  { id:3, name:'紫カビ回廊',       enemyHP:1750, spawnStart:3.1, spawnMin:1.7, ramp:85, coins:250,
+    pools:[[0.3,['m_swarm','m_phage','m_puff']],[0.6,['m_swarm','m_tank','m_phage']],[1,['m_swarm','m_tank','m_big','m_phage']]] },
+  { id:4, name:'胞子の大広間',     enemyHP:2100, spawnStart:2.8, spawnMin:1.5, ramp:90, coins:300,
+    pools:[[0.3,['m_swarm','m_tank','m_puff']],[0.6,['m_swarm','m_tank','m_phage','m_puff']],[1,['m_swarm','m_tank','m_big','m_phage','m_puff']]] },
+  { id:5, name:'カビ大帝の巣',     enemyHP:2600, spawnStart:2.6, spawnMin:1.4, ramp:95, coins:400,
+    pools:[[0.3,['m_swarm','m_tank','m_phage']],[0.6,['m_swarm','m_tank','m_big','m_puff']],[1,['m_tank','m_big','m_phage','m_puff','m_swarm']]] },
+];
+const STAGE_BY_ID = Object.fromEntries(STAGES.map(s=>[s.id,s]));
+const REPLAY_COINS = 30;                // 再挑戦クリアの報酬
+// キャラ解放：coin=🍬で購入 / gacha=ガチャ限定（コインでは買えない）
+const UNLOCKS = {
+  choco:      {via:'coin', cost:200},   // 最初の壁。まず解放したい1体
+  slime:      {via:'coin', cost:250},
+  shoe:       {via:'coin', cost:400},
+  daifuku:    {via:'coin', cost:550},
+  donut:      {via:'coin', cost:750},
+  partycookie:{via:'gacha'},
+  bigslime:   {via:'gacha'},
+};
+const GACHA_COST = 400;                                 // 1回ガチャの🍬
+const GACHA_POOL = ['partycookie','bigslime'];          // ガチャから出るキャラ（増やせる）
+const GACHA_DUP_COINS = 120;                            // 重複時の🍬還元
 
 /* ============================================================
    ゲーム基盤：スターター／ステージ／編成／進行（localStorage保存）
@@ -321,7 +358,7 @@ function newUnit(key, side, x, y){
   const D = defOf(key, side);
   return {
     id: world.nextId++, key, side, U:D, x, y,
-    hp:D.hp, maxHp:D.hp, atk:D.atk, speed:D.speed, range:D.range, cd:D.cd,
+    hp:D.hp, maxHp:D.hp, atk:D.atk, speed:D.speed, range:D.range, cd:D.cd*(CONF.atkCdMul||1),
     cool: Math.random()*0.2, dir: side==='p'?-1:1, bob:Math.random()*6.28,
     fuseT:-1, dead:false,
     charging: !!D.charge,                 // 大福＝出た直後は突撃状態
@@ -332,7 +369,7 @@ function newUnit(key, side, x, y){
     moving: false, atkAnim: 0, px: x,     // アニメ用（歩行/攻撃/前フレームx）
     kbVX:0, kbVY:0, kbY:0, kbT:0,          // 吹き飛び（ノックバック）の速度・高さ・残り時間
     hitCount:0, slowT:0, slowMul:1,        // ふっとばし用ヒット数・鈍足の残り時間/倍率
-    kbCount:(D.kbCount!=null? D.kbCount : Math.max(1, Math.round(D.hp/130))),   // HPしきい値KBの回数（HP依存で自動）
+    kbCount:(D.kbCount!=null? D.kbCount : Math.max(2, Math.round(D.hp/130))),   // HPしきい値KBの回数（軽いキャラも最低2回はスタッガー）
     kbSeg:undefined,
   };
 }
