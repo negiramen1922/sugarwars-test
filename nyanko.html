@@ -180,6 +180,7 @@ const CONF = {
   moneyStart: 130,       // 開始🍬
   moneyRate: 24,         // 🍬/秒（お財布Lv0）
   moneyCap: 300,         // 🍬上限（お財布Lv0）＝低めで早く頭打ち→お財布UPが効く
+  atkCdMul: 1.45,        // 全体の攻撃間隔の倍率（大きいほどゆっくり殴る＝せわしなさ解消）
   arrowSize: 70,         // シューの矢の描画サイズ(px)。大きいほど大量に飛ぶ迫力が出る
   castleAtkRange: 60,    // お城への攻撃が届く距離（大きいほど手前で殴れる＝城にめり込まない）
   spawnInset: 18,        // ユニットの湧き位置（城のふち＝端からの距離）。castleAtkRangeより内側にして
@@ -241,7 +242,8 @@ const DEFS = {
            blast:120, blastR:64, cost:60, rc:3.0, num:1, spr:'bomb',
            anim:{walk:['bomb','bomb2'], idle:'bomb', fps:4}},
 };
-const ORDER = ['cookie','partycookie','slime','bigslime','daifuku','choco','donut','shoe','bomb'];
+// ※ポップコーン(bomb)は「爆発など特殊なものはとりあえずなし」の方針でロスターから除外（DEFSは温存＝将来復活可）
+const ORDER = ['cookie','partycookie','slime','bigslime','daifuku','choco','donut','shoe'];
 
 /* ============================================================
    ゲーム基盤：スターター／ステージ／編成／進行（localStorage保存）
@@ -268,7 +270,6 @@ const REPLAY_COINS = 30;                // 再挑戦クリアの報酬
 const UNLOCKS = {
   choco:      {via:'coin', cost:200},   // 最初の壁。まず解放したい1体
   slime:      {via:'coin', cost:250},
-  bomb:       {via:'coin', cost:300},
   shoe:       {via:'coin', cost:400},
   daifuku:    {via:'coin', cost:550},
   donut:      {via:'coin', cost:750},
@@ -321,7 +322,7 @@ function newUnit(key, side, x, y){
   const D = defOf(key, side);
   return {
     id: world.nextId++, key, side, U:D, x, y,
-    hp:D.hp, maxHp:D.hp, atk:D.atk, speed:D.speed, range:D.range, cd:D.cd,
+    hp:D.hp, maxHp:D.hp, atk:D.atk, speed:D.speed, range:D.range, cd:D.cd*(CONF.atkCdMul||1),
     cool: Math.random()*0.2, dir: side==='p'?-1:1, bob:Math.random()*6.28,
     fuseT:-1, dead:false,
     charging: !!D.charge,                 // 大福＝出た直後は突撃状態
@@ -332,7 +333,7 @@ function newUnit(key, side, x, y){
     moving: false, atkAnim: 0, px: x,     // アニメ用（歩行/攻撃/前フレームx）
     kbVX:0, kbVY:0, kbY:0, kbT:0,          // 吹き飛び（ノックバック）の速度・高さ・残り時間
     hitCount:0, slowT:0, slowMul:1,        // ふっとばし用ヒット数・鈍足の残り時間/倍率
-    kbCount:(D.kbCount!=null? D.kbCount : Math.max(1, Math.round(D.hp/130))),   // HPしきい値KBの回数（HP依存で自動）
+    kbCount:(D.kbCount!=null? D.kbCount : Math.max(2, Math.round(D.hp/130))),   // HPしきい値KBの回数（軽いキャラも最低2回はスタッガー）
     kbSeg:undefined,
   };
 }
