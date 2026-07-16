@@ -10,35 +10,46 @@
     font-family:system-ui,"Segoe UI",Roboto,"Hiragino Kaku Gothic ProN",sans-serif; overflow:hidden; }
   #wrap{ width:100%; height:100%; display:flex; flex-direction:column; align-items:center; }
   #top{ width:100%; max-width:960px; padding:6px 10px 0; }
-  .bars{ display:flex; gap:10px; align-items:center; }
+  .tophead{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .bars{ display:flex; gap:10px; align-items:center; margin-top:2px; }
   .castle{ flex:1; }
   .clabel{ font-size:12px; opacity:.85; display:flex; justify-content:space-between; }
   .track{ height:12px; border-radius:7px; background:#00000055; overflow:hidden; box-shadow:inset 0 0 0 1px #ffffff22; }
   .fill{ height:100%; width:100%; transition:width .12s linear; }
   .p .fill{ background:linear-gradient(90deg,#43c6ff,#2a7bff); }
   .e .fill{ background:linear-gradient(90deg,#ff7b7b,#ff3a3a); }
-  #moneyRow{ display:flex; align-items:center; justify-content:center; gap:10px; margin:5px 0 2px; }
-  #money{ font-weight:800; font-size:15px; text-shadow:0 1px 2px #000; }
-  #money b{ color:#ffdf6b; font-size:18px; }
-  #walletBtn{ border:none; border-radius:10px; padding:5px 10px; font-size:12px; font-weight:800;
-    background:linear-gradient(90deg,#7b5cff,#a94bff); color:#fff; cursor:pointer; box-shadow:0 3px 0 #0006; }
-  #walletBtn:active{ transform:translateY(2px); box-shadow:0 1px 0 #0006; }
-  #walletBtn.off{ filter:grayscale(.6) brightness(.7); }
+  #moneyBox{ text-align:right; white-space:nowrap; font-weight:800; font-size:14px; text-shadow:0 1px 2px #000; }
+  #moneyBox b{ color:#ffdf6b; font-size:20px; }
+  #moneyBox .sub{ display:block; opacity:.65; font-size:11px; font-weight:600; }
   #stage{ width:100%; max-width:960px; flex:1; min-height:0; display:flex; align-items:center; justify-content:center; padding:4px 6px; }
   canvas{ width:100%; height:auto; max-height:100%; border-radius:12px; display:block;
     image-rendering:pixelated; box-shadow:0 8px 28px #0008; touch-action:manipulation; }
-  #dock{ width:100%; max-width:960px; display:flex; flex-wrap:wrap; gap:6px; padding:8px 10px 12px; justify-content:center; }
-  .btn{ position:relative; flex:1 1 100px; min-width:96px; max-width:150px; border:none; border-radius:12px; padding:6px 4px 5px;
+  #bottom{ width:100%; max-width:960px; display:flex; align-items:stretch; gap:8px; padding:8px 10px 12px; }
+  #dock{ flex:1; display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
+  .btn{ position:relative; flex:1 1 90px; min-width:84px; max-width:150px; border:none; border-radius:12px; padding:6px 4px 5px;
     background:#241a33; color:#fff; cursor:pointer; overflow:hidden; user-select:none;
     box-shadow:0 3px 0 #0006, inset 0 0 0 1px #ffffff18; }
   .btn:active{ transform:translateY(2px); box-shadow:0 1px 0 #0006, inset 0 0 0 1px #ffffff18; }
-  .btn .ic{ width:42px; height:42px; margin:0 auto; display:block; image-rendering:pixelated; }
-  .btn .nm{ font-size:10.5px; opacity:.9; margin-top:1px; }
-  .btn .co{ font-size:12.5px; font-weight:800; color:#ffdf6b; }
+  .btn .ic{ width:40px; height:40px; margin:0 auto; display:block; image-rendering:pixelated; }
+  .btn .nm{ font-size:10px; opacity:.9; margin-top:1px; }
+  .btn .co{ font-size:12px; font-weight:800; color:#ffdf6b; }
   .btn .cd{ position:absolute; left:0; right:0; bottom:0; top:0; background:#000a;
     transform-origin:bottom; transform:scaleY(0); pointer-events:none; }
   .btn.off{ filter:grayscale(.6) brightness(.7); }
   .btn.rdy{ box-shadow:0 3px 0 #0006, inset 0 0 0 2px #ffd23f; }
+  /* サイド操作ボタン（左下＝お財布 / 右下＝タワー攻撃） */
+  .sidebtn{ position:relative; flex:0 0 80px; border:none; border-radius:12px; color:#fff; cursor:pointer; font-weight:800;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:6px 4px; overflow:hidden;
+    user-select:none; box-shadow:0 3px 0 #0006, inset 0 0 0 1px #ffffff20; }
+  .sidebtn:active{ transform:translateY(2px); box-shadow:0 1px 0 #0006, inset 0 0 0 1px #ffffff20; }
+  .sidebtn .big{ font-size:22px; line-height:1; }
+  .sidebtn .lbl{ font-size:10.5px; }
+  .sidebtn .sub{ font-size:11px; color:#ffe27a; }
+  .sidebtn.off{ filter:grayscale(.55) brightness(.72); }
+  .sidebtn.rdy{ box-shadow:0 3px 0 #0006, inset 0 0 0 2px #ffd23f; }
+  #walletBtn{ background:linear-gradient(160deg,#7b5cff,#a94bff); }
+  #towerBtn{ background:linear-gradient(160deg,#ff8f43,#ff5b7d); }
+  .sidebtn .cd{ position:absolute; inset:0; background:#000a; transform-origin:bottom; transform:scaleY(0); pointer-events:none; }
   #overlay{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:#000b; z-index:20; }
   #overlay .card{ background:#20152e; border-radius:18px; padding:26px 28px; text-align:center;
     box-shadow:0 12px 40px #000a, inset 0 0 0 1px #ffffff1a; max-width:88vw; }
@@ -54,20 +65,23 @@
 <body>
 <div id="wrap">
   <div id="top">
-    <div class="title">🍭 SUGAR MARCH <span style="opacity:.5;font-weight:400">— にゃんこ風・試作</span></div>
-    <div class="bars">
-      <div class="castle p"><div class="clabel"><span>🏰 じぶんのお城</span><span id="phpTxt"></span></div><div class="track"><div class="fill" id="php"></div></div></div>
-      <div class="castle e"><div class="clabel"><span id="ehpTxt"></span><span>敵のお城 🏰</span></div><div class="track"><div class="fill" id="ehp"></div></div></div>
+    <div class="tophead">
+      <div class="title">🍭 SUGAR MARCH <span style="opacity:.5;font-weight:400">— にゃんこ風・試作</span></div>
+      <div id="moneyBox">🍬 <b id="moneyTxt">0</b><span class="sub">/<span id="capTxt">0</span> ・+<span id="rateTxt">0</span>/秒</span></div>
     </div>
-    <div id="moneyRow">
-      <div id="money">🍬 <b id="moneyTxt">0</b> <span style="opacity:.6;font-size:12px">/<span id="capTxt">0</span> ・+<span id="rateTxt">0</span>/秒</span></div>
-      <button id="walletBtn" onclick="upgradeWallet()">お財布Lv1 ▲</button>
+    <div class="bars">
+      <div class="castle e"><div class="clabel"><span>敵のお城 🏰</span><span id="ehpTxt"></span></div><div class="track"><div class="fill" id="ehp"></div></div></div>
+      <div class="castle p"><div class="clabel"><span id="phpTxt"></span><span>🏰 じぶんのお城</span></div><div class="track"><div class="fill" id="php"></div></div></div>
     </div>
   </div>
   <div id="stage"><canvas id="cv" width="960" height="440"></canvas></div>
-  <div id="dock"></div>
+  <div id="bottom">
+    <button id="walletBtn" class="sidebtn" onclick="upgradeWallet()"><span class="big">💰</span><span class="lbl">お財布UP</span><span class="sub" id="walletSub">Lv1</span></button>
+    <div id="dock"></div>
+    <button id="towerBtn" class="sidebtn" onclick="castTower()"><span class="cd" id="towerCdFill"></span><span class="big">💥</span><span class="lbl">タワー攻撃</span><span class="sub" id="towerSub">OK</span></button>
+  </div>
 </div>
-<div id="hint">🍬を貯めて下のボタンでなかまを出撃！ 敵のお城を落とそう</div>
+<div id="hint">🍬を貯めて下のボタンでなかまを出撃！ 左の敵のお城を落とそう（右＝自分）</div>
 <div id="overlay"><div class="card"><h1 id="ovT"></h1><p id="ovP"></p><button onclick="restart()">もういちど</button></div></div>
 
 <script>
@@ -75,7 +89,8 @@
 /* ============================================================
    SUGAR MARCH — SUGAR WARS のキャラを流用した「にゃんこ大戦争風」1レーン試作
    ・本家 index.html とは独立した単一ファイル（スプライトは index.html から流用）。
-   ・コアループ：🍬が時間で貯まる → ボタンで出撃 → 右へ歩いて自動戦闘 → 敵の城を破壊で勝利。
+   ・コアループ：🍬が時間で貯まる → ボタンで出撃 → 左へ歩いて自動戦闘 → 敵の城を破壊で勝利。
+   ・レイアウト：右＝味方陣地／左＝敵陣地。🍬右上・お財布UP左下・タワー攻撃右下。
    ・数値は仮。バランス調整は各 DEFS / CONF をいじるだけ。
    ============================================================ */
 const SPRITE_DATA = /*__SPRITES__*/ {};
@@ -102,6 +117,10 @@ const CONF = {
   walletCapStep: 120,    // 1Lvごとの上限アップ
   walletCostBase: 130,   // Lv1→2のコスト
   walletCostStep: 90,    // 以降1Lvごとの追加コスト
+  // タワー攻撃スキル（右下ボタン＝自分の城から放つ一撃）
+  towerDmg: 120,         // 敵ユニットへのダメージ
+  towerKB: 70,           // 敵を自陣（左）へ押し戻す距離
+  towerCd: 12,           // クールダウン秒
 };
 
 /* --- ユニット定義（本家 UNITS の抜粋＋にゃんこ用の出撃コスト/リチャージ） ---
@@ -126,7 +145,7 @@ const DEFS = {
 const ORDER = ['cookie','slime','daifuku','choco','donut','shoe','bomb'];
 
 /* --- 状態 --- */
-let world, money, php, ehp, cd, enemyCd, elapsed, running, lastT, walletLv, hintT;
+let world, money, php, ehp, cd, enemyCd, elapsed, running, lastT, walletLv, towerCd, hintT;
 
 function effRate(){ return CONF.moneyRate + walletLv*CONF.walletRateStep; }
 function effCap(){ return CONF.moneyCap + walletLv*CONF.walletCapStep; }
@@ -140,6 +159,7 @@ function reset(){
   enemyCd = 1.2;
   elapsed = 0;
   walletLv = 0;
+  towerCd = 0;              // タワー攻撃：最初から撃てる
   running = true;
 }
 
@@ -150,13 +170,15 @@ function spawn(key, side){
   if(arr.length >= CONF.maxUnitsPerSide) return;
   const n = D.num || 1;
   for(let i=0;i<n;i++){
-    const baseX = side==='p' ? 46 : CONF.W-46;
+    // 味方(p)は右端から出て左へ進む／敵(e)は左端から出て右へ進む
+    const baseX = side==='p' ? CONF.W-46 : 46;
+    const dir = side==='p' ? -1 : 1;
     const y = CONF.groundY - Math.random()*CONF.rowBand;   // 足元は地面付近の狭い帯
     world.units.push({
       id: world.nextId++, key, side, U:D,
-      x: baseX + (side==='p'?1:-1)*(i*14 + Math.random()*8),
+      x: baseX + dir*(i*14 + Math.random()*8),
       y, hp:D.hp, maxHp:D.hp, atk:D.atk, speed:D.speed, range:D.range, cd:D.cd,
-      cool: Math.random()*0.2, dir: side==='p'?1:-1, bob:Math.random()*6.28,
+      cool: Math.random()*0.2, dir, bob:Math.random()*6.28,
       fuseT:-1, dead:false,
     });
   }
@@ -189,8 +211,8 @@ function explode(x, y, side, blast, blastR){
     const d = Math.hypot(o.x-x, o.y-y);
     if(d<=blastR){ o.hp -= blast*(1 - 0.5*(d/blastR)); }
   }
-  if(side==='p' && (CONF.W-x)<=blastR+CONF.castleAtkRange) ehp -= blast;
-  if(side==='e' && x<=blastR+CONF.castleAtkRange) php -= blast;
+  if(side==='p' && x<=blastR+CONF.castleAtkRange) ehp -= blast;              // 敵城=左
+  if(side==='e' && (CONF.W-x)<=blastR+CONF.castleAtkRange) php -= blast;     // 味方城=右
   for(let i=0;i<14;i++){ const a=Math.random()*6.28, s=40+Math.random()*120;
     world.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-30,life:0.5,max:0.5,c:'#ffd23f',r:3+Math.random()*3}); }
   SFX_boom();
@@ -207,6 +229,8 @@ function step(dt){
   elapsed += dt;
   money = Math.min(effCap(), money + effRate()*dt);
   for(const k of ORDER) if(cd[k]>0) cd[k]=Math.max(0, cd[k]-dt);
+  if(towerCd>0) towerCd = Math.max(0, towerCd-dt);
+  if(world.beam){ world.beam.t += dt; if(world.beam.t >= world.beam.dur) world.beam=null; }
 
   // 敵の出撃
   enemyCd -= dt;
@@ -221,7 +245,7 @@ function step(dt){
     u.bob += dt*10;
     const D = u.U;
     const fe = frontUnit(u,false);          // 前方の敵
-    const castleX = u.side==='p' ? CONF.W : 0;
+    const castleX = u.side==='p' ? 0 : CONF.W;   // 攻撃対象は相手の城（味方=左の敵城 / 敵=右の味方城）
     const castleGap = Math.abs(castleX - u.x);
     const enemyInRange  = fe && fe.gap <= u.range;
     const castleInRange = castleGap <= Math.max(u.range, CONF.castleAtkRange);
@@ -249,12 +273,12 @@ function step(dt){
 
     // 前進：味方どうしは重なってOK（にゃんこ風に前線で団子になる）。敵の手前でだけ止まる。
     let nx = u.x + u.dir*u.speed*dt;
-    if(u.side==='p'){
-      nx = Math.min(nx, CONF.W - CONF.castleAtkRange);
-      if(fe) nx = Math.min(nx, fe.o.x - u.range);   // 前方の敵の射程手前で停止
-    }else{
+    if(u.side==='p'){            // 左へ進む・敵城は左(0)
       nx = Math.max(nx, CONF.castleAtkRange);
-      if(fe) nx = Math.max(nx, fe.o.x + u.range);
+      if(fe) nx = Math.max(nx, fe.o.x + u.range);   // 前方の敵の射程手前で停止
+    }else{                        // 右へ進む・味方城は右(W)
+      nx = Math.min(nx, CONF.W - CONF.castleAtkRange);
+      if(fe) nx = Math.min(nx, fe.o.x - u.range);
     }
     u.x = nx;
   }
@@ -314,6 +338,21 @@ function upgradeWallet(){
   money -= c; walletLv++; SFX_deploy();
 }
 
+/* --- タワー攻撃スキル（右下）：自分の城（右）から一撃。敵全体にダメージ＋左へ押し戻す --- */
+function castTower(){
+  if(!running || towerCd>0) return;
+  towerCd = CONF.towerCd;
+  for(const o of world.units){
+    if(o.side!=='e' || o.dead) continue;
+    o.hp -= CONF.towerDmg;
+    o.x = Math.max(CONF.castleAtkRange, o.x - CONF.towerKB);   // 自陣(左)へノックバック
+    for(let i=0;i<4;i++){ const a=Math.random()*6.28, s=30+Math.random()*90;
+      world.parts.push({x:o.x,y:o.y-10,vx:Math.cos(a)*s,vy:-Math.random()*90,life:0.4,max:0.4,c:'#ffe9a8',r:2+Math.random()*2}); }
+  }
+  world.beam = { t:0, dur:0.35 };   // 右→左へ走るビーム演出
+  SFX_tower();
+}
+
 /* ============================================================ 描画 ============================================================ */
 const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d');
@@ -342,7 +381,7 @@ function drawUnit(u){
   const bobY = Math.sin(u.bob)*2;
   ctx.save();
   ctx.translate(cx, footY+bobY);
-  if(u.side==='e') ctx.scale(-1,1);
+  if(u.side==='p') ctx.scale(-1,1);   // 味方は左へ進む＝左向き（スプライトは右向きが素）
   if(u.fuseT>=0) ctx.globalAlpha = 0.6 + 0.4*Math.sin(elapsed*40);
   if(im && im.complete && im.naturalWidth){ ctx.drawImage(im, -S/2, -S, S, S); }  // 画像の下端＝footY
   else { ctx.font=(S*0.7)+'px serif'; ctx.textAlign='center'; ctx.textBaseline='alphabetic'; ctx.fillText('🍬',0,-6); }
@@ -371,13 +410,33 @@ function render(){
   for(let i=0;i<4;i++){ ctx.beginPath(); ctx.ellipse(120+i*260, g+20, 200, 90, 0,0,6.28); ctx.fill(); }
   ctx.fillStyle='#e7b57a'; ctx.fillRect(0,g,W,H-g);
   ctx.fillStyle='#d59f63'; ctx.fillRect(0,g,W,6);
-  drawCastle(24,'p'); drawCastle(W-24,'e');
+  drawCastle(24,'e'); drawCastle(W-24,'p');   // 左＝敵(赤) / 右＝味方(青)
   const us = world.units.slice().sort((a,b)=>a.y-b.y);   // 奥(小y)→手前(大y)
   for(const u of us) drawUnit(u);
   for(const s of world.shots) drawShot(s);
   for(const p of world.parts){ ctx.globalAlpha=Math.max(0,p.life/p.max); ctx.fillStyle=p.c;
     ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,6.28); ctx.fill(); }
   ctx.globalAlpha=1;
+  drawBeam();
+}
+
+/* タワー攻撃のビーム演出（右の自城→左へ走る光の帯） */
+function drawBeam(){
+  const bm = world.beam; if(!bm) return;
+  const W=CONF.W, H=CONF.H, g=CONF.groundY;
+  const k = bm.t/bm.dur;                 // 0→1
+  const headX = W - k*W;                 // 右から左へ
+  ctx.save();
+  // うっすら全域フラッシュ
+  ctx.globalAlpha = 0.25*(1-k);
+  ctx.fillStyle = '#fff3c4'; ctx.fillRect(0, g-120, W, 120);
+  // 走る光の帯
+  ctx.globalAlpha = 0.9*(1-k*0.5);
+  const grad = ctx.createLinearGradient(headX-70,0,headX+70,0);
+  grad.addColorStop(0,'rgba(255,220,110,0)'); grad.addColorStop(0.5,'#fff6d0'); grad.addColorStop(1,'rgba(255,220,110,0)');
+  ctx.fillStyle = grad; ctx.fillRect(headX-70, g-112, 140, 108);
+  ctx.restore();
+  ctx.globalAlpha = 1;
 }
 
 /* --- HUD --- */
@@ -390,9 +449,14 @@ function hud(){
   document.getElementById('ehp').style.width=(ev*100)+'%';
   document.getElementById('phpTxt').textContent=Math.max(0,Math.ceil(php));
   document.getElementById('ehpTxt').textContent=Math.max(0,Math.ceil(ehp));
-  const wb=document.getElementById('walletBtn');
-  if(walletLv>=CONF.walletMax){ wb.textContent='お財布Lv'+(walletLv+1)+' MAX'; wb.classList.add('off'); }
-  else{ wb.textContent='お財布Lv'+(walletLv+1)+' ▲ 🍬'+walletCost(); wb.classList.toggle('off', money<walletCost()); }
+  const wb=document.getElementById('walletBtn'), ws=document.getElementById('walletSub');
+  if(walletLv>=CONF.walletMax){ ws.textContent='MAX'; wb.classList.add('off'); wb.classList.remove('rdy'); }
+  else{ ws.textContent='🍬'+walletCost(); const poorW=money<walletCost(); wb.classList.toggle('off',poorW); wb.classList.toggle('rdy',!poorW); }
+  const tb=document.getElementById('towerBtn'), ts=document.getElementById('towerSub'), tf=document.getElementById('towerCdFill');
+  const ready = towerCd<=0;
+  ts.textContent = ready ? 'OK' : Math.ceil(towerCd)+'秒';
+  tb.classList.toggle('off', !ready); tb.classList.toggle('rdy', ready);
+  tf.style.transform='scaleY('+(ready?0:towerCd/CONF.towerCd)+')';
   for(const k of ORDER){
     const el=btnEls[k]; if(!el) continue; const D=DEFS[k];
     const onCd=cd[k]>0, poor=money<D.cost;
@@ -451,6 +515,7 @@ function blip(freq,dur,type,vol){ const c=ac(); if(!c) return;
 let lastHit=0;
 function SFX_hit(){ const n=(typeof performance!=='undefined'?performance.now():0); if(n-lastHit<40)return; lastHit=n; blip(220+Math.random()*60,0.05,'square',0.03); }
 function SFX_shot(){ blip(720,0.06,'triangle',0.03); }
+function SFX_tower(){ blip(180,0.05,'sawtooth',0.08); setTimeout(()=>blip(90,0.35,'sawtooth',0.10),40); setTimeout(()=>SFX_boom(),60); }
 function SFX_deploy(){ blip(520,0.08,'sine',0.06); setTimeout(()=>blip(780,0.08,'sine',0.05),60); }
 function SFX_boom(){ const c=ac(); if(!c)return; const b=c.createBuffer(1,c.sampleRate*0.2,c.sampleRate); const d=b.getChannelData(0);
   for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,2);
@@ -463,9 +528,9 @@ buildDock(); reset(); showHint(); requestAnimationFrame(loop);
 
 /* ヘッドレステスト用に主要関数を公開 */
 if(typeof globalThis!=='undefined') globalThis.__NYANKO = { CONF, DEFS, ORDER,
-  reset, spawn, step, deploy, upgradeWallet, nearestEnemy, frontUnit, explode, effRate, effCap, walletCost,
+  reset, spawn, step, deploy, upgradeWallet, castTower, nearestEnemy, frontUnit, explode, effRate, effCap, walletCost,
   get world(){return world;}, get money(){return money;}, get php(){return php;}, get ehp(){return ehp;},
-  get walletLv(){return walletLv;},
+  get walletLv(){return walletLv;}, get towerCd(){return towerCd;},
   set money(v){money=v;}, set php(v){php=v;}, set ehp(v){ehp=v;} };
 </script>
 </body>
