@@ -13,17 +13,27 @@ const NEED = [
   'cookie_blue','cookie_red',
   'cookie_party_blue','cookie_party_red',   // パーティークッキー（サングラス）
   'slime_blue','slime_red',
+  'slime_squash_blue','slime_squash_red',   // スライムのぽよん（潰れ）
+  'slime_up_blue','slime_up_red',           // スライムのぽよん（伸び）
   'daifuku_blue','daifuku_red',
   'choco_blue','choco_red',
   'donut_blue','donut_red',
-  'shoe_aim_blue','shoe_aim_red',
-  'bomb_blue','bomb_red',
+  'shoe_aim_blue','shoe_aim_red',           // シュー：構え（攻撃）
+  'shoe_idle_blue','shoe_idle_red',         // シュー：待機
+  'shoe_walk1_blue','shoe_walk1_red',       // シュー：歩行1
+  'shoe_walk2_blue','shoe_walk2_red',       // シュー：歩行2
+  'bomb_blue','bomb_red',                   // ポップコーン：歩行1
+  'bomb2_blue','bomb2_red',                 // ポップコーン：歩行2
   'arrow_blue','arrow_red',
 ];
 // spr名を drawUnit の "spr+'_blue'/'_red'" 規則に合わせるリマップ（元キー→出力キー）
 const REMAP = {
   'slime_blue_big':'slimebig_blue',   // 巨大スライム（3つ目の融合立ち絵）
   'slime_red_big' :'slimebig_red',
+  'slime_bigsquash_blue':'slimebigsquash_blue',   // 巨大スライムのぽよん（潰れ）
+  'slime_bigsquash_red' :'slimebigsquash_red',
+  'slime_bigup_blue':'slimebigup_blue',           // 巨大スライムのぽよん（伸び）
+  'slime_bigup_red' :'slimebigup_red',
 };
 const subset = {};
 let missing = [];

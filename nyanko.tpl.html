@@ -136,30 +136,35 @@ const DEFS = {
   partycookie:{name:'パーティークッキー', role:'melee', atk:8, hp:90, speed:100, range:26, cd:0.6, scale:0.86,
            cost:140, rc:8.0, num:1, spr:'cookie_party',
            disco:{cd:4.5, dur:2.5, r:110, mul:1.35, cookieMul:1.9}},
+  // スライム：倒れるとチビ2体に分裂。ぽよんジャンプ移動アニメ
+  slime:  {name:'スライム',   role:'melee',  atk:8,  hp:90,  speed:84,  range:26, cd:0.6, scale:0.92,
+           cost:70,  rc:3.2, num:2, spr:'slime', split:{key:'chibi', n:2},
+           anim:{hop:true, base:'slime', squash:'slime_squash', up:'slime_up', fps:1.5}},
   // 巨大スライム：倒れるとスライム2体→さらにチビ2体に分裂（2段チェーン）
   bigslime:{name:'巨大スライム', role:'melee', atk:14, hp:280, speed:76, range:28, cd:0.7, scale:1.30,
-           cost:160, rc:9.0, num:1, spr:'slimebig', split:{key:'slime', n:2}},
-  slime:  {name:'スライム',   role:'melee',  atk:8,  hp:90,  speed:84,  range:26, cd:0.6, scale:0.92,
-           spr:'slime', split:{key:'chibi', n:2}},                // 分裂専用（デプロイ不可）
+           cost:160, rc:9.0, num:1, spr:'slimebig', split:{key:'slime', n:2},
+           anim:{hop:true, base:'slimebig', squash:'slimebigsquash', up:'slimebigup', fps:1.1}},
   chibi:  {name:'チビスライム', role:'melee', atk:5,  hp:30,  speed:98,  range:24, cd:0.5, scale:0.60,
-           spr:'slime'},                                          // 分裂専用（これ以上は分裂しない）
-  // 突撃：出た直後に突撃して初撃で大ダメージ（以降は通常近接）
+           spr:'slime', anim:{hop:true, base:'slime', squash:'slime_squash', up:'slime_up', fps:1.8}}, // 分裂専用
+  // 突撃：出た直後に高速で突撃して初撃で大ダメージ（以降は通常近接）
   daifuku:{name:'大福',       role:'melee',  atk:18, hp:160, speed:66,  range:30, cd:0.85, scale:0.98,
-           cost:120, rc:6.5, num:1, spr:'daifuku', charge:{dmg:140, spd:2.6, r:42}},
+           cost:120, rc:6.5, num:1, spr:'daifuku', charge:{dmg:150, spd:5.2, r:46}},
   // ただ硬い壁
   choco:  {name:'チョコ',     role:'melee',  atk:20, hp:240, speed:60,  range:32, cd:0.95, scale:1.05,
            cost:130, rc:7.0, num:1, spr:'choco'},
   // 妨害：送風で正面の敵を吹き飛ばす（自身は超硬タンク）
   donut:  {name:'ドーナッツ', role:'melee',  atk:6,  hp:460, speed:48,  range:32, cd:1.1,  scale:1.12,
            cost:210, rc:13.0,num:1, spr:'donut', blow:{cd:2.0, kb:95, r:130}},
-  // 後衛射手（矢）
+  // 後衛射手（矢）。歩行2フレーム＋構え（攻撃）／待機ポーズ
   shoe:   {name:'シュー',     role:'ranged', atk:16, hp:46,  speed:56,  range:175, cd:1.0, scale:0.86,
-           cost:90,  rc:4.0, num:1, spr:'shoe_aim'},
-  // 自爆
+           cost:90,  rc:4.0, num:1, spr:'shoe_aim',
+           anim:{walk:['shoe_walk1','shoe_walk2'], atk:'shoe_aim', idle:'shoe_idle', fps:4}},
+  // 自爆。歩行2フレーム
   bomb:   {name:'ポップコーン',role:'bomber', atk:0,  hp:55,  speed:132, range:30, cd:1.0, scale:0.86,
-           blast:120, blastR:64, cost:60, rc:3.0, num:1, spr:'bomb'},
+           blast:120, blastR:64, cost:60, rc:3.0, num:1, spr:'bomb',
+           anim:{walk:['bomb','bomb2'], idle:'bomb', fps:7}},
 };
-const ORDER = ['cookie','partycookie','bigslime','daifuku','choco','donut','shoe','bomb'];
+const ORDER = ['cookie','partycookie','slime','bigslime','daifuku','choco','donut','shoe','bomb'];
 
 /* --- 敵＝カビ軍団（画像素材なし・canvasで手描き。mold=描画形状 / col,col2=配色） ---
    ステータスは対応するお菓子とほぼ同じ＝バランスは据え置き。見た目と名前だけカビ化。 */
@@ -208,8 +213,10 @@ function newUnit(key, side, x, y){
     blowT: 0,                             // ドーナッツ送風タイマー
     discoT: D.disco ? D.disco.cd*0.4 : 0, // パーティークッキーのミラーボール発生タイマー
     auraT: 0, buffMul: 1,
+    moving: false, atkAnim: 0, px: x,     // アニメ用（歩行/攻撃/前フレームx）
   };
 }
+const ATK_ANIM = 0.18;   // 攻撃モーションの表示時間(秒)
 
 /* --- ユニット生成（デプロイ／敵湧き） --- */
 function spawn(key, side){
@@ -343,6 +350,7 @@ function step(dt){
   for(const u of world.units){
     if(u.dead) continue;
     u.bob += dt*10;
+    if(u.atkAnim>0) u.atkAnim -= dt;
     const D = u.U;
     const fe = frontUnit(u,false);          // 前方の敵
     const castleX = u.side==='p' ? 0 : CONF.W;   // 攻撃対象は相手の城（味方=左の敵城 / 敵=右の味方城）
@@ -374,15 +382,16 @@ function step(dt){
           if(Math.abs(o.x-u.x) <= D.charge.r) hurt(o, D.charge.dmg); }
         slashFx(u);
       }else{ if(u.side==='p') ehp -= D.charge.dmg; else php -= D.charge.dmg; }
-      u.charging=false; u.cool=u.cd; SFX_hit();
+      u.charging=false; u.cool=u.cd; u.atkAnim=ATK_ANIM; SFX_hit();
       continue;
     }
 
     // 攻撃（射程内なら足を止めて攻撃＝前線ができる）
     if(enemyInRange || castleInRange){
+      u.moving = false;
       u.cool -= dt;
       if(u.cool<=0){
-        u.cool = u.cd;
+        u.cool = u.cd; u.atkAnim = ATK_ANIM;
         const dmg = u.atk * (u.buffMul||1);
         if(D.role==='ranged' && enemyInRange){ fireShot(u, fe.o); SFX_shot(); }
         else if(enemyInRange){ hurt(fe.o, dmg); SFX_hit(); }
@@ -392,6 +401,7 @@ function step(dt){
     }
 
     // 前進：味方どうしは重なってOK（にゃんこ風に前線で団子になる）。敵の手前でだけ止まる。
+    u.moving = true;
     const sp = u.speed * (u.charging ? D.charge.spd : 1);   // 突撃中は加速
     let nx = u.x + u.dir*sp*dt;
     if(u.side==='p'){            // 左へ進む・敵城は左(0)
@@ -495,20 +505,63 @@ function drawCastle(x, side){
   ctx.restore();
 }
 
+/* アニメ：状態に応じてフレームのスプライトキーを返す（SUGAR WARSのフレームを転用） */
+function hopPhase(u, fps){ let p=(elapsed*fps + u.x*0.03)%1; return p<0?p+1:p; }
+function animFrame(u){
+  const D=u.U, team = u.side==='p'?'blue':'red', A=D.anim;
+  if(!A) return D.spr+'_'+team;
+  if(u.atkAnim>0 && A.atk) return A.atk+'_'+team;                 // 攻撃ポーズ（構えなど）
+  if(u.moving && A.walk && A.walk.length){                        // 歩行フレーム
+    const i = Math.floor(elapsed*(A.fps||6) + u.x*0.05) % A.walk.length;
+    return A.walk[i]+'_'+team;
+  }
+  return (A.idle || D.spr)+'_'+team;                              // 待機
+}
+
 function drawUnit(u){
   const D = u.U;
+  const team = u.side==='p'?'blue':'red';
   const S = 58 * (D.scale||1) * (u.sMul||1);
   const cx = u.x, footY = u.y;                 // 足元＝u.y（地面付近）。影も足元に置くので浮かない
   ctx.save(); ctx.globalAlpha=0.28; ctx.fillStyle='#000';
   ctx.beginPath(); ctx.ellipse(cx, footY, S*0.30, S*0.10, 0,0,6.28); ctx.fill(); ctx.restore();
-  const bobY = Math.sin(u.bob)*2;
   if(u.side==='e' && D.mold){
-    drawMold(u, S, cx, footY+bobY);            // 敵＝カビ軍団（手描き）
+    drawMold(u, S, cx, footY + (Math.sin(u.bob)*2));            // 敵＝カビ軍団（手描き）
   }else{
-    const im = SPRITES[D.spr + '_' + (u.side==='p'?'blue':'red')];
+    const A = D.anim;
+    // 大福の突撃：スピード感の残像
+    if(u.charging){
+      const im0 = SPRITES[D.spr+'_'+team];
+      if(im0 && im0.complete && im0.naturalWidth){
+        for(let k=1;k<=3;k++){
+          ctx.save(); ctx.globalAlpha = 0.12*(4-k);
+          ctx.translate(cx - u.dir*k*12, footY);
+          if(u.side==='p') ctx.scale(-1,1);
+          ctx.drawImage(im0, -S/2, -S, S, S); ctx.restore();
+        }
+      }
+    }
+    // フレーム選択（ぽよんスライムは phase から潰れ/伸び/通常＋跳ね上げ）
+    let frameKey, lift=0;
+    if(A && A.hop && u.moving){
+      const ph = hopPhase(u, A.fps||1.3);
+      frameKey = ((ph<0.15||ph>0.85) ? A.squash : (ph>=0.40&&ph<=0.60) ? A.base : A.up) + '_' + team;
+      lift = Math.sin(ph*Math.PI) * S * 0.16;
+    } else {
+      frameKey = animFrame(u);
+    }
+    const im = SPRITES[frameKey] || SPRITES[D.spr+'_'+team];
+    const bobY = (A && A.hop) ? 0 : (u.moving ? Math.sin(u.bob)*2 : 0);
+    // 攻撃のモーション：前へ踏み込む＋潰れ
+    let lungeX=0, sqx=1, sqy=1;
+    if(u.atkAnim>0 && !(A && A.atk)){    // 専用の攻撃ポーズが無いキャラは踏み込みで表現
+      const a = Math.sin((u.atkAnim/ATK_ANIM)*Math.PI);
+      lungeX = u.dir * a * S*0.18; sqx = 1 + 0.08*a; sqy = 1 - 0.10*a;
+    }
     ctx.save();
-    ctx.translate(cx, footY+bobY);
+    ctx.translate(cx + lungeX, footY + bobY - lift);
     if(u.side==='p') ctx.scale(-1,1);   // 味方は左へ進む＝左向き（スプライトは右向きが素）
+    ctx.scale(sqx, sqy);
     if(u.fuseT>=0) ctx.globalAlpha = 0.6 + 0.4*Math.sin(elapsed*40);
     if(im && im.complete && im.naturalWidth){ ctx.drawImage(im, -S/2, -S, S, S); }
     else { ctx.font=(S*0.7)+'px serif'; ctx.textAlign='center'; ctx.textBaseline='alphabetic'; ctx.fillText('🍬',0,-6); }
