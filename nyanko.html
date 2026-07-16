@@ -329,9 +329,17 @@ function newUnit(key, side, x, y){
     discoT: D.disco ? D.disco.cd*0.4 : 0, // パーティークッキーのミラーボール発生タイマー
     auraT: 0, buffMul: 1,
     moving: false, atkAnim: 0, px: x,     // アニメ用（歩行/攻撃/前フレームx）
+    kbVX:0, kbVY:0, kbY:0, kbT:0,          // 吹き飛び（ノックバック）の速度・高さ・残り時間
   };
 }
 const ATK_ANIM = 0.18;   // 攻撃モーションの表示時間(秒)
+/* --- ノックバック：座標ワープでなく、弧を描いて後ろへ吹き飛ばす --- */
+const KB_TAU=0.12, KB_POP=250, KB_GRAV=1300, KB_TIME=0.5;
+function applyKnock(o, fromX, dist){
+  const dir = Math.sign(o.x - fromX) || -1;   // 攻撃者から遠ざかる向き
+  o.kbVX = dir * dist / KB_TAU;                // 初速（KB_TAUで減衰し概ね dist 進む）
+  o.kbVY = -KB_POP; o.kbY = -0.01; o.kbT = KB_TIME;
+}
 
 /* --- ユニット生成（デプロイ／敵湧き） --- */
 function spawn(key, side){
@@ -409,7 +417,7 @@ function blowAway(u, blow){
     if(o.side===u.side || o.dead) continue;
     const ahead = u.dir>0 ? o.x>u.x : o.x<u.x;
     if(!ahead || Math.abs(o.x-u.x) > blow.r) continue;
-    o.x = Math.max(CONF.castleAtkRange, Math.min(CONF.W-CONF.castleAtkRange, o.x + Math.sign(o.x-u.x)*blow.kb));
+    applyKnock(o, u.x, blow.kb);   // パーンと後ろへ吹き飛ばす
   }
   // 風のエフェクト（前方へ流れる粒）
   for(let i=0;i<10;i++){ const spd=120+Math.random()*160;
@@ -479,6 +487,16 @@ function step(dt){
     if(u.dead) continue;
     u.bob += dt*10;
     if(u.atkAnim>0) u.atkAnim -= dt;
+    // 吹き飛び中：弧を描いて後ろへ飛ぶ（この間はAIしない）
+    if(u.kbT>0){
+      u.kbT -= dt;
+      u.kbVX -= u.kbVX*Math.min(1, dt/KB_TAU);          // 水平は減衰
+      u.x += u.kbVX*dt;
+      u.kbVY += KB_GRAV*dt; u.kbY += u.kbVY*dt;          // 上下は放物線
+      if(u.kbY>=0){ u.kbY=0; if(u.kbVY>140){ u.kbVY=-u.kbVY*0.35; } else { u.kbVY=0; } }  // 着地バウンド
+      u.x = Math.max(CONF.castleAtkRange, Math.min(CONF.W-CONF.castleAtkRange, u.x));
+      continue;
+    }
     const D = u.U;
     const fe = frontUnit(u,false);          // 前方の敵
     const castleX = u.side==='p' ? 0 : CONF.W;   // 攻撃対象は相手の城（味方=左の敵城 / 敵=右の味方城）
@@ -627,7 +645,7 @@ function castTower(){
   for(const o of world.units){
     if(o.side!=='e' || o.dead) continue;
     hurt(o, CONF.towerDmg);
-    o.x = Math.max(CONF.castleAtkRange, o.x - CONF.towerKB);   // 自陣(左)へノックバック
+    applyKnock(o, CONF.W, CONF.towerKB);   // 自城(右)から左へパーンと吹き飛ばす
     for(let i=0;i<4;i++){ const a=Math.random()*6.28, s=30+Math.random()*90;
       world.parts.push({x:o.x,y:o.y-10,vx:Math.cos(a)*s,vy:-Math.random()*90,life:0.4,max:0.4,c:'#ffe9a8',r:2+Math.random()*2}); }
   }
@@ -777,9 +795,12 @@ function drawUnit(u){
   const D = u.U;
   const team = u.side==='p'?'blue':'red';
   const S = 58 * (D.scale||1) * (u.sMul||1);
-  const cx = u.x, footY = u.y;                 // 足元＝u.y（地面付近）。影も足元に置くので浮かない
-  ctx.save(); ctx.globalAlpha=0.28; ctx.fillStyle='#000';
-  ctx.beginPath(); ctx.ellipse(cx, footY, S*0.30, S*0.10, 0,0,6.28); ctx.fill(); ctx.restore();
+  const cx = u.x;
+  const air = -(u.kbY||0);                      // 吹き飛びの高さ（px・0以上）
+  const footY = u.y + (u.kbY||0);               // 本体は吹き飛び中は浮く（kbYは負＝上）
+  // 影は地面に残し、浮くほど小さく薄く（＝飛んでる感）
+  ctx.save(); ctx.globalAlpha=0.28*Math.max(0.25, 1-air/70); ctx.fillStyle='#000';
+  ctx.beginPath(); ctx.ellipse(cx, u.y, S*0.30*Math.max(0.4,1-air/120), S*0.10, 0,0,6.28); ctx.fill(); ctx.restore();
   if(u.side==='e' && D.mold){
     drawMold(u, S, cx, footY + (Math.sin(u.bob)*2));            // 敵＝カビ軍団（手描き）
   }else if(D.gear){
@@ -854,6 +875,7 @@ function drawMold(u, S, cx, cy){
   const puls = D.mold==='spiky' && u.fuseT>=0 ? (1 + 0.18*Math.sin(elapsed*40)) : 1;
   ctx.save();
   ctx.translate(cx, top);
+  if(u.kbT>0) ctx.rotate((KB_TIME-u.kbT)*7*Math.sign(u.kbVX||-1));   // 吹き飛び中はくるっと回転
   ctx.scale(puls, puls);
   // 目の向き（プレイヤー＝右を見る）
   const look = 2.2;
