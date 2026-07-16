@@ -107,6 +107,8 @@ const CONF = {
   moneyRate: 26,         // 🍬/秒（お財布Lv0）
   moneyCap: 700,         // 🍬上限（お財布Lv0）
   castleAtkRange: 40,    // お城への攻撃が届く距離
+  spawnInset: 18,        // ユニットの湧き位置（城のふち＝端からの距離）。castleAtkRangeより内側にして
+                         // 「城に張り付いた敵ユニットの後ろ」に湧かせ、防衛側が張り付き組を最優先で攻撃できるように
   maxUnitsPerSide: 60,   // 片side上限（暴走防止）
   enemyStartCd: 3.6,     // 敵の出撃間隔（開始）
   enemyMinCd: 1.5,       // 敵の出撃間隔（最短）
@@ -185,8 +187,9 @@ function spawn(key, side){
   if(arr.length >= CONF.maxUnitsPerSide) return;
   const n = D.num || 1;
   for(let i=0;i<n;i++){
-    // 味方(p)は右端から出て左へ進む／敵(e)は左端から出て右へ進む
-    const baseX = side==='p' ? CONF.W-46 : 46;
+    // 味方(p)は右端から出て左へ進む／敵(e)は左端から出て右へ進む。
+    // 湧きは城のふち（spawnInset）＝城に張り付いた相手より内側に出る＝張り付き組を真っ先に迎撃できる
+    const baseX = side==='p' ? CONF.W-CONF.spawnInset : CONF.spawnInset;
     const dir = side==='p' ? -1 : 1;
     const y = CONF.groundY - Math.random()*CONF.rowBand;   // 足元は地面付近の狭い帯
     world.units.push({
