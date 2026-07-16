@@ -10,13 +10,18 @@ const all = JSON.parse(m[1]);
 
 // TD のタワー立ち絵＋弾（青＝味方のみでOK。敵カビは canvas 手描き＝スプライト不要）
 const NEED = [
-  'cookie_blue',    // クッキー（甘）
-  'slime_blue',     // スライム（甘）
-  'shoe_aim_blue',  // シューアーチャー（辛）
-  'daifuku_blue',   // 大福サムライ（辛）
-  'choco_blue',     // チョコナイト（苦）
-  'icewiz_blue',    // アイス魔導士（苦）
-  'arrow_blue',     // シューの矢
+  // 🛡 ブロッカー（通路）
+  'cookie_blue',        // クッキー（甘）
+  'daifuku_blue',       // 大福サムライ（辛）
+  'choco_blue',         // チョコナイト（苦）
+  'donut_blue',         // ドーナッツ（苦）
+  // 🎯 レンジ（草地）
+  'shoe_aim_blue',      // シューアーチャー（辛）
+  'slime_blue',         // スライム（甘）
+  'icewiz_blue',        // アイス魔導士（苦）
+  'cookie_party_blue',  // パーティークッキー（甘・サポート）
+  // 弾
+  'arrow_blue',         // シューの矢
 ];
 const REMAP = {}; // 現状リマップなし
 
