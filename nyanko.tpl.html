@@ -60,9 +60,83 @@
   #hint{ position:fixed; top:8px; left:50%; transform:translateX(-50%); z-index:5;
     background:#000a; padding:5px 12px; border-radius:20px; font-size:12px; opacity:.9; pointer-events:none; transition:opacity .5s; }
   .title{ font-size:13px; font-weight:800; letter-spacing:.5px; opacity:.9; margin-top:2px; }
+  /* --- メタ画面（ホーム/ステージ選択/編成）--- */
+  .screen{ position:fixed; inset:0; z-index:30; display:none; flex-direction:column; align-items:center;
+    background:linear-gradient(180deg,#2a1a3a,#12203a); color:#fff; overflow-y:auto; padding:16px; }
+  .screen.on{ display:flex; }
+  .screen h1{ margin:8px 0 2px; font-size:30px; text-shadow:0 3px 0 #0006; }
+  .screen .sub{ opacity:.7; font-size:13px; margin-bottom:14px; }
+  .bigbtn{ border:none; border-radius:16px; padding:16px 34px; font-size:20px; font-weight:900; cursor:pointer;
+    background:linear-gradient(90deg,#ff9f43,#ff6b9d); color:#fff; box-shadow:0 5px 0 #0006; }
+  .bigbtn:active{ transform:translateY(2px); box-shadow:0 3px 0 #0006; }
+  .bigbtn.off{ filter:grayscale(.6) brightness(.7); cursor:default; }
+  .backbtn{ align-self:flex-start; border:none; background:#0004; color:#fff; border-radius:10px; padding:8px 14px;
+    font-weight:800; cursor:pointer; margin-bottom:6px; }
+  .list{ width:100%; max-width:520px; display:flex; flex-direction:column; gap:10px; }
+  .stagecard{ display:flex; align-items:center; gap:12px; text-align:left; border:none; cursor:pointer;
+    background:#2a2140; border-radius:14px; padding:12px 14px; color:#fff; box-shadow:0 3px 0 #0005, inset 0 0 0 1px #ffffff14; }
+  .stagecard:active{ transform:translateY(2px); }
+  .stagecard.locked{ filter:grayscale(.7) brightness(.6); cursor:default; }
+  .stagecard .no{ font-size:22px; font-weight:900; width:38px; height:38px; border-radius:10px; flex:0 0 auto;
+    display:flex; align-items:center; justify-content:center; background:#0004; }
+  .stagecard .nm{ font-weight:800; }
+  .stagecard .meta{ font-size:11px; opacity:.7; }
+  .stagecard .rw{ margin-left:auto; text-align:center; font-size:10px; opacity:.9; }
+  .stagecard .rw img{ width:38px; height:38px; display:block; image-rendering:pixelated; }
+  .stagecard .clr{ margin-left:auto; font-size:22px; }
+  .grid{ width:100%; max-width:560px; display:grid; grid-template-columns:repeat(auto-fill,minmax(92px,1fr)); gap:8px; }
+  .ucard{ position:relative; border:none; cursor:pointer; background:#241a33; border-radius:12px; padding:8px 4px 6px;
+    color:#fff; box-shadow:0 3px 0 #0006, inset 0 0 0 1px #ffffff14; }
+  .ucard img{ width:44px; height:44px; display:block; margin:0 auto; image-rendering:pixelated; }
+  .ucard .nm{ font-size:10.5px; opacity:.9; }
+  .ucard .co{ font-size:11px; font-weight:800; color:#ffdf6b; }
+  .ucard.sel{ box-shadow:0 3px 0 #0006, inset 0 0 0 2px #ffd23f; background:#33264a; }
+  .ucard .pick{ position:absolute; top:3px; right:5px; width:20px; height:20px; border-radius:50%; background:#ffd23f;
+    color:#20152e; font-weight:900; font-size:12px; display:none; align-items:center; justify-content:center; }
+  .ucard.sel .pick{ display:flex; }
+  #loadoutBar{ position:sticky; bottom:0; width:100%; max-width:560px; display:flex; align-items:center; gap:10px;
+    padding:10px 0; background:linear-gradient(180deg,#12203a00,#12203a); }
+  #loadoutBar .cnt{ font-weight:800; }
 </style>
 </head>
 <body>
+<!-- ホーム -->
+<div id="homeScreen" class="screen">
+  <div style="flex:1"></div>
+  <div style="font-size:52px">🍭</div>
+  <h1>SUGAR MARCH</h1>
+  <div class="sub">お菓子の王国をカビ軍団から守れ！</div>
+  <button class="bigbtn" onclick="goSelect()">▶ はじめる</button>
+  <button class="bigbtn" onclick="goCollect()" style="margin-top:10px;background:linear-gradient(90deg,#7b5cff,#a94bff);font-size:16px;padding:12px 26px">🍬 なかま／ガチャ</button>
+  <div class="sub" id="homeProgress" style="margin-top:14px"></div>
+  <div style="flex:1"></div>
+</div>
+<!-- なかま（解放＆ガチャ） -->
+<div id="collectScreen" class="screen">
+  <button class="backbtn" onclick="goHome()">← ホーム</button>
+  <h1>なかま</h1>
+  <div class="sub">🍬 <b id="collectCoins" style="color:#ffdf6b">0</b> キャンディコイン</div>
+  <button class="bigbtn" onclick="doGacha()" id="gachaBtn" style="background:linear-gradient(90deg,#ff8f43,#ff5b7d);font-size:16px;padding:12px 26px;margin-bottom:14px">🎰 ガチャを回す（🍬<span id="gachaCostTxt"></span>）</button>
+  <div class="grid" id="collectGrid" style="max-width:560px"></div>
+</div>
+<!-- ステージ選択 -->
+<div id="selectScreen" class="screen">
+  <button class="backbtn" onclick="goHome()">← ホーム</button>
+  <h1>ステージ</h1>
+  <div class="sub">クリアで新しいなかまが解放！</div>
+  <div class="list" id="stageList"></div>
+</div>
+<!-- 編成 -->
+<div id="loadoutScreen" class="screen">
+  <button class="backbtn" onclick="goSelect()">← ステージ</button>
+  <h1>へんせい</h1>
+  <div class="sub" id="loadoutHint"></div>
+  <div class="grid" id="unitGrid"></div>
+  <div id="loadoutBar">
+    <span class="cnt" id="loadoutCnt"></span>
+    <button class="bigbtn" id="sortieBtn" onclick="sortie()" style="margin-left:auto;padding:12px 24px;font-size:17px">しゅつじん！</button>
+  </div>
+</div>
 <div id="wrap">
   <div id="top">
     <div class="tophead">
@@ -82,7 +156,7 @@
   </div>
 </div>
 <div id="hint">🍬を貯めて下のボタンでなかまを出撃！ 左の敵のお城を落とそう（右＝自分）</div>
-<div id="overlay"><div class="card"><h1 id="ovT"></h1><p id="ovP"></p><button onclick="restart()">もういちど</button></div></div>
+<div id="overlay"><div class="card"><h1 id="ovT"></h1><p id="ovP"></p><div id="overButtons" style="display:flex;flex-direction:column;gap:8px;align-items:center"></div></div></div>
 
 <script>
 "use strict";
@@ -169,6 +243,41 @@ const DEFS = {
 };
 const ORDER = ['cookie','partycookie','slime','bigslime','daifuku','choco','donut','shoe','bomb'];
 
+/* ============================================================
+   ゲーム基盤：スターター／ステージ／編成／進行（localStorage保存）
+   ・キャラ追加＝DEFS/ORDERに足す。ステージ追加＝STAGESに1行足すだけ。
+   ============================================================ */
+const STARTERS = ['cookie','choco'];   // 最初から使える2体（前衛＋壁）
+const LOADOUT_MAX = 6;                  // 編成に持ち込める最大数
+// coins=そのステージ初回クリアの🍬キャンディコイン報酬（再挑戦は少額）
+const STAGES = [
+  { id:1, name:'カビの森 入口',   enemyHP:1100, spawnStart:3.8, spawnMin:2.1, ramp:75, coins:150,
+    pools:[[0.35,['m_swarm','m_swarm','m_puff']],[0.7,['m_swarm','m_puff','m_phage']],[1,['m_swarm','m_tank','m_phage']]] },
+  { id:2, name:'ねばねば湿地',     enemyHP:1400, spawnStart:3.4, spawnMin:1.9, ramp:80, coins:200,
+    pools:[[0.3,['m_swarm','m_swarm','m_phage']],[0.6,['m_swarm','m_tank','m_puff']],[1,['m_swarm','m_tank','m_phage','m_puff']]] },
+  { id:3, name:'紫カビ回廊',       enemyHP:1750, spawnStart:3.1, spawnMin:1.7, ramp:85, coins:250,
+    pools:[[0.3,['m_swarm','m_phage','m_puff']],[0.6,['m_swarm','m_tank','m_phage']],[1,['m_swarm','m_tank','m_big','m_phage']]] },
+  { id:4, name:'胞子の大広間',     enemyHP:2100, spawnStart:2.8, spawnMin:1.5, ramp:90, coins:300,
+    pools:[[0.3,['m_swarm','m_tank','m_puff']],[0.6,['m_swarm','m_tank','m_phage','m_puff']],[1,['m_swarm','m_tank','m_big','m_phage','m_puff']]] },
+  { id:5, name:'カビ大帝の巣',     enemyHP:2600, spawnStart:2.6, spawnMin:1.4, ramp:95, coins:400,
+    pools:[[0.3,['m_swarm','m_tank','m_phage']],[0.6,['m_swarm','m_tank','m_big','m_puff']],[1,['m_tank','m_big','m_phage','m_puff','m_swarm']]] },
+];
+const STAGE_BY_ID = Object.fromEntries(STAGES.map(s=>[s.id,s]));
+const REPLAY_COINS = 30;                // 再挑戦クリアの報酬
+// キャラ解放：coin=🍬で購入 / gacha=ガチャ限定（コインでは買えない）
+const UNLOCKS = {
+  slime:      {via:'coin', cost:200},
+  bomb:       {via:'coin', cost:250},
+  shoe:       {via:'coin', cost:350},
+  daifuku:    {via:'coin', cost:500},
+  donut:      {via:'coin', cost:700},
+  partycookie:{via:'gacha'},
+  bigslime:   {via:'gacha'},
+};
+const GACHA_COST = 400;                                 // 1回ガチャの🍬
+const GACHA_POOL = ['partycookie','bigslime'];          // ガチャから出るキャラ（増やせる）
+const GACHA_DUP_COINS = 120;                            // 重複時の🍬還元
+
 /* --- 敵＝カビ軍団（画像素材なし・canvasで手描き。mold=描画形状 / col,col2=配色） ---
    ステータスは対応するお菓子とほぼ同じ＝バランスは据え置き。見た目と名前だけカビ化。 */
 const FOE_DEFS = {
@@ -186,6 +295,7 @@ const FOE_DEFS = {
 
 /* --- 状態 --- */
 let world, money, php, ehp, cd, enemyCd, elapsed, running, lastT, walletLv, towerCd, hintT;
+let curStage=null, myLoadout=STARTERS.slice(0,LOADOUT_MAX);   // 現在のステージ／編成
 
 function effRate(){ return CONF.moneyRate + walletLv*CONF.walletRateStep; }
 function effCap(){ return CONF.moneyCap + walletLv*CONF.walletCapStep; }
@@ -194,7 +304,8 @@ function walletCost(){ return CONF.walletCostBase + walletLv*CONF.walletCostStep
 function reset(){
   world = { units:[], shots:[], parts:[], slashes:[], nextId:1, shake:0 };
   money = CONF.moneyStart;
-  php = ehp = CONF.castleHP;
+  php = CONF.castleHP;
+  ehp = curStage ? curStage.enemyHP : CONF.castleHP;   // 敵城HPはステージ難易度
   cd = {}; for(const k of ORDER) cd[k]=0;
   enemyCd = 1.2;
   elapsed = 0;
@@ -350,12 +461,16 @@ function step(dt){
   if(world.shake>0) world.shake = Math.max(0, world.shake - dt*40);   // 画面揺れの減衰
   if(world.beam){ world.beam.t += dt; if(world.beam.t >= world.beam.dur) world.beam=null; }
 
-  // 敵の出撃
+  // 敵の出撃（ステージごとの間隔/ランプ）
   enemyCd -= dt;
   if(enemyCd<=0){
     enemySpawn();
-    const p = Math.min(1, elapsed/CONF.enemyRampSec);
-    enemyCd = CONF.enemyStartCd + (CONF.enemyMinCd-CONF.enemyStartCd)*p;
+    const S = curStage;
+    const ramp = S ? S.ramp : CONF.enemyRampSec;
+    const start = S ? S.spawnStart : CONF.enemyStartCd;
+    const minc  = S ? S.spawnMin : CONF.enemyMinCd;
+    const p = Math.min(1, elapsed/ramp);
+    enemyCd = start + (minc-start)*p;
   }
 
   updateBuffs(dt);   // パーティークッキーのミラーボール→味方の攻撃バフ(u.buffMul)を先に計算
@@ -886,18 +1001,137 @@ function loop(t){
 /* --- 決着 --- */
 function win(youWon){
   const ov=document.getElementById('overlay');
-  document.getElementById('ovT').textContent=youWon?'🎉 しょうり！':'💥 まけ…';
-  document.getElementById('ovP').textContent=youWon?'敵のお城を落とした！':'お城が落ちてしまった…';
-  ov.style.display='flex'; youWon?SFX_win():SFX_lose();
+  const T=document.getElementById('ovT'), P=document.getElementById('ovP'), B=document.getElementById('overButtons');
+  B.innerHTML='';
+  const addBtn=(label,fn,alt)=>{ const b=document.createElement('button'); b.textContent=label; if(alt) b.style.background='#0005'; b.onclick=fn; B.appendChild(b); };
+  if(youWon && !curStage){   // ステージ外（テスト等）：進行なしの簡易表示
+    T.textContent='🎉 しょうり！'; P.textContent='敵のお城を落とした！'; ov.style.display='flex'; SFX_win(); return;
+  }
+  if(youWon){
+    const s=curStage, first=!save.cleared.includes(s.id);
+    const reward = first ? s.coins : REPLAY_COINS;
+    save.coins += reward;
+    if(first) save.cleared.push(s.id);
+    saveGame();
+    T.textContent='🎉 ステージクリア！';
+    P.innerHTML='🍬 <b style="color:#ffdf6b">+'+reward+'</b> キャンディコイン'+(first?'（初クリア）':'')+'<br>所持：🍬'+save.coins;
+    const next=STAGE_BY_ID[s.id+1];
+    if(next && save.cleared.includes(s.id)) addBtn('▶ 次のステージへ',()=>{ closeOver(); openLoadout(next); });
+    addBtn('🎒 編成にもどる',()=>{ closeOver(); openLoadout(s); }, true);
+    addBtn('🏠 ホームへ',()=>{ closeOver(); goHome(); }, true);
+    SFX_win();
+  }else{
+    T.textContent='💥 まけ…';
+    P.textContent='お城が落ちてしまった…もう一度挑戦しよう';
+    addBtn('🔄 リトライ',()=>{ closeOver(); startBattle(); });
+    addBtn('🎒 編成にもどる',()=>{ closeOver(); openLoadout(curStage); }, true);
+    addBtn('🏠 ホームへ',()=>{ closeOver(); goHome(); }, true);
+    SFX_lose();
+  }
+  ov.style.display='flex';
 }
-function restart(){ document.getElementById('overlay').style.display='none'; reset(); showHint(); }
+function closeOver(){ document.getElementById('overlay').style.display='none'; }
+
+/* ============================================================ ゲーム基盤：保存・画面遷移・編成・解放・ガチャ ============================================================ */
+const SAVE_KEY='sm_save_v1';
+let save={ coins:0, cleared:[], units:[] };   // units=解放したキャラ（スターターは含めない）
+function loadGame(){ try{ const j=JSON.parse(localStorage.getItem(SAVE_KEY)); if(j) save=Object.assign(save,j); }catch(e){} }
+function saveGame(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(save)); }catch(e){} }
+function unlockedUnits(){ return ORDER.filter(k=> STARTERS.includes(k) || save.units.includes(k)); }
+function isUnlocked(k){ return STARTERS.includes(k) || save.units.includes(k); }
+function stageUnlocked(id){ return id===1 || save.cleared.includes(id-1); }
+
+// 画面遷移
+const SCREENS=['homeScreen','selectScreen','loadoutScreen','collectScreen'];
+function showScreen(id){ running=false; for(const s of SCREENS){ document.getElementById(s).classList.toggle('on', s===id); } }
+function hideScreens(){ for(const s of SCREENS) document.getElementById(s).classList.remove('on'); }
+function goHome(){ document.getElementById('overlay').style.display='none'; showScreen('homeScreen');
+  document.getElementById('homeProgress').textContent='クリア '+save.cleared.length+' / '+STAGES.length+' ステージ ・ なかま '+unlockedUnits().length+' / '+ORDER.length; }
+function goSelect(){ showScreen('selectScreen'); renderStages(); }
+function goCollect(){ showScreen('collectScreen'); renderCollect(); }
+
+// ステージ選択
+function renderStages(){
+  const L=document.getElementById('stageList'); L.innerHTML='';
+  for(const s of STAGES){
+    const open=stageUnlocked(s.id), clr=save.cleared.includes(s.id);
+    const c=document.createElement(open?'button':'div'); c.className='stagecard'+(open?'':' locked');
+    c.innerHTML='<div class="no">'+(open?s.id:'🔒')+'</div>'+
+      '<div><div class="nm">'+s.name+'</div><div class="meta">敵城HP '+s.enemyHP+' ・ 初回 🍬'+s.coins+'</div></div>'+
+      (clr?'<div class="clr">✓</div>':'');
+    if(open) c.onclick=()=>openLoadout(s);
+    L.appendChild(c);
+  }
+}
+
+// 編成
+let _pick=[];
+function openLoadout(stage){ curStage=stage; _pick = myLoadout.filter(isUnlocked).slice(0,LOADOUT_MAX);
+  if(_pick.length===0) _pick=[STARTERS[0]]; showScreen('loadoutScreen'); renderLoadout(); }
+function renderLoadout(){
+  document.getElementById('loadoutHint').textContent='「'+curStage.name+'」に持ち込むなかまを選ぼう（最大'+LOADOUT_MAX+'）';
+  const G=document.getElementById('unitGrid'); G.innerHTML='';
+  for(const k of unlockedUnits()){
+    const D=DEFS[k], i=_pick.indexOf(k);
+    const b=document.createElement('button'); b.className='ucard'+(i>=0?' sel':'');
+    b.innerHTML='<span class="pick">'+(i>=0?i+1:'')+'</span><img src="'+(SPRITE_DATA[D.spr+'_blue']||'')+'"><div class="nm">'+D.name+'</div><div class="co">🍬'+D.cost+'</div>';
+    b.onclick=()=>togglePick(k); G.appendChild(b);
+  }
+  const cnt=document.getElementById('loadoutCnt'); cnt.textContent=_pick.length+' / '+LOADOUT_MAX+' 体';
+  document.getElementById('sortieBtn').classList.toggle('off', _pick.length===0);
+}
+function togglePick(k){ const i=_pick.indexOf(k);
+  if(i>=0) _pick.splice(i,1); else { if(_pick.length>=LOADOUT_MAX) return; _pick.push(k); }
+  renderLoadout(); }
+function sortie(){ if(_pick.length===0) return; myLoadout=_pick.slice(); startBattle(); }
+
+// バトル開始
+function startBattle(){ hideScreens(); document.getElementById('overlay').style.display='none';
+  buildDock(); reset(); running=true; showHint(); }
+
+// なかま（解放＆ガチャ）
+function renderCollect(){
+  document.getElementById('collectCoins').textContent=save.coins;
+  document.getElementById('gachaCostTxt').textContent=GACHA_COST;
+  document.getElementById('gachaBtn').classList.toggle('off', save.coins<GACHA_COST);
+  const G=document.getElementById('collectGrid'); G.innerHTML='';
+  for(const k of ORDER){
+    const D=DEFS[k], owned=isUnlocked(k), info=UNLOCKS[k];
+    const b=document.createElement('button'); b.className='ucard'+(owned?' sel':'');
+    let foot;
+    if(owned) foot='<div class="co" style="color:#8fd66f">✓解放済</div>';
+    else if(!info) foot='<div class="co">—</div>';
+    else if(info.via==='gacha') foot='<div class="co" style="color:#c79bff">🎰ガチャ限定</div>';
+    else foot='<div class="co">🍬'+info.cost+'</div>';
+    b.innerHTML='<img src="'+(SPRITE_DATA[D.spr+'_blue']||'')+'"><div class="nm">'+D.name+'</div>'+foot;
+    if(!owned && info && info.via==='coin') b.onclick=()=>buyUnit(k);
+    G.appendChild(b);
+  }
+}
+function buyUnit(k){ const info=UNLOCKS[k]; if(!info||info.via!=='coin'||isUnlocked(k)) return;
+  if(save.coins<info.cost){ toast('🍬が足りない！'); return; }
+  save.coins-=info.cost; save.units.push(k); saveGame(); SFX_win(); toast(DEFS[k].name+' を解放！'); renderCollect(); }
+function doGacha(){
+  if(save.coins<GACHA_COST){ toast('🍬が足りない！'); return; }
+  save.coins-=GACHA_COST;
+  const k=GACHA_POOL[(Math.random()*GACHA_POOL.length)|0];
+  if(isUnlocked(k)){ save.coins+=GACHA_DUP_COINS; toast('🎰 '+DEFS[k].name+'（重複）→🍬+'+GACHA_DUP_COINS); }
+  else { save.units.push(k); toast('🎉 '+DEFS[k].name+' をゲット！'); SFX_win(); }
+  saveGame(); renderCollect();
+}
+
+// 簡易トースト
+let _toastT=null;
+function toast(msg){ let t=document.getElementById('smToast');
+  if(!t){ t=document.createElement('div'); t.id='smToast'; t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#000c;color:#fff;padding:10px 18px;border-radius:22px;font-weight:800;z-index:60;transition:opacity .3s'; document.body.appendChild(t); }
+  t.textContent=msg; t.style.opacity='1'; clearTimeout(_toastT); _toastT=setTimeout(()=>t.style.opacity='0',1800); }
 
 /* --- ボタンUI --- */
 const dock = document.getElementById('dock');
 const btnEls = {};
 function buildDock(){
-  dock.innerHTML='';
-  for(const k of ORDER){
+  dock.innerHTML=''; for(const k in btnEls) delete btnEls[k];
+  for(const k of myLoadout){
     const D=DEFS[k];
     const b=document.createElement('button'); b.className='btn';
     const cdEl=document.createElement('div'); cdEl.className='cd';
@@ -936,7 +1170,12 @@ function SFX_win(){ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>blip(f,0.18
 function SFX_lose(){ [392,330,262].forEach((f,i)=>setTimeout(()=>blip(f,0.24,'sawtooth',0.05),i*160)); }
 
 /* --- 起動 --- */
-buildDock(); reset(); showHint(); requestAnimationFrame(loop);
+/* --- 起動：セーブ読込→ホーム画面から。バトルは選択後に開始 --- */
+loadGame();
+myLoadout = STARTERS.slice(0, LOADOUT_MAX);
+buildDock(); reset(); running=false;   // world等を初期化（描画がバトル前に走っても落ちないように）
+goHome();
+requestAnimationFrame(loop);
 
 /* ヘッドレステスト用に主要関数を公開 */
 if(typeof globalThis!=='undefined') globalThis.__NYANKO = { CONF, DEFS, ORDER,
