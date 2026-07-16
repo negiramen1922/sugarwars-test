@@ -130,13 +130,15 @@ const CONF = {
    cost=出撃🍬 / rc=リチャージ秒 / num=1回で出る数 / scale=描画倍率 / spr=スプライト名 */
 const DEFS = {
   cookie: {name:'クッキー',   role:'melee',  atk:14, hp:50,  speed:118, range:26, cd:0.35, scale:0.80,
-           cost:50,  rc:2.0, num:2, spr:'cookie'},
+           cost:50,  rc:2.0, num:2, spr:'cookie',
+           party:true, partyR:80, partyStep:0.25, partyMax:4},   // 近くのクッキー数で攻撃UP（最大+100%）
   slime:  {name:'スライム',   role:'melee',  atk:8,  hp:90,  speed:82,  range:26, cd:0.6,  scale:0.92,
-           cost:70,  rc:3.2, num:2, spr:'slime'},
+           cost:70,  rc:3.2, num:2, spr:'slime',
+           split:2, splitHp:0.45, splitAtk:0.6, splitScale:0.66},  // 倒れると小スライム2体に分裂
   daifuku:{name:'大福',       role:'melee',  atk:24, hp:170, speed:66,  range:30, cd:0.85, scale:0.98,
            cost:110, rc:5.5, num:1, spr:'daifuku'},
   choco:  {name:'チョコ',     role:'melee',  atk:20, hp:230, speed:60,  range:32, cd:0.95, scale:1.05,
-           cost:130, rc:7.0, num:1, spr:'choco'},
+           cost:130, rc:7.0, num:1, spr:'choco', dr:0.40},        // 装甲：被ダメージ-40%の硬い壁
   donut:  {name:'ドーナッツ', role:'melee',  atk:8,  hp:460, speed:48,  range:32, cd:1.1,  scale:1.12,
            cost:210, rc:13.0,num:1, spr:'donut'},
   shoe:   {name:'シュー',     role:'ranged', atk:14, hp:46,  speed:56,  range:170, cd:1.0, scale:0.86,
@@ -222,12 +224,29 @@ function nearestEnemy(u){
   return best?{o:best,d:bd}:null;
 }
 
+/* --- ダメージ適用（装甲=被ダメ軽減をここで一本化） --- */
+function hurt(o, dmg){ o.hp -= dmg * (1 - (o.U.dr||0)); }
+
+/* --- 分裂（スライム）：倒れた場所に小さい個体を生む --- */
+function spawnMini(u){
+  const D = u.U, n = D.split||0;
+  for(let i=0;i<n;i++){
+    world.units.push({
+      id:world.nextId++, key:u.key, side:u.side, U:D, mini:true,
+      x:u.x + (i? 12 : -12), y:u.y,
+      hp:D.hp*(D.splitHp||0.45), maxHp:D.hp*(D.splitHp||0.45), atk:D.atk*(D.splitAtk||0.6),
+      speed:u.speed, range:u.range, cd:u.cd, cool:Math.random()*0.2, dir:u.dir,
+      bob:Math.random()*6.28, fuseT:-1, dead:false, sMul:D.splitScale||0.66,
+    });
+  }
+}
+
 /* --- 爆発（bomber） --- */
 function explode(x, y, side, blast, blastR){
   for(const o of world.units){
     if(o.side===side || o.dead) continue;
     const d = Math.hypot(o.x-x, o.y-y);
-    if(d<=blastR){ o.hp -= blast*(1 - 0.5*(d/blastR)); }
+    if(d<=blastR){ hurt(o, blast*(1 - 0.5*(d/blastR))); }
   }
   if(side==='p' && x<=blastR+CONF.castleAtkRange) ehp -= blast;              // 敵城=左
   if(side==='e' && (CONF.W-x)<=blastR+CONF.castleAtkRange) php -= blast;     // 味方城=右
@@ -263,6 +282,11 @@ function step(dt){
     if(u.dead) continue;
     u.bob += dt*10;
     const D = u.U;
+    // クッキーパーティー：近くの味方クッキー数だけ攻撃UP
+    if(D.party){
+      let c=0; for(const o of world.units){ if(!o.dead && o.side===u.side && o.key===u.key && Math.abs(o.x-u.x)<=D.partyR) c++; }
+      u.buffMul = 1 + Math.min(D.partyMax, c-1)*D.partyStep;
+    }
     const fe = frontUnit(u,false);          // 前方の敵
     const castleX = u.side==='p' ? 0 : CONF.W;   // 攻撃対象は相手の城（味方=左の敵城 / 敵=右の味方城）
     const castleGap = Math.abs(castleX - u.x);
@@ -283,9 +307,10 @@ function step(dt){
       u.cool -= dt;
       if(u.cool<=0){
         u.cool = u.cd;
+        const dmg = u.atk * (u.buffMul||1);
         if(D.role==='ranged' && enemyInRange){ fireShot(u, fe.o); SFX_shot(); }
-        else if(enemyInRange){ fe.o.hp -= u.atk; SFX_hit(); }
-        else if(castleInRange){ if(u.side==='p') ehp -= u.atk; else php -= u.atk; SFX_hit(); }
+        else if(enemyInRange){ hurt(fe.o, dmg); SFX_hit(); }
+        else if(castleInRange){ if(u.side==='p') ehp -= dmg; else php -= dmg; SFX_hit(); }
       }
       continue;
     }
@@ -309,11 +334,11 @@ function step(dt){
     if(t){ s.tx=t.x; s.ty=t.y-16; }
     const dx=s.tx-s.x, dy=s.ty-s.y, d=Math.hypot(dx,dy)||1;
     s.ang = Math.atan2(dy,dx);
-    if(d < s.sp*dt + s.r){ if(t) t.hp -= s.dmg; s.dead=true; }
+    if(d < s.sp*dt + s.r){ if(t) hurt(t, s.dmg); s.dead=true; }
     else{ s.x += dx/d*s.sp*dt; s.y += dy/d*s.sp*dt; }
   }
 
-  for(const u of world.units){ if(!u.dead && u.hp<=0){ u.dead=true; deathBurst(u); } }
+  for(const u of world.units){ if(!u.dead && u.hp<=0){ u.dead=true; deathBurst(u); if(u.U.split && !u.mini) spawnMini(u); } }
   world.units = world.units.filter(u=>!u.dead);
   world.shots = world.shots.filter(s=>!s.dead);
 
@@ -363,7 +388,7 @@ function castTower(){
   towerCd = CONF.towerCd;
   for(const o of world.units){
     if(o.side!=='e' || o.dead) continue;
-    o.hp -= CONF.towerDmg;
+    hurt(o, CONF.towerDmg);
     o.x = Math.max(CONF.castleAtkRange, o.x - CONF.towerKB);   // 自陣(左)へノックバック
     for(let i=0;i<4;i++){ const a=Math.random()*6.28, s=30+Math.random()*90;
       world.parts.push({x:o.x,y:o.y-10,vx:Math.cos(a)*s,vy:-Math.random()*90,life:0.4,max:0.4,c:'#ffe9a8',r:2+Math.random()*2}); }
@@ -395,7 +420,7 @@ function drawCastle(x, side){
 
 function drawUnit(u){
   const D = u.U;
-  const S = 58 * (D.scale||1);
+  const S = 58 * (D.scale||1) * (u.sMul||1);
   const cx = u.x, footY = u.y;                 // 足元＝u.y（地面付近）。影も足元に置くので浮かない
   ctx.save(); ctx.globalAlpha=0.28; ctx.fillStyle='#000';
   ctx.beginPath(); ctx.ellipse(cx, footY, S*0.30, S*0.10, 0,0,6.28); ctx.fill(); ctx.restore();
