@@ -12,6 +12,15 @@ const all = JSON.parse(m[1]);
 const NEED = [
   'cookie_blue','cookie_red',
   'cookie_party_blue','cookie_party_red',   // パーティークッキー（サングラス）
+  'cookie_body_blue','cookie_body_red',     // クッキー：槍なし本体（歩行1）
+  'cookie_body2_blue','cookie_body2_red',   // クッキー：槍なし本体（歩行2）
+  'cookie_spear_blue','cookie_spear_red',   // クッキー：槍
+  'choco_body_blue','choco_body_red',       // チョコ：本体
+  'choco_sword_blue','choco_sword_red',     // チョコ：剣
+  'choco_shield_blue','choco_shield_red',   // チョコ：盾
+  'daifuku_body_blue','daifuku_body_red',   // 大福：本体（武器なし）
+  'daifuku_katana',                          // 大福：刀（陣営共通）
+  'daifuku_sheath',                          // 大福：鞘（陣営共通）
   'slime_blue','slime_red',
   'slime_squash_blue','slime_squash_red',   // スライムのぽよん（潰れ）
   'slime_up_blue','slime_up_red',           // スライムのぽよん（伸び）

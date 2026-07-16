@@ -129,9 +129,10 @@ const CONF = {
    role: melee=近接 / ranged=射手 / bomber=自爆
    cost=出撃🍬 / rc=リチャージ秒 / num=1回で出る数 / scale=描画倍率 / spr=スプライト名 */
 const DEFS = {
-  // 量産（特殊なし・安い数押し）
+  // 量産（特殊なし・安い数押し）。槍を横に構えて前へ突き出す
   cookie: {name:'クッキー',   role:'melee',  atk:14, hp:50,  speed:118, range:26, cd:0.35, scale:0.80,
-           cost:50,  rc:2.0, num:2, spr:'cookie'},
+           cost:50,  rc:2.0, num:2, spr:'cookie',
+           gear:'spear', body:'cookie_body', bodyWalk:['cookie_body','cookie_body2'], bodyFps:6},
   // 支援：一定間隔で頭上にミラーボール→近くの味方の攻撃UP（クッキーはさらにUP）
   partycookie:{name:'パーティークッキー', role:'melee', atk:8, hp:90, speed:100, range:26, cd:0.6, scale:0.86,
            cost:140, rc:8.0, num:1, spr:'cookie_party',
@@ -146,18 +147,19 @@ const DEFS = {
            anim:{hop:true, base:'slimebig', squash:'slimebigsquash', up:'slimebigup', fps:1.1}},
   chibi:  {name:'チビスライム', role:'melee', atk:5,  hp:30,  speed:98,  range:24, cd:0.5, scale:0.60,
            spr:'slime', anim:{hop:true, base:'slime', squash:'slime_squash', up:'slime_up', fps:1.8}}, // 分裂専用
-  // 突撃：出た直後に高速で突撃して初撃で大ダメージ（以降は通常近接）
+  // 突撃：納刀→少し抜刀→高速突撃→鋭い切り付け（居合）。初撃で大ダメージ
   daifuku:{name:'大福',       role:'melee',  atk:18, hp:160, speed:66,  range:30, cd:0.85, scale:0.98,
-           cost:120, rc:6.5, num:1, spr:'daifuku', charge:{dmg:150, spd:5.2, r:46}},
-  // ただ硬い壁
+           cost:120, rc:6.5, num:1, spr:'daifuku', gear:'katana', body:'daifuku_body',
+           charge:{dmg:150, spd:6.0, r:46, windup:0.6}},
+  // ただ硬い壁。剣を振って攻撃（剣＋盾を合成）
   choco:  {name:'チョコ',     role:'melee',  atk:20, hp:240, speed:60,  range:32, cd:0.95, scale:1.05,
-           cost:130, rc:7.0, num:1, spr:'choco'},
+           cost:130, rc:7.0, num:1, spr:'choco', gear:'sword', body:'choco_body'},
   // 妨害：送風で正面の敵を吹き飛ばす（自身は超硬タンク）
   donut:  {name:'ドーナッツ', role:'melee',  atk:6,  hp:460, speed:48,  range:32, cd:1.1,  scale:1.12,
            cost:210, rc:13.0,num:1, spr:'donut', blow:{cd:2.0, kb:95, r:130}},
   // 後衛射手（矢）。歩行2フレーム＋構え（攻撃）／待機ポーズ
   shoe:   {name:'シュー',     role:'ranged', atk:16, hp:46,  speed:56,  range:175, cd:1.0, scale:0.86,
-           cost:90,  rc:4.0, num:1, spr:'shoe_aim',
+           cost:90,  rc:4.0, num:1, spr:'shoe_aim', arc:true,
            anim:{walk:['shoe_walk1','shoe_walk2'], atk:'shoe_aim', idle:'shoe_idle', fps:4}},
   // 自爆。歩行2フレーム
   bomb:   {name:'ポップコーン',role:'bomber', atk:0,  hp:55,  speed:132, range:30, cd:1.0, scale:0.86,
@@ -189,7 +191,7 @@ function effCap(){ return CONF.moneyCap + walletLv*CONF.walletCapStep; }
 function walletCost(){ return CONF.walletCostBase + walletLv*CONF.walletCostStep; }
 
 function reset(){
-  world = { units:[], shots:[], parts:[], nextId:1 };
+  world = { units:[], shots:[], parts:[], slashes:[], nextId:1 };
   money = CONF.moneyStart;
   php = ehp = CONF.castleHP;
   cd = {}; for(const k of ORDER) cd[k]=0;
@@ -210,6 +212,7 @@ function newUnit(key, side, x, y){
     cool: Math.random()*0.2, dir: side==='p'?-1:1, bob:Math.random()*6.28,
     fuseT:-1, dead:false,
     charging: !!D.charge,                 // 大福＝出た直後は突撃状態
+    chargeT: 0,                           // 突撃の経過時間（納刀→抜刀→突撃の判定）
     blowT: 0,                             // ドーナッツ送風タイマー
     discoT: D.disco ? D.disco.cd*0.4 : 0, // パーティークッキーのミラーボール発生タイマー
     auraT: 0, buffMul: 1,
@@ -325,8 +328,16 @@ function explode(x, y, side, blast, blastR){
 
 /* --- 弾（射手） --- */
 function fireShot(u, target){
-  world.shots.push({ x:u.x, y:u.y-16, side:u.side, dmg:u.atk, sp:340, r:12,
-    tid:target.id, tx:target.x, ty:target.y-16, ang:0 });
+  if(u.U.arc){
+    // シューの矢：山なりの弧を描いて着弾（大きめ）
+    const x0=u.x + u.dir*8, y0=u.y-34, tx=target.x, ty=target.y-14;
+    const dist=Math.abs(tx-x0);
+    world.shots.push({ lob:true, side:u.side, dmg:u.atk*(u.buffMul||1), r:18, tid:target.id,
+      x:x0, y:y0, x0, y0, tx, ty, t:0, dur:Math.max(0.4, dist/360), arcH:70+dist*0.35, ang:0, arrow:true });
+  }else{
+    world.shots.push({ x:u.x, y:u.y-16, side:u.side, dmg:u.atk, sp:340, r:12,
+      tid:target.id, tx:target.x, ty:target.y-16, ang:0 });
+  }
 }
 
 /* --- 1フレーム進める --- */
@@ -375,15 +386,19 @@ function step(dt){
     // 自爆準備
     if(D.role==='bomber' && (enemyInRange || castleInRange)){ u.fuseT=0.28; continue; }
 
-    // 大福の突撃：出た直後の初撃だけ大ダメージ（範囲）。突撃中は移動が速い
-    if(u.charging && (enemyInRange || castleInRange)){
-      if(enemyInRange){
-        for(const o of world.units){ if(o.side===u.side || o.dead) continue;   // 敵だけに当てる
-          if(Math.abs(o.x-u.x) <= D.charge.r) hurt(o, D.charge.dmg); }
-        slashFx(u);
-      }else{ if(u.side==='p') ehp -= D.charge.dmg; else php -= D.charge.dmg; }
-      u.charging=false; u.cool=u.cd; u.atkAnim=ATK_ANIM; SFX_hit();
-      continue;
+    // 大福の居合：納刀→(windup)少し抜刀→突撃→鋭い切り付け。初撃だけ大ダメージ（範囲）
+    if(u.charging){
+      u.chargeT += dt;
+      const windup = u.chargeT < D.charge.windup;   // 抜刀のためだけの時間（まだ斬らない）
+      if(!windup && (enemyInRange || castleInRange)){
+        if(enemyInRange){
+          for(const o of world.units){ if(o.side===u.side || o.dead) continue;   // 敵だけに当てる
+            if(Math.abs(o.x-u.x) <= D.charge.r) hurt(o, D.charge.dmg); }
+          slashFx(u); world.slashes.push({x:u.x, y:u.y-CONF.rowBand, dir:u.dir, t:0, dur:0.28, reach:D.charge.r});
+        }else{ if(u.side==='p') ehp -= D.charge.dmg; else php -= D.charge.dmg; }
+        u.charging=false; u.cool=u.cd; u.atkAnim=ATK_ANIM; SFX_hit();
+        continue;
+      }
     }
 
     // 攻撃（射程内なら足を止めて攻撃＝前線ができる）
@@ -402,7 +417,9 @@ function step(dt){
 
     // 前進：味方どうしは重なってOK（にゃんこ風に前線で団子になる）。敵の手前でだけ止まる。
     u.moving = true;
-    const sp = u.speed * (u.charging ? D.charge.spd : 1);   // 突撃中は加速
+    // 居合：抜刀の溜め中(windup)はゆっくり／抜刀後は一気に加速して突撃
+    const windup = u.charging && u.chargeT < D.charge.windup;
+    const sp = u.charging ? u.speed*(windup ? 0.30 : D.charge.spd) : u.speed;
     let nx = u.x + u.dir*sp*dt;
     if(u.side==='p'){            // 左へ進む・敵城は左(0)
       nx = Math.max(nx, CONF.castleAtkRange);
@@ -417,6 +434,20 @@ function step(dt){
   // 弾の移動
   for(const s of world.shots){
     if(s.dead) continue;
+    if(s.lob){
+      // 山なり：発射時に決めた着弾点へ放物線で飛ぶ
+      s.t += dt; const p = Math.min(1, s.t/s.dur);
+      const nx = s.x0 + (s.tx-s.x0)*p;
+      const ny = s.y0 + (s.ty-s.y0)*p - s.arcH*Math.sin(p*Math.PI);
+      s.ang = Math.atan2(ny-s.y, nx-s.x); s.x=nx; s.y=ny;
+      if(p>=1){
+        let t = world.units.find(u=>u.id===s.tid && !u.dead);
+        if(!t){ let bd=44; for(const o of world.units){ if(o.side===s.side||o.dead) continue; const dd=Math.hypot(o.x-s.x,o.y-s.y); if(dd<bd){bd=dd;t=o;} } }
+        if(t) hurt(t, s.dmg);
+        s.dead=true;
+      }
+      continue;
+    }
     const t = world.units.find(u=>u.id===s.tid && !u.dead);
     if(t){ s.tx=t.x; s.ty=t.y-16; }
     const dx=s.tx-s.x, dy=s.ty-s.y, d=Math.hypot(dx,dy)||1;
@@ -431,6 +462,8 @@ function step(dt){
 
   for(const p of world.parts){ p.life-=dt; p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=260*dt; }
   world.parts = world.parts.filter(p=>p.life>0);
+  for(const sl of world.slashes){ sl.t += dt; }
+  world.slashes = world.slashes.filter(sl=>sl.t < sl.dur);
 
   if(ehp<=0){ running=false; win(true); }
   else if(php<=0){ running=false; win(false); }
@@ -518,6 +551,111 @@ function animFrame(u){
   return (A.idle || D.spr)+'_'+team;                              // 待機
 }
 
+/* --- 武器合成キャラの描画（本家 index.html の合成ロジックを移植）---
+   本家は「左向き＝前方」が基準でミラーせず、本体中心(cx,cy)に武器を重ねる。
+   nyankoの味方も左向きなのでそのまま流用できる（cy=本体中心＝footY-S/2）。 */
+function drawGearUnit(u, S, cx, footY, team){
+  const D = u.U;
+  const cy = footY - S*0.5;                       // 本体の中心（本家の基準）
+  const bob = u.moving ? Math.sin(u.bob)*S*0.02 : 0;
+  let bodyKey = D.body + '_' + team;
+  if(D.bodyWalk && u.moving){ const i=Math.floor(elapsed*(D.bodyFps||6)+u.x*0.05)%D.bodyWalk.length; bodyKey=D.bodyWalk[i]+'_'+team; }
+  const im = SPRITES[bodyKey] || SPRITES[D.spr+'_'+team];
+  const windup = u.charging && u.chargeT < (D.charge?D.charge.windup:0);
+  // 突撃ダッシュの残像（後方＝進行方向の逆へ）
+  if(u.charging && !windup && im && im.complete && im.naturalWidth){
+    for(let k=1;k<=3;k++){ ctx.save(); ctx.globalAlpha=0.12*(4-k);
+      ctx.drawImage(im, cx - u.dir*k*13 - S/2, cy-S/2, S, S); ctx.restore(); }
+  }
+  const cyb = cy + bob;
+  if(im && im.complete && im.naturalWidth){ ctx.imageSmoothingEnabled=false; ctx.drawImage(im, cx-S/2, cyb-S/2, S, S); }
+  else { ctx.font=(S*0.7)+'px serif'; ctx.textAlign='center'; ctx.textBaseline='alphabetic'; ctx.fillText('🍬', cx, footY-6); }
+  if(D.gear==='spear')  drawCookieSpear(u,S,cx,cyb);
+  if(D.gear==='sword')  drawChocoGear(u,S,cx,cyb);
+  if(D.gear==='katana') drawDaifukuWeapon(u,S,cx,cyb);
+}
+// クッキーの槍（本家 drawCookieSpear 移植）。待機=上向き／移動=左に倒す／攻撃=左へ突き出す
+const SP_PIVX=0.5, SP_PIVY=0.72;
+function drawCookieSpear(u, S, cx, cy){
+  const sp = SPRITES['cookie_spear_'+(u.side==='p'?'blue':'red')];
+  if(!sp || !sp.complete || !sp.naturalWidth) return;
+  const handX=cx+S*0.24, handY=cy-S*0.02;
+  const spH=S*1.05, spW=spH*(sp.naturalWidth/sp.naturalHeight);
+  let ang, px=handX, py=handY;
+  if(u.atkAnim>0){ const a=1-u.atkAnim/ATK_ANIM, j=Math.sin(a*Math.PI); ang=-1.65; px=handX - j*S*0.34; py=handY + S*0.06; }
+  else if(u.moving){ ang=-1.15; py=handY + S*0.04; }
+  else { ang=0; }
+  ctx.save(); ctx.translate(px,py); ctx.rotate(ang); ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(sp, -SP_PIVX*spW, -SP_PIVY*spH, spW, spH); ctx.restore();
+}
+// チョコの剣(左)・盾(右)（本家 drawChocoGear 移植）。攻撃=剣を左へ振り下ろし／歩行=盾が揺れる
+const CSW_PIVX=0.5, CSW_PIVY=0.82;
+function drawChocoGear(u, S, cx, cy){
+  const c=u.side==='p'?'blue':'red';
+  const sword=SPRITES['choco_sword_'+c], shield=SPRITES['choco_shield_'+c];
+  if(shield && shield.complete && shield.naturalWidth){
+    const shW=S*0.42, shH=shW*(shield.naturalHeight/shield.naturalWidth);
+    const by = u.moving ? Math.sin(u.bob)*S*0.07 : 0;
+    ctx.save(); ctx.translate(cx+S*0.26, cy+S*0.05+by); ctx.imageSmoothingEnabled=false; ctx.drawImage(shield,-0.5*shW,-0.5*shH,shW,shH); ctx.restore();
+  }
+  if(sword && sword.complete && sword.naturalWidth){
+    const swH=S*0.72, swW=swH*(sword.naturalWidth/sword.naturalHeight);
+    let ang=-0.25;
+    if(u.atkAnim>0){ const a=1-u.atkAnim/ATK_ANIM; ang=-0.5 - 2.0*a; }
+    ctx.save(); ctx.translate(cx-S*0.24, cy+S*0.04); ctx.rotate(ang); ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(sword,-CSW_PIVX*swW,-CSW_PIVY*swH,swW,swH); ctx.restore();
+  }
+}
+// 大福の刀・鞘（本家 drawDaifukuWeapon 移植）。納刀→抜刀(charge)→突撃(dash)→左で振り下ろし(walk攻撃)
+const KAT_PIVX=0.24, KAT_PIVY=0.5;
+function drawDaifukuWeapon(u, S, cx, cy){
+  const kat=SPRITES['daifuku_katana'], sh=SPRITES['daifuku_sheath'];
+  if(!kat || !kat.complete || !kat.naturalWidth) return;
+  const kW=S*0.92, kH=kW*(kat.naturalHeight/kat.naturalWidth);
+  const SA=Math.PI-2.3, dcos=Math.cos(SA), dsin=Math.sin(SA);
+  const SCX=cx+S*0.15, SCY=cy+S*0.20, SLEN=S*0.66;
+  const openX=SCX-dcos*SLEN*0.5, openY=SCY-dsin*SLEN*0.5;
+  const shePX=openX-dcos*0.17*S, shePY=openY-dsin*0.17*S;
+  const drawKat=function(px,py,ang){ ctx.save(); ctx.translate(px,py); ctx.rotate(ang); ctx.imageSmoothingEnabled=false; ctx.drawImage(kat,-KAT_PIVX*kW,-KAT_PIVY*kH,kW,kH); ctx.restore(); };
+  const drawSheath=function(){ if(!sh||!sh.complete||!sh.naturalWidth) return; const sW=SLEN, sHh=sW*(sh.naturalHeight/sh.naturalWidth); ctx.save(); ctx.translate(SCX,SCY); ctx.rotate(SA); ctx.imageSmoothingEnabled=false; ctx.drawImage(sh,-0.5*sW,-0.5*sHh,sW,sHh); ctx.restore(); };
+  const DRAW_DIST=S*0.30;
+  // nyankoの状態→本家cstate相当
+  const windup = u.charging && u.chargeT < (u.U.charge?u.U.charge.windup:0);
+  let st;
+  if(u.charging && windup) st='charge';
+  else if(u.charging) st='dash';
+  else st='walk';
+  let px, py, ang, behind=false;
+  if(st==='dash'){
+    behind=true; px=shePX + (-dcos)*DRAW_DIST; py=shePY + (-dsin)*DRAW_DIST; ang=SA;
+  } else if(st==='walk' && u.atkAnim>0){
+    const a=1-u.atkAnim/ATK_ANIM; px=cx-S*0.12; py=cy+S*0.12; ang=-2.35 - 1.5*a;
+  } else if(st==='walk'){
+    px=cx-S*0.12; py=cy+S*0.12; ang=-2.75;
+  } else if(st==='charge'){
+    behind=true;
+    const prog = u.U.charge.windup>0 ? Math.min(1,(u.chargeT||0)/u.U.charge.windup) : 0;
+    const p = prog<0.3 ? 0 : Math.min(1,(prog-0.3)/0.7);
+    px=shePX + (-dcos)*p*DRAW_DIST; py=shePY + (-dsin)*p*DRAW_DIST; ang=SA;
+  } else { behind=true; px=shePX; py=shePY; ang=SA; }
+  if(behind){ drawKat(px,py,ang); drawSheath(); }
+  else { drawSheath(); drawKat(px,py,ang); }
+}
+// 居合の斬撃アーク
+function drawSlashes(){
+  for(const sl of world.slashes){
+    const p=sl.t/sl.dur, a=1-p;
+    const cx=sl.x + sl.dir*(24+p*34), cy=sl.y;
+    ctx.save(); ctx.globalAlpha=a*0.85; ctx.strokeStyle='#fff'; ctx.lineWidth=5; ctx.lineCap='round';
+    const base = sl.dir>0 ? 0 : Math.PI;
+    ctx.beginPath(); ctx.arc(cx, cy, sl.reach*1.3, base-0.85, base+0.85); ctx.stroke();
+    ctx.globalAlpha=a*0.4; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(cx, cy, sl.reach*1.6, base-0.7, base+0.7); ctx.stroke();
+    ctx.restore();
+  }
+  ctx.globalAlpha=1;
+}
+
 function drawUnit(u){
   const D = u.U;
   const team = u.side==='p'?'blue':'red';
@@ -527,20 +665,10 @@ function drawUnit(u){
   ctx.beginPath(); ctx.ellipse(cx, footY, S*0.30, S*0.10, 0,0,6.28); ctx.fill(); ctx.restore();
   if(u.side==='e' && D.mold){
     drawMold(u, S, cx, footY + (Math.sin(u.bob)*2));            // 敵＝カビ軍団（手描き）
+  }else if(D.gear){
+    drawGearUnit(u, S, cx, footY, team);                        // 武器合成キャラ（槍/剣/刀）
   }else{
     const A = D.anim;
-    // 大福の突撃：スピード感の残像
-    if(u.charging){
-      const im0 = SPRITES[D.spr+'_'+team];
-      if(im0 && im0.complete && im0.naturalWidth){
-        for(let k=1;k<=3;k++){
-          ctx.save(); ctx.globalAlpha = 0.12*(4-k);
-          ctx.translate(cx - u.dir*k*12, footY);
-          if(u.side==='p') ctx.scale(-1,1);
-          ctx.drawImage(im0, -S/2, -S, S, S); ctx.restore();
-        }
-      }
-    }
     // フレーム選択（ぽよんスライムは phase から潰れ/伸び/通常＋跳ね上げ）
     let frameKey, lift=0;
     if(A && A.hop && u.moving){
@@ -551,7 +679,11 @@ function drawUnit(u){
       frameKey = animFrame(u);
     }
     const im = SPRITES[frameKey] || SPRITES[D.spr+'_'+team];
-    const bobY = (A && A.hop) ? 0 : (u.moving ? Math.sin(u.bob)*2 : 0);
+    // 歩行：フレーム切替キャラは足取りのぴょこぴょこを強める
+    let bobY = 0;
+    if(A && A.hop) bobY = 0;
+    else if(A && A.walk && u.moving) bobY = -Math.abs(Math.sin(elapsed*(A.fps)*Math.PI/2 + u.x))*3;
+    else if(u.moving) bobY = Math.sin(u.bob)*2;
     // 攻撃のモーション：前へ踏み込む＋潰れ
     let lungeX=0, sqx=1, sqy=1;
     if(u.atkAnim>0 && !(A && A.atk)){    // 専用の攻撃ポーズが無いキャラは踏み込みで表現
@@ -662,9 +794,10 @@ function drawShot(s){
     ctx.restore(); return;
   }
   const im = SPRITES['arrow_'+(s.side==='p'?'blue':'red')];
+  const sz = s.arrow ? 46 : 28;                 // 矢は大きめ
   ctx.save(); ctx.translate(s.x,s.y); ctx.rotate(s.ang);
-  if(im && im.complete && im.naturalWidth){ ctx.drawImage(im,-14,-14,28,28); }
-  else { ctx.fillStyle='#7fd0ff'; ctx.fillRect(-6,-2,12,4); }
+  if(im && im.complete && im.naturalWidth){ ctx.drawImage(im,-sz/2,-sz/2,sz,sz); }
+  else { ctx.fillStyle='#7fd0ff'; ctx.fillRect(-sz*0.25,-2,sz*0.5,4); }
   ctx.restore();
 }
 
@@ -680,6 +813,7 @@ function render(){
   drawCastle(24,'e'); drawCastle(W-24,'p');   // 左＝敵(赤) / 右＝味方(青)
   const us = world.units.slice().sort((a,b)=>a.y-b.y);   // 奥(小y)→手前(大y)
   for(const u of us) drawUnit(u);
+  drawSlashes();
   for(const s of world.shots) drawShot(s);
   for(const p of world.parts){ ctx.globalAlpha=Math.max(0,p.life/p.max); ctx.fillStyle=p.c;
     ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,6.28); ctx.fill(); }
