@@ -132,7 +132,7 @@ const DEFS = {
   // 量産（特殊なし・安い数押し）。槍を横に構えて前へ突き出す
   cookie: {name:'クッキー',   role:'melee',  atk:14, hp:50,  speed:118, range:26, cd:0.35, scale:0.80,
            cost:50,  rc:2.0, num:2, spr:'cookie',
-           gear:'spear', body:'cookie_body', bodyWalk:['cookie_body','cookie_body2'], bodyFps:6},
+           gear:'spear', body:'cookie_body', bodyWalk:['cookie_body','cookie_body2'], bodyFps:4},
   // 支援：一定間隔で頭上にミラーボール→近くの味方の攻撃UP（クッキーはさらにUP）
   partycookie:{name:'パーティークッキー', role:'melee', atk:8, hp:90, speed:100, range:26, cd:0.6, scale:0.86,
            cost:140, rc:8.0, num:1, spr:'cookie_party',
@@ -160,11 +160,11 @@ const DEFS = {
   // 後衛射手（矢）。歩行2フレーム＋構え（攻撃）／待機ポーズ
   shoe:   {name:'シュー',     role:'ranged', atk:16, hp:46,  speed:56,  range:175, cd:1.0, scale:0.86,
            cost:90,  rc:4.0, num:1, spr:'shoe_aim', arc:true,
-           anim:{walk:['shoe_walk1','shoe_walk2'], atk:'shoe_aim', idle:'shoe_idle', fps:4}},
+           anim:{walk:['shoe_walk1','shoe_walk2'], atk:'shoe_aim', idle:'shoe_idle', fps:3}},
   // 自爆。歩行2フレーム
   bomb:   {name:'ポップコーン',role:'bomber', atk:0,  hp:55,  speed:132, range:30, cd:1.0, scale:0.86,
            blast:120, blastR:64, cost:60, rc:3.0, num:1, spr:'bomb',
-           anim:{walk:['bomb','bomb2'], idle:'bomb', fps:7}},
+           anim:{walk:['bomb','bomb2'], idle:'bomb', fps:4}},
 };
 const ORDER = ['cookie','partycookie','slime','bigslime','daifuku','choco','donut','shoe','bomb'];
 
@@ -191,7 +191,7 @@ function effCap(){ return CONF.moneyCap + walletLv*CONF.walletCapStep; }
 function walletCost(){ return CONF.walletCostBase + walletLv*CONF.walletCostStep; }
 
 function reset(){
-  world = { units:[], shots:[], parts:[], slashes:[], nextId:1 };
+  world = { units:[], shots:[], parts:[], slashes:[], nextId:1, shake:0 };
   money = CONF.moneyStart;
   php = ehp = CONF.castleHP;
   cd = {}; for(const k of ORDER) cd[k]=0;
@@ -346,6 +346,7 @@ function step(dt){
   money = Math.min(effCap(), money + effRate()*dt);
   for(const k of ORDER) if(cd[k]>0) cd[k]=Math.max(0, cd[k]-dt);
   if(towerCd>0) towerCd = Math.max(0, towerCd-dt);
+  if(world.shake>0) world.shake = Math.max(0, world.shake - dt*40);   // 画面揺れの減衰
   if(world.beam){ world.beam.t += dt; if(world.beam.t >= world.beam.dur) world.beam=null; }
 
   // 敵の出撃
@@ -395,6 +396,7 @@ function step(dt){
           for(const o of world.units){ if(o.side===u.side || o.dead) continue;   // 敵だけに当てる
             if(Math.abs(o.x-u.x) <= D.charge.r) hurt(o, D.charge.dmg); }
           slashFx(u); world.slashes.push({x:u.x, y:u.y-CONF.rowBand, dir:u.dir, t:0, dur:0.28, reach:D.charge.r});
+          if(u.side==='p') world.shake = 5;   // サムライの居合ヒットで軽く画面が揺れる
         }else{ if(u.side==='p') ehp -= D.charge.dmg; else php -= D.charge.dmg; }
         u.charging=false; u.cool=u.cd; u.atkAnim=ATK_ANIM; SFX_hit();
         continue;
@@ -583,8 +585,7 @@ function drawCookieSpear(u, S, cx, cy){
   const spH=S*1.05, spW=spH*(sp.naturalWidth/sp.naturalHeight);
   let ang, px=handX, py=handY;
   if(u.atkAnim>0){ const a=1-u.atkAnim/ATK_ANIM, j=Math.sin(a*Math.PI); ang=-1.65; px=handX - j*S*0.34; py=handY + S*0.06; }
-  else if(u.moving){ ang=-1.15; py=handY + S*0.04; }
-  else { ang=0; }
+  else { ang=-1.15; py=handY + S*0.04; }   // 常に前へ倒して構える（上に戻さない＝せわしなくしない）
   ctx.save(); ctx.translate(px,py); ctx.rotate(ang); ctx.imageSmoothingEnabled=false;
   ctx.drawImage(sp, -SP_PIVX*spW, -SP_PIVY*spH, spW, spH); ctx.restore();
 }
@@ -595,7 +596,7 @@ function drawChocoGear(u, S, cx, cy){
   const sword=SPRITES['choco_sword_'+c], shield=SPRITES['choco_shield_'+c];
   if(shield && shield.complete && shield.naturalWidth){
     const shW=S*0.42, shH=shW*(shield.naturalHeight/shield.naturalWidth);
-    const by = u.moving ? Math.sin(u.bob)*S*0.07 : 0;
+    const by = u.moving ? Math.sin(u.bob*0.6)*S*0.03 : 0;   // 揺れ控えめ
     ctx.save(); ctx.translate(cx+S*0.26, cy+S*0.05+by); ctx.imageSmoothingEnabled=false; ctx.drawImage(shield,-0.5*shW,-0.5*shH,shW,shH); ctx.restore();
   }
   if(sword && sword.complete && sword.naturalWidth){
@@ -679,10 +680,10 @@ function drawUnit(u){
       frameKey = animFrame(u);
     }
     const im = SPRITES[frameKey] || SPRITES[D.spr+'_'+team];
-    // 歩行：フレーム切替キャラは足取りのぴょこぴょこを強める
+    // 歩行：フレーム切替キャラはゆるやかに上下（プルプルしないよう控えめ・低速）
     let bobY = 0;
     if(A && A.hop) bobY = 0;
-    else if(A && A.walk && u.moving) bobY = -Math.abs(Math.sin(elapsed*(A.fps)*Math.PI/2 + u.x))*3;
+    else if(A && A.walk && u.moving) bobY = -Math.abs(Math.sin(elapsed*A.fps*0.8 + u.x))*1.6;
     else if(u.moving) bobY = Math.sin(u.bob)*2;
     // 攻撃のモーション：前へ踏み込む＋潰れ
     let lungeX=0, sqx=1, sqy=1;
@@ -808,8 +809,12 @@ function render(){
   ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
   ctx.fillStyle='#ffffff12';
   for(let i=0;i<4;i++){ ctx.beginPath(); ctx.ellipse(120+i*260, g+20, 200, 90, 0,0,6.28); ctx.fill(); }
-  ctx.fillStyle='#e7b57a'; ctx.fillRect(0,g,W,H-g);
-  ctx.fillStyle='#d59f63'; ctx.fillRect(0,g,W,6);
+  // 画面揺れ（サムライの居合ヒット時）＝背景以外を少し揺らす
+  const shk = world.shake||0;
+  ctx.save();
+  if(shk>0) ctx.translate(Math.sin(elapsed*90)*shk, Math.cos(elapsed*70)*shk*0.6);
+  ctx.fillStyle='#e7b57a'; ctx.fillRect(-8,g,W+16,H-g);
+  ctx.fillStyle='#d59f63'; ctx.fillRect(-8,g,W+16,6);
   drawCastle(24,'e'); drawCastle(W-24,'p');   // 左＝敵(赤) / 右＝味方(青)
   const us = world.units.slice().sort((a,b)=>a.y-b.y);   // 奥(小y)→手前(大y)
   for(const u of us) drawUnit(u);
@@ -818,6 +823,7 @@ function render(){
   for(const p of world.parts){ ctx.globalAlpha=Math.max(0,p.life/p.max); ctx.fillStyle=p.c;
     ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,6.28); ctx.fill(); }
   ctx.globalAlpha=1;
+  ctx.restore();
   drawBeam();
 }
 
