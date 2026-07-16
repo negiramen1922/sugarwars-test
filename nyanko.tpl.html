@@ -177,9 +177,9 @@ const CONF = {
   groundY: 384,          // 地面のライン（足元がここに乗る）
   rowBand: 36,           // ユニットを縦に散らす幅（重なっても見分けやすいよう・浮かない範囲で）
   castleHP: 1600,        // 両陣営のお城HP
-  moneyStart: 160,       // 開始🍬
-  moneyRate: 26,         // 🍬/秒（お財布Lv0）
-  moneyCap: 700,         // 🍬上限（お財布Lv0）
+  moneyStart: 130,       // 開始🍬
+  moneyRate: 24,         // 🍬/秒（お財布Lv0）
+  moneyCap: 300,         // 🍬上限（お財布Lv0）＝低めで早く頭打ち→お財布UPが効く
   arrowSize: 70,         // シューの矢の描画サイズ(px)。大きいほど大量に飛ぶ迫力が出る
   castleAtkRange: 60,    // お城への攻撃が届く距離（大きいほど手前で殴れる＝城にめり込まない）
   spawnInset: 18,        // ユニットの湧き位置（城のふち＝端からの距離）。castleAtkRangeより内側にして
@@ -191,7 +191,7 @@ const CONF = {
   // お財布レベルアップ
   walletMax: 6,          // 最大Lv
   walletRateStep: 10,    // 1Lvごとの🍬/秒アップ
-  walletCapStep: 120,    // 1Lvごとの上限アップ
+  walletCapStep: 160,    // 1Lvごとの上限アップ（Lv0=300 → 最大 300+6*160=1260）
   walletCostBase: 130,   // Lv1→2のコスト
   walletCostStep: 90,    // 以降1Lvごとの追加コスト
   // タワー攻撃スキル（右下ボタン＝自分の城から放つ一撃）
@@ -1007,7 +1007,10 @@ function drawBeam(){
 
 /* --- HUD --- */
 function hud(){
-  document.getElementById('moneyTxt').textContent = Math.floor(money);
+  const capped = money >= effCap()-0.5;                 // 上限に到達しているか
+  const mt=document.getElementById('moneyTxt');
+  mt.textContent = Math.floor(money) + (capped?' MAX':'');
+  mt.style.color = capped ? '#ff8f5a' : '';             // 上限中はオレンジで警告
   document.getElementById('rateTxt').textContent = effRate();
   document.getElementById('capTxt').textContent = effCap();
   const pv=Math.max(0,php/CONF.castleHP), ev=Math.max(0,ehp/CONF.castleHP);
