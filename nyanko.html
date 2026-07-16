@@ -208,10 +208,10 @@ const DEFS = {
   cookie: {name:'クッキー',   role:'melee',  atk:14, hp:50,  speed:118, range:26, cd:0.35, scale:0.80,
            cost:50,  rc:2.0, num:2, spr:'cookie',
            gear:'spear', body:'cookie_body', bodyWalk:['cookie_body','cookie_body2'], bodyFps:4},
-  // 支援：一定間隔で頭上にミラーボール→近くの味方の攻撃UP（クッキーはさらにUP）
-  partycookie:{name:'パーティークッキー', role:'melee', atk:8, hp:90, speed:100, range:26, cd:0.6, scale:0.86,
+  // 支援：一定間隔でミラーボール→【軍全体】の攻撃UP（クッキーはさらにUP）。1レーン向けに全体化
+  partycookie:{name:'パーティークッキー', role:'melee', atk:8, hp:110, speed:100, range:26, cd:0.6, scale:0.86,
            cost:140, rc:8.0, num:1, spr:'cookie_party',
-           disco:{cd:4.5, dur:2.5, r:110, mul:1.35, cookieMul:1.9}},
+           disco:{cd:5.0, dur:2.5, r:9999, mul:1.3, cookieMul:1.6}},
   // スライム：倒れるとチビ2体に分裂。ぽよんジャンプ移動アニメ
   slime:  {name:'スライム',   role:'melee',  atk:8,  hp:90,  speed:84,  range:26, cd:0.6, scale:0.92,
            cost:70,  rc:3.2, num:2, spr:'slime', split:{key:'chibi', n:2},
@@ -222,16 +222,16 @@ const DEFS = {
            anim:{hop:true, base:'slimebig', squash:'slimebigsquash', up:'slimebigup', fps:1.1}},
   chibi:  {name:'チビスライム', role:'melee', atk:5,  hp:30,  speed:98,  range:24, cd:0.5, scale:0.60,
            spr:'slime', anim:{hop:true, base:'slime', squash:'slime_squash', up:'slime_up', fps:1.8}}, // 分裂専用
-  // 突撃：納刀→少し抜刀→高速突撃→鋭い切り付け（居合）。初撃で大ダメージ
-  daifuku:{name:'大福',       role:'melee',  atk:18, hp:160, speed:66,  range:30, cd:0.85, scale:0.98,
-           cost:120, rc:6.5, num:1, spr:'daifuku', gear:'katana', body:'daifuku_body',
+  // 範囲アタッカー：刀の薙ぎで前方の敵をまとめて斬る（area）。開幕は居合突撃で強く踏み込む
+  daifuku:{name:'大福',       role:'melee',  atk:20, hp:170, speed:66,  range:34, cd:0.9, scale:0.98,
+           cost:120, rc:6.5, num:1, spr:'daifuku', gear:'katana', body:'daifuku_body', area:true,
            charge:{dmg:150, spd:6.0, r:46, windup:0.6}},
-  // ただ硬い壁。剣を振って攻撃（剣＋盾を合成）
-  choco:  {name:'チョコ',     role:'melee',  atk:20, hp:240, speed:60,  range:32, cd:0.95, scale:1.05,
-           cost:130, rc:7.0, num:1, spr:'choco', gear:'sword', body:'choco_body'},
-  // 妨害：送風で正面の敵を吹き飛ばす（自身は超硬タンク）
-  donut:  {name:'ドーナッツ', role:'melee',  atk:6,  hp:460, speed:48,  range:32, cd:1.1,  scale:1.12,
-           cost:210, rc:13.0,num:1, spr:'donut', blow:{cd:2.0, kb:95, r:130}},
+  // 壁：高HP・低コスト・速い再出撃で前線を支える（攻撃は弱い盾持ち）
+  choco:  {name:'チョコ',     role:'melee',  atk:8,  hp:340, speed:60,  range:30, cd:1.0, scale:1.05,
+           cost:90,  rc:4.5, num:1, spr:'choco', gear:'sword', body:'choco_body'},
+  // ふっとばし妨害：攻撃するたび前方の敵をまとめて吹き飛ばす（area＋毎回ノックバック）
+  donut:  {name:'ドーナッツ', role:'melee',  atk:12, hp:460, speed:48,  range:34, cd:1.2,  scale:1.12,
+           cost:210, rc:13.0,num:1, spr:'donut', area:true, kbHit:{every:1, dist:78}},
   // 後衛射手（矢）。歩行2フレーム＋構え（攻撃）／待機ポーズ
   shoe:   {name:'シュー',     role:'ranged', atk:16, hp:46,  speed:56,  range:175, cd:1.0, scale:0.86,
            cost:90,  rc:4.0, num:1, spr:'shoe_aim', arc:true,
@@ -330,15 +330,26 @@ function newUnit(key, side, x, y){
     auraT: 0, buffMul: 1,
     moving: false, atkAnim: 0, px: x,     // アニメ用（歩行/攻撃/前フレームx）
     kbVX:0, kbVY:0, kbY:0, kbT:0,          // 吹き飛び（ノックバック）の速度・高さ・残り時間
+    hitCount:0, slowT:0, slowMul:1,        // ふっとばし用ヒット数・鈍足の残り時間/倍率
+    kbCount:(D.kbCount!=null? D.kbCount : Math.max(1, Math.round(D.hp/130))),   // HPしきい値KBの回数（HP依存で自動）
+    kbSeg:undefined,
   };
+}
+/* --- 攻撃1発の適用（ダメージ＋鈍足付与）。ふっとばしは呼び出し側で --- */
+function attackHit(u, o, dmg){
+  hurt(o, dmg);
+  if(u.U.slowHit && !o.dead){ o.slowT = u.U.slowHit.dur; o.slowMul = u.U.slowHit.mul; }
 }
 const ATK_ANIM = 0.18;   // 攻撃モーションの表示時間(秒)
 /* --- ノックバック：座標ワープでなく、弧を描いて後ろへ吹き飛ばす --- */
 const KB_TAU=0.12, KB_POP=250, KB_GRAV=1300, KB_TIME=0.5;
-function applyKnock(o, fromX, dist){
+function applyKnock(o, fromX, dist, opt){
+  opt = opt||{};
   const dir = Math.sign(o.x - fromX) || -1;   // 攻撃者から遠ざかる向き
-  o.kbVX = dir * dist / KB_TAU;                // 初速（KB_TAUで減衰し概ね dist 進む）
-  o.kbVY = -KB_POP; o.kbY = -0.01; o.kbT = KB_TIME;
+  const tau = opt.tau||KB_TAU;
+  o.kbVX = dir * dist / tau;                   // 初速（tauで減衰し概ね dist 進む）
+  o.kbVY = -(opt.pop!=null?opt.pop:KB_POP); o.kbY = -0.01; o.kbT = (opt.time!=null?opt.time:KB_TIME);
+  SFX_knock();
 }
 
 /* --- ユニット生成（デプロイ／敵湧き） --- */
@@ -375,8 +386,20 @@ function nearestEnemy(u){
   return best?{o:best,d:bd}:null;
 }
 
-/* --- ダメージ適用（装甲=被ダメ軽減をここで一本化） --- */
-function hurt(o, dmg){ o.hp -= dmg * (1 - (o.U.dr||0)); }
+/* --- ダメージ適用（装甲＝被ダメ軽減／HPしきい値ノックバックをここで一本化） ---
+   にゃんこ式KB：最大HPを kbCount で等分し、HPがしきい値を下回るたびに後ろへ1回ふっとぶ。 */
+const KB_HPDIST = 52;   // HPしきい値KBで後退する距離（スタッガー）
+function hurt(o, dmg){
+  o.hp -= dmg * (1 - (o.U.dr||0));
+  const kc = o.kbCount||0;
+  if(kc>1 && o.hp>0){                                  // KB回数1（＝しきい値なし）はスタッガーしない
+    const seg = Math.ceil(o.hp / (o.maxHp/kc));       // 残りHPセグメント数
+    if(o.kbSeg===undefined) o.kbSeg = kc;
+    if(seg < o.kbSeg){ o.kbSeg = seg; kbBackward(o, KB_HPDIST); }   // しきい値を割った→ふっとぶ
+  }
+}
+// 後ろ（自陣側＝進行方向の逆）へ短くスタッガー（HPしきい値KB＝小さめの後退）
+function kbBackward(o, dist){ applyKnock(o, o.x + o.dir*100, dist, {pop:150, time:0.28, tau:0.08}); }
 
 /* --- 分裂：倒れた場所に子ユニット（別の種類）を生む。
    split={key,n} で子の種類と数を指定＝巨大スライム→スライム→チビ の多段チェーン --- */
@@ -412,15 +435,9 @@ function updateBuffs(dt){
 }
 
 /* --- ドーナッツの送風：正面（進行方向の先）の敵を吹き飛ばす --- */
-function blowAway(u, blow){
-  for(const o of world.units){
-    if(o.side===u.side || o.dead) continue;
-    const ahead = u.dir>0 ? o.x>u.x : o.x<u.x;
-    if(!ahead || Math.abs(o.x-u.x) > blow.r) continue;
-    applyKnock(o, u.x, blow.kb);   // パーンと後ろへ吹き飛ばす
-  }
-  // 風のエフェクト（前方へ流れる粒）
-  for(let i=0;i<10;i++){ const spd=120+Math.random()*160;
+/* --- 風のエフェクト（前方へ流れる粒）＝ドーナッツのふっとばし攻撃時 --- */
+function windFx(u){
+  for(let i=0;i<8;i++){ const spd=120+Math.random()*160;
     world.parts.push({x:u.x, y:u.y-20-Math.random()*30, vx:u.dir*spd, vy:(Math.random()-0.5)*40, life:0.4, max:0.4, c:'#cfe8ff', r:2+Math.random()*2}); }
   SFX_blow();
 }
@@ -487,6 +504,7 @@ function step(dt){
     if(u.dead) continue;
     u.bob += dt*10;
     if(u.atkAnim>0) u.atkAnim -= dt;
+    if(u.slowT>0) u.slowT -= dt;   // 鈍足の残り時間
     // 吹き飛び中：弧を描いて後ろへ飛ぶ（この間はAIしない）
     if(u.kbT>0){
       u.kbT -= dt;
@@ -503,14 +521,6 @@ function step(dt){
     const castleGap = Math.abs(castleX - u.x);
     const enemyInRange  = fe && fe.gap <= u.range;
     const castleInRange = castleGap <= Math.max(u.range, CONF.castleAtkRange);
-
-    // ドーナッツの送風：一定間隔で正面の敵を吹き飛ばす
-    if(D.blow){
-      u.blowT -= dt;
-      if(u.blowT<=0 && fe && fe.gap <= D.blow.r){
-        u.blowT = D.blow.cd; blowAway(u, D.blow);
-      }
-    }
 
     // 導火中（bomber）
     if(u.fuseT>=0){
@@ -544,8 +554,17 @@ function step(dt){
       if(u.cool<=0){
         u.cool = u.cd; u.atkAnim = ATK_ANIM;
         const dmg = u.atk * (u.buffMul||1);
+        const doKB = D.kbHit && (++u.hitCount % D.kbHit.every === 0);
         if(D.role==='ranged' && enemyInRange){ fireShot(u, fe.o); SFX_shot(); }
-        else if(enemyInRange){ hurt(fe.o, dmg); SFX_hit(); }
+        else if(enemyInRange){
+          if(D.area){   // 範囲攻撃：射程内の前方の敵をまとめて攻撃
+            for(const o of world.units){ if(o.side===u.side || o.dead) continue;
+              const ah = u.dir>0 ? o.x>u.x : o.x<u.x;
+              if(ah && Math.abs(o.x-u.x) <= u.range){ attackHit(u,o,dmg); if(doKB) applyKnock(o, u.x, D.kbHit.dist); } }
+            if(doKB){ windFx(u); world.shake = Math.max(world.shake, u.side==='p'?3:0); }
+          } else { attackHit(u, fe.o, dmg); if(doKB) applyKnock(fe.o, u.x, D.kbHit.dist); }
+          SFX_hit();
+        }
         else if(castleInRange){ if(u.side==='p') ehp -= dmg; else php -= dmg; SFX_hit(); }
       }
       continue;
@@ -553,9 +572,10 @@ function step(dt){
 
     // 前進：味方どうしは重なってOK（にゃんこ風に前線で団子になる）。敵の手前でだけ止まる。
     u.moving = true;
-    // 居合：抜刀の溜め中(windup)はゆっくり／抜刀後は一気に加速して突撃
+    // 居合：抜刀の溜め中(windup)はゆっくり／抜刀後は一気に加速して突撃。鈍足中は減速
     const windup = u.charging && u.chargeT < D.charge.windup;
-    const sp = u.charging ? u.speed*(windup ? 0.30 : D.charge.spd) : u.speed;
+    const slowF = u.slowT>0 ? (u.slowMul||1) : 1;
+    const sp = (u.charging ? u.speed*(windup ? 0.30 : D.charge.spd) : u.speed) * slowF;
     let nx = u.x + u.dir*sp*dt;
     if(u.side==='p'){            // 左へ進む・敵城は左(0)
       nx = Math.max(nx, CONF.castleAtkRange);
@@ -1179,6 +1199,8 @@ function blip(freq,dur,type,vol){ const c=ac(); if(!c) return;
 let lastHit=0;
 function SFX_hit(){ const n=(typeof performance!=='undefined'?performance.now():0); if(n-lastHit<40)return; lastHit=n; blip(220+Math.random()*60,0.05,'square',0.03); }
 function SFX_shot(){ blip(720,0.06,'triangle',0.03); }
+let lastKnock=0;
+function SFX_knock(){ const n=(typeof performance!=='undefined'?performance.now():0); if(n-lastKnock<50)return; lastKnock=n; blip(300,0.05,'sine',0.05); setTimeout(()=>blip(170,0.08,'sine',0.04),30); }
 function SFX_tower(){ blip(180,0.05,'sawtooth',0.08); setTimeout(()=>blip(90,0.35,'sawtooth',0.10),40); setTimeout(()=>SFX_boom(),60); }
 function SFX_disco(){ [660,880,990].forEach((f,i)=>setTimeout(()=>blip(f,0.1,'triangle',0.04),i*70)); }
 function SFX_blow(){ const c=ac(); if(!c)return; const b=c.createBuffer(1,c.sampleRate*0.25,c.sampleRate); const d=b.getChannelData(0);
