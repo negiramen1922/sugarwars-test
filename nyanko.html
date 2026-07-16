@@ -280,6 +280,42 @@ const GACHA_COST = 400;                                 // 1回ガチャの🍬
 const GACHA_POOL = ['partycookie','bigslime'];          // ガチャから出るキャラ（増やせる）
 const GACHA_DUP_COINS = 120;                            // 重複時の🍬還元
 
+/* ============================================================
+   ゲーム基盤：スターター／ステージ／編成／進行（localStorage保存）
+   ・キャラ追加＝DEFS/ORDERに足す。ステージ追加＝STAGESに1行足すだけ。
+   ============================================================ */
+const STARTERS = ['cookie'];           // 最初から使えるのはクッキー1体だけ（にゃんこ風）
+const LOADOUT_MAX = 6;                  // 編成に持ち込める最大数
+// coins=そのステージ初回クリアの🍬キャンディコイン報酬（再挑戦は少額）
+const STAGES = [
+  { id:1, name:'はじまりの小道（練習）', enemyHP:500, spawnStart:6.0, spawnMin:4.5, ramp:60, coins:150, tutorial:true,
+    pools:[[1,['m_swarm']]] },   // チュートリアル：弱いアオカビが少しだけ。クッキーだけで勝てる
+  { id:2, name:'ねばねば湿地',     enemyHP:1400, spawnStart:3.4, spawnMin:1.9, ramp:80, coins:200,
+    pools:[[0.3,['m_swarm','m_swarm','m_phage']],[0.6,['m_swarm','m_tank','m_puff']],[1,['m_swarm','m_tank','m_phage','m_puff']]] },
+  { id:3, name:'紫カビ回廊',       enemyHP:1750, spawnStart:3.1, spawnMin:1.7, ramp:85, coins:250,
+    pools:[[0.3,['m_swarm','m_phage','m_puff']],[0.6,['m_swarm','m_tank','m_phage']],[1,['m_swarm','m_tank','m_big','m_phage']]] },
+  { id:4, name:'胞子の大広間',     enemyHP:2100, spawnStart:2.8, spawnMin:1.5, ramp:90, coins:300,
+    pools:[[0.3,['m_swarm','m_tank','m_puff']],[0.6,['m_swarm','m_tank','m_phage','m_puff']],[1,['m_swarm','m_tank','m_big','m_phage','m_puff']]] },
+  { id:5, name:'カビ大帝の巣',     enemyHP:2600, spawnStart:2.6, spawnMin:1.4, ramp:95, coins:400,
+    pools:[[0.3,['m_swarm','m_tank','m_phage']],[0.6,['m_swarm','m_tank','m_big','m_puff']],[1,['m_tank','m_big','m_phage','m_puff','m_swarm']]] },
+];
+const STAGE_BY_ID = Object.fromEntries(STAGES.map(s=>[s.id,s]));
+const REPLAY_COINS = 30;                // 再挑戦クリアの報酬
+// キャラ解放：coin=🍬で購入 / gacha=ガチャ限定（コインでは買えない）
+const UNLOCKS = {
+  choco:      {via:'coin', cost:200},   // 最初の壁。まず解放したい1体
+  slime:      {via:'coin', cost:250},
+  bomb:       {via:'coin', cost:300},
+  shoe:       {via:'coin', cost:400},
+  daifuku:    {via:'coin', cost:550},
+  donut:      {via:'coin', cost:750},
+  partycookie:{via:'gacha'},
+  bigslime:   {via:'gacha'},
+};
+const GACHA_COST = 400;                                 // 1回ガチャの🍬
+const GACHA_POOL = ['partycookie','bigslime'];          // ガチャから出るキャラ（増やせる）
+const GACHA_DUP_COINS = 120;                            // 重複時の🍬還元
+
 /* --- 敵＝カビ軍団（画像素材なし・canvasで手描き。mold=描画形状 / col,col2=配色） ---
    ステータスは対応するお菓子とほぼ同じ＝バランスは据え置き。見た目と名前だけカビ化。 */
 const FOE_DEFS = {
