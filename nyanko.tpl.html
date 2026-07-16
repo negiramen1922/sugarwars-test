@@ -247,12 +247,12 @@ const ORDER = ['cookie','partycookie','slime','bigslime','daifuku','choco','donu
    ゲーム基盤：スターター／ステージ／編成／進行（localStorage保存）
    ・キャラ追加＝DEFS/ORDERに足す。ステージ追加＝STAGESに1行足すだけ。
    ============================================================ */
-const STARTERS = ['cookie','choco'];   // 最初から使える2体（前衛＋壁）
+const STARTERS = ['cookie'];           // 最初から使えるのはクッキー1体だけ（にゃんこ風）
 const LOADOUT_MAX = 6;                  // 編成に持ち込める最大数
 // coins=そのステージ初回クリアの🍬キャンディコイン報酬（再挑戦は少額）
 const STAGES = [
-  { id:1, name:'カビの森 入口',   enemyHP:1100, spawnStart:3.8, spawnMin:2.1, ramp:75, coins:150,
-    pools:[[0.35,['m_swarm','m_swarm','m_puff']],[0.7,['m_swarm','m_puff','m_phage']],[1,['m_swarm','m_tank','m_phage']]] },
+  { id:1, name:'はじまりの小道（練習）', enemyHP:500, spawnStart:6.0, spawnMin:4.5, ramp:60, coins:150, tutorial:true,
+    pools:[[1,['m_swarm']]] },   // チュートリアル：弱いアオカビが少しだけ。クッキーだけで勝てる
   { id:2, name:'ねばねば湿地',     enemyHP:1400, spawnStart:3.4, spawnMin:1.9, ramp:80, coins:200,
     pools:[[0.3,['m_swarm','m_swarm','m_phage']],[0.6,['m_swarm','m_tank','m_puff']],[1,['m_swarm','m_tank','m_phage','m_puff']]] },
   { id:3, name:'紫カビ回廊',       enemyHP:1750, spawnStart:3.1, spawnMin:1.7, ramp:85, coins:250,
@@ -266,11 +266,12 @@ const STAGE_BY_ID = Object.fromEntries(STAGES.map(s=>[s.id,s]));
 const REPLAY_COINS = 30;                // 再挑戦クリアの報酬
 // キャラ解放：coin=🍬で購入 / gacha=ガチャ限定（コインでは買えない）
 const UNLOCKS = {
-  slime:      {via:'coin', cost:200},
-  bomb:       {via:'coin', cost:250},
-  shoe:       {via:'coin', cost:350},
-  daifuku:    {via:'coin', cost:500},
-  donut:      {via:'coin', cost:700},
+  choco:      {via:'coin', cost:200},   // 最初の壁。まず解放したい1体
+  slime:      {via:'coin', cost:250},
+  bomb:       {via:'coin', cost:300},
+  shoe:       {via:'coin', cost:400},
+  daifuku:    {via:'coin', cost:550},
+  donut:      {via:'coin', cost:750},
   partycookie:{via:'gacha'},
   bigslime:   {via:'gacha'},
 };
@@ -1042,6 +1043,7 @@ function loop(t){
 
 /* --- 決着 --- */
 function win(youWon){
+  clearTut();
   const ov=document.getElementById('overlay');
   const T=document.getElementById('ovT'), P=document.getElementById('ovP'), B=document.getElementById('overButtons');
   B.innerHTML='';
@@ -1087,7 +1089,7 @@ function stageUnlocked(id){ return id===1 || save.cleared.includes(id-1); }
 const SCREENS=['homeScreen','selectScreen','loadoutScreen','collectScreen'];
 function showScreen(id){ running=false; for(const s of SCREENS){ document.getElementById(s).classList.toggle('on', s===id); } }
 function hideScreens(){ for(const s of SCREENS) document.getElementById(s).classList.remove('on'); }
-function goHome(){ document.getElementById('overlay').style.display='none'; showScreen('homeScreen');
+function goHome(){ document.getElementById('overlay').style.display='none'; clearTut(); showScreen('homeScreen');
   document.getElementById('homeProgress').textContent='クリア '+save.cleared.length+' / '+STAGES.length+' ステージ ・ なかま '+unlockedUnits().length+' / '+ORDER.length; }
 function goSelect(){ showScreen('selectScreen'); renderStages(); }
 function goCollect(){ showScreen('collectScreen'); renderCollect(); }
@@ -1129,7 +1131,9 @@ function sortie(){ if(_pick.length===0) return; myLoadout=_pick.slice(); startBa
 
 // バトル開始
 function startBattle(){ hideScreens(); document.getElementById('overlay').style.display='none';
-  buildDock(); reset(); running=true; showHint(); }
+  buildDock(); reset(); running=true;
+  if(curStage && curStage.tutorial) runTutorial();
+  else { clearTut(); showHint('🍬を貯めて下のボタンでなかまを出撃！ 左の敵のお城を落とそう（右＝自分）'); } }
 
 // なかま（解放＆ガチャ）
 function renderCollect(){
@@ -1186,8 +1190,21 @@ function buildDock(){
   }
 }
 
-function showHint(){ const h=document.getElementById('hint'); h.style.opacity='0.9'; clearTimeout(hintT); hintT=setTimeout(hideHint,6000); }
+function showHint(msg){ const h=document.getElementById('hint'); if(msg) h.textContent=msg; h.style.opacity='0.9'; clearTimeout(hintT); hintT=setTimeout(hideHint,6500); }
 function hideHint(){ document.getElementById('hint').style.opacity='0'; }
+// にゃんこ風チュートリアル：ステージ1で順番にコツを案内
+let _tutT=[];
+function clearTut(){ _tutT.forEach(clearTimeout); _tutT=[]; }
+function runTutorial(){
+  clearTut();
+  const steps=[
+    [0,     '🍬がたまったら下の「クッキー」を押して出撃！'],
+    [6000,  'クッキーは安い数押し。どんどん出して数で攻めよう！'],
+    [13000, '🍬が足りなければ左下「お財布UP」で貯まりを速く。'],
+    [20000, '左の敵のお城まで押し込んで落とせばクリア！'],
+  ];
+  for(const [t,m] of steps){ _tutT.push(setTimeout(()=>showHint(m), t)); }
+}
 
 /* ============================================================ 効果音（Web Audio・軽量合成） ============================================================ */
 let AC=null;
