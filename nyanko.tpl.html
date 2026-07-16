@@ -93,6 +93,9 @@
   .ucard.sel{ box-shadow:0 3px 0 #0006, inset 0 0 0 2px #ffd23f; background:#33264a; }
   .ucard .pick{ position:absolute; top:3px; right:5px; width:20px; height:20px; border-radius:50%; background:#ffd23f;
     color:#20152e; font-weight:900; font-size:12px; display:none; align-items:center; justify-content:center; }
+  .abadge{ position:absolute; top:3px; left:5px; min-width:18px; height:18px; padding:0 3px; border-radius:9px;
+    color:#fff; font-weight:900; font-size:11px; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 1px 2px #0007, inset 0 0 0 1px #ffffff55; }
   .ucard.sel .pick{ display:flex; }
   #loadoutBar{ position:sticky; bottom:0; width:100%; max-width:560px; display:flex; align-items:center; gap:10px;
     padding:10px 0; background:linear-gradient(180deg,#12203a00,#12203a); }
@@ -295,6 +298,32 @@ const FOE_DEFS = {
            blast:120, blastR:64, num:1, mold:'spiky', col:'#a7b86a', col2:'#6f7d3f'}, // 自爆（ポップコーン相当）
 };
 
+/* ============================================================
+   属性（甘・辛・苦）＝三すくみの相性。有利ならダメージUP・不利でもペナルティなし。
+   三すくみ：甘→辛→苦→甘（甘は辛に強い / 辛は苦に強い / 苦は甘に強い）。
+   ============================================================ */
+const ATTR = {
+  sweet:  {name:'甘', color:'#ff8fc4', emoji:'🍬'},
+  spicy:  {name:'辛', color:'#ff5a4a', emoji:'🌶'},
+  bitter: {name:'苦', color:'#b07a4a', emoji:'🍫'},
+};
+const ATTR_STRONG = { sweet:'spicy', spicy:'bitter', bitter:'sweet' };   // 攻撃側→有利な相手の属性
+const ATTR_BONUS = 1.6;                                                  // 有利時のダメージ倍率
+// キャラ/カビの属性割り当て（バランス重視・後で調整可）
+const UNIT_ATTR = {
+  cookie:'sweet', slime:'sweet', donut:'sweet',          // 甘
+  partycookie:'spicy', daifuku:'spicy',                  // 辛
+  bigslime:'bitter', choco:'bitter', shoe:'bitter',      // 苦
+  bomb:'sweet',                                          // （現在ロスター外）
+  m_swarm:'spicy', m_phage:'spicy',                      // カビ：辛
+  m_tank:'bitter',                                       // カビ：苦
+  m_big:'sweet', m_puff:'sweet',                         // カビ：甘
+};
+function attrOf(u){ return UNIT_ATTR[u.key]; }
+function attrMul(atkAttr, tgtAttr){ return (atkAttr && ATTR_STRONG[atkAttr]===tgtAttr) ? ATTR_BONUS : 1; }
+function attrBadgeHTML(key){ const a=UNIT_ATTR[key]; if(!a) return ''; const m=ATTR[a];
+  return '<span class="abadge" style="background:'+m.color+'">'+m.name+'</span>'; }
+
 /* --- 状態 --- */
 let world, money, php, ehp, cd, enemyCd, elapsed, running, lastT, walletLv, towerCd, hintT;
 let curStage=null, myLoadout=STARTERS.slice(0,LOADOUT_MAX);   // 現在のステージ／編成
@@ -304,7 +333,7 @@ function effCap(){ return CONF.moneyCap + walletLv*CONF.walletCapStep; }
 function walletCost(){ return CONF.walletCostBase + walletLv*CONF.walletCostStep; }
 
 function reset(){
-  world = { units:[], shots:[], parts:[], slashes:[], nextId:1, shake:0 };
+  world = { units:[], shots:[], parts:[], slashes:[], pops:[], nextId:1, shake:0 };
   money = CONF.moneyStart;
   php = CONF.castleHP;
   ehp = curStage ? curStage.enemyHP : CONF.castleHP;   // 敵城HPはステージ難易度
@@ -337,10 +366,19 @@ function newUnit(key, side, x, y){
     kbSeg:undefined,
   };
 }
-/* --- 攻撃1発の適用（ダメージ＋鈍足付与）。ふっとばしは呼び出し側で --- */
+/* --- 攻撃1発の適用（属性相性でダメージ倍率＋鈍足付与）。ふっとばしは呼び出し側で --- */
 function attackHit(u, o, dmg){
-  hurt(o, dmg);
+  const mul = attrMul(attrOf(u), attrOf(o));
+  hurt(o, dmg*mul);
+  if(mul>1) advFx(o);          // 有利＝「ばつぐん！」演出
   if(u.U.slowHit && !o.dead){ o.slowT = u.U.slowHit.dur; o.slowMul = u.U.slowHit.mul; }
+}
+// 有利ヒットの演出（金色の火花＋「ばつぐん！」のフロートテキスト。テキストは間引いて重なり防止）
+let _lastPop=-1;
+function advFx(o){
+  for(let i=0;i<6;i++){ const a=Math.random()*6.28, s=60+Math.random()*120;
+    world.parts.push({x:o.x, y:o.y-18, vx:Math.cos(a)*s, vy:Math.sin(a)*s-50, life:0.4, max:0.4, c:'#ffe27a', r:2+Math.random()*2}); }
+  if(elapsed - _lastPop > 0.4){ _lastPop=elapsed; world.pops.push({x:o.x, y:o.y-46, t:0, dur:0.7, text:'ばつぐん！', c:'#ffe27a'}); }
 }
 const ATK_ANIM = 0.18;   // 攻撃モーションの表示時間(秒)
 /* --- ノックバック：座標ワープでなく、弧を描いて後ろへ吹き飛ばす --- */
@@ -471,10 +509,10 @@ function fireShot(u, target){
     // シューの矢：山なりの弧を描いて着弾（大きめ）
     const x0=u.x + u.dir*8, y0=u.y-34, tx=target.x, ty=target.y-14;
     const dist=Math.abs(tx-x0);
-    world.shots.push({ lob:true, side:u.side, dmg:u.atk*(u.buffMul||1), r:18, tid:target.id,
+    world.shots.push({ lob:true, side:u.side, dmg:u.atk*(u.buffMul||1), attr:attrOf(u), r:18, tid:target.id,
       x:x0, y:y0, x0, y0, tx, ty, t:0, dur:Math.max(0.4, dist/360), arcH:70+dist*0.35, ang:0, arrow:true });
   }else{
-    world.shots.push({ x:u.x, y:u.y-16, side:u.side, dmg:u.atk, sp:340, r:12,
+    world.shots.push({ x:u.x, y:u.y-16, side:u.side, dmg:u.atk, attr:attrOf(u), sp:340, r:12,
       tid:target.id, tx:target.x, ty:target.y-16, ang:0 });
   }
 }
@@ -540,7 +578,7 @@ function step(dt){
       if(!windup && (enemyInRange || castleInRange)){
         if(enemyInRange){
           for(const o of world.units){ if(o.side===u.side || o.dead) continue;   // 敵だけに当てる
-            if(Math.abs(o.x-u.x) <= D.charge.r) hurt(o, D.charge.dmg); }
+            if(Math.abs(o.x-u.x) <= D.charge.r){ const m=attrMul(attrOf(u), attrOf(o)); hurt(o, D.charge.dmg*m); if(m>1) advFx(o); } }
           slashFx(u); world.slashes.push({x:u.x, y:u.y-CONF.rowBand, dir:u.dir, t:0, dur:0.28, reach:D.charge.r});
           if(u.side==='p') world.shake = 5;   // サムライの居合ヒットで軽く画面が揺れる
         }else{ if(u.side==='p') ehp -= D.charge.dmg; else php -= D.charge.dmg; }
@@ -601,7 +639,7 @@ function step(dt){
       if(p>=1){
         let t = world.units.find(u=>u.id===s.tid && !u.dead);
         if(!t){ let bd=44; for(const o of world.units){ if(o.side===s.side||o.dead) continue; const dd=Math.hypot(o.x-s.x,o.y-s.y); if(dd<bd){bd=dd;t=o;} } }
-        if(t) hurt(t, s.dmg);
+        if(t){ const m=attrMul(s.attr, attrOf(t)); hurt(t, s.dmg*m); if(m>1) advFx(t); }
         s.dead=true;
       }
       continue;
@@ -610,7 +648,7 @@ function step(dt){
     if(t){ s.tx=t.x; s.ty=t.y-16; }
     const dx=s.tx-s.x, dy=s.ty-s.y, d=Math.hypot(dx,dy)||1;
     s.ang = Math.atan2(dy,dx);
-    if(d < s.sp*dt + s.r){ if(t) hurt(t, s.dmg); s.dead=true; }
+    if(d < s.sp*dt + s.r){ if(t){ const m=attrMul(s.attr, attrOf(t)); hurt(t, s.dmg*m); if(m>1) advFx(t); } s.dead=true; }
     else{ s.x += dx/d*s.sp*dt; s.y += dy/d*s.sp*dt; }
   }
 
@@ -622,6 +660,8 @@ function step(dt){
   world.parts = world.parts.filter(p=>p.life>0);
   for(const sl of world.slashes){ sl.t += dt; }
   world.slashes = world.slashes.filter(sl=>sl.t < sl.dur);
+  for(const pp of world.pops){ pp.t += dt; pp.y -= 34*dt; }   // フロートテキストは上へ
+  world.pops = world.pops.filter(pp=>pp.t < pp.dur);
 
   if(ehp<=0){ running=false; win(true); }
   else if(php<=0){ running=false; win(false); }
@@ -864,6 +904,11 @@ function drawUnit(u){
     ctx.fillStyle='#0008'; ctx.fillRect(bx,by,w,h);
     ctx.fillStyle = u.side==='p'?'#6fd66f':'#b6e06a'; ctx.fillRect(bx,by,w*Math.max(0,u.hp/u.maxHp),h);
   }
+  // 属性バッジ（甘=ピンク/辛=赤/苦=茶の小さな丸）
+  const at=attrOf(u);
+  if(at){ const ax=cx+S*0.30, ay=footY-S+4;
+    ctx.fillStyle=ATTR[at].color; ctx.beginPath(); ctx.arc(ax,ay,5,0,6.28); ctx.fill();
+    ctx.lineWidth=1.5; ctx.strokeStyle='#00000066'; ctx.stroke(); }
   // パーティークッキー：頭上のミラーボール
   if(u.U.disco && u.auraT>0) drawMirrorBall(cx, footY-S-6, elapsed);
   // 攻撃バフ中の味方：小さな♪キラキラ
@@ -982,6 +1027,12 @@ function render(){
   for(const s of world.shots) drawShot(s);
   for(const p of world.parts){ ctx.globalAlpha=Math.max(0,p.life/p.max); ctx.fillStyle=p.c;
     ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,6.28); ctx.fill(); }
+  ctx.globalAlpha=1;
+  // フロートテキスト（ばつぐん！ など）
+  for(const pp of world.pops){ const a=1-pp.t/pp.dur;
+    ctx.globalAlpha=Math.max(0,a); ctx.font='bold 15px sans-serif'; ctx.textAlign='center';
+    ctx.lineWidth=3; ctx.strokeStyle='#0009'; ctx.strokeText(pp.text, pp.x, pp.y);
+    ctx.fillStyle=pp.c||'#fff'; ctx.fillText(pp.text, pp.x, pp.y); }
   ctx.globalAlpha=1;
   ctx.restore();
   drawBeam();
@@ -1122,7 +1173,7 @@ function renderLoadout(){
   for(const k of unlockedUnits()){
     const D=DEFS[k], i=_pick.indexOf(k);
     const b=document.createElement('button'); b.className='ucard'+(i>=0?' sel':'');
-    b.innerHTML='<span class="pick">'+(i>=0?i+1:'')+'</span><img src="'+(SPRITE_DATA[D.spr+'_blue']||'')+'"><div class="nm">'+D.name+'</div><div class="co">🍬'+D.cost+'</div>';
+    b.innerHTML='<span class="pick">'+(i>=0?i+1:'')+'</span>'+attrBadgeHTML(k)+'<img src="'+(SPRITE_DATA[D.spr+'_blue']||'')+'"><div class="nm">'+D.name+'</div><div class="co">🍬'+D.cost+'</div>';
     b.onclick=()=>togglePick(k); G.appendChild(b);
   }
   const cnt=document.getElementById('loadoutCnt'); cnt.textContent=_pick.length+' / '+LOADOUT_MAX+' 体';
@@ -1153,7 +1204,7 @@ function renderCollect(){
     else if(!info) foot='<div class="co">—</div>';
     else if(info.via==='gacha') foot='<div class="co" style="color:#c79bff">🎰ガチャ限定</div>';
     else foot='<div class="co">🍬'+info.cost+'</div>';
-    b.innerHTML='<img src="'+(SPRITE_DATA[D.spr+'_blue']||'')+'"><div class="nm">'+D.name+'</div>'+foot;
+    b.innerHTML=attrBadgeHTML(k)+'<img src="'+(SPRITE_DATA[D.spr+'_blue']||'')+'"><div class="nm">'+D.name+'</div>'+foot;
     if(!owned && info && info.via==='coin') b.onclick=()=>buyUnit(k);
     G.appendChild(b);
   }
