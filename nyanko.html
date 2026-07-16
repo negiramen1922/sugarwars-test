@@ -106,6 +106,7 @@ const CONF = {
   moneyStart: 160,       // 開始🍬
   moneyRate: 26,         // 🍬/秒（お財布Lv0）
   moneyCap: 700,         // 🍬上限（お財布Lv0）
+  arrowSize: 140,        // シューの矢の描画サイズ(px)。大きいほど大量に飛ぶ迫力が出る
   castleAtkRange: 60,    // お城への攻撃が届く距離（大きいほど手前で殴れる＝城にめり込まない）
   spawnInset: 18,        // ユニットの湧き位置（城のふち＝端からの距離）。castleAtkRangeより内側にして
                          // 「城に張り付いた敵ユニットの後ろ」に湧かせ、防衛側が張り付き組を最優先で攻撃できるように
@@ -795,7 +796,7 @@ function drawShot(s){
     ctx.restore(); return;
   }
   const im = SPRITES['arrow_'+(s.side==='p'?'blue':'red')];
-  const sz = s.arrow ? 46 : 28;                 // 矢は大きめ
+  const sz = s.arrow ? CONF.arrowSize : 28;     // 矢は大きめ（大量に飛ぶ迫力）
   ctx.save(); ctx.translate(s.x,s.y); ctx.rotate(s.ang);
   if(im && im.complete && im.naturalWidth){ ctx.drawImage(im,-sz/2,-sz/2,sz,sz); }
   else { ctx.fillStyle='#7fd0ff'; ctx.fillRect(-sz*0.25,-2,sz*0.5,4); }
