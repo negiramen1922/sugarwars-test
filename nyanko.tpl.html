@@ -17,7 +17,7 @@
   .track{ height:12px; border-radius:7px; background:#00000055; overflow:hidden; box-shadow:inset 0 0 0 1px #ffffff22; }
   .fill{ height:100%; width:100%; transition:width .12s linear; }
   .p .fill{ background:linear-gradient(90deg,#43c6ff,#2a7bff); }
-  .e .fill{ background:linear-gradient(90deg,#ff7b7b,#ff3a3a); }
+  .e .fill{ background:linear-gradient(90deg,#a7d15a,#5f8a34); }
   #moneyBox{ text-align:right; white-space:nowrap; font-weight:800; font-size:14px; text-shadow:0 1px 2px #000; }
   #moneyBox b{ color:#ffdf6b; font-size:20px; }
   #moneyBox .sub{ display:block; opacity:.65; font-size:11px; font-weight:600; }
@@ -144,6 +144,21 @@ const DEFS = {
 };
 const ORDER = ['cookie','slime','daifuku','choco','donut','shoe','bomb'];
 
+/* --- 敵＝カビ軍団（画像素材なし・canvasで手描き。mold=描画形状 / col,col2=配色） ---
+   ステータスは対応するお菓子とほぼ同じ＝バランスは据え置き。見た目と名前だけカビ化。 */
+const FOE_DEFS = {
+  m_swarm:{name:'アオカビン', role:'melee',  atk:14, hp:50,  speed:118, range:26, cd:0.35, scale:0.82,
+           num:2, mold:'blob',  col:'#7fae5c', col2:'#4f7038'},   // 前衛スウォーム（クッキー相当）
+  m_tank: {name:'ネバモチ',   role:'melee',  atk:20, hp:230, speed:60,  range:32, cd:0.95, scale:1.18,
+           num:1, mold:'blob',  col:'#6b7d55', col2:'#39482c'},   // 壁タンク（チョコ相当）
+  m_big:  {name:'ドロカビ',   role:'melee',  atk:8,  hp:460, speed:48,  range:32, cd:1.1,  scale:1.34,
+           num:1, mold:'blob',  col:'#8a6bb0', col2:'#573f83'},   // 超硬タンク（ドーナッツ相当）
+  m_phage:{name:'ファージ砲', role:'ranged', atk:14, hp:46,  speed:56,  range:170, cd:1.0, scale:0.98,
+           num:1, mold:'phage', col:'#9a7bc0', col2:'#5f4488'},   // 射手（シュー相当）
+  m_puff: {name:'プクーレ',   role:'bomber', atk:0,  hp:55,  speed:132, range:30, cd:1.0, scale:0.92,
+           blast:120, blastR:64, num:1, mold:'spiky', col:'#a7b86a', col2:'#6f7d3f'}, // 自爆（ポップコーン相当）
+};
+
 /* --- 状態 --- */
 let world, money, php, ehp, cd, enemyCd, elapsed, running, lastT, walletLv, towerCd, hintT;
 
@@ -165,7 +180,7 @@ function reset(){
 
 /* --- ユニット生成 --- */
 function spawn(key, side){
-  const D = DEFS[key];
+  const D = side==='p' ? DEFS[key] : (FOE_DEFS[key] || DEFS[key]);   // 敵はカビ軍団の定義を優先
   const arr = world.units.filter(u=>u.side===side);
   if(arr.length >= CONF.maxUnitsPerSide) return;
   const n = D.num || 1;
@@ -213,8 +228,9 @@ function explode(x, y, side, blast, blastR){
   }
   if(side==='p' && x<=blastR+CONF.castleAtkRange) ehp -= blast;              // 敵城=左
   if(side==='e' && (CONF.W-x)<=blastR+CONF.castleAtkRange) php -= blast;     // 味方城=右
+  const c = side==='e' ? '#b6e06a' : '#ffd23f';   // カビ=緑の胞子 / お菓子=金
   for(let i=0;i<14;i++){ const a=Math.random()*6.28, s=40+Math.random()*120;
-    world.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-30,life:0.5,max:0.5,c:'#ffd23f',r:3+Math.random()*3}); }
+    world.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-30,life:0.5,max:0.5,c,r:3+Math.random()*3}); }
   SFX_boom();
 }
 
@@ -308,16 +324,16 @@ function step(dt){
 function deathBurst(u){
   for(let i=0;i<6;i++){ const a=Math.random()*6.28, s=20+Math.random()*70;
     world.parts.push({x:u.x,y:u.y-10,vx:Math.cos(a)*s,vy:-Math.random()*80,life:0.4,max:0.4,
-      c:u.side==='p'?'#8fd0ff':'#ffb0b0', r:2+Math.random()*2}); }
+      c:u.side==='p'?'#8fd0ff':'#b6e06a', r:2+Math.random()*2}); }
 }
 
 /* --- 敵の出撃AI（時間経過で強い編成も混ざる） --- */
 function enemySpawn(){
   const p = Math.min(1, elapsed/CONF.enemyRampSec);
   let pool;
-  if(p<0.25)      pool = ['cookie','cookie','slime','bomb','shoe'];
-  else if(p<0.55) pool = ['cookie','slime','shoe','bomb','daifuku','choco'];
-  else            pool = ['cookie','daifuku','choco','shoe','bomb','donut','choco'];
+  if(p<0.25)      pool = ['m_swarm','m_swarm','m_puff','m_phage'];
+  else if(p<0.55) pool = ['m_swarm','m_tank','m_phage','m_puff','m_swarm'];
+  else            pool = ['m_swarm','m_tank','m_big','m_phage','m_puff','m_tank'];
   spawn(pool[(Math.random()*pool.length)|0], 'e');
 }
 
@@ -361,43 +377,114 @@ ctx.imageSmoothingEnabled = false;
 function drawCastle(x, side){
   const g = CONF.groundY;
   ctx.save(); ctx.translate(x,0);
-  const col = side==='p' ? '#3b7bd6' : '#d64a4a';
-  const col2= side==='p' ? '#2a5aa8' : '#a83030';
+  const col = side==='p' ? '#3b7bd6' : '#6f8f52';   // 味方=青／敵=カビ緑
+  const col2= side==='p' ? '#2a5aa8' : '#465a2f';
   ctx.fillStyle=col2; ctx.fillRect(-26,g-70,52,70);
   ctx.fillStyle=col;  ctx.fillRect(-22,g-64,44,64);
   ctx.fillStyle=col2; ctx.beginPath(); ctx.moveTo(-30,g-64); ctx.lineTo(0,g-92); ctx.lineTo(30,g-64); ctx.closePath(); ctx.fill();
-  ctx.fillStyle='#ffe9a8'; ctx.fillRect(-8,g-44,16,18);
+  ctx.fillStyle = side==='p' ? '#ffe9a8' : '#c8e29a'; ctx.fillRect(-8,g-44,16,18);
+  if(side==='e'){   // 敵城にカビの斑点
+    ctx.fillStyle='#2f3d22';
+    for(const [sx,sy,r] of [[-12,-52,4],[8,-40,3],[-4,-24,3.5],[14,-58,3]]){ ctx.beginPath(); ctx.arc(sx,sy,r,0,6.283); ctx.fill(); }
+  }
   ctx.restore();
 }
 
 function drawUnit(u){
   const D = u.U;
-  const key = D.spr + '_' + (u.side==='p'?'blue':'red');
-  const im = SPRITES[key];
   const S = 58 * (D.scale||1);
   const cx = u.x, footY = u.y;                 // 足元＝u.y（地面付近）。影も足元に置くので浮かない
   ctx.save(); ctx.globalAlpha=0.28; ctx.fillStyle='#000';
   ctx.beginPath(); ctx.ellipse(cx, footY, S*0.30, S*0.10, 0,0,6.28); ctx.fill(); ctx.restore();
   const bobY = Math.sin(u.bob)*2;
-  ctx.save();
-  ctx.translate(cx, footY+bobY);
-  if(u.side==='p') ctx.scale(-1,1);   // 味方は左へ進む＝左向き（スプライトは右向きが素）
-  if(u.fuseT>=0) ctx.globalAlpha = 0.6 + 0.4*Math.sin(elapsed*40);
-  if(im && im.complete && im.naturalWidth){ ctx.drawImage(im, -S/2, -S, S, S); }  // 画像の下端＝footY
-  else { ctx.font=(S*0.7)+'px serif'; ctx.textAlign='center'; ctx.textBaseline='alphabetic'; ctx.fillText('🍬',0,-6); }
-  ctx.restore();
+  if(u.side==='e' && D.mold){
+    drawMold(u, S, cx, footY+bobY);            // 敵＝カビ軍団（手描き）
+  }else{
+    const im = SPRITES[D.spr + '_' + (u.side==='p'?'blue':'red')];
+    ctx.save();
+    ctx.translate(cx, footY+bobY);
+    if(u.side==='p') ctx.scale(-1,1);   // 味方は左へ進む＝左向き（スプライトは右向きが素）
+    if(u.fuseT>=0) ctx.globalAlpha = 0.6 + 0.4*Math.sin(elapsed*40);
+    if(im && im.complete && im.naturalWidth){ ctx.drawImage(im, -S/2, -S, S, S); }
+    else { ctx.font=(S*0.7)+'px serif'; ctx.textAlign='center'; ctx.textBaseline='alphabetic'; ctx.fillText('🍬',0,-6); }
+    ctx.restore();
+  }
   if(u.hp < u.maxHp){
     const w=S*0.5,h=4,bx=cx-w/2,by=footY-S-2;
     ctx.fillStyle='#0008'; ctx.fillRect(bx,by,w,h);
-    ctx.fillStyle = u.side==='p'?'#6fd66f':'#ff8a5a'; ctx.fillRect(bx,by,w*Math.max(0,u.hp/u.maxHp),h);
+    ctx.fillStyle = u.side==='p'?'#6fd66f':'#b6e06a'; ctx.fillRect(bx,by,w*Math.max(0,u.hp/u.maxHp),h);
+  }
+}
+
+/* --- カビ敵の手描き（プレースホルダ／画像素材なし） ---
+   mold: blob=もやもやカビ玉 / phage=脚つきウイルス砲 / spiky=トゲ球（自爆） */
+function drawMold(u, S, cx, cy){
+  const D = u.U, col = D.col||'#7fae5c', dk = D.col2||'#4f7038';
+  const r = S*0.36;
+  const top = cy - S*0.5;                       // 体の中心を足元より上へ
+  const puls = D.mold==='spiky' && u.fuseT>=0 ? (1 + 0.18*Math.sin(elapsed*40)) : 1;
+  ctx.save();
+  ctx.translate(cx, top);
+  ctx.scale(puls, puls);
+  // 目の向き（プレイヤー＝右を見る）
+  const look = 2.2;
+  if(D.mold==='phage'){
+    // 脚つきウイルス（着陸船型）
+    ctx.strokeStyle=dk; ctx.lineWidth=Math.max(2,S*0.05); ctx.lineCap='round';
+    for(let i=-1;i<=1;i++){ ctx.beginPath(); ctx.moveTo(i*r*0.5,0); ctx.lineTo(i*r*0.9, r*0.9+S*0.16); ctx.stroke(); }
+    // 頭（六角）
+    ctx.fillStyle=col; ctx.beginPath();
+    for(let k=0;k<6;k++){ const a=Math.PI/6 + k*Math.PI/3; const px=Math.cos(a)*r, py=Math.sin(a)*r*0.9-r*0.2;
+      k?ctx.lineTo(px,py):ctx.moveTo(px,py); } ctx.closePath(); ctx.fill();
+    ctx.strokeStyle=dk; ctx.lineWidth=2; ctx.stroke();
+    eyes(0,-r*0.25, r*0.5, S*0.11, look);
+  } else if(D.mold==='spiky'){
+    // トゲ球（自爆ウイルス）
+    ctx.fillStyle=dk;
+    for(let k=0;k<9;k++){ const a=k*6.283/9; const ox=Math.cos(a)*r, oy=Math.sin(a)*r;
+      ctx.beginPath(); ctx.moveTo(ox*0.8,oy*0.8);
+      ctx.lineTo(ox*1.35 - Math.sin(a)*r*0.18, oy*1.35 + Math.cos(a)*r*0.18);
+      ctx.lineTo(ox*1.35 + Math.sin(a)*r*0.18, oy*1.35 - Math.cos(a)*r*0.18); ctx.closePath(); ctx.fill(); }
+    ctx.fillStyle=col; circle(0,0,r);
+    eyes(0,-r*0.1, r*0.42, S*0.1, look);
+  } else {
+    // もやもやカビ玉（デコボコ）
+    ctx.fillStyle=col;
+    const lumps=[[0,0,1],[-0.55,-0.15,0.6],[0.55,-0.1,0.62],[-0.3,-0.55,0.5],[0.32,-0.5,0.52],[0,0.35,0.7]];
+    for(const [lx,ly,ls] of lumps) circle(lx*r, ly*r, r*ls);
+    // カビの斑点
+    ctx.fillStyle=dk;
+    for(const [sx,sy,ss] of [[-0.35,-0.1,0.14],[0.3,0.05,0.12],[0.05,-0.4,0.1],[-0.1,0.3,0.11]]) circle(sx*r,sy*r,r*ss);
+    // 浮遊する胞子
+    ctx.fillStyle=col; ctx.globalAlpha=0.6;
+    for(let k=0;k<3;k++){ const a=elapsed*1.4 + k*2.1 + u.x*0.02; circle(Math.cos(a)*r*1.15, -r*1.0 - (k*4) + Math.sin(a)*3, r*0.08); }
+    ctx.globalAlpha=1;
+    eyes(0,-r*0.15, r*0.5, S*0.12, look);
+  }
+  ctx.restore();
+
+  function circle(x,y,rr){ ctx.beginPath(); ctx.arc(x,y,rr,0,6.283); ctx.fill(); }
+  function eyes(ex,ey,sp,er,lk){
+    for(const s of [-1,1]){
+      ctx.fillStyle='#fff'; circle(ex+s*sp*0.5, ey, er);
+      ctx.fillStyle='#241a1a'; circle(ex+s*sp*0.5 + lk, ey+er*0.1, er*0.5);
+    }
   }
 }
 
 function drawShot(s){
+  if(s.side==='e'){                    // カビの胞子弾（トゲ付きの緑玉）
+    ctx.save(); ctx.translate(s.x,s.y);
+    ctx.fillStyle='#5f7d3a';
+    for(let k=0;k<6;k++){ const a=k*6.283/6 + elapsed*6; ctx.beginPath();
+      ctx.moveTo(Math.cos(a)*3,Math.sin(a)*3); ctx.lineTo(Math.cos(a)*9,Math.sin(a)*9); ctx.lineTo(Math.cos(a+0.5)*3,Math.sin(a+0.5)*3); ctx.closePath(); ctx.fill(); }
+    ctx.fillStyle='#a7c96a'; ctx.beginPath(); ctx.arc(0,0,5,0,6.283); ctx.fill();
+    ctx.restore(); return;
+  }
   const im = SPRITES['arrow_'+(s.side==='p'?'blue':'red')];
   ctx.save(); ctx.translate(s.x,s.y); ctx.rotate(s.ang);
   if(im && im.complete && im.naturalWidth){ ctx.drawImage(im,-14,-14,28,28); }
-  else { ctx.fillStyle=s.side==='p'?'#7fd0ff':'#ff9090'; ctx.fillRect(-6,-2,12,4); }
+  else { ctx.fillStyle='#7fd0ff'; ctx.fillRect(-6,-2,12,4); }
   ctx.restore();
 }
 
