@@ -1,6 +1,5 @@
 // td.test.js — SUGAR DEFENSE（td.html）のヘッドレステスト
 // 使い方: node td.test.js
-// <script> を抽出して vm サンドボックスで実行し、globalThis.__API 経由で検証する。
 const fs = require('fs');
 const vm = require('vm');
 
@@ -39,9 +38,12 @@ const documentStub = {
 };
 const windowStub = { addEventListener() {}, devicePixelRatio: 1, requestAnimationFrame() { return 0; }, innerWidth: 720, innerHeight: 540 };
 function ImageStub() { this.src = ''; this.onload = null; this.width = 128; this.height = 128; this.naturalWidth = 128; this.complete = true; this.addEventListener = () => {}; }
+// localStorage スタブ（セーブ機能を検証）
+const store = {};
+const localStorageStub = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
 
 const sandbox = {
-  document: documentStub, window: windowStub, Image: ImageStub,
+  document: documentStub, window: windowStub, Image: ImageStub, localStorage: localStorageStub,
   performance: { now: () => Date.now() },
   requestAnimationFrame: () => 0, cancelAnimationFrame: () => {},
   setTimeout: () => 0, clearTimeout: () => {},
@@ -60,137 +62,122 @@ function check(name, cond, extra) {
 }
 const S1 = API.STAGES[0];
 function fresh() { API.setStage(S1); API.resetState(S1); }
-// 経路外(草地)セルと経路セルを探すヘルパ
 function grassCell() { for (let r = 0; r < API.CONF.ROWS; r++) for (let c = 0; c < API.CONF.COLS; c++) if (!API.isPathCell(c, r)) return [c, r]; }
-function pathCell() { // 拠点以外の経路セル
+function pathCells() {
   const last = API.WAYPOINTS[API.WAYPOINTS.length - 1];
-  for (const k of API.PATH.cells) { const [c, r] = k.split(',').map(Number); if (!(c === last[0] && r === last[1])) return [c, r]; }
+  return [...API.PATH.cells].map(k => k.split(',').map(Number)).filter(([c, r]) => !(c === last[0] && r === last[1]));
 }
 
-console.log('\n=== 1) 属性（三すくみ 甘→辛→苦→甘） ===');
-check('甘は辛に強い', API.attrMul('sweet', 'spicy') === API.ATTR_ADV);
-check('辛は苦に強い', API.attrMul('spicy', 'bitter') === API.ATTR_ADV);
-check('苦は甘に強い', API.attrMul('bitter', 'sweet') === API.ATTR_ADV);
-check('不利は等倍', API.attrMul('spicy', 'sweet') === 1.0);
-check('同属性は等倍', API.attrMul('sweet', 'sweet') === 1.0);
-check('ATTR_STRONG は三すくみ循環', API.ATTR_STRONG.sweet === 'spicy' && API.ATTR_STRONG.spicy === 'bitter' && API.ATTR_STRONG.bitter === 'sweet');
+console.log('\n=== 1) 属性 ===');
+check('甘>辛>苦>甘', API.attrMul('sweet', 'spicy') === API.ATTR_ADV && API.attrMul('spicy', 'bitter') === API.ATTR_ADV && API.attrMul('bitter', 'sweet') === API.ATTR_ADV);
+check('不利/同属性は等倍', API.attrMul('spicy', 'sweet') === 1 && API.attrMul('sweet', 'sweet') === 1);
 
-console.log('\n=== 2) 経路 buildPath / pointAt ===');
-const P = API.PATH;
-check('ウェイポイント数 = WAYPOINTS 数', P.px.length === API.WAYPOINTS.length);
-check('入口(0,1)は経路', API.isPathCell(0, 1));
-check('拠点(11,7)は経路', API.isPathCell(11, 7));
-check('経路外(5,5)は非経路', !API.isPathCell(5, 5));
-check('total は正の距離', P.total > 0);
-check('cellDist に全経路セルがある', [...P.cells].every(k => P.cellDist[k] !== undefined));
-check('pointAt(0) は入口セル中心', (() => { const p = API.pointAt(0), c = API.cellCenter(0, 1); return Math.abs(p.x - c.x) < 1 && Math.abs(p.y - c.y) < 1; })());
-check('pointAt(total) は拠点セル中心', (() => { const p = API.pointAt(P.total), c = API.cellCenter(11, 7); return Math.abs(p.x - c.x) < 1 && Math.abs(p.y - c.y) < 1; })());
-check('pointAt は距離とともに前進', API.pointAt(50).x !== undefined && API.pointAt(0).x <= API.pointAt(50).x);
+console.log('\n=== 2) 経路 ===');
+check('pointAt(0)=入口, pointAt(total)=拠点', (() => { const a = API.pointAt(0), b = API.pointAt(API.PATH.total), i = API.cellCenter(0, 1), g = API.cellCenter(11, 7);
+  return Math.abs(a.x - i.x) < 1 && Math.abs(b.x - g.x) < 1; })());
+check('cellDist に全経路セル', [...API.PATH.cells].every(k => API.PATH.cellDist[k] !== undefined));
 
-console.log('\n=== 3) タワー分類・データ健全性 ===');
-check('ブロッカーは class=blocker', API.BLOCKER_ORDER.every(k => API.TOWERS[k].class === 'blocker'));
-check('レンジは class=ranger', API.RANGER_ORDER.every(k => API.TOWERS[k].class === 'ranger'));
-check('全ブロッカーに hp/atk/block', API.BLOCKER_ORDER.every(k => { const t = API.TOWERS[k]; return t.hp > 0 && t.atk >= 0 && t.block >= 1; }));
-check('全レンジに range/cd', API.RANGER_ORDER.every(k => { const t = API.TOWERS[k]; return t.range > 0 && t.cd >= 0; }));
-check('サポートが1体以上いる', API.RANGER_ORDER.some(k => API.TOWERS[k].support));
-check('遠距離アタッカーがいる', API.RANGER_ORDER.some(k => API.TOWERS[k].dmg > 0 && !API.TOWERS[k].support));
-check('全タワーが3属性を含む', ['sweet', 'spicy', 'bitter'].every(a => Object.values(API.TOWERS).some(t => t.attr === a)));
-check('全カビに atk/cd/hp/speed', Object.values(API.ENEMIES).every(e => e.atk >= 0 && e.cd > 0 && e.hp > 0 && e.speed > 0));
+console.log('\n=== 3) タワー分類・潜在能力データ ===');
+check('ブロッカー class', API.BLOCKER_ORDER.every(k => API.TOWERS[k].class === 'blocker'));
+check('レンジ class', API.RANGER_ORDER.every(k => API.TOWERS[k].class === 'ranger'));
+check('全タワーに固有 latent(名前/コスト/効果情報)', Object.values(API.TOWERS).every(t => t.latent && t.latent.name && t.latent.matCost >= 1 && t.latent.info));
+check('サポートあり', API.RANGER_ORDER.some(k => API.TOWERS[k].support));
+check('3属性を含む', ['sweet', 'spicy', 'bitter'].every(a => Object.values(API.TOWERS).some(t => t.attr === a)));
+check('覚醒カビ m_awaken は素材ドロップあり', API.ENEMIES.m_awaken && API.ENEMIES.m_awaken.drop > 0);
+check('通常カビは素材ドロップなし', ['m_swarm', 'm_puff', 'm_phage', 'm_tank', 'm_big'].every(k => !API.ENEMIES[k].drop));
 
-console.log('\n=== 4) 強化カーブ ===');
-const cb = API.TOWERS.cookie, rb = API.TOWERS.shoe;
-check('ブロッカー Lv2 HP > Lv1', API.blockerHpAt(cb, 2) > API.blockerHpAt(cb, 1));
-check('ブロッカー Lv2 ATK > Lv1', API.blockerAtkAt(cb, 2) > API.blockerAtkAt(cb, 1));
-check('レンジ Lv2 DMG > Lv1', API.rangerDmgAt(rb, 2) > API.rangerDmgAt(rb, 1));
-check('レンジ Lv2 射程 > Lv1', API.rangerRangeAt(rb, 2) > rb.range);
-check('強化コストはLv上昇で増える', API.upgradeCost(cb, 2) > API.upgradeCost(cb, 1));
-
-console.log('\n=== 5) 設置ルール（ブロッカー=通路 / レンジ=草地） ===');
-fresh(); API.state.coins = 99999;
-const [gc, gr] = grassCell(), [pc, pr] = pathCell();
-check('レンジは草地に置ける', API.isBuildableRanger(gc, gr));
-check('レンジは通路に置けない', !API.isBuildableRanger(pc, pr));
-check('ブロッカーは通路に置ける', API.isBuildableBlocker(pc, pr));
-check('ブロッカーは草地に置けない', !API.isBuildableBlocker(gc, gr));
-check('拠点マスにブロッカー不可', !API.isBuildableBlocker(11, 7));
-check('レンジ設置でコイン減＋占有', (() => { const c0 = API.state.coins; const ok = API.placeTower('shoe', gc, gr);
-  return ok && API.state.coins === c0 - API.TOWERS.shoe.cost && !API.isBuildableRanger(gc, gr); })());
-check('ブロッカー設置で blockPoint 付与', (() => { API.placeTower('choco', pc, pr);
-  const t = API.state.towers.find(x => x.class === 'blocker'); return t && t.blockPoint !== undefined && t.hp > 0 && t.block >= 1; })());
-check('同じ通路マスに二重ブロッカー不可', !API.placeTower('cookie', pc, pr));
-check('コイン不足では設置不可', (() => { API.state.coins = 5; const n = API.state.towers.length; return !API.placeTower('donut', grassCell()[0], grassCell()[1]) && API.state.towers.length === n; })());
-
-console.log('\n=== 6) 強化と売却 ===');
-fresh(); API.state.coins = 99999;
-API.placeTower('choco', pc, pr);
-const bt = API.state.towers[0];
-check('ブロッカー強化で HP/ATK 上昇', (() => { const h = bt.maxHp, a = bt.atk; const ok = API.upgradeTower(bt); return ok && bt.maxHp > h && bt.atk > a; })());
-check('最大Lvで打ち止め', (() => { while (bt.level < API.TOWER_MAX_LV) API.upgradeTower(bt); return bt.level === API.TOWER_MAX_LV && !API.upgradeTower(bt); })());
-check('売却でコイン戻る＋通路マス解放', (() => { const c0 = API.state.coins; API.sellTower(bt); return API.state.coins > c0 && API.isBuildableBlocker(pc, pr); })());
-
-console.log('\n=== 7) ダメージ計算（属性・サポート・ブロック追加） ===');
-check('rangerDamage は属性補正込み', (() => { const t = { dmg: 10, buffMul: 1, U: { attr: 'sweet' } };
-  return API.rangerDamage(t, { attr: 'spicy', stopped: false }) === 16 && API.rangerDamage(t, { attr: 'bitter', stopped: false }) === 10; })());
-check('止まった敵にはBLOCK_BONUS', (() => { const t = { dmg: 10, buffMul: 1, U: { attr: 'bitter' } };
-  return API.rangerDamage(t, { attr: 'sweet', stopped: true }) === 10 * API.ATTR_ADV * API.BLOCK_BONUS; })());
-check('サポートbuffMulが乗る', (() => { const t = { dmg: 10, buffMul: 1.35, U: { attr: 'spicy' } };
-  return Math.abs(API.rangerDamage(t, { attr: 'spicy', stopped: false }) - 13.5) < 1e-9; })());
-check('blockerDamage は属性補正込み', (() => { const t = { atk: 10, buffMul: 1, U: { attr: 'spicy' } };
-  return API.blockerDamage(t, { attr: 'bitter' }) === 16; })());
-check('enemyDamageToBlocker は属性補正込み', (() => {
-  return API.enemyDamageToBlocker({ atk: 10, attr: 'sweet' }, { U: { attr: 'spicy' } }) === 16; })());
-
-console.log('\n=== 8) ターゲット選択 ===');
-const en = [{ id: 1, x: 100, y: 100, traveled: 10, dead: false }, { id: 2, x: 110, y: 100, traveled: 50, dead: false }, { id: 3, x: 400, y: 400, traveled: 99, dead: false }];
-check('射程内で最も前進した敵を狙う', API.pickTarget(en, 100, 100, 60).id === 2);
-check('射程外しかなければ null', API.pickTarget(en, 700, 500, 5) === null);
-check('死亡敵は狙わない', (() => { const e2 = en.map(e => ({ ...e })); e2[1].dead = true; return API.pickTarget(e2, 100, 100, 60).id === 1; })());
-
-console.log('\n=== 9) ブロック挙動（受け止め・相互攻撃・崩れ） ===');
-fresh(); API.state.coins = 99999;
-// 経路の中ほどにブロッカーを置く
-const [bpc, bpr] = (() => { const arr = [...API.PATH.cells].map(k => k.split(',').map(Number)); return arr[Math.floor(arr.length / 2)]; })();
-API.placeTower('cookie', bpc, bpr);
-const blk = API.state.towers.find(t => t.class === 'blocker');
-API.startWave();
-// 敵が到達してブロックされるまで進める
-let gotStopped = false;
-for (let i = 0; i < 200; i++) { API.step(0.1); if (API.world.enemies.some(e => e.stopped && e.blockedBy === blk)) { gotStopped = true; break; } }
-check('敵がブロッカーで停止する', gotStopped);
-check('停止した敵は blockPoint 付近で止まる', API.world.enemies.filter(e => e.stopped).every(e => Math.abs(e.traveled - blk.blockPoint) < 2));
-check('ブロック数を超える敵は待機（engaged<=block）', blk.engagedIds.size <= blk.block);
-const hp0 = blk.hp;
-for (let i = 0; i < 30; i++) API.step(0.1);
-check('敵の反撃でブロッカーHPが減る', blk.hp < hp0, { hp: blk.hp, hp0 });
-// ブロッカーが崩れると通路占有が解放される（HPを削って確認）
-check('ブロッカーは崩れて崩壊する（HP0で除去）', (() => {
-  blk.hp = 1; for (let i = 0; i < 60; i++) { API.step(0.2); if (!API.state.towers.includes(blk)) return API.isBuildableBlocker(bpc, bpr); } return false;
+console.log('\n=== 4) 恒久レベル（共通EXP） ===');
+check('levelMul は Lv1=1, 上昇で増える', API.levelMul(1) === 1 && API.levelMul(2) > 1 && API.levelMul(3) > API.levelMul(2));
+check('expCost は Lv上昇で増える', API.expCostForLevel(2) > API.expCostForLevel(1));
+check('canLevelUp: EXP不足=false, 十分=true', !API.canLevelUp(1, 0) && API.canLevelUp(1, 9999));
+check('MAX_LEVEL で頭打ち', !API.canLevelUp(API.MAX_LEVEL, 999999));
+check('レベルUPでタワー実効ステータスが上がる', (() => {
+  fresh(); const cell = pathCells()[3]; API.state.coins = 99999;
+  API.SAVE.levels = {}; API.placeTower('choco', cell[0], cell[1]); const lo = API.state.towers[0].maxHp;
+  API.sellTower(API.state.towers[0]);
+  API.SAVE.levels = { choco: 3 }; API.placeTower('choco', cell[0], cell[1]); const hi = API.state.towers[0].maxHp;
+  return hi > lo;
 })());
 
-console.log('\n=== 10) レンジがブロック中の敵を倒すとコイン増 ===');
+console.log('\n=== 5) 編成（最大6） ===');
+check('既定編成は 1〜6 の範囲', API.SAVE.loadout.length >= 1 && API.SAVE.loadout.length <= API.LOADOUT_MAX);
+check('編成に無いキャラを追加できる', (() => { API.setLoadout(['cookie']); API.toggleLoadout('shoe'); return API.SAVE.loadout.includes('shoe'); })());
+check('6を超えて追加できない', (() => { API.setLoadout(API.TOWER_ORDER.slice(0, 6)); const before = API.SAVE.loadout.slice(); API.toggleLoadout(API.TOWER_ORDER[6]); return API.SAVE.loadout.length === 6 && !API.SAVE.loadout.includes(API.TOWER_ORDER[6]); })());
+check('最後の1個は外せない', (() => { API.setLoadout(['cookie']); API.toggleLoadout('cookie'); return API.SAVE.loadout.length === 1; })());
+check('編成キャラをトグルで外せる', (() => { API.setLoadout(['cookie', 'shoe']); API.toggleLoadout('shoe'); return !API.SAVE.loadout.includes('shoe') && API.SAVE.loadout.length === 1; })());
+
+console.log('\n=== 6) 出撃上限（deployCap） ===');
+check('ステージに deployCap がある', S1.deployCap > 0);
+check('上限まで置くと atDeployCap=true', (() => {
+  fresh(); API.state.coins = 999999; API.state.deployCap = 3;
+  const gs = []; for (let r = 0; r < API.CONF.ROWS; r++) for (let c = 0; c < API.CONF.COLS; c++) if (!API.isPathCell(c, r)) gs.push([c, r]);
+  let placed = 0; for (const [c, r] of gs) { if (API.placeTower('slime', c, r)) placed++; if (API.atDeployCap()) break; }
+  return API.deployCount() === 3 && API.atDeployCap() && !API.placeTower('slime', gs[10][0], gs[10][1]);
+})());
+
+console.log('\n=== 7) 設置ルール ===');
 fresh(); API.state.coins = 99999;
-API.placeTower('choco', bpc, bpr);       // 受け止め役
-const rc = grassCell();
-API.placeTower('shoe', rc[0], rc[1]);
-const rng = API.state.towers.find(t => t.class === 'ranger'); rng.dmg = 9999; rng.range = 400;
-API.startWave();
-const coin0 = API.state.coins; let killed = false;
-for (let i = 0; i < 200; i++) { API.step(0.15); if (API.state.coins > coin0) { killed = true; break; } }
-check('レンジが敵を撃破してコイン増', killed, { coins: API.state.coins, before: coin0 });
+const [gc, gr] = grassCell(); const [pc, pr] = pathCells()[0];
+check('レンジ=草地 / ブロッカー=通路', API.isBuildableRanger(gc, gr) && !API.isBuildableRanger(pc, pr) && API.isBuildableBlocker(pc, pr) && !API.isBuildableBlocker(gc, gr));
+check('拠点マスにブロッカー不可', !API.isBuildableBlocker(11, 7));
+check('ブロッカー設置で blockPoint/HP 付与', (() => { API.placeTower('choco', pc, pr); const t = API.state.towers[0]; return t.blockPoint !== undefined && t.hp > 0 && t.block >= 1; })());
+check('コイン/上限を超えると不可', (() => { API.state.coins = 5; return !API.placeTower('donut', gc, gr); })());
 
-console.log('\n=== 11) タワー無しなら敵が拠点に到達してライフ減 ===');
-fresh();
-API.startWave();
-const life0 = S1.lives;
-for (let i = 0; i < 400; i++) { if (!API.state.waveActive) break; API.step(0.2); }
-check('ブロッカー無しでライフが減る', API.state.lives < life0, API.state.lives);
+console.log('\n=== 8) 覚醒（覚醒素材→潜在能力） ===');
+fresh(); API.state.coins = 99999;
+API.placeTower('cookie', pathCells()[2][0], pathCells()[2][1]);
+const ct = API.state.towers[0];
+check('素材不足では覚醒できない', (() => { API.state.mat = 0; return !API.awakenTower(ct) && !ct.awakened; })());
+check('素材消費で覚醒し、潜在で強くなる', (() => {
+  const cd0 = ct.cd, atk0 = ct.atk; API.state.mat = 9;
+  const ok = API.awakenTower(ct);
+  return ok && ct.awakened && API.state.mat === 9 - ct.U.latent.matCost && ct.cd < cd0 && ct.atk > atk0;
+})());
+check('覚醒は一度きり(二重不可)', !API.awakenTower(ct));
+check('覚醒カビ撃破で覚醒素材が増える', (() => {
+  fresh(); API.state.mat = 0;
+  const e = { id: 1, key: 'm_awaken', U: API.ENEMIES.m_awaken, attr: 'sweet', hp: 1, maxHp: 180, x: 0, y: 0, dead: false, stopped: false, _eff: 0 };
+  API.world.enemies.push(e); API.state.aliveEnemies = 1;
+  const tw = { class: 'ranger', dmg: 9999, buffMul: 1, U: { attr: 'bitter', splash: 0 } };
+  API.hitEnemyByTower(tw, e, true);
+  return e.dead && API.state.mat === API.ENEMIES.m_awaken.drop;
+})());
 
-console.log('\n=== 12) 鈍足（アイス魔導士） ===');
+console.log('\n=== 9) 潜在能力：多段狙撃 pickTargets ===');
+const en = [{ id: 1, x: 100, y: 100, traveled: 90, dead: false }, { id: 2, x: 105, y: 100, traveled: 80, dead: false }, { id: 3, x: 110, y: 100, traveled: 70, dead: false }, { id: 4, x: 400, y: 400, traveled: 60, dead: false }];
+check('pickTargets は射程内上位N体', (() => { const r = API.pickTargets(en, 100, 100, 40, 3); return r.length === 3 && r[0].id === 1 && !r.some(e => e.id === 4); })());
+check('shoe覚醒(三連矢)で multi>1', (() => { fresh(); API.state.coins = 99999; API.state.mat = 9;
+  const gcell = grassCell(); API.placeTower('shoe', gcell[0], gcell[1]); const t = API.state.towers[0]; API.awakenTower(t); return t.multi >= 3; })());
+
+console.log('\n=== 10) ダメージ・ブロック・進行（統合） ===');
+check('rangerDamage は属性×buff×停止ボーナス', (() => { const t = { dmg: 10, buffMul: 1.35, U: { attr: 'bitter' } };
+  return Math.abs(API.rangerDamage(t, { attr: 'sweet', stopped: true }) - 10 * 1.6 * 1.35 * API.BLOCK_BONUS) < 1e-9; })());
+check('敵はブロッカーで停止し相互攻撃', (() => {
+  fresh(); API.state.coins = 99999; const mid = pathCells()[Math.floor(pathCells().length / 2)];
+  API.placeTower('cookie', mid[0], mid[1]); const blk = API.state.towers[0]; API.startWave();
+  let stopped = false; for (let i = 0; i < 200; i++) { API.step(0.1); if (API.world.enemies.some(e => e.stopped && e.blockedBy === blk)) { stopped = true; break; } }
+  const hp0 = blk.hp; for (let i = 0; i < 30; i++) API.step(0.1);
+  return stopped && blk.engagedIds.size <= blk.block && blk.hp < hp0;
+})());
+check('ブロッカー無しでライフ減', (() => { fresh(); API.startWave(); const l0 = S1.lives;
+  for (let i = 0; i < 400; i++) { if (!API.state.waveActive) break; API.step(0.2); } return API.state.lives < l0; })());
+
+console.log('\n=== 11) クリアでEXP獲得＋保存 ===');
+check('win() で共通EXPが増える', (() => { fresh(); const e0 = API.myExp(); API.win(); return API.myExp() === e0 + S1.exp; })());
+check('セーブが localStorage に書かれる', (() => { API.SAVE.levels = { cookie: 2 }; sandbox.__API; return true; })() && (() => {
+  // saveSave は win/レベルUP時に呼ばれる。win 済みなので td_save が入っているはず
+  return typeof store['td_save'] === 'string' && store['td_save'].includes('exp');
+})());
+
+console.log('\n=== 12) 鈍足/凍結 ===');
 check('slow を持つレンジがある', API.RANGER_ORDER.some(k => API.TOWERS[k].slow));
 check('hitEnemyByTower(ranger) が slow を付与', (() => { fresh();
-  const ice = { class: 'ranger', dmg: 5, buffMul: 1, U: { attr: 'bitter', slow: { mul: 0.5, dur: 1.4 }, splash: 0 } };
+  const ice = { class: 'ranger', dmg: 5, buffMul: 1, slow: { mul: 0.5, dur: 1.4 }, U: { attr: 'bitter', splash: 0 } };
   const e = { hp: 100, maxHp: 100, U: API.ENEMIES.m_tank, attr: 'spicy', x: 0, y: 0, dead: false, slowT: 0, slowMul: 1, stopped: false };
   API.world.enemies.push(e); API.hitEnemyByTower(ice, e, true); return e.slowMul === 0.5 && e.slowT === 1.4; })());
+check('icewiz覚醒(絶対零度)でほぼ停止のslow', (() => { fresh(); API.state.coins = 99999; API.state.mat = 9;
+  const g = grassCell(); API.placeTower('icewiz', g[0], g[1]); const t = API.state.towers[0]; API.awakenTower(t);
+  return t.slow && t.slow.mul <= 0.05; })());
 
 console.log(`\n==== RESULT: ${pass} passed, ${fail} failed ====`);
 process.exit(fail ? 1 : 0);

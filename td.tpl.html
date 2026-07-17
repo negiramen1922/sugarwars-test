@@ -5,92 +5,119 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>SUGAR DEFENSE — お菓子 vs カビ タワーディフェンス</title>
 <style>
-  :root{ --pink:#ff8fc4; --spicy:#ff5a4a; --bitter:#b07a4a; }
+  :root{ --pink:#ff8fc4; --spicy:#ff5a4a; --bitter:#b07a4a; --gold:#ffe27a; }
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body{ margin:0; height:100%; background:#241033; color:#fff2fb;
     font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN",sans-serif; overflow:hidden; }
-  #app{ display:flex; flex-direction:column; height:100%; max-width:760px; margin:0 auto; }
-  header{ display:flex; align-items:center; gap:10px; padding:8px 12px;
-    background:linear-gradient(90deg,#3a1c52,#5a2668); box-shadow:0 2px 8px #0006; }
-  header h1{ font-size:16px; margin:0; letter-spacing:.02em; }
-  header .grow{ flex:1; }
-  .stat{ display:flex; align-items:center; gap:4px; font-weight:800; font-size:15px;
-    background:#00000030; padding:4px 9px; border-radius:20px; }
+  /* 横画面レイアウト：左＝盤面 / 右＝サイドレール */
+  #app{ display:flex; flex-direction:row; height:100%; width:100%; }
   #stageWrap{ position:relative; flex:1; display:flex; align-items:center; justify-content:center;
-    background:#1b0c28; overflow:hidden; }
-  #cv{ width:100%; height:auto; max-height:100%; display:block; image-rendering:pixelated;
-    touch-action:none; cursor:pointer; }
+    background:#1b0c28; overflow:hidden; min-width:0; }
+  #cv{ display:block; image-rendering:pixelated; touch-action:none; cursor:pointer;
+    box-shadow:0 0 0 3px #00000040; }
   #hint{ position:absolute; top:8px; left:50%; transform:translateX(-50%);
-    background:#00000088; padding:5px 12px; border-radius:16px; font-size:12px; pointer-events:none;
-    white-space:nowrap; max-width:94%; overflow:hidden; text-overflow:ellipsis; }
-  /* パレット（タワー選択） */
-  #palette{ display:flex; gap:6px; padding:8px; overflow-x:auto; background:#2b1440; align-items:stretch; }
-  .plabel{ flex:0 0 auto; writing-mode:vertical-rl; text-orientation:upright; font-size:10px; font-weight:800;
-    display:flex; align-items:center; justify-content:center; padding:0 2px; opacity:.85; letter-spacing:.06em; }
-  .plabel.blk{ color:#8fd0ff; } .plabel.rng{ color:#ffd08f; }
-  .pdiv{ flex:0 0 auto; width:2px; background:#ffffff14; margin:2px 2px; border-radius:2px; }
-  .tw{ flex:0 0 auto; width:74px; background:#3d1e59; border:2px solid #ffffff20; border-radius:12px;
-    padding:5px 4px 4px; text-align:center; cursor:pointer; transition:.1s; position:relative; }
-  .tw.blk{ background:#26324f; } .tw.rng{ background:#3d1e59; }
-  .tw.sel{ border-color:#ffe27a; box-shadow:0 0 0 2px #ffe27a55; }
-  .tw.cant{ opacity:.45; }
-  .tw canvas{ width:38px; height:38px; display:block; margin:0 auto; image-rendering:pixelated; }
-  .tw .nm{ font-size:10px; font-weight:700; margin-top:1px; white-space:nowrap; }
-  .tw .co{ font-size:11px; font-weight:800; color:#ffe27a; }
-  .badge{ position:absolute; top:2px; right:2px; font-size:11px; }
-  .kind{ position:absolute; top:2px; left:2px; font-size:10px; }
-  #ctrl{ display:flex; gap:8px; padding:8px 10px; background:#2b1440; align-items:center; }
-  .btn{ border:none; border-radius:20px; padding:9px 14px; font-weight:800; font-size:14px;
-    color:#3a2540; background:#ffe27a; cursor:pointer; }
-  .btn.ghost{ background:#ffffff22; color:#fff; }
-  .btn:disabled{ opacity:.5; cursor:default; }
-  #ctrl .grow{ flex:1; }
-  #selPanel{ position:absolute; left:50%; bottom:8px; transform:translateX(-50%);
-    background:#3a1c52ee; border:2px solid #ffe27a; border-radius:14px; padding:8px 12px;
-    display:none; gap:8px; align-items:center; box-shadow:0 4px 16px #0008; z-index:5; }
+    background:#00000099; padding:5px 12px; border-radius:16px; font-size:12px; pointer-events:none;
+    white-space:nowrap; max-width:96%; overflow:hidden; text-overflow:ellipsis; z-index:3; }
+  #selPanel{ position:absolute; left:50%; bottom:10px; transform:translateX(-50%);
+    background:#3a1c52ee; border:2px solid var(--gold); border-radius:14px; padding:8px 12px;
+    display:none; gap:8px; align-items:center; box-shadow:0 4px 16px #0008; z-index:5; flex-wrap:wrap; justify-content:center; max-width:94%; }
   #selPanel.on{ display:flex; }
-  #selPanel .t{ font-size:13px; font-weight:800; }
+  #selPanel .t{ font-size:12px; font-weight:800; }
   #selPanel .btn{ padding:6px 11px; font-size:13px; }
-  #overlay{ position:absolute; inset:0; background:#150820ee; display:none; z-index:20;
-    align-items:center; justify-content:center; }
+  /* サイドレール */
+  #side{ width:clamp(184px,30vw,268px); flex:0 0 auto; background:#2b1440; display:flex; flex-direction:column;
+    padding:8px; gap:8px; overflow-y:auto; box-shadow:-2px 0 8px #0006; }
+  #side h1{ font-size:14px; margin:0; }
+  .hud{ display:grid; grid-template-columns:1fr 1fr; gap:4px; }
+  .stat{ display:flex; align-items:center; gap:3px; font-weight:800; font-size:13px;
+    background:#00000030; padding:4px 7px; border-radius:12px; justify-content:center; }
+  #palette{ display:grid; grid-template-columns:1fr 1fr; gap:5px; }
+  .tw{ background:#3d1e59; border:2px solid #ffffff20; border-radius:10px; padding:4px 3px 3px;
+    text-align:center; cursor:pointer; transition:.1s; position:relative; }
+  .tw.blk{ background:#26324f; }
+  .tw.sel{ border-color:var(--gold); box-shadow:0 0 0 2px #ffe27a55; }
+  .tw.cant{ opacity:.42; }
+  .tw canvas{ width:34px; height:34px; display:block; margin:0 auto; image-rendering:pixelated; }
+  .tw .nm{ font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tw .co{ font-size:10px; font-weight:800; color:var(--gold); }
+  .badge{ position:absolute; top:1px; right:2px; font-size:10px; }
+  .kind{ position:absolute; top:1px; left:2px; font-size:9px; }
+  .lvtag{ position:absolute; bottom:1px; right:2px; font-size:8px; color:#8fd0ff; font-weight:800; }
+  .btn{ border:none; border-radius:18px; padding:8px 12px; font-weight:800; font-size:13px;
+    color:#3a2540; background:var(--gold); cursor:pointer; }
+  .btn.ghost{ background:#ffffff22; color:#fff; }
+  .btn.wide{ width:100%; }
+  .btn:disabled{ opacity:.5; cursor:default; }
+  .row{ display:flex; gap:6px; }
+  .row>*{ flex:1; }
+  /* オーバーレイ（ホーム/ステージ/編成/キャラ） */
+  #overlay{ position:absolute; inset:0; background:#150820f2; display:none; z-index:20;
+    align-items:center; justify-content:center; padding:14px; }
   #overlay.on{ display:flex; }
-  .card{ background:#3a1c52; border:2px solid #ffffff22; border-radius:18px; padding:20px;
-    text-align:center; max-width:88%; box-shadow:0 8px 30px #000a; }
-  .card h1{ margin:.1em 0 .3em; font-size:24px; }
-  .card p{ margin:.2em 0 1em; opacity:.9; font-size:14px; line-height:1.5; }
+  .card{ background:#3a1c52; border:2px solid #ffffff22; border-radius:18px; padding:18px;
+    text-align:center; max-width:min(560px,94vw); max-height:92vh; overflow-y:auto; box-shadow:0 8px 30px #000a; }
+  .card h1{ margin:.1em 0 .3em; font-size:22px; }
+  .card p{ margin:.2em 0 1em; opacity:.9; font-size:13px; line-height:1.5; }
+  .menu{ display:flex; flex-direction:column; gap:9px; align-items:stretch; }
+  .mbtn{ background:#4d2670; border:2px solid #ffffff20; border-radius:12px; padding:12px 14px;
+    font-weight:800; cursor:pointer; color:#fff; font-size:15px; }
   .stages{ display:flex; flex-direction:column; gap:8px; }
   .sbtn{ background:#4d2670; border:2px solid #ffffff20; border-radius:12px; padding:10px 14px;
-    font-weight:800; cursor:pointer; color:#fff; display:flex; justify-content:space-between; gap:12px; }
+    font-weight:800; cursor:pointer; color:#fff; display:flex; justify-content:space-between; gap:10px; align-items:center; }
+  .sbtn.done{ border-color:#8effa8; }
   .sbtn .cl{ color:#8effa8; font-size:12px; }
+  /* 編成/キャラ用グリッド */
+  .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(86px,1fr)); gap:8px; }
+  .ucard{ background:#4d2670; border:2px solid #ffffff20; border-radius:12px; padding:6px 4px; cursor:pointer; position:relative; }
+  .ucard.on{ border-color:var(--gold); box-shadow:0 0 0 2px #ffe27a55; }
+  .ucard canvas{ width:44px; height:44px; image-rendering:pixelated; }
+  .ucard .un{ font-size:10px; font-weight:800; }
+  .ucard .us{ font-size:10px; opacity:.85; }
+  .ucard .lv{ position:absolute; top:2px; right:4px; font-size:10px; color:#8fd0ff; font-weight:800; }
+  .clist{ display:flex; flex-direction:column; gap:8px; text-align:left; }
+  .crow{ display:flex; gap:10px; align-items:center; background:#4d2670; border-radius:12px; padding:8px; }
+  .crow canvas{ width:44px; height:44px; image-rendering:pixelated; flex:0 0 auto; }
+  .crow .ci{ flex:1; min-width:0; }
+  .crow .cn{ font-weight:800; font-size:13px; }
+  .crow .cs{ font-size:11px; opacity:.85; }
+  .crow .cl2{ font-size:11px; color:#ffd08f; }
+  .rotate{ display:none; }
+  @media (orientation:portrait){
+    .rotate{ display:block; position:fixed; bottom:6px; left:50%; transform:translateX(-50%);
+      background:#000000cc; padding:5px 12px; border-radius:14px; font-size:12px; z-index:30; pointer-events:none; }
+  }
 </style>
 </head>
 <body>
 <div id="app">
-  <header>
-    <h1>🏰 SUGAR DEFENSE</h1>
-    <span class="grow"></span>
-    <span class="stat">🍬<span id="coinTxt">0</span></span>
-    <span class="stat">❤️<span id="lifeTxt">0</span></span>
-    <span class="stat">🌊<span id="waveTxt">0</span></span>
-  </header>
   <div id="stageWrap">
     <canvas id="cv" width="720" height="540"></canvas>
-    <div id="hint">🛡ブロッカーは通路に、🎯レンジは草地に置こう！</div>
+    <div id="hint"></div>
     <div id="selPanel">
       <span class="t" id="selT"></span>
-      <button class="btn" id="upBtn"></button>
+      <button class="btn" id="awakenBtn"></button>
       <button class="btn ghost" id="sellBtn"></button>
     </div>
     <div id="overlay"><div class="card" id="ovCard"></div></div>
   </div>
-  <div id="palette"></div>
-  <div id="ctrl">
-    <button class="btn" id="waveBtn">▶ つぎのウェーブ</button>
-    <span class="grow"></span>
-    <button class="btn ghost" id="spdBtn">⏩ 1x</button>
-    <button class="btn ghost" id="menuBtn">🗺 ステージ</button>
+  <div id="side">
+    <h1>🏰 SUGAR DEFENSE</h1>
+    <div class="hud">
+      <span class="stat">🍬<span id="coinTxt">0</span></span>
+      <span class="stat">❤️<span id="lifeTxt">0</span></span>
+      <span class="stat">🌊<span id="waveTxt">0</span></span>
+      <span class="stat">🪖<span id="deployTxt">0</span></span>
+      <span class="stat" style="grid-column:1/3">💎覚醒素材 <span id="matTxt">0</span></span>
+    </div>
+    <div id="palette"></div>
+    <button class="btn wide" id="waveBtn">▶ つぎのウェーブ</button>
+    <div class="row">
+      <button class="btn ghost" id="spdBtn">⏩ 1x</button>
+      <button class="btn ghost" id="homeBtn">🏠 メニュー</button>
+    </div>
   </div>
 </div>
+<div class="rotate">📱↔ 横画面推奨</div>
 
 <script>
 "use strict";
@@ -98,12 +125,13 @@
    SUGAR DEFENSE — お菓子の王国 vs カビ軍団 タワーディフェンス
    ・単一HTML完結。スプライトは index.html の SPRITE_DATA から build_td.js で注入。
    ・二層構造：
-     🛡ブロッカー … 通路(path)の上に置く。HPあり・ブロック数固定で地上の敵を受け止め、
-        近接で殴る。敵は殴り返し、ブロッカーのHPが0になると崩れて敵が通り抜ける。
-     🎯レンジ    … 通路の周り(草地)に置く。遠距離/範囲/サポート。ブロックされて
-        止まっている敵には追加ダメージ(BLOCK_BONUS)＝ブロッカーとの連携で火力が出る。
-   ・🍬キャンディコインで設置・強化・売却。ウェーブ制。属性(甘/辛/苦)の三すくみ。
-   ・数値バランスは TOWERS / ENEMIES / WAVES / CONF をいじるだけ。
+     🛡ブロッカー(通路に置く・HP有・ブロック数固定で受け止め殴る/崩れると通す)
+     🎯レンジ(草地に置く・遠距離/範囲/サポート・止まった敵に追加ダメージ)
+   ・同じキャラを複数配置OK。盤面の出撃数はマップ毎の deployCap で制限。
+   ・恒久成長：ステージクリアの【共通EXP】をキャラ一覧で好きなキャラに割り振りLvUP(ステータス恒久強化)。
+   ・バトル内強化：固定ウェーブで出る【覚醒カビ(虹色)】を倒すと【覚醒素材】ドロップ→
+     盤面で消費し、そのタワーのキャラ固有【潜在能力】をそのバトルだけ開放。
+   ・数値バランスは TOWERS / ENEMIES / WAVES / CONF / LEVEL/EXP系 をいじるだけ。
    ============================================================ */
 const SPRITE_DATA = /*__SPRITES__*/ {};
 const SPRITES = {};
@@ -112,11 +140,12 @@ for(const k in SPRITE_DATA){ const im = new Image(); im.src = SPRITE_DATA[k]; SP
 /* --- 盤面設定 --- */
 const CONF = {
   W:720, H:540, TILE:60, COLS:12, ROWS:9,
-  startCoins:200, startLives:20, sellRate:0.7,
+  startCoins:200, startLives:20, sellRate:0.7, deployCap:20,
 };
-const BLOCK_BONUS = 1.35;   // 止まっている(ブロック中)の敵へレンジが与える追加倍率
+const BLOCK_BONUS = 1.35;   // 止まっている敵へレンジが与える追加倍率
+const LOADOUT_MAX = 6;      // 編成に持ち込めるタワー種の上限
 
-/* --- 属性（三すくみ：甘→辛→苦→甘。有利で×ADV、不利ペナルティなし） --- */
+/* --- 属性（三すくみ 甘→辛→苦→甘・有利×ADV） --- */
 const ATTR = {
   sweet: {key:'sweet',  name:'甘', emoji:'🍬', col:'#ff8fc4'},
   spicy: {key:'spicy',  name:'辛', emoji:'🌶', col:'#ff5a4a'},
@@ -128,67 +157,86 @@ function attrMul(a, d){ return ATTR_STRONG[a] === d ? ATTR_ADV : 1.0; }
 
 /* ============================================================
    タワー定義
-   class:'blocker' … 通路に置く。hp/atk/cd/block(ブロック数)/area(範囲攻撃)。
-   class:'ranger'  … 草地に置く。range/cd/dmg/splash/slow/support/shot。
-   共通：attr / cost / spr。強化は Lv3 まで。
+   class:'blocker'(通路) hp/atk/cd/block/area ・ 'ranger'(草地) range/cd/dmg/splash/slow/support/shot
+   latent = 覚醒素材で開放する固有の潜在能力(そのバトルのみ)。matCost=必要素材数。
    ============================================================ */
 const TOWERS = {
   /* --- 🛡 ブロッカー（通路） --- */
-  cookie: {class:'blocker', name:'クッキー', attr:'sweet', cost:60,  hp:120, atk:10, cd:0.6, block:1, spr:'cookie_blue',
-           desc:'安くて素早く殴る前衛の壁。まず1マス止めたい時に。'},
+  cookie: {class:'blocker', name:'クッキー', attr:'sweet', cost:60, hp:120, atk:10, cd:0.6, block:1, spr:'cookie_blue',
+           desc:'安く素早く殴る前衛の壁。', latent:{name:'シュガーラッシュ', matCost:2, cdMul:0.45, dmgMul:1.6, info:'連射化＋攻撃UP'}},
   daifuku:{class:'blocker', name:'大福サムライ', attr:'spicy', cost:150, hp:240, atk:26, cd:1.0, block:2, area:true, spr:'daifuku_blue',
-           desc:'刀の薙ぎで受け止めた敵をまとめて斬る。2体ブロック。'},
+           desc:'受けた敵を薙ぎでまとめ斬り。2体ブロック。', latent:{name:'大居合', matCost:3, splashMul:1.8, dmgMul:1.7, info:'薙ぎ払いの範囲と威力を大強化'}},
   choco:  {class:'blocker', name:'チョコナイト', attr:'bitter', cost:120, hp:460, atk:14, cd:1.1, block:1, spr:'choco_blue',
-           desc:'超硬い壁。1体を長く受け止める。'},
-  donut:  {class:'blocker', name:'ドーナッツ', attr:'bitter', cost:210, hp:820, atk:8,  cd:1.3, block:3, spr:'donut_blue',
-           desc:'巨体で3体まで受け止める要塞。火力は低い。'},
+           desc:'超硬い壁。1体を長く受ける。', latent:{name:'ビター装甲', matCost:3, hpMul:2.0, blockAdd:1, info:'HP大UP＋ブロック+1'}},
+  donut:  {class:'blocker', name:'ドーナッツ', attr:'bitter', cost:210, hp:820, atk:8, cd:1.3, block:3, spr:'donut_blue',
+           desc:'巨体で3体まで受ける要塞。', latent:{name:'ドーナツプレス', matCost:4, knockback:64, dmgMul:1.3, info:'殴るたび受けた敵をふっとばす'}},
   /* --- 🎯 レンジ（草地） --- */
-  shoe:   {class:'ranger', name:'シューアーチャー', attr:'spicy', cost:90,  range:170, cd:0.95, dmg:22, splash:0, spr:'shoe_aim_blue', shot:'arrow',
-           desc:'射程が長い辛の狙撃手。止まった敵を遠くから撃ち抜く。'},
-  slime:  {class:'ranger', name:'スライム', attr:'sweet', cost:70,  range:104, cd:0.8, dmg:12, splash:34, spr:'slime_blue', shot:'goo',
-           desc:'安めの甘の小範囲アタッカー。'},
+  shoe:   {class:'ranger', name:'シューアーチャー', attr:'spicy', cost:90, range:170, cd:0.95, dmg:22, splash:0, spr:'shoe_aim_blue', shot:'arrow',
+           desc:'長射程の辛の狙撃手。', latent:{name:'三連矢', matCost:3, multi:3, dmgMul:1.15, info:'同時に3体を狙撃'}},
+  slime:  {class:'ranger', name:'スライム', attr:'sweet', cost:70, range:104, cd:0.8, dmg:12, splash:34, spr:'slime_blue', shot:'goo',
+           desc:'安めの甘の小範囲。', latent:{name:'メガスライム', matCost:2, splashMul:1.9, dmgMul:1.6, rangeMul:1.2, info:'範囲と威力を大UP'}},
   icewiz: {class:'ranger', name:'アイス魔導士', attr:'bitter', cost:120, range:150, cd:1.4, dmg:14, splash:40, slow:{mul:0.5,dur:1.4}, spr:'icewiz_blue', shot:'ice',
-           desc:'氷弾で範囲の敵を鈍足にする苦の妨害役。'},
+           desc:'範囲を鈍足にする苦の妨害役。', latent:{name:'絶対零度', matCost:3, freeze:true, splashMul:1.5, info:'敵を凍結(ほぼ停止)させる'}},
   party:  {class:'ranger', name:'パーティークッキー', attr:'sweet', cost:160, range:130, cd:0, dmg:0, splash:0, support:{atkMul:1.35}, spr:'cookie_party_blue',
-           desc:'サポート。射程内の味方タワーの攻撃力を上げる（自分は撃たない）。'},
+           desc:'サポート。射程内の味方の攻撃UP。', latent:{name:'ビッグパーティー', matCost:3, supMul:1.7, rangeMul:1.5, info:'バフ効果と範囲を大UP'}},
 };
 const BLOCKER_ORDER = ['cookie','daifuku','choco','donut'];
 const RANGER_ORDER  = ['shoe','slime','icewiz','party'];
 const TOWER_ORDER = BLOCKER_ORDER.concat(RANGER_ORDER);
 
-/* --- 強化カーブ（Lv1=設置時） --- */
-const TOWER_MAX_LV = 3;
-function upgradeCost(base, level){ return Math.round(base.cost * (0.8 + level*0.5)); }
-function statMul(level){ return 1 + (level-1)*0.7; }                  // Lv1=1, Lv2=1.7, Lv3=2.4
-function rangerDmgAt(base, lv){ return Math.round(base.dmg * statMul(lv)); }
-function rangerRangeAt(base, lv){ return Math.round(base.range * (1 + (lv-1)*0.12)); }
-function blockerHpAt(base, lv){ return Math.round(base.hp * statMul(lv)); }
-function blockerAtkAt(base, lv){ return Math.round(base.atk * statMul(lv)); }
+/* --- 恒久レベル（共通EXPで割り振り） --- */
+const MAX_LEVEL = 10;
+function levelMul(lv){ return 1 + (lv-1)*0.08; }            // 1Lvごと+8%
+function expCostForLevel(lv){ return 50 + (lv-1)*40; }      // Lv1→2=50, 2→3=90 …
+function canLevelUp(lv, exp){ return lv < MAX_LEVEL && exp >= expCostForLevel(lv); }
 
-/* --- 敵＝カビ軍団（canvas手描き。地上のみ） ---
-   attr / hp / speed(px/s) / atk・cd(ブロッカーへの反撃) / bounty(撃破🍬) / lives(拠点到達で減) */
+/* --- タワーの実効ステータス（Lv＋覚醒を反映） --- */
+function recomputeTower(t){
+  const L = levelMul(myLevel(t.key));
+  const lat = t.awakened ? t.U.latent : null;
+  if(t.class==='blocker'){
+    const nm = Math.round(t.U.hp * L * ((lat&&lat.hpMul)||1));
+    if(t.maxHp===undefined){ t.maxHp=nm; t.hp=nm; }
+    else if(nm>t.maxHp){ t.hp += (nm - t.maxHp); t.maxHp=nm; }  // 覚醒でHP増分は回復
+    t.atk = Math.round(t.U.atk * L * ((lat&&lat.dmgMul)||1));
+    t.cd  = t.U.cd * ((lat&&lat.cdMul)||1);
+    t.block = t.U.block + ((lat&&lat.blockAdd)||0);
+    t.splashR = (t.U.area ? CONF.TILE*0.7 : 0) * ((lat&&lat.splashMul)||1);
+    t.knockback = (lat&&lat.knockback)||0;
+  } else {
+    t.dmg = Math.round((t.U.dmg||0) * L * ((lat&&lat.dmgMul)||1));
+    t.range = Math.round(t.U.range * ((lat&&lat.rangeMul)||1));  // 射程はLv非依存(見た目が乱れないため)
+    t.cd  = t.U.cd * ((lat&&lat.cdMul)||1);
+    t.splash = (t.U.splash||0) * ((lat&&lat.splashMul)||1);
+    t.multi = (lat&&lat.multi)||1;
+    t.slow = (lat&&lat.freeze) ? {mul:0.02, dur:(t.U.slow?t.U.slow.dur:1)*1.6}
+             : (t.U.slow||null);
+    t.supMul = t.U.support ? (lat&&lat.supMul || t.U.support.atkMul) : 0;
+  }
+}
+
+/* --- 敵＝カビ軍団（canvas手描き。地上のみ）
+   atk/cd=ブロッカーへの反撃 / bounty=撃破🍬 / lives=拠点到達で減
+   drop=撃破で得る覚醒素材数(覚醒カビのみ>0) / rainbow=虹色演出 --- */
 const ENEMIES = {
-  m_swarm:{name:'アオカビン', attr:'spicy',  hp:34,  speed:52, atk:6,  cd:0.5, bounty:5,  lives:1, scale:0.8,  mold:'blob',  col:'#7fae5c', col2:'#4f7038'},
-  m_puff: {name:'プクーレ',   attr:'sweet',  hp:70,  speed:74, atk:10, cd:0.7, bounty:8,  lives:1, scale:0.9,  mold:'spiky', col:'#a7b86a', col2:'#6f7d3f'},
-  m_phage:{name:'ファージ砲', attr:'bitter', hp:90,  speed:46, atk:12, cd:1.0, bounty:9,  lives:1, scale:0.98, mold:'phage', col:'#9a7bc0', col2:'#5f4488'},
-  m_tank: {name:'ネバモチ',   attr:'bitter', hp:210, speed:34, atk:18, cd:1.1, bounty:14, lives:2, scale:1.15, mold:'blob',  col:'#6b7d55', col2:'#39482c'},
-  m_big:  {name:'ドロカビ',   attr:'sweet',  hp:420, speed:26, atk:24, cd:1.3, bounty:24, lives:3, scale:1.34, mold:'blob',  col:'#8a6bb0', col2:'#573f83'},
+  m_swarm: {name:'アオカビン', attr:'spicy',  hp:34,  speed:52, atk:6,  cd:0.5, bounty:5,  lives:1, scale:0.8,  mold:'blob',  col:'#7fae5c', col2:'#4f7038'},
+  m_puff:  {name:'プクーレ',   attr:'sweet',  hp:70,  speed:74, atk:10, cd:0.7, bounty:8,  lives:1, scale:0.9,  mold:'spiky', col:'#a7b86a', col2:'#6f7d3f'},
+  m_phage: {name:'ファージ砲', attr:'bitter', hp:90,  speed:46, atk:12, cd:1.0, bounty:9,  lives:1, scale:0.98, mold:'phage', col:'#9a7bc0', col2:'#5f4488'},
+  m_tank:  {name:'ネバモチ',   attr:'bitter', hp:210, speed:34, atk:18, cd:1.1, bounty:14, lives:2, scale:1.15, mold:'blob',  col:'#6b7d55', col2:'#39482c'},
+  m_big:   {name:'ドロカビ',   attr:'sweet',  hp:420, speed:26, atk:24, cd:1.3, bounty:24, lives:3, scale:1.34, mold:'blob',  col:'#8a6bb0', col2:'#573f83'},
+  m_awaken:{name:'覚醒カビ',   attr:'sweet',  hp:180, speed:40, atk:8,  cd:1.0, bounty:20, lives:1, scale:1.1,  mold:'blob',  col:'#ff7ac0', col2:'#7a4fd0', rainbow:true, drop:2},
 };
 
-/* --- 経路（cell座標のウェイポイント。曲がり角だけ・直線でつなぐ） --- */
+/* --- 経路（cell座標のウェイポイント） --- */
 const WAYPOINTS = [ [0,1],[9,1],[9,4],[2,4],[2,7],[11,7] ];
 function cellCenter(c,r){ return { x:c*CONF.TILE + CONF.TILE/2, y:r*CONF.TILE + CONF.TILE/2 }; }
 function inBounds(c,r){ return c>=0 && c<CONF.COLS && r>=0 && r<CONF.ROWS; }
-// 経路セル集合＋各経路セルの「入口からの距離」＋移動用ピクセルウェイポイント＋累積距離（純関数）
 function buildPath(waypoints){
-  const T=CONF.TILE; const cells=new Set(); const cellDist={}; const px=[]; const cum=[0];
-  let dist=0;
+  const T=CONF.TILE; const cells=new Set(); const cellDist={}; const px=[]; const cum=[0]; let dist=0;
   for(let i=0;i<waypoints.length;i++){
     const [c,r]=waypoints[i]; px.push(cellCenter(c,r));
     if(i===0){ cells.add(c+','+r); cellDist[c+','+r]=0; continue; }
-    const [pc,pr]=waypoints[i-1];
-    const dc=Math.sign(c-pc), dr=Math.sign(r-pr);
-    let cc=pc, rr=pr;
+    const [pc,pr]=waypoints[i-1]; const dc=Math.sign(c-pc), dr=Math.sign(r-pr); let cc=pc, rr=pr;
     while(cc!==c || rr!==r){ cc+=dc; rr+=dr; dist+=T; const k=cc+','+rr; cells.add(k); if(cellDist[k]===undefined) cellDist[k]=dist; }
     cum.push(dist);
   }
@@ -196,35 +244,41 @@ function buildPath(waypoints){
 }
 const PATH = buildPath(WAYPOINTS);
 function isPathCell(c,r){ return PATH.cells.has(c+','+r); }
-// 距離 d の地点（px座標）と進行方向を返す
 function pointAt(d){
   const px=PATH.px, cum=PATH.cum; d=Math.max(0,Math.min(PATH.total,d));
-  for(let i=1;i<px.length;i++){
-    if(d<=cum[i] || i===px.length-1){
-      const seg=cum[i]-cum[i-1]||1; const f=(d-cum[i-1])/seg;
-      const a=px[i-1], b=px[i];
-      return { x:a.x+(b.x-a.x)*f, y:a.y+(b.y-a.y)*f, dir:(b.x-a.x)>=0?1:-1 };
-    }
-  }
+  for(let i=1;i<px.length;i++){ if(d<=cum[i] || i===px.length-1){
+    const seg=cum[i]-cum[i-1]||1; const f=(d-cum[i-1])/seg; const a=px[i-1], b=px[i];
+    return { x:a.x+(b.x-a.x)*f, y:a.y+(b.y-a.y)*f, dir:(b.x-a.x)>=0?1:-1 }; } }
   const l=px[px.length-1]; return { x:l.x, y:l.y, dir:1 };
 }
 
-/* --- ウェーブ --- */
+/* --- ウェーブ（awakenは固定タイミングで出す＝戦略が立つ） --- */
 const WAVES = [
   [ {key:'m_swarm', n:6, gap:0.9} ],
   [ {key:'m_swarm', n:8, gap:0.7}, {key:'m_puff', n:3, gap:1.2, lead:4} ],
-  [ {key:'m_puff', n:6, gap:0.8}, {key:'m_phage', n:4, gap:1.0, lead:3} ],
+  [ {key:'m_puff', n:6, gap:0.8}, {key:'m_awaken', n:1, gap:1, lead:5}, {key:'m_phage', n:4, gap:1.0, lead:7} ],
   [ {key:'m_swarm', n:10, gap:0.5}, {key:'m_tank', n:2, gap:2.0, lead:5} ],
-  [ {key:'m_phage', n:6, gap:0.8}, {key:'m_tank', n:3, gap:1.8, lead:4} ],
+  [ {key:'m_phage', n:6, gap:0.8}, {key:'m_awaken', n:1, gap:1, lead:6}, {key:'m_tank', n:3, gap:1.8, lead:8} ],
   [ {key:'m_puff', n:10, gap:0.5}, {key:'m_big', n:1, gap:1, lead:8} ],
-  [ {key:'m_swarm', n:12, gap:0.4}, {key:'m_phage', n:6, gap:0.8, lead:3}, {key:'m_tank', n:3, gap:1.6, lead:8} ],
+  [ {key:'m_swarm', n:12, gap:0.4}, {key:'m_awaken', n:2, gap:4, lead:5}, {key:'m_phage', n:6, gap:0.8, lead:9}, {key:'m_tank', n:3, gap:1.6, lead:12} ],
   [ {key:'m_tank', n:4, gap:1.4}, {key:'m_big', n:2, gap:3.0, lead:4}, {key:'m_puff', n:8, gap:0.5, lead:2} ],
 ];
 function waveCount(wave){ return wave.reduce((s,g)=>s+g.n, 0); }
 
 const STAGES = [
-  { id:1, name:'クッキー平原', waves:WAVES, coins:CONF.startCoins, lives:CONF.startLives },
+  { id:1, name:'クッキー平原', waves:WAVES, coins:CONF.startCoins, lives:CONF.startLives, deployCap:20, exp:120 },
 ];
+
+/* ============================================================
+   セーブ（localStorage）＝共通EXP / キャラLv / 編成 / クリア
+   ============================================================ */
+let SAVE = { exp:0, levels:{}, loadout:['cookie','choco','daifuku','shoe','icewiz','slime'], cleared:[] };
+function loadSave(){ try{ if(typeof localStorage==='undefined') return; const s=localStorage.getItem('td_save'); if(s){ const o=JSON.parse(s);
+  SAVE = Object.assign(SAVE, o); if(!Array.isArray(SAVE.loadout)||!SAVE.loadout.length) SAVE.loadout=['cookie','choco','daifuku','shoe','icewiz','slime'];
+  SAVE.levels=SAVE.levels||{}; SAVE.cleared=SAVE.cleared||[]; } }catch(e){} }
+function saveSave(){ try{ if(typeof localStorage!=='undefined') localStorage.setItem('td_save', JSON.stringify(SAVE)); }catch(e){} }
+function myLevel(key){ return SAVE.levels[key]||1; }
+function myExp(){ return SAVE.exp||0; }
 
 /* ============================================================
    状態
@@ -234,97 +288,79 @@ let selTowerKey=null, selPlaced=null, hoverCell=null;
 
 function resetState(stage){
   state = {
-    coins: stage.coins, lives: stage.lives,
-    waveIdx: 0, waveActive: false,
-    towers: [],
-    occupied: new Set(),      // "c,r" レンジ（草地）設置済み
-    pathOccupied: new Set(),  // "c,r" ブロッカー（通路）設置済み
-    spawnQueue: [], aliveEnemies: 0,
+    coins: stage.coins, lives: stage.lives, mat:0,
+    waveIdx:0, waveActive:false, towers:[],
+    occupied:new Set(), pathOccupied:new Set(),
+    spawnQueue:[], aliveEnemies:0, deployCap: stage.deployCap||CONF.deployCap,
     stageClear:false, dead:false,
   };
   world = { enemies:[], shots:[], parts:[], slashes:[], nextId:1, shake:0 };
   elapsed=0; selPlaced=null; running=true;
 }
+function deployCount(){ return state.towers.length; }
 
 /* --- 設置可否 --- */
 function isBuildableRanger(c,r){ return inBounds(c,r) && !isPathCell(c,r) && !state.occupied.has(c+','+r); }
-function isBuildableBlocker(c,r){ return inBounds(c,r) && isPathCell(c,r) && !state.pathOccupied.has(c+','+r)
-  && !(c===WAYPOINTS[WAYPOINTS.length-1][0] && r===WAYPOINTS[WAYPOINTS.length-1][1]); } // 拠点マスは不可
+function isBuildableBlocker(c,r){ const last=WAYPOINTS[WAYPOINTS.length-1];
+  return inBounds(c,r) && isPathCell(c,r) && !state.pathOccupied.has(c+','+r) && !(c===last[0] && r===last[1]); }
 function isBuildableFor(key,c,r){ return TOWERS[key].class==='blocker' ? isBuildableBlocker(c,r) : isBuildableRanger(c,r); }
 function canAfford(cost){ return state.coins >= cost; }
+function atDeployCap(){ return deployCount() >= state.deployCap; }
 
 function placeTower(key, c, r){
   const base = TOWERS[key];
-  if(!base || !isBuildableFor(key,c,r) || !canAfford(base.cost)) return false;
+  if(!base || !isBuildableFor(key,c,r) || !canAfford(base.cost) || atDeployCap()) return false;
   state.coins -= base.cost;
   const cc = cellCenter(c,r);
-  const t = { key, U:base, class:base.class, c, r, x:cc.x, y:cc.y, level:1, cool:0, spent:base.cost, buffMul:1 };
-  if(base.class==='blocker'){
-    t.hp = blockerHpAt(base,1); t.maxHp=t.hp; t.atk=blockerAtkAt(base,1); t.block=base.block;
-    t.blockPoint = PATH.cellDist[c+','+r]; t._stopped=[]; t.engagedIds=new Set();
-    state.pathOccupied.add(c+','+r);
-  } else {
-    t.dmg = rangerDmgAt(base,1); t.range = rangerRangeAt(base,1);
-    state.occupied.add(c+','+r);
-  }
-  state.towers.push(t);
-  SFX.play('place');
-  return true;
+  const t = { key, U:base, class:base.class, c, r, x:cc.x, y:cc.y, cool:0, spent:base.cost, buffMul:1, awakened:false };
+  if(base.class==='blocker'){ recomputeTower(t); t.blockPoint=PATH.cellDist[c+','+r]; t._stopped=[]; t.engagedIds=new Set(); state.pathOccupied.add(c+','+r); }
+  else { recomputeTower(t); state.occupied.add(c+','+r); }
+  state.towers.push(t); SFX.play('place'); return true;
 }
-function upgradeTower(t){
-  if(t.level>=TOWER_MAX_LV) return false;
-  const cost = upgradeCost(t.U, t.level);
-  if(!canAfford(cost)) return false;
-  state.coins -= cost; t.spent += cost; t.level++;
-  if(t.class==='blocker'){
-    const ratio = t.hp/t.maxHp; t.maxHp = blockerHpAt(t.U,t.level); t.hp = Math.round(t.maxHp*ratio); t.atk = blockerAtkAt(t.U,t.level);
-  } else { t.dmg = rangerDmgAt(t.U,t.level); t.range = rangerRangeAt(t.U,t.level); }
-  SFX.play('place');
+function awakenTower(t){
+  const lat=t.U.latent; if(!lat || t.awakened) return false;
+  if(state.mat < lat.matCost) return false;
+  state.mat -= lat.matCost; t.awakened=true; recomputeTower(t);
+  burst(t.x,t.y,'#ffd0f0',18); world.shake=Math.min(8,world.shake+3); SFX.play('awaken');
   return true;
 }
 function sellTower(t){
   state.coins += Math.round(t.spent * CONF.sellRate);
   (t.class==='blocker'? state.pathOccupied : state.occupied).delete(t.c+','+t.r);
-  state.towers = state.towers.filter(x=>x!==t);
-  if(selPlaced===t) selPlaced=null;
-  SFX.play('sell');
+  state.towers = state.towers.filter(x=>x!==t); if(selPlaced===t) selPlaced=null; SFX.play('sell');
 }
 function destroyBlocker(t){
-  state.pathOccupied.delete(t.c+','+t.r);
-  state.towers = state.towers.filter(x=>x!==t);
-  if(selPlaced===t) hideSelPanel();
-  burst(t.x,t.y,'#caa15f',14); world.shake=Math.min(9,world.shake+3);
-  SFX.play('leak');
+  state.pathOccupied.delete(t.c+','+t.r); state.towers = state.towers.filter(x=>x!==t);
+  if(selPlaced===t) hideSelPanel(); burst(t.x,t.y,'#caa15f',14); world.shake=Math.min(9,world.shake+3); SFX.play('leak');
 }
 
 /* --- ウェーブ生成 --- */
 function startWave(){
   if(state.waveActive || state.waveIdx >= curStage.waves.length) return;
-  const wave = curStage.waves[state.waveIdx];
-  state.spawnQueue = [];
-  for(const g of wave){ const lead=g.lead||0; for(let i=0;i<g.n;i++) state.spawnQueue.push({ key:g.key, t: elapsed + lead + i*g.gap }); }
+  const wave = curStage.waves[state.waveIdx]; state.spawnQueue=[];
+  for(const g of wave){ const lead=g.lead||0; for(let i=0;i<g.n;i++) state.spawnQueue.push({ key:g.key, t: elapsed+lead+i*g.gap }); }
   state.spawnQueue.sort((a,b)=>a.t-b.t);
-  state.waveActive = true; state.aliveEnemies = waveCount(wave);
+  state.waveActive=true; state.aliveEnemies=waveCount(wave);
   SFX.play('wave'); updateHint('ウェーブ '+(state.waveIdx+1)+' 開始！');
 }
 function spawnEnemy(key){
-  const D = ENEMIES[key]; const p0 = pointAt(0);
-  world.enemies.push({
-    id: world.nextId++, key, U:D, attr:D.attr, atk:D.atk,
-    x:p0.x, y:p0.y, traveled:0, hp:D.hp, maxHp:D.hp, speed:D.speed, bob:Math.random()*6.28,
-    slowT:0, slowMul:1, acool:Math.random()*0.3, stopped:false, blockedBy:null, dir:1, dead:false, _eff:0,
-  });
+  const D=ENEMIES[key]; const p0=pointAt(0);
+  world.enemies.push({ id:world.nextId++, key, U:D, attr:D.attr, atk:D.atk, x:p0.x, y:p0.y, traveled:0,
+    hp:D.hp, maxHp:D.hp, speed:D.speed, bob:Math.random()*6.28, slowT:0, slowMul:1, acool:Math.random()*0.3,
+    stopped:false, blockedBy:null, dir:1, dead:false, _eff:0 });
 }
 
-/* --- ターゲット選択（射程内で最も拠点に近い＝traveled最大） --- */
+/* --- ターゲット選択 --- */
 function pickTarget(enemies, tx, ty, range){
   let best=null, bestProg=-1;
-  for(const e of enemies){ if(e.dead) continue;
-    const dx=e.x-tx, dy=e.y-ty; if(dx*dx+dy*dy > range*range) continue;
-    if(e.traveled > bestProg){ bestProg=e.traveled; best=e; } }
-  return best;
+  for(const e of enemies){ if(e.dead) continue; const dx=e.x-tx, dy=e.y-ty; if(dx*dx+dy*dy>range*range) continue;
+    if(e.traveled>bestProg){ bestProg=e.traveled; best=e; } } return best;
 }
-/* --- ダメージ計算（純関数：テスト用） --- */
+function pickTargets(enemies, tx, ty, range, n){
+  const inR=enemies.filter(e=>!e.dead && (e.x-tx)*(e.x-tx)+(e.y-ty)*(e.y-ty)<=range*range).sort((a,b)=>b.traveled-a.traveled);
+  return inR.slice(0, n);
+}
+/* --- ダメージ計算（純関数） --- */
 function rangerDamage(t, e){ return t.dmg * attrMul(t.U.attr, e.attr) * (t.buffMul||1) * (e.stopped?BLOCK_BONUS:1); }
 function blockerDamage(t, e){ return t.atk * attrMul(t.U.attr, e.attr) * (t.buffMul||1); }
 function enemyDamageToBlocker(e, t){ return e.atk * attrMul(e.attr, t.U.attr); }
@@ -334,108 +370,96 @@ function enemyDamageToBlocker(e, t){ return e.atk * attrMul(e.attr, t.U.attr); }
    ============================================================ */
 function step(dt){
   elapsed += dt;
-  // 湧き
   while(state.spawnQueue.length && state.spawnQueue[0].t <= elapsed) spawnEnemy(state.spawnQueue.shift().key);
-  // サポートのバフ計算（毎フレーム再計算）
   const towers=state.towers;
   for(const t of towers){ t.buffMul=1; if(t.class==='blocker') t._stopped=[]; }
-  for(const s of towers){ if(!(s.U.support)) continue; const r=s.range||130;
-    for(const t of towers){ if(t===s) continue; const dx=t.x-s.x, dy=t.y-s.y; if(dx*dx+dy*dy<=r*r) t.buffMul=Math.max(t.buffMul, s.U.support.atkMul); } }
+  // サポートのバフ（覚醒でsupMul/rangeが変化済み）
+  for(const s of towers){ if(!(s.U.support)) continue; const r=s.range||130; const mul=s.supMul||s.U.support.atkMul;
+    for(const t of towers){ if(t===s) continue; const dx=t.x-s.x, dy=t.y-s.y; if(dx*dx+dy*dy<=r*r) t.buffMul=Math.max(t.buffMul, mul); } }
   const blockers = towers.filter(t=>t.class==='blocker' && t.hp>0);
   // 敵の移動＋停止判定
   for(const e of world.enemies){ if(e.dead) continue;
     if(e.slowT>0){ e.slowT-=dt; if(e.slowT<=0) e.slowMul=1; }
     e.bob += dt*6;
-    // 前方にある最寄りブロッカー
     let nb=null, nbP=Infinity;
     for(const b of blockers){ const P=b.blockPoint; if(P>=e.traveled-0.5 && P<nbP){ nbP=P; nb=b; } }
     const sp=e.speed*(e.slowMul||1);
-    let tgt=e.traveled + sp*dt; e.stopped=false; e.blockedBy=null;
+    let tgt=e.traveled+sp*dt; e.stopped=false; e.blockedBy=null;
     if(nb && tgt>=nbP){ tgt=nbP; e.stopped=true; e.blockedBy=nb; }
     e.traveled=tgt;
     const pt=pointAt(e.traveled); e.dir=(pt.x-e.x)>=0?1:-1; e.x=pt.x; e.y=pt.y;
     if(e.stopped && nb) nb._stopped.push(e);
-    else if(e.traveled >= PATH.total-0.5){ // 拠点到達
-      state.lives -= e.U.lives; e.dead=true; state.aliveEnemies--;
-      world.shake=Math.min(10, world.shake+4); SFX.play('leak');
-      if(state.lives<=0){ state.lives=0; lose(); }
-    }
+    else if(e.traveled>=PATH.total-0.5){ state.lives-=e.U.lives; e.dead=true; state.aliveEnemies--;
+      world.shake=Math.min(10,world.shake+4); SFX.play('leak'); if(state.lives<=0){ state.lives=0; lose(); } }
   }
   // ブロッカーの戦闘
   for(const b of blockers){
-    b._stopped.sort((a,c)=>c.traveled-a.traveled);
-    const eng = b._stopped.slice(0, b.block);
-    b.engagedIds = new Set(eng.map(e=>e.id));
-    // ブロッカーの攻撃
-    b.cool -= dt;
-    if(eng.length && b.cool<=0){ b.cool=b.U.cd; SFX.play('blk_'+b.key);
-      if(b.U.area){ world.slashes.push({x:b.x,y:b.y-6,ang:Math.PI,life:0.2,max:0.2,r:CONF.TILE*0.7}); for(const e of eng) hitEnemyByTower(b,e,false); }
+    b._stopped.sort((a,c)=>c.traveled-a.traveled); const eng=b._stopped.slice(0,b.block); b.engagedIds=new Set(eng.map(e=>e.id));
+    b.cool-=dt;
+    if(eng.length && b.cool<=0){ b.cool=b.cd; SFX.play('blk_'+b.key);
+      if(b.splashR>0){ world.slashes.push({x:b.x,y:b.y-6,ang:Math.PI,life:0.2,max:0.2,r:b.splashR}); for(const e of eng) hitEnemyByTower(b,e,false); }
       else hitEnemyByTower(b, eng[0], false);
+      if(b.knockback){ for(const e of eng){ e.traveled=Math.max(0, e.traveled - b.knockback); } burst(b.x,b.y,'#ffe0a0',6); }
     }
-    // 敵の反撃
-    for(const e of eng){ e.acool -= dt; if(e.acool<=0){ e.acool=e.U.cd;
-      b.hp -= enemyDamageToBlocker(e,b);
-      if(b.hp<=0){ destroyBlocker(b); break; } } }
+    for(const e of eng){ e.acool-=dt; if(e.acool<=0){ e.acool=e.U.cd; b.hp-=enemyDamageToBlocker(e,b); if(b.hp<=0){ destroyBlocker(b); break; } } }
   }
   // レンジの攻撃
   for(const t of towers){ if(t.class!=='ranger' || t.U.support) continue;
-    t.cool -= dt; if(t.cool>0) continue;
-    const tgt=pickTarget(world.enemies, t.x, t.y, t.range); if(!tgt) continue;
-    t.cool = t.U.cd; fireRanger(t, tgt);
+    t.cool-=dt; if(t.cool>0) continue;
+    if((t.multi||1)>1){ const tgts=pickTargets(world.enemies, t.x, t.y, t.range, t.multi); if(!tgts.length) continue; t.cool=t.cd; for(const g of tgts) fireRanger(t,g); }
+    else { const g=pickTarget(world.enemies, t.x, t.y, t.range); if(!g) continue; t.cool=t.cd; fireRanger(t,g); }
   }
-  // 弾・演出
   stepShots(dt);
   for(const s of world.slashes) s.life-=dt; world.slashes=world.slashes.filter(s=>s.life>0);
   for(const p of world.parts){ p.life-=dt; p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=260*dt; } world.parts=world.parts.filter(p=>p.life>0);
   world.shake *= Math.pow(0.001, dt);
   world.enemies = world.enemies.filter(e=>!e.dead);
-  // ウェーブ終了
   if(state.waveActive && state.spawnQueue.length===0 && state.aliveEnemies<=0){
     state.waveActive=false; state.waveIdx++;
-    if(state.waveIdx >= curStage.waves.length) win(); else updateHint('ウェーブクリア！つぎへ');
+    if(state.waveIdx>=curStage.waves.length) win(); else updateHint('ウェーブクリア！つぎへ');
   }
   refreshHUD();
 }
-
-// 近接/範囲でタワーが敵に与えるダメージ（ranger=falseはブロッカー、trueはレンジ弾命中）
 function hitEnemyByTower(t, e, isRanger){
   if(e.dead) return;
   const dmg = isRanger ? rangerDamage(t,e) : blockerDamage(t,e);
   e.hp -= dmg;
-  if(isRanger && t.U.slow){ e.slowT=t.U.slow.dur; e.slowMul=t.U.slow.mul; }
-  if(attrMul(t.U.attr, e.attr) > 1) e._eff = elapsed;
-  if(e.hp<=0){ e.dead=true; state.aliveEnemies--; state.coins += e.U.bounty; burst(e.x,e.y,e.U.col,12); SFX.play('pop'); }
+  if(isRanger && t.slow){ e.slowT=t.slow.dur; e.slowMul=t.slow.mul; }
+  if(attrMul(t.U.attr, e.attr) > 1) e._eff=elapsed;
+  if(e.hp<=0){ e.dead=true; state.aliveEnemies--; state.coins+=e.U.bounty;
+    if(e.U.drop){ state.mat+=e.U.drop; burst(e.x,e.y,'#ffd0f0',18); SFX.play('matdrop'); }
+    burst(e.x,e.y,e.U.col,12); SFX.play('pop'); }
 }
-function fireRanger(t, tgt){
-  SFX.play('shot_'+t.key);
+function fireRanger(t, tgt){ SFX.play('shot_'+t.key);
   const dx=tgt.x-t.x, dy=tgt.y-t.y; const d=Math.hypot(dx,dy)||1; const spd=470;
-  world.shots.push({ x:t.x, y:t.y-6, vx:dx/d*spd, vy:dy/d*spd, ang:Math.atan2(dy,dx),
-    from:t, targetId:tgt.id, kind:t.U.shot, life:1.4 });
+  world.shots.push({ x:t.x, y:t.y-6, vx:dx/d*spd, vy:dy/d*spd, ang:Math.atan2(dy,dx), from:t, targetId:tgt.id, kind:t.U.shot, life:1.4 });
 }
 function stepShots(dt){
   for(const s of world.shots){ s.life-=dt;
-    const tgt = world.enemies.find(e=>e.id===s.targetId && !e.dead);
+    const tgt=world.enemies.find(e=>e.id===s.targetId && !e.dead);
     if(tgt){ const dx=tgt.x-s.x, dy=tgt.y-s.y; const d=Math.hypot(dx,dy)||1; const spd=Math.hypot(s.vx,s.vy);
-      s.vx += (dx/d*spd - s.vx)*Math.min(1,dt*6); s.vy += (dy/d*spd - s.vy)*Math.min(1,dt*6); s.ang=Math.atan2(s.vy,s.vx);
+      s.vx+=(dx/d*spd-s.vx)*Math.min(1,dt*6); s.vy+=(dy/d*spd-s.vy)*Math.min(1,dt*6); s.ang=Math.atan2(s.vy,s.vx);
       if(d<14){ hitShot(s,tgt); s.life=0; continue; } }
-    s.x+=s.vx*dt; s.y+=s.vy*dt;
-    if(s.x<-30||s.x>CONF.W+30||s.y<-30||s.y>CONF.H+30) s.life=0;
+    s.x+=s.vx*dt; s.y+=s.vy*dt; if(s.x<-30||s.x>CONF.W+30||s.y<-30||s.y>CONF.H+30) s.life=0;
   }
-  world.shots = world.shots.filter(s=>s.life>0);
+  world.shots=world.shots.filter(s=>s.life>0);
 }
-function hitShot(s, tgt){
-  const t=s.from;
-  if(t.U.splash>0){ for(const e of world.enemies){ if(e.dead) continue; const dx=e.x-tgt.x, dy=e.y-tgt.y; if(dx*dx+dy*dy<=t.U.splash*t.U.splash) hitEnemyByTower(t,e,true); } burst(tgt.x,tgt.y,ATTR[t.U.attr].col,8); }
+function hitShot(s, tgt){ const t=s.from;
+  if((t.splash||0)>0){ for(const e of world.enemies){ if(e.dead) continue; const dx=e.x-tgt.x, dy=e.y-tgt.y; if(dx*dx+dy*dy<=t.splash*t.splash) hitEnemyByTower(t,e,true); } burst(tgt.x,tgt.y,ATTR[t.U.attr].col,8); }
   else { hitEnemyByTower(t,tgt,true); burst(tgt.x,tgt.y,ATTR[t.U.attr].col,5); }
 }
 function burst(x,y,c,n){ for(let i=0;i<n;i++){ const a=Math.random()*6.28, sp=40+Math.random()*120;
   world.parts.push({ x,y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-40, r:2+Math.random()*3, c, life:0.4+Math.random()*0.3, max:0.7 }); } }
 
 /* --- 勝敗 --- */
-function win(){ running=false; state.stageClear=true; SFX.play('win');
-  showOverlay('🎉 クリア！','カビ軍団を追い返した！ 残りライフ '+state.lives,[{label:'🗺 ステージへ', fn:openStages}]); }
+function win(){ running=false; state.stageClear=true;
+  const gainExp = curStage.exp||0; SAVE.exp = (SAVE.exp||0) + gainExp;
+  if(!SAVE.cleared.includes(curStage.id)) SAVE.cleared.push(curStage.id);
+  saveSave(); SFX.play('win');
+  showHome('🎉 クリア！', 'カビ軍団を追い返した！ 残りライフ '+state.lives+'<br>EXP +'+gainExp+' 獲得（キャラ強化に使えます）');
+}
 function lose(){ running=false; state.dead=true; SFX.play('lose');
-  showOverlay('💀 拠点が落ちた…','カビに拠点を奪われてしまった。配置を見直して再挑戦！',[{label:'🔄 やりなおす', fn:()=>startStage(curStage)},{label:'🗺 ステージへ', fn:openStages}]); }
+  showOverlayButtons('💀 拠点が落ちた…','配置を見直して再挑戦！',[{label:'🔄 やりなおす', fn:()=>startStage(curStage)},{label:'🏠 メニュー', fn:showHome}]); }
 
 /* ============================================================
    描画
@@ -449,28 +473,21 @@ function render(){
   for(let r=0;r<CONF.ROWS;r++) for(let c=0;c<CONF.COLS;c++){ if(isPathCell(c,r)) continue;
     ctx.fillStyle=((c+r)&1)?'#3d6b46':'#437a4e'; ctx.fillRect(c*TILE+1,r*TILE+1,TILE-2,TILE-2); }
   drawPath();
-  // 設置プレビュー
   if(selTowerKey && hoverCell){ const {c,r}=hoverCell; const b=TOWERS[selTowerKey];
-    const ok=isBuildableFor(selTowerKey,c,r) && canAfford(b.cost); const cc=cellCenter(c,r);
+    const ok=isBuildableFor(selTowerKey,c,r) && canAfford(b.cost) && !atDeployCap(); const cc=cellCenter(c,r);
     ctx.fillStyle= ok?'#ffffff30':'#ff333340'; ctx.fillRect(c*TILE+1,r*TILE+1,TILE-2,TILE-2);
-    if(b.class==='ranger') drawRange(cc.x,cc.y, rangerRangeAt(b,1), ok?'#ffe27a':'#ff6b6b');
-    else if(b.support) drawRange(cc.x,cc.y, b.range, '#8fd0ff');
-  }
+    if(b.class==='ranger') drawRange(cc.x,cc.y, TOWERS[selTowerKey].range, ok?'#ffe27a':'#ff6b6b');
+    else if(b.support) drawRange(cc.x,cc.y, b.range, '#8fd0ff'); }
   if(selPlaced){ if(selPlaced.class==='ranger') drawRange(selPlaced.x,selPlaced.y, selPlaced.range, '#ffe27a');
     else if(selPlaced.U.support) drawRange(selPlaced.x,selPlaced.y, selPlaced.range, '#8fd0ff'); }
-
   const shk=world.shake||0; ctx.save(); if(shk>0.2) ctx.translate(Math.sin(elapsed*90)*shk, Math.cos(elapsed*70)*shk*0.6);
-  // ブロッカー（通路・敵より先に地面レイヤー）
   for(const t of state.towers) if(t.class==='blocker') drawTower(t);
-  // 敵（奥→手前）
-  const es = world.enemies.slice().sort((a,b)=>a.y-b.y); for(const e of es) drawEnemy(e);
-  // レンジ（草地・敵より手前）
+  const es=world.enemies.slice().sort((a,b)=>a.y-b.y); for(const e of es) drawEnemy(e);
   for(const t of state.towers) if(t.class==='ranger') drawTower(t);
   for(const s of world.slashes) drawSlash(s);
   for(const s of world.shots) drawShot(s);
   for(const p of world.parts){ ctx.globalAlpha=Math.max(0,p.life/p.max); ctx.fillStyle=p.c; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,6.28); ctx.fill(); } ctx.globalAlpha=1;
-  ctx.restore();
-  drawBases();
+  ctx.restore(); drawBases();
 }
 function drawPath(){ const {TILE}=CONF; ctx.save(); ctx.strokeStyle='#caa15f'; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.lineWidth=TILE*0.86;
   ctx.beginPath(); PATH.px.forEach((p,i)=> i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke();
@@ -483,136 +500,118 @@ function drawRange(x,y,r,col){ ctx.save(); ctx.strokeStyle=col; ctx.fillStyle=co
 
 function drawTower(t){
   const {TILE}=CONF; const S=TILE*0.94*(t.U.scale||1); const im=SPRITES[t.U.spr];
-  ctx.fillStyle= t.class==='blocker'?'#00000033':'#2a1838aa';
-  ctx.beginPath(); ctx.ellipse(t.x, t.y+TILE*0.30, TILE*0.36, TILE*0.14, 0,0,6.28); ctx.fill();
-  ctx.save(); ctx.translate(t.x, t.y+2); const bob=Math.sin(elapsed*3+t.x)*1.5;
+  ctx.fillStyle= t.class==='blocker'?'#00000033':'#2a1838aa'; ctx.beginPath(); ctx.ellipse(t.x,t.y+TILE*0.30,TILE*0.36,TILE*0.14,0,0,6.28); ctx.fill();
+  // 覚醒オーラ
+  if(t.awakened){ ctx.save(); ctx.globalAlpha=0.5+0.3*Math.sin(elapsed*7); ctx.strokeStyle='#ff9ce0'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(t.x,t.y,TILE*0.46,0,6.28); ctx.stroke(); ctx.restore(); }
+  ctx.save(); ctx.translate(t.x,t.y+2); const bob=Math.sin(elapsed*3+t.x)*1.5;
   if(im && im.complete && im.naturalWidth){ ctx.save(); ctx.scale(-1,1); ctx.drawImage(im,-S/2,-S/2+bob-4,S,S); ctx.restore(); }
-  else { ctx.fillStyle=ATTR[t.U.attr].col; ctx.beginPath(); ctx.arc(0,-4,S*0.3,0,6.28); ctx.fill(); }
-  ctx.restore();
-  // 属性＋レベル
+  else { ctx.fillStyle=ATTR[t.U.attr].col; ctx.beginPath(); ctx.arc(0,-4,S*0.3,0,6.28); ctx.fill(); } ctx.restore();
   ctx.font='11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText(ATTR[t.U.attr].emoji, t.x-TILE*0.30, t.y-TILE*0.30);
-  for(let i=0;i<t.level;i++){ ctx.fillStyle='#ffe27a'; ctx.beginPath(); ctx.arc(t.x-6+i*6, t.y+TILE*0.37, 2.4,0,6.28); ctx.fill(); }
-  // ブロッカーはHPバー＋ブロック数
+  const lv=myLevel(t.key); if(lv>1){ ctx.fillStyle='#8fd0ff'; ctx.font='bold 9px sans-serif'; ctx.textAlign='left'; ctx.fillText('Lv'+lv, t.x-TILE*0.44, t.y+TILE*0.40); }
   if(t.class==='blocker'){
-    const w=TILE*0.7, x=t.x-w/2, y=t.y-TILE*0.44;
-    ctx.fillStyle='#00000088'; ctx.fillRect(x-1,y-1,w+2,6);
+    const w=TILE*0.7, x=t.x-w/2, y=t.y-TILE*0.44; ctx.fillStyle='#00000088'; ctx.fillRect(x-1,y-1,w+2,6);
     ctx.fillStyle= t.hp/t.maxHp>0.4?'#7fe084':'#ffb14d'; ctx.fillRect(x,y,w*Math.max(0,t.hp/t.maxHp),4);
     ctx.fillStyle='#fff'; ctx.font='9px sans-serif'; ctx.textAlign='right'; ctx.fillText('🛡'+t.block, t.x+TILE*0.30, t.y-TILE*0.30);
   }
-  if(t.buffMul>1){ ctx.strokeStyle='#ffd08f'; ctx.lineWidth=2; ctx.globalAlpha=0.5+0.3*Math.sin(elapsed*6);
-    ctx.beginPath(); ctx.arc(t.x,t.y,TILE*0.42,0,6.28); ctx.stroke(); ctx.globalAlpha=1; }
+  if(t.buffMul>1){ ctx.strokeStyle='#ffd08f'; ctx.lineWidth=2; ctx.globalAlpha=0.5+0.3*Math.sin(elapsed*6); ctx.beginPath(); ctx.arc(t.x,t.y,TILE*0.42,0,6.28); ctx.stroke(); ctx.globalAlpha=1; }
 }
-
 function drawEnemy(e){
-  const {TILE}=CONF; const S=TILE*(e.U.scale||1); const cx=e.x, cy=e.y - S*0.1;
-  drawMold(e, S, cx, cy + Math.sin(e.bob)*2);
-  if(e.hp < e.maxHp){ const w=S*0.7, x=cx-w/2, y=cy-S*0.62;
-    ctx.fillStyle='#00000088'; ctx.fillRect(x-1,y-1,w+2,5);
+  const {TILE}=CONF; const S=TILE*(e.U.scale||1); const cx=e.x, cy=e.y-S*0.1;
+  drawMold(e, S, cx, cy+Math.sin(e.bob)*2);
+  if(e.hp<e.maxHp){ const w=S*0.7, x=cx-w/2, y=cy-S*0.62; ctx.fillStyle='#00000088'; ctx.fillRect(x-1,y-1,w+2,5);
     ctx.fillStyle= e.hp/e.maxHp>0.4?'#7fe084':'#ff7a6b'; ctx.fillRect(x,y,w*Math.max(0,e.hp/e.maxHp),3); }
-  if(e._eff && elapsed-e._eff < 0.5){ ctx.save(); ctx.globalAlpha=1-(elapsed-e._eff)/0.5;
-    ctx.fillStyle='#fff27a'; ctx.font='bold 13px sans-serif'; ctx.textAlign='center'; ctx.fillText('ばつぐん!', cx, cy-S*0.8); ctx.restore(); }
+  if(e._eff && elapsed-e._eff<0.5){ ctx.save(); ctx.globalAlpha=1-(elapsed-e._eff)/0.5; ctx.fillStyle='#fff27a'; ctx.font='bold 13px sans-serif'; ctx.textAlign='center'; ctx.fillText('ばつぐん!', cx, cy-S*0.8); ctx.restore(); }
 }
-
-/* --- カビの手描き（nyanko.tpl.html の drawMold を移植・調整） --- */
-const KB_TIME=0.4;
 function drawMold(u, S, cx, cy){
-  const D=u.U, col=D.col||'#7fae5c', dk=D.col2||'#4f7038';
-  const r=S*0.36, top=cy - S*0.5;
-  const puls = D.mold==='spiky' ? (1 + 0.10*Math.sin(elapsed*20 + u.x)) : 1;
-  ctx.save(); ctx.translate(cx, top); ctx.scale(puls, puls);
-  const look=(u.dir>=0?1:-1)*2.0;
+  const D=u.U; let col=D.col||'#7fae5c', dk=D.col2||'#4f7038';
+  if(D.rainbow){ const h=(elapsed*80+u.x)%360; col='hsl('+h+',80%,68%)'; dk='hsl('+((h+180)%360)+',70%,42%)'; }
+  const r=S*0.36, top=cy-S*0.5; const puls = D.mold==='spiky' ? (1+0.10*Math.sin(elapsed*20+u.x)) : 1;
+  ctx.save(); ctx.translate(cx,top); ctx.scale(puls,puls); const look=(u.dir>=0?1:-1)*2.0;
+  if(D.rainbow){ ctx.save(); ctx.globalAlpha=0.5+0.3*Math.sin(elapsed*6+u.x); ctx.strokeStyle=col; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(0,0,r*1.3,0,6.28); ctx.stroke(); ctx.restore(); }
   if(D.mold==='phage'){
     ctx.strokeStyle=dk; ctx.lineWidth=Math.max(2,S*0.05); ctx.lineCap='round';
-    for(let i=-1;i<=1;i++){ ctx.beginPath(); ctx.moveTo(i*r*0.5,0); ctx.lineTo(i*r*0.9, r*0.9+S*0.16); ctx.stroke(); }
+    for(let i=-1;i<=1;i++){ ctx.beginPath(); ctx.moveTo(i*r*0.5,0); ctx.lineTo(i*r*0.9,r*0.9+S*0.16); ctx.stroke(); }
     ctx.fillStyle=col; ctx.beginPath();
     for(let k=0;k<6;k++){ const a=Math.PI/6+k*Math.PI/3; const px=Math.cos(a)*r, py=Math.sin(a)*r*0.9-r*0.2; k?ctx.lineTo(px,py):ctx.moveTo(px,py); } ctx.closePath(); ctx.fill();
-    ctx.strokeStyle=dk; ctx.lineWidth=2; ctx.stroke(); eyes(0,-r*0.25, r*0.5, S*0.11, look);
+    ctx.strokeStyle=dk; ctx.lineWidth=2; ctx.stroke(); eyes(0,-r*0.25,r*0.5,S*0.11,look);
   } else if(D.mold==='spiky'){
-    ctx.fillStyle=dk;
-    for(let k=0;k<9;k++){ const a=k*6.283/9; const ox=Math.cos(a)*r, oy=Math.sin(a)*r; ctx.beginPath(); ctx.moveTo(ox*0.8,oy*0.8);
-      ctx.lineTo(ox*1.35-Math.sin(a)*r*0.18, oy*1.35+Math.cos(a)*r*0.18); ctx.lineTo(ox*1.35+Math.sin(a)*r*0.18, oy*1.35-Math.cos(a)*r*0.18); ctx.closePath(); ctx.fill(); }
-    ctx.fillStyle=col; circle(0,0,r); eyes(0,-r*0.1, r*0.42, S*0.1, look);
+    ctx.fillStyle=dk; for(let k=0;k<9;k++){ const a=k*6.283/9; const ox=Math.cos(a)*r, oy=Math.sin(a)*r; ctx.beginPath(); ctx.moveTo(ox*0.8,oy*0.8);
+      ctx.lineTo(ox*1.35-Math.sin(a)*r*0.18,oy*1.35+Math.cos(a)*r*0.18); ctx.lineTo(ox*1.35+Math.sin(a)*r*0.18,oy*1.35-Math.cos(a)*r*0.18); ctx.closePath(); ctx.fill(); }
+    ctx.fillStyle=col; circle(0,0,r); eyes(0,-r*0.1,r*0.42,S*0.1,look);
   } else {
     ctx.fillStyle=col; const lumps=[[0,0,1],[-0.55,-0.15,0.6],[0.55,-0.1,0.62],[-0.3,-0.55,0.5],[0.32,-0.5,0.52],[0,0.35,0.7]];
     for(const [lx,ly,ls] of lumps) circle(lx*r,ly*r,r*ls);
     ctx.fillStyle=dk; for(const [sx,sy,ss] of [[-0.35,-0.1,0.14],[0.3,0.05,0.12],[0.05,-0.4,0.1],[-0.1,0.3,0.11]]) circle(sx*r,sy*r,r*ss);
-    ctx.fillStyle=col; ctx.globalAlpha=0.6; for(let k=0;k<3;k++){ const a=elapsed*1.4+k*2.1+u.x*0.02; circle(Math.cos(a)*r*1.15, -r*1.0-(k*4)+Math.sin(a)*3, r*0.08); } ctx.globalAlpha=1;
-    eyes(0,-r*0.15, r*0.5, S*0.12, look);
+    ctx.fillStyle=col; ctx.globalAlpha=0.6; for(let k=0;k<3;k++){ const a=elapsed*1.4+k*2.1+u.x*0.02; circle(Math.cos(a)*r*1.15,-r*1.0-(k*4)+Math.sin(a)*3,r*0.08); } ctx.globalAlpha=1;
+    eyes(0,-r*0.15,r*0.5,S*0.12,look);
   }
   ctx.restore();
   function circle(x,y,rr){ ctx.beginPath(); ctx.arc(x,y,rr,0,6.283); ctx.fill(); }
-  function eyes(ex,ey,sp,er,lk){ for(const s of [-1,1]){ ctx.fillStyle='#fff'; circle(ex+s*sp*0.5,ey,er); ctx.fillStyle='#241a1a'; circle(ex+s*sp*0.5+lk, ey+er*0.1, er*0.5); } }
+  function eyes(ex,ey,sp,er,lk){ for(const s of [-1,1]){ ctx.fillStyle='#fff'; circle(ex+s*sp*0.5,ey,er); ctx.fillStyle='#241a1a'; circle(ex+s*sp*0.5+lk,ey+er*0.1,er*0.5); } }
 }
-
 function drawShot(s){
   if(s.kind==='arrow'){ const im=SPRITES['arrow_blue']; const sz=34; ctx.save(); ctx.translate(s.x,s.y); ctx.rotate(s.ang);
     if(im&&im.complete&&im.naturalWidth) ctx.drawImage(im,-sz/2,-sz/2,sz,sz); else { ctx.fillStyle='#ffe27a'; ctx.fillRect(-sz*0.3,-2,sz*0.6,4); } ctx.restore(); return; }
-  const map={ crumb:'#ffd98a', ice:'#9fe4ff', goo:'#8fe0a0' }; const col=map[s.kind]||'#fff';
+  const map={ ice:'#9fe4ff', goo:'#8fe0a0' }; const col=map[s.kind]||'#fff';
   ctx.save(); ctx.translate(s.x,s.y); ctx.fillStyle=col; ctx.beginPath(); ctx.arc(0,0,4,0,6.28); ctx.fill();
   if(s.kind==='ice'){ ctx.strokeStyle='#dff6ff'; ctx.lineWidth=1.5; for(let k=0;k<3;k++){ const a=k*2.09+elapsed*4; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(a)*7,Math.sin(a)*7); ctx.stroke(); } }
   ctx.restore();
 }
 function drawSlash(s){ const k=1-s.life/s.max; ctx.save(); ctx.translate(s.x,s.y); ctx.rotate(s.ang);
-  ctx.globalAlpha=(1-k)*0.9; ctx.strokeStyle='#fff6d0'; ctx.lineWidth=4; ctx.lineCap='round';
-  ctx.beginPath(); ctx.arc(0,0, s.r*(0.5+k*0.7), -0.9, 0.9); ctx.stroke(); ctx.restore(); ctx.globalAlpha=1; }
+  ctx.globalAlpha=(1-k)*0.9; ctx.strokeStyle='#fff6d0'; ctx.lineWidth=4; ctx.lineCap='round'; ctx.beginPath(); ctx.arc(0,0,s.r*(0.5+k*0.7),-0.9,0.9); ctx.stroke(); ctx.restore(); ctx.globalAlpha=1; }
 
 /* ============================================================
-   HUD / ヒント / オーバーレイ / パレット
+   HUD / パレット / ヒント
    ============================================================ */
 function refreshHUD(){
   document.getElementById('coinTxt').textContent = Math.floor(state.coins);
   document.getElementById('lifeTxt').textContent = state.lives;
-  document.getElementById('waveTxt').textContent = Math.min(state.waveIdx+(state.waveActive?1:0), curStage.waves.length) + '/' + curStage.waves.length;
+  document.getElementById('waveTxt').textContent = Math.min(state.waveIdx+(state.waveActive?1:0), curStage.waves.length)+'/'+curStage.waves.length;
+  document.getElementById('deployTxt').textContent = deployCount()+'/'+state.deployCap;
+  document.getElementById('matTxt').textContent = state.mat;
   const wb=document.getElementById('waveBtn');
   if(state.waveIdx>=curStage.waves.length){ wb.disabled=true; wb.textContent='—'; }
   else { wb.disabled=state.waveActive; wb.textContent=state.waveActive?'⚔ 交戦中…':'▶ つぎのウェーブ ('+(state.waveIdx+1)+')'; }
   refreshPalette();
 }
 function updateHint(msg){ document.getElementById('hint').textContent=msg; }
-function showOverlay(title, body, buttons){
-  const card=document.getElementById('ovCard'); card.innerHTML='<h1>'+title+'</h1><p>'+body+'</p>';
-  const box=document.createElement('div'); box.style.cssText='display:flex;flex-direction:column;gap:8px;align-items:center';
-  for(const b of buttons){ const el=document.createElement('button'); el.className='btn'; el.textContent=b.label; el.onclick=b.fn; box.appendChild(el); }
-  card.appendChild(box); document.getElementById('overlay').classList.add('on');
-}
-function hideOverlay(){ document.getElementById('overlay').classList.remove('on'); }
 
 function buildPalette(){
   const pal=document.getElementById('palette'); pal.innerHTML='';
-  addLabel(pal,'🛡ブロッカー','blk'); BLOCKER_ORDER.forEach(k=>pal.appendChild(makeChip(k)));
-  const div=document.createElement('div'); div.className='pdiv'; pal.appendChild(div);
-  addLabel(pal,'🎯レンジ','rng'); RANGER_ORDER.forEach(k=>pal.appendChild(makeChip(k)));
+  for(const key of SAVE.loadout){ if(!TOWERS[key]) continue; pal.appendChild(makeChip(key)); }
   refreshPalette();
 }
-function addLabel(pal,text,cls){ const l=document.createElement('div'); l.className='plabel '+cls; l.textContent=text; pal.appendChild(l); }
 function makeChip(key){
   const b=TOWERS[key]; const el=document.createElement('div'); el.className='tw '+(b.class==='blocker'?'blk':'rng'); el.dataset.key=key;
   el.innerHTML='<span class="kind">'+(b.class==='blocker'?'🛡':(b.support?'✨':'🎯'))+'</span>'+
-    '<canvas width="38" height="38"></canvas><div class="nm">'+b.name+'</div><div class="co">🍬'+b.cost+'</div>'+
-    '<span class="badge">'+ATTR[b.attr].emoji+'</span>';
+    '<canvas width="34" height="34"></canvas><div class="nm">'+b.name+'</div><div class="co">🍬'+b.cost+'</div>'+
+    '<span class="badge">'+ATTR[b.attr].emoji+'</span><span class="lvtag">Lv'+myLevel(key)+'</span>';
   el.onclick=()=>selectTower(key);
   const mc=el.querySelector('canvas'), mx=mc.getContext('2d'); const im=SPRITES[b.spr];
-  const draw=()=>{ mx.clearRect(0,0,38,38); if(im&&im.complete&&im.naturalWidth){ mx.imageSmoothingEnabled=false; mx.drawImage(im,1,1,36,36);} };
+  const draw=()=>{ mx.clearRect(0,0,34,34); if(im&&im.complete&&im.naturalWidth){ mx.imageSmoothingEnabled=false; mx.drawImage(im,1,1,32,32);} };
   if(im&&im.complete) draw(); else if(im) im.addEventListener('load',draw);
   return el;
 }
 function refreshPalette(){ document.querySelectorAll('#palette .tw').forEach(el=>{ const key=el.dataset.key, b=TOWERS[key];
-  el.classList.toggle('sel', selTowerKey===key); el.classList.toggle('cant', !state || !canAfford(b.cost)); }); }
+  el.classList.toggle('sel', selTowerKey===key); el.classList.toggle('cant', !state || !canAfford(b.cost) || atDeployCap()); }); }
 function selectTower(key){ selTowerKey=(selTowerKey===key?null:key); selPlaced=null; hideSelPanel();
-  updateHint(selTowerKey ? (TOWERS[key].class==='blocker'?'🛡':'🎯')+TOWERS[key].name+'：'+TOWERS[key].desc : '🛡ブロッカーは通路に、🎯レンジは草地に置こう！');
+  updateHint(selTowerKey ? (TOWERS[key].class==='blocker'?'🛡通路に置いて敵を受け止める':'🎯草地に置いて火力を出す')+'：'+TOWERS[key].name : '🛡ブロッカーは通路、🎯レンジは草地に置こう！');
   refreshPalette(); }
 
+/* --- 設置済みタワーの操作（覚醒＋売却） --- */
 function showSelPanel(t){
   selPlaced=t; selTowerKey=null; refreshPalette();
   const p=document.getElementById('selPanel');
-  let label = t.U.name+' Lv'+t.level+' '+ATTR[t.U.attr].emoji;
-  if(t.class==='blocker') label += ' 🛡'+t.block+' HP'+Math.max(0,Math.round(t.hp))+'/'+t.maxHp;
+  let label=t.U.name+' Lv'+myLevel(t.key)+' '+ATTR[t.U.attr].emoji;
+  if(t.class==='blocker') label+=' 🛡'+t.block+' HP'+Math.max(0,Math.round(t.hp))+'/'+t.maxHp;
   document.getElementById('selT').textContent=label;
-  const up=document.getElementById('upBtn'), sell=document.getElementById('sellBtn');
-  if(t.level>=TOWER_MAX_LV){ up.disabled=true; up.textContent='最大Lv'; }
-  else { const c=upgradeCost(t.U,t.level); up.disabled=!canAfford(c); up.textContent='⬆ 強化 🍬'+c; up.onclick=()=>{ if(upgradeTower(t)) showSelPanel(t); }; }
-  sell.textContent='💰 売る +'+Math.round(t.spent*CONF.sellRate); sell.onclick=()=>{ sellTower(t); hideSelPanel(); };
+  const aw=document.getElementById('awakenBtn'), sell=document.getElementById('sellBtn');
+  const lat=t.U.latent;
+  if(t.awakened){ aw.disabled=true; aw.textContent='✨覚醒済:'+lat.name; }
+  else { aw.disabled=state.mat<lat.matCost; aw.textContent='✨覚醒 '+lat.name+'(💎'+lat.matCost+')'; aw.onclick=()=>{ if(awakenTower(t)) showSelPanel(t); else updateHint('覚醒素材が足りない（💎'+lat.matCost+'必要）'); }; }
+  sell.textContent='💰売る +'+Math.round(t.spent*CONF.sellRate); sell.onclick=()=>{ sellTower(t); hideSelPanel(); };
   p.classList.add('on');
 }
 function hideSelPanel(){ selPlaced=null; document.getElementById('selPanel').classList.remove('on'); }
@@ -625,10 +624,11 @@ function evtCell(ev){ const rect=cv.getBoundingClientRect();
   return { c:Math.floor(px/CONF.TILE), r:Math.floor(py/CONF.TILE), px, py }; }
 function onTap(ev){
   const {c,r}=evtCell(ev);
-  const hit = state.towers.find(t=>t.c===c && t.r===r);
+  const hit=state.towers.find(t=>t.c===c && t.r===r);
   if(hit && !selTowerKey){ showSelPanel(hit); return; }
   if(selTowerKey){
-    if(placeTower(selTowerKey,c,r)){ refreshHUD(); if(!canAfford(TOWERS[selTowerKey].cost)){ selTowerKey=null; refreshPalette(); } }
+    if(atDeployCap()){ updateHint('出撃上限（'+state.deployCap+'）に達しています'); return; }
+    if(placeTower(selTowerKey,c,r)){ refreshHUD(); if(!canAfford(TOWERS[selTowerKey].cost)||atDeployCap()){ selTowerKey=null; refreshPalette(); } }
     else if(!isBuildableFor(selTowerKey,c,r)) updateHint(TOWERS[selTowerKey].class==='blocker'?'ブロッカーは通路の上に置いてね':'レンジは通路の外(草地)に置いてね');
     else updateHint('🍬が足りない！');
     return;
@@ -640,23 +640,88 @@ cv.addEventListener('pointermove', ev=>{ hoverCell=evtCell(ev); });
 cv.addEventListener('pointerleave', ()=>{ hoverCell=null; });
 document.getElementById('waveBtn').onclick=()=>startWave();
 document.getElementById('spdBtn').onclick=()=>{ gameSpeed=gameSpeed===1?2:1; document.getElementById('spdBtn').textContent='⏩ '+gameSpeed+'x'; };
-document.getElementById('menuBtn').onclick=openStages;
+document.getElementById('homeBtn').onclick=showHome;
 
 /* ============================================================
-   ステージ制御
+   オーバーレイ（ホーム / ステージ / 編成 / キャラ強化）
    ============================================================ */
 let curStage = STAGES[0];
-function openStages(){ hideOverlay(); const card=document.getElementById('ovCard');
-  card.innerHTML='<h1>🗺 ステージ</h1><p>カビ軍団を迎え撃とう！</p>';
+function showOverlayButtons(title, body, buttons){
+  const card=document.getElementById('ovCard'); card.innerHTML='<h1>'+title+'</h1><p>'+body+'</p>';
+  const box=document.createElement('div'); box.className='menu';
+  for(const b of buttons){ const el=document.createElement('button'); el.className='mbtn'; el.textContent=b.label; el.onclick=b.fn; box.appendChild(el); }
+  card.appendChild(box); document.getElementById('overlay').classList.add('on');
+}
+function showHome(title, body){
+  running=false;
+  showOverlayButtons(title||'🏰 SUGAR DEFENSE', body||('お菓子タワーでカビ軍団を迎え撃て！<br>所持EXP: '+myExp()),
+    [{label:'▶ バトル（ステージ選択）', fn:openStages},{label:'🧩 編成（'+SAVE.loadout.length+'/'+LOADOUT_MAX+'）', fn:openLoadout},{label:'📖 キャラ強化（EXP:'+myExp()+'）', fn:openChars}]);
+}
+function openStages(){
+  const card=document.getElementById('ovCard'); card.innerHTML='<h1>🗺 ステージ</h1><p>カビ軍団を迎え撃とう！ 出撃上限や敵はステージごと。</p>';
   const box=document.createElement('div'); box.className='stages';
-  for(const s of STAGES){ const b=document.createElement('button'); b.className='sbtn';
-    b.innerHTML='<span>ステージ'+s.id+'：'+s.name+'</span><span class="cl">🌊'+s.waves.length+'</span>'; b.onclick=()=>{ hideOverlay(); startStage(s); }; box.appendChild(b); }
-  card.appendChild(box); document.getElementById('overlay').classList.add('on'); }
+  for(const s of STAGES){ const done=SAVE.cleared.includes(s.id); const b=document.createElement('button'); b.className='sbtn'+(done?' done':'');
+    b.innerHTML='<span>'+(done?'✓ ':'')+'ステージ'+s.id+'：'+s.name+'</span><span class="cl">🌊'+s.waves.length+' / 🪖'+(s.deployCap||CONF.deployCap)+'</span>';
+    b.onclick=()=>{ hideOverlay(); startStage(s); }; box.appendChild(b); }
+  const back=document.createElement('button'); back.className='mbtn'; back.textContent='← もどる'; back.onclick=showHome; back.style.marginTop='8px'; box.appendChild(back);
+  card.appendChild(box); document.getElementById('overlay').classList.add('on');
+}
+/* 編成：持ち込むタワー種を最大6 */
+function openLoadout(){
+  const card=document.getElementById('ovCard');
+  card.innerHTML='<h1>🧩 編成</h1><p>バトルに持ち込むタワーを最大'+LOADOUT_MAX+'個えらぼう（同じキャラは盤面で何体でも出せる）。<br><b id="loCount"></b></p>';
+  const grid=document.createElement('div'); grid.className='grid';
+  for(const key of TOWER_ORDER){ const b=TOWERS[key]; const on=SAVE.loadout.includes(key);
+    const el=document.createElement('div'); el.className='ucard'+(on?' on':'');
+    el.innerHTML='<canvas width="44" height="44"></canvas><div class="un">'+(b.class==='blocker'?'🛡':(b.support?'✨':'🎯'))+b.name+'</div><div class="us">'+ATTR[b.attr].emoji+' 🍬'+b.cost+'</div><span class="lv">Lv'+myLevel(key)+'</span>';
+    el.onclick=()=>toggleLoadout(key);
+    grid.appendChild(el); paintCanvas(el.querySelector('canvas'), b.spr, 44);
+  }
+  card.appendChild(grid);
+  const back=document.createElement('button'); back.className='mbtn'; back.textContent='← 決定してもどる'; back.style.marginTop='10px'; back.onclick=()=>{ saveSave(); buildPalette(); showHome(); }; card.appendChild(back);
+  document.getElementById('overlay').classList.add('on'); updateLoCount();
+}
+function toggleLoadout(key){
+  const i=SAVE.loadout.indexOf(key);
+  if(i>=0){ if(SAVE.loadout.length<=1) return; SAVE.loadout.splice(i,1); }
+  else { if(SAVE.loadout.length>=LOADOUT_MAX){ updateLoCount('これ以上は選べません（最大'+LOADOUT_MAX+'）'); return; } SAVE.loadout.push(key); }
+  openLoadout();
+}
+function updateLoCount(msg){ const el=document.getElementById('loCount'); if(el) el.textContent = msg || ('選択中：'+SAVE.loadout.length+' / '+LOADOUT_MAX); }
+/* キャラ強化：共通EXPを好きなキャラに割り振ってLvUP */
+function openChars(){
+  const card=document.getElementById('ovCard');
+  card.innerHTML='<h1>📖 キャラ強化</h1><p>共通EXPを使ってレベルUP（ステータス恒久強化）。<br><b>所持EXP: <span id="expTxt">'+myExp()+'</span></b></p>';
+  const list=document.createElement('div'); list.className='clist';
+  for(const key of TOWER_ORDER) list.appendChild(makeCharRow(key));
+  card.appendChild(list);
+  const back=document.createElement('button'); back.className='mbtn'; back.textContent='← もどる'; back.style.marginTop='10px'; back.onclick=()=>{ buildPalette(); showHome(); }; card.appendChild(back);
+  document.getElementById('overlay').classList.add('on');
+}
+function makeCharRow(key){
+  const b=TOWERS[key]; const lv=myLevel(key); const row=document.createElement('div'); row.className='crow';
+  const stat = b.class==='blocker'
+    ? ('HP'+Math.round(b.hp*levelMul(lv))+' / 攻'+Math.round(b.atk*levelMul(lv))+' / 🛡'+b.block)
+    : (b.support ? ('攻UP×'+b.support.atkMul+' / 射'+b.range) : ('攻'+Math.round((b.dmg||0)*levelMul(lv))+' / 射'+b.range+(b.splash?' / 範囲':'')));
+  const canUp = canLevelUp(lv, myExp()); const cost=expCostForLevel(lv); const maxed=lv>=MAX_LEVEL;
+  row.innerHTML='<canvas width="44" height="44"></canvas>'+
+    '<div class="ci"><div class="cn">'+(b.class==='blocker'?'🛡':(b.support?'✨':'🎯'))+b.name+' '+ATTR[b.attr].emoji+' <span style="color:#8fd0ff">Lv'+lv+'</span></div>'+
+    '<div class="cs">'+stat+'</div><div class="cl2">✨潜在：'+b.latent.name+'（'+b.latent.info+'／💎'+b.latent.matCost+'）</div></div>'+
+    '<button class="btn" '+(maxed||!canUp?'disabled':'')+'>'+(maxed?'MAX':'Lv↑ EXP'+cost)+'</button>';
+  paintCanvas(row.querySelector('canvas'), b.spr, 44);
+  const btn=row.querySelector('button'); if(!maxed) btn.onclick=()=>{ if(canLevelUp(myLevel(key), myExp())){ SAVE.exp-=expCostForLevel(myLevel(key)); SAVE.levels[key]=myLevel(key)+1; saveSave(); SFX.play('place'); openChars(); } };
+  return row;
+}
+function paintCanvas(cvn, sprKey, size){ if(!cvn) return; const g=cvn.getContext('2d'); const im=SPRITES[sprKey];
+  const draw=()=>{ g.clearRect(0,0,size,size); if(im&&im.complete&&im.naturalWidth){ g.imageSmoothingEnabled=false; g.drawImage(im,2,2,size-4,size-4);} };
+  if(im&&im.complete) draw(); else if(im) im.addEventListener('load',draw); }
+function hideOverlay(){ document.getElementById('overlay').classList.remove('on'); }
+
 function startStage(stage){ curStage=stage; resetState(stage); hideOverlay(); hideSelPanel(); buildPalette(); refreshHUD();
-  updateHint('🛡ブロッカーで通路を止め、🎯レンジで火力を出そう！ ▶でウェーブ開始'); }
+  updateHint('🛡ブロッカーで通路を止め、🎯レンジで火力！ 💎覚醒カビを倒すと潜在能力を開放できる'); }
 
 /* ============================================================
-   効果音（Web Audio 合成・素材なし・ヘッドレスは無音）
+   効果音（Web Audio 合成・ヘッドレスは無音）
    ============================================================ */
 const SFX = (()=>{
   let ac=null; const last={};
@@ -669,6 +734,8 @@ const SFX = (()=>{
     place:()=>blip(660,0.09,'triangle',0.08), sell:()=>blip(320,0.12,'sine',0.08),
     wave:()=>{ blip(440,0.12,'sawtooth',0.06); setTimeout(()=>blip(660,0.14,'sawtooth',0.06),120); },
     pop:()=>{ noise(0.12,0.06); blip(520,0.06,'square',0.05); }, leak:()=>blip(140,0.25,'sawtooth',0.1),
+    matdrop:()=>{ blip(880,0.08,'triangle',0.06); setTimeout(()=>blip(1320,0.1,'triangle',0.06),70); },
+    awaken:()=>{ [660,880,1100,1320].forEach((f,i)=>setTimeout(()=>blip(f,0.12,'triangle',0.07),i*60)); },
     win:()=>{ [523,659,784,1046].forEach((f,i)=>setTimeout(()=>blip(f,0.2,'triangle',0.08),i*130)); },
     lose:()=>{ [330,262,196].forEach((f,i)=>setTimeout(()=>blip(f,0.25,'sawtooth',0.08),i*160)); },
     shot_shoe:()=>blip(1000,0.05,'triangle',0.03), shot_slime:()=>blip(520,0.05,'sine',0.03), shot_icewiz:()=>blip(1200,0.06,'sine',0.03),
@@ -683,25 +750,26 @@ const SFX = (()=>{
 function loop(ts){ if(!lastT) lastT=ts; let dt=Math.min(0.05,(ts-lastT)/1000); lastT=ts;
   if(running){ for(let i=0;i<gameSpeed;i++) step(dt); } render(); requestAnimationFrame(loop); }
 function fitCanvas(){ const wrap=document.getElementById('stageWrap'); const aw=wrap.clientWidth, ah=wrap.clientHeight; const ar=CONF.W/CONF.H;
-  let w=aw, h=aw/ar; if(h>ah){ h=ah; w=ah*ar; } cv.style.width=w+'px'; cv.style.height=h+'px'; }
+  let w=aw, h=aw/ar; if(h>ah){ h=ah; w=ah*ar; } cv.style.width=Math.floor(w)+'px'; cv.style.height=Math.floor(h)+'px'; }
 window.addEventListener('resize', fitCanvas);
-function boot(){ curStage=STAGES[0]; resetState(curStage); buildPalette(); fitCanvas(); refreshHUD(); requestAnimationFrame(loop); openStages(); }
+function boot(){ loadSave(); curStage=STAGES[0]; resetState(curStage); buildPalette(); fitCanvas(); refreshHUD(); requestAnimationFrame(loop); showHome(); }
 if(typeof document!=='undefined' && document.getElementById('cv')) boot();
 
 /* ============================================================
    ヘッドレステスト用 API
    ============================================================ */
 globalThis.__API = {
-  CONF, ATTR, ATTR_STRONG, ATTR_ADV, attrMul, BLOCK_BONUS,
+  CONF, ATTR, ATTR_STRONG, ATTR_ADV, attrMul, BLOCK_BONUS, LOADOUT_MAX, MAX_LEVEL,
   TOWERS, TOWER_ORDER, BLOCKER_ORDER, RANGER_ORDER, ENEMIES, WAVES, STAGES, WAYPOINTS,
   cellCenter, inBounds, buildPath, isPathCell, pointAt, get PATH(){ return PATH; },
-  waveCount, upgradeCost, rangerDmgAt, rangerRangeAt, blockerHpAt, blockerAtkAt, TOWER_MAX_LV,
-  pickTarget, rangerDamage, blockerDamage, enemyDamageToBlocker,
-  get state(){ return state; }, get world(){ return world; },
-  resetState, isBuildableRanger, isBuildableBlocker, isBuildableFor, canAfford,
-  placeTower, upgradeTower, sellTower, destroyBlocker,
+  waveCount, levelMul, expCostForLevel, canLevelUp, recomputeTower,
+  pickTarget, pickTargets, rangerDamage, blockerDamage, enemyDamageToBlocker,
+  get state(){ return state; }, get world(){ return world; }, get SAVE(){ return SAVE; }, set SAVE(v){ SAVE=v; },
+  myLevel, myExp, resetState, deployCount, atDeployCap,
+  isBuildableRanger, isBuildableBlocker, isBuildableFor, canAfford, placeTower, awakenTower, sellTower, destroyBlocker,
   startWave, spawnEnemy, step, hitEnemyByTower,
   setStage:(s)=>{ curStage=s; }, get curStage(){ return curStage; },
+  toggleLoadout, setLoadout:(l)=>{ SAVE.loadout=l; }, win,
 };
 </script>
 </body>
