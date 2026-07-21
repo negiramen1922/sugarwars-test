@@ -201,6 +201,9 @@ const SPRITE_DATA = /*__SPRITES__*/ {};
 /* にゃんこ専用スプライト（クッキーナイト＝四角いクッキーの剣士。index.html由来ではないのでここで直接注入）
    1=剣持ち立ち絵(カード用) / body=剣なし本体 / sword=構えの縦剣 / slash=横薙ぎ斬撃エフェクト付き剣 */
 Object.assign(SPRITE_DATA, {
+  'clance_blue':'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAFdUlEQVR4nO2dvYsVSRTFz4oLRrKYKYigGGysMIE6iowMbjSBLgYmA8IG/gMyTiKo+A8YCIKJkRoYKeKyrB8bCLsbLQiKMsuAImYDA4LCM/HOdF+7uvt111f3Pb/ovZ6mv949p27dqq4BCCGEEEIIIaQXR47OTY4cnZukvg7Sji2pL4CMBFH+ZH1lMllfoQsMBDqAcRgAxmEAGIcBYBwGgHF+6HsAyfafPrhZ/sPaKmbPXAIAPHvye+/zkDDQAYzDADAOA8A4DADjdE7OnMmfsLa68ZHJYL7QAYyzNfUFhMbHoNSYnYsOYJzROIBL6VdPz/Q+9hJQeewxOAMdwDiDdQCteB9Kd+E6tnaGIToCHcA4g3KAoupDKr4t+hqKjjAUN6ADGGfqKG2sAAqFSqDQtSIo58xB9W1ZuvsCQP5OQAcwTuccYPaXc6XvVY4gip+WmBl+KOSac+8p0AGM4y0aRbU/vv8bAPB550ETbf205JYb0AGMk0UdwILyBZ0bpHYCOoBxGADGSdoEjNH6b91/VPq+uDBfud+pn7d/+zSXtCmgAxgniQOMUfnA9+ovbsvVCegAxsmiG+ji8PnLpe/Pry8P6vhDgA5gnKil4LZtv1ZmEV8q9XmOqrZf8+7DRwDAxd/OAgD+/e9l5X73Xq4BiJcL0AGMwwAwDgPAOFF6AWPt94cgdl2ADmAcBoBxGADGYQAYhwFgnKC9ACvZv4z0VVUEmyqAD//6BwBw8tCB0vZibyBkTyDLwSApxYYcrHl+fTnpYJD88Pq7DoTQsAkwTpYOIIRWpO/jLy7M48qN26VtYv2CVr4mthPQAYyTtQMMEa343KEDGIcBYBwGgHEYAMZhABiHvYDISP/eVQ9gJZBEhQ6QCO0EsZUv0AGMQwdITCrlC3QA4wR1gKd/PgYAzB47AWD8E0PqcL0K5iLWK2J0AOMEdQBR/tgpTgXTC0HIuoAuNqd+pYEOYBzvDvB550EAwK8z+za23XnxxvdpsqBqEqjMCFrfsR8AcOHsydpjXLv9EEA6J/AeAMUfXm8TOxxzMtj2hxfk2WiRcH0AEgUWgnogCV9pIuiOn9JcTEfoAMaJ6gC55gJNa/y41vgTihNBm7p9TXCdQBIV0zlAm9W9ivs1OcE0vH39ytux+kAHMI73dQKFqnqAoPu8KXKBtuovot/01RQHfGQwp+45AJvPgquFkyR4zwFkpdA7NcmwDBMLfYaL+2bwPqga6pXSblMZnP8yhiQlyoSQELRtw6VKp9vtxYX51sdwtf1tJnm4BnkkR0gNHcA4SeoArokisSuEdWv7AP2U70IrX/eeWAkkUYnqAKL83V/e1e6n6+mhHaGpp+BT8U33Lo7A+QAkCkH/Y4ieFt4U/S5Wt+4CUO0EelEmTZclW/ooXhDl973n0E4QNACErg9BIw8FaN8s+Pgx21K0+xD3HCIY2AQYJ6gDHN+zrbTP6zdvfZ2upAwgzazaaRO8ruzftxcA8Mf/nwD4dQI6gHEGOyFEq+2eo6n34Qyusm0oxbvYcFSPXUU6gHF6R5AuZdblAILPXMCFzhF8EFvxwGb7X4WPnIAOYJwkOYCO6pC9Ax/tpLicHDukE9QpPgR0AON0VoeoQtp5aY/a5ABNdHGEWKVTYPPe+ziBT6X3yQXoAMbJsg4wjTpCVMeakHNpFxwidADjMACMwwAwTpY5QB3S5gspX6zYOHehGjq0fIAOYJxBOEBR9alfpaqidE1qbCR3R+gcAFX254ucbH5avrvWgAHBwSDSm6hTwjRa6cKQFD8tevhcqHtWIZ8THcA4QZNAV+QKY1a6C+c91+RSIZ8THcA4QR3AosK7wjWCSBKCLRdPhgEdgBBCCCHEIF8BOYVVoiqBeIYAAAAASUVORK5CYII=',
+  'clance_body_blue':'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAEn0lEQVR4nO3dPWsVURAG4FFSWImkFEQwpLC2SKEiiCDpLNQqjZWFf0CipYp/wMLKJpVa2AVBBFGLFFoJAUMCIgTEThAEBS3MaO7cnJz9mPOx+75P5U3C3usy8+7Zs2f3ihARERERERERERERERERERERERHRGBwo/QFSOnvuwm+P7bx+9WK0++lg6Q9AZc2U/gAeQp1+78qCy/aXRfbc/hiSgQkAbpAVbDveq9PbWn6yNvF6iInABAA3iIqtpeNjhpgITABwVVeodn6tHR+jiVBzEjABwFVVmUM51rdV89iACQCuikoc+rG+rZrGBkwAcEUrEK3zrRqSgAkAjgUAjgUArsh6gLEf+x89ez7x+tqli3v+3eWTh3f+9Xd/lBgLMAHAZa04tM63bBK8/7A+8frp+jcRyZsETABwVa4JPHPjzsTrNw9uD/p9asYEAJflWNP02G870vLqUO/3iR371faXryIicuv6kohMjwFUzrEAEwAcCwAcCwBc0rOAsZ/3p5JzhpAJAI4FAI4FAI4FAI4FAC7JWQDa6F+v8oVmBGMzgKtv34mIyOLpUxM/z3E2wAQAV9XVQJ2DT32VLtf7xGjn29c2CVJiAoBLMsOENgaw7j5cmXitx/7Q70M0CVJeHWQCgKtqDDAWtuNrxgQAxwIAxwIAxwIAxwIAx7OAAvT83s4E2t/nwAQAxwQoyCZBzs5XTABwTIAKlOh8xQQAl/TeM/SrglboXsCQHPcIMgHAuY4BvL6la2hizwSyzwq2/q/9y48JAM4lAbTzry7MTfz88dqmx+arFVoFrCt+vs/Oi4jIzaXFfbdzf2VVRMokARMAXK/RZajzLU2CsZ0NhBJg4+cREYl3vtra+Cgi04nJJ4RQcpwJ7EFH+1OrfGeP5P8wHTEBwGVJAB0j6PlwbWOBtk/4tOwq4Nh5fwyfFErZQI8Bmj7fT/8ulgRt6ei/JCYAOJdjTdv5AFVqLNC08y17n78Vevp30/3C7wug7FzGALsqd9+rgbbCl3f+vmsS9B29ewld59e5/dg1EX5rGBUzyO8N7Pp0bu/ttF3hY5X4hhCLCQCuyHcGhTRNAq8EiG0vdeeHcCaQsskyE6idf+zX9r5/Z+fQc80TxM4WvDs+th90f3E9ACWX5b6AWMWHfJ45KiLhJIg9bavrs3r6drzSzu/7/+d9AZSMa2XZUX7Xyre0E1TTsYFXJzfV9ljflP3/eyYCEwCc69XA88cP7fn7jc0tj7f5x3ZEqTtrUnV8yPzcCRERefnph4j4JAETAJzLfQGhzlfeCWDZRFBeyRCauUvd8ZYmgPJIAiYAuE6V07TzrdRJoEKJ0Ffujle2860+ScAEAJd1VbCt5NRnB17ny5p4uv1co/0cmADgWnVI12N/U10TIcec+W59r3Eo707vMhZgAoCr6s6gth3hOSPWhr5f6kTMgQkAjgUAjgUArqoxQIwe81XJ9fQT72/WQQxpTMAEAFd1AtTW8SFTn2tAicAEAJf1amDMUDq+LbtWMtV+49VAas1lRZAVq3Db6WosHR9T035jAoBL0nGxu4BROr2tEvuNCUBEREQE6A/NJwJhTmQi2AAAAABJRU5ErkJggg==',
+  'clance_spear_blue':'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAB8CAYAAABkMOB9AAAAxUlEQVR4nO3avQ3CMBCG4c8RDMEeafkpyA6swx6Zg4YGUbMFBT0thSngUhyKDZKDIni/NtGjs+50LpIQY1Qqi1UTJel42IfUe1VS+SCTbCW79q3KilUElE/wc+S71eV6fjzfbCW9dm98R/thqOtab7csz65ZfPfGdzSgv4bCfLlOT7TFTbbFJrx8RT65Dekz3M622DaYXk6SpNuslsRNCwQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBPRFqPe/EYt9xcqlWEV3eClAhzcn8b4AAAAASUVORK5CYII=',
   'cknight_blue':'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAEr0lEQVR4nO3dvWsUURQF8KMkoNgEy4AICdtEiMFCq0SQICjaCoIgiGAdERErSxHBf8BCRRBsBQUJglpFEFTwgywJSCBYiY0gKMQmN26eM7vz8T5m9pxflSzJzmRz73lv5s3OAiIiIiIiIrXMHp3fmD06v5F6P6SYnal3QNLa4euJrOtfPb0LAJg7eREA8PrlordtiH9KAHIqAHIqAHK1x2d37DefvywDAC5dvgVAc4GmUgKQUwGQUwGQqzwu5439xuYARnOBZlICkFMBkFMBkBtJvQNFDMvqYhPnP0oAco1LgKxuP7Z/V6nnmD98EAAw3jngZ6ccnz68q/qr//1tqVNBCUAueQK4HV+221OYmp4BUD4Jrp46lPXwtr8/diIoAcglSwDr/DZ0fB5LAlNlbpCRChtAvCRQApCLngDD0Pl5qs4NevUkQpQkUAKQS34UMIzcuYGpkwyhKAHIRU+AYRz7i5qanimcArHmAkoAciqAyKamZ3LnCCmoAMipAMgFnwTaxaDMk78sRU8ahZ4MKgHIqQDIqQDINe5U8I37T/59ff501G1PHD+77fvV54+ibj8FJQC5xiRAb+e7j4VOArfz3ceHOQmUAORUAORUAORUAORUAORUAORUAORUAORUAORUAORUAORUAORUAOSasxq4ueKX4noAW+3T9QBCpzEJYGJfBdSLoeNdSgByKgByKgByKgByKgBy0Y4C7PatMa13P0bfZllju0eTbl8JQK5wAtS9ZXuoGzdnsc5ffPM+2jarWlv/VvAnx4JsXwlArvQc4M6VuW3fv33xwNvOSHxKAHIqAHIqAHKl5wALt19lPu7ODaQdlADkCifAoLtTLWzexWrP9y4A4OfeTq0dG0Yvvv7KeHQMANAZ/RFzV7YoAch5Xwuwzj9zZBIA8HhpxfcmWsc6/9q5E7k/c/PhMwDxk0AJQM57AljnS7HON25ixkoCJQA5FQA5FQA5FQA5FQC5xr0ziM1qdznp9pUA5Lx9+oR7zaB7PsCOb+9dv+Brk7madk2gnQ/od44k7/i/+3sMgD42TgLxPgew1cDHS76fub3s85L6rYtoNVCSCLYaaGzsqvu+gjZyr/nvpH0TUCYlALkgM8t+LAlCHg2kPgoo/m6ffKFn/0YJQE5nAj3y0fmxRRsCLPr3/VkHAKyNjAMIMxTEHgJ8/uMt+t3XSSeCJIhgCeAe9llFu6zCjY9ECJUAISLeOt4UfZ18JYISgJz3BLDOz/u4+O7Kat/fdysdKJ8KvhPAV+e73Q7kd3yezuQEgH8LTHWTQAlAzvtycF7nm0EJkCUrFdqobLdnsQQwdZNACUCudgIU7XxXlSQoy/cxtHsuIya3811Vk0AJQC7ZqWC3on0mQug5gz1/yCQY1PG+KAHIVR4bq479RVRNg9DnzV0+5gS+O73sXEAJQK6Ry8Flu8LXWbGy3MvdQqRhaEoAcioAcioAco2cAwzi3m4t9tjv2tq+cw1EG+YESgByrUiApnV8nv/2qwWJoAQgl2w1sJ+2dHxZvddJ+k4DrQZKJcFuEGEGVXrWDZSHpeP78fl6AboiSCoK3mmD3hbO0O1lxH69lAAiIiIihP4CalmbsZ+aNYwAAAAASUVORK5CYII=',
   'cknight_body_blue':'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAEIklEQVR4nO3dPWsUURTG8aMkoN3WAREStokQg4VWIkgQBG0FQVD8ECJWln4MBUGwtRAkCGKllQpauBiQQLC0FBRik6Obm5ndmdn7MrvP/9dlSXZmJ+c8c+/c2V0zAAAAAAAAAAAAAAAAAACwCI6V3oFJLl7a2i+9DzG8fbPd2+N8vPQOoKyl0jvgqrr98ukTrZ5j6/xZMzNbGZ6Js1OBL58+dP3TI6+tL6lAAogrlgBhx7ft9hLWNzbNrH0S3Lt2rurhQ6+/VCKQAOKyJ4B3/jx0fB1PAtdlbFCRCvtm+ZOABBCXLQEWofPrdB0bjBtLhKxJQAKI6811gEUQjg3cLMmQGgkgLnkCLPK5v6n1jc3GKZB7LEACiKMAMlnf2KwdI5REAYijAMRRAOKSzQIY/VdretUw12yABBBHAYijAMT1Zi3g4ZMXh3++fT3btlev3Dz0886rZ9m2XRoJIK54AoSdP/546hQIOz98XCEJSABxFIA4CkAcBSCOAhBHAYijAMRRAOIoAHEUgDgKQBwFIK78YtDBgk+J5WBf7GE5GLKKJ4DLeQNISKnjQySAOApAHAUgjgIQRwGISz4L8I9vzWlv9Dn7NtsanFwuvQtmRgLIS54AqT64uYp3/vb7j9m22dXu3o+GvzlIuRskgDoKQBwFII4CEEcBiKMAxFEA4qJfB1iUr3qL6fX3XxWPDszMbLj8M+euHEECiIuWAN75Ny6smZnZ83ffYj313PLOv3/rau3vPHr60szKJQEJIG7mBAg7H80634WJmTsJSABxFIA4CkAcBSCOAhDXm3cGqdkZfS29C2ZGAsiL9iUEddcDfH77+MHdWJuq1bd7Av16wKRrJHXz/9HvgZnxtXFILNoYYKxSWQ084F+XM2ldhNVAFBV9FhCesxTvDwjv+R/2401AlUgAccmvA3gi3DkYG+SYDZTS/N0+9XKN/h0JII4rgRHE6PxSSABxyc8zPgs49WfPzMx2l1bMLM1YIPeVwJid7+f+8DilHgtEf/Jw2ucvKOQv0MUoiFQFkCLi/R/umh6n2AXBKUBc9MWgum8LH33bmfj3YaWbtU+F2AkQq/PDbjer7/g6w7VVM/u/wBQrCUgAcTNX0bTOd9MSoEpVKsyjtt1exRPAxUoCEkBc5+pp2vmhLknQVuwpVDiVzSns/NCsSUACiMt+KTis6JiJkHrM4M+fMgmmdXxsJIC41ueNruf+pmaZLeRaQo0xJojd6V3HAiSAuN4tB7fpjNhXxZry7aVOwxxIAHEUgDgKQFzvxgCThB+3lvvcH/q3/eAeiHkaE5AA4nqdAH3r+DpH9muOEoEEEJd9NXCa8a7va8e3NX6fZKrjxWogOol2R1BoWqVXf4Dy4nR9nb4dLxJAXLJum/a28EXv9LZKHS8SAAAAQNBfLi9wJ7xGBMEAAAAASUVORK5CYII=',
   'cknight_sword_blue':'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAABYCAYAAADx5gcnAAAA0klEQVR4nO3ZMQrCQBCF4T+Szs47eAyjhZ7FWvEUIngBz2FjI7mEonews16rEQwMWTQbWHyvCywfw8uSYlKEEIhJNVsEgPp8KmLOD6LUL1K2HXhPejx8PrdMnmzi/ODCuxXNbi2X6w2A5XoL+F3nV0V/HXvdWqxji9d1flUIFixYsGDBggULFixYsGDBggX/DVzaDujXNJ10W6zJdB4A9puqE3C1q4EcX176jr143VuXXvrfH1vsfg4fdwCeozGgHb1gwYIFd5zWf6YW+w7HJtnELwXBQakf0xqTAAAAAElFTkSuQmCC',
@@ -247,6 +250,9 @@ const DEFS = {
   cookie: {name:'クッキー',   role:'melee',  atk:14, hp:50,  speed:118, range:50, cd:0.35, scale:0.86,
            cost:50,  rc:2.2, num:1, spr:'cknight',
            gear:'cknight', body:'cknight_body'},   // 四角いクッキーナイト（剣持ち・横薙ぎ攻撃）
+  // クッキーランス：槍持ちの後衛チクチク。射程がナイトより少し長く、ナイトの後ろから突く（gear:'lance'）
+  clance: {name:'クッキーランス', role:'melee', atk:10, hp:45, speed:112, range:60, cd:0.4, scale:0.84,
+           cost:70,  rc:3.0, num:1, spr:'clance', gear:'lance', body:'clance_body'},
   // 支援：一定間隔でミラーボール→【軍全体】の攻撃UP（クッキーはさらにUP）。1レーン向けに全体化
   partycookie:{name:'パーティークッキー', role:'melee', atk:8, hp:110, speed:100, range:26, cd:0.6, scale:0.86,
            cost:140, rc:8.0, num:1, spr:'cookie_party',
@@ -287,7 +293,7 @@ const DEFS = {
            anim:{walk:['bomb','bomb2'], idle:'bomb', fps:4}},
 };
 // ※ポップコーン(bomb)は「爆発など特殊なものはとりあえずなし」の方針でロスターから除外（DEFSは温存＝将来復活可）
-const ORDER = ['cookie','macaron','partycookie','slime','bigslime','daifuku','choco','donut','icewiz','shoe'];
+const ORDER = ['cookie','clance','macaron','partycookie','slime','bigslime','daifuku','choco','donut','icewiz','shoe'];
 
 /* ============================================================
    ゲーム基盤：スターター／ステージ／編成／進行（localStorage保存）
@@ -318,6 +324,7 @@ const STAGE_BY_ID = Object.fromEntries(STAGES.map(s=>[s.id,s]));
 const REPLAY_COINS = 30;                // 再挑戦クリアの報酬
 // キャラ解放：coin=🍬で購入 / gacha=ガチャ限定（コインでは買えない）
 const UNLOCKS = {
+  clance:     {via:'coin', cost:180},   // クッキーランス（後衛チクチク）
   choco:      {via:'coin', cost:200},   // 最初の壁。まず解放したい1体
   macaron:    {via:'coin', cost:280},   // 速い前衛
   slime:      {via:'coin', cost:250},
@@ -825,6 +832,7 @@ function drawGearUnit(u, S, cx, footY, team){
   if(D.gear==='sword')   drawChocoGear(u,S,cx,cyb);
   if(D.gear==='katana')  drawDaifukuWeapon(u,S,cx,cyb);
   if(D.gear==='cknight') drawCookieSword(u,S,cx,cyb);
+  if(D.gear==='lance')   drawCookieLance(u,S,cx,cyb);
 }
 // クッキーの槍（本家 drawCookieSpear 移植）。待機=上向き／移動=左に倒す／攻撃=左へ突き出す
 const SP_PIVX=0.5, SP_PIVY=0.72;
@@ -836,6 +844,20 @@ function drawCookieSpear(u, S, cx, cy){
   let ang, px=handX, py=handY;
   if(u.atkAnim>0){ const a=1-u.atkAnim/ATK_ANIM, j=Math.sin(a*Math.PI); ang=-1.65; px=handX - j*S*0.34; py=handY + S*0.06; }
   else { ang=-1.15; py=handY + S*0.04; }   // 常に前へ倒して構える（上に戻さない＝せわしなくしない）
+  ctx.save(); ctx.translate(px,py); ctx.rotate(ang); ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(sp, -SP_PIVX*spW, -SP_PIVY*spH, spW, spH); ctx.restore();
+}
+// クッキーランスの槍。待機＝左手に立てて構え／攻撃＝前方(左＝敵)へチクッと突く（旧クッキーアーミー流の突き）
+function drawCookieLance(u, S, cx, cy){
+  const sp = SPRITES['clance_spear_'+(u.side==='p'?'blue':'red')] || SPRITES['clance_spear_blue'];
+  if(!sp || !sp.complete || !sp.naturalWidth) return;
+  const spH=S*1.18, spW=spH*(sp.naturalWidth/sp.naturalHeight);
+  let px=cx-S*0.20, py=cy+S*0.06, ang=-0.16;                 // 待機：左手に立てて構え（やや前傾）
+  if(u.atkAnim>0){ const a=1-u.atkAnim/ATK_ANIM, j=Math.sin(a*Math.PI);
+    ang = -0.16 - 0.98*j;                                     // 前方へ倒してチクッと突く（振りすぎない）
+    px  = cx-S*0.20 - j*S*0.30;                               // 突き出し（左＝敵へ・手元から離れすぎない）
+    py  = cy+S*0.06 + j*S*0.15;
+  }
   ctx.save(); ctx.translate(px,py); ctx.rotate(ang); ctx.imageSmoothingEnabled=false;
   ctx.drawImage(sp, -SP_PIVX*spW, -SP_PIVY*spH, spW, spH); ctx.restore();
 }
