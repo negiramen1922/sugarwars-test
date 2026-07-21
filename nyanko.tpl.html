@@ -266,9 +266,12 @@ const CONF = {
    各トラック: base=Lv0の値 / step=1Lvごとの増分 / max=最大Lv / c0=Lv0→1のEXPコスト（以降1.55倍で逓増）。
    ★タワーの派生要素（スロー砲/毒砲など）は未実装＝設計メモ NYANKO_NOTES.md に考察を記載。
    ============================================================ */
+// 財布Lvごとの最大貯金（にゃんこ式＝固定テーブル）。wMaxメタで上限Lvを追加、wStartメタで開始Lvを上げる。
+const WALLET_CAPS = [50,100,200,300,400,500];
 const UPG = {
-  wStart:{ name:'サイフ 初期最大',  icon:'👛', suffix:'🍬',   base:100,  step:35,  max:8, c0:120 }, // バトル開始時の🍬上限（最初期=100）
-  wMax:  { name:'サイフ 最大貯金',  icon:'💰', suffix:'🍬',   base:600,  step:170, max:8, c0:110 }, // お財布UP最大時の🍬上限
+  // wStart=バトル開始時の財布Lv（＝開始時の🍬上限） / wMax=財布UPの上限Lv（＝最大貯金）
+  wStart:{ name:'サイフ 初期Lv',   icon:'👛', suffix:'🍬',   max:5, c0:120, valFn:(lv)=>WALLET_CAPS[Math.min(lv, WALLET_CAPS.length-1)] },
+  wMax:  { name:'サイフ 最大貯金',  icon:'💰', suffix:'🍬',   max:6, c0:110, valFn:(lv)=>500 + lv*100 },
   wRate: { name:'生産速度',        icon:'⏱', suffix:'🍬/秒', base:20,   step:5,   max:8, c0:150 }, // 🍬がたまる速さ（基礎）
   tHp:   { name:'タワーHP',        icon:'🏰', suffix:'',     base:1600, step:450, max:8, c0:100 }, // 自分のお城のHP
   tPow:  { name:'タワー攻撃力',     icon:'💥', suffix:'',     base:120,  step:55,  max:8, c0:120 }, // タワー攻撃の威力
@@ -276,7 +279,7 @@ const UPG = {
 };
 const UPG_GROWTH = 1.55;                                        // EXPコストの逓増率
 function upgLv(t){ return (save.upg && save.upg[t]) || 0; }
-function upgVal(t){ const u=UPG[t]; return u.base + upgLv(t)*u.step; }
+function upgVal(t){ const u=UPG[t]; return u.valFn ? u.valFn(upgLv(t)) : (u.base + upgLv(t)*u.step); }
 function upgCost(t){ const u=UPG[t]; const lv=upgLv(t); return lv>=u.max ? null : Math.round(u.c0 * Math.pow(UPG_GROWTH, lv)); }
 // ステージ報酬EXP（初回は多め・再挑戦は少額。ステージが進むほど増える）
 function stageExp(s, first){ const n=s.id; return first ? Math.round(120 + n*26) : Math.round(20 + n*4); }
@@ -372,9 +375,9 @@ const REGIONS = [
 function stageName(n){ let r=REGIONS[0]; for(const R of REGIONS){ if(n>=R.a) r=R; } return r.name+' '+(n-r.a+1); }
 function genStage(n){
   const boss = (n%10===0), mini = (n%5===0 && !boss);
-  const enemyHP = Math.round(600 + n*210 + n*n*6);      // 城HP（＝ステージの長さ。sim調整）
-  const baseCd  = Math.max(2.3, 4.7 - n*0.08);          // 基本湧き間隔（軽め＝押し込めるので泥沼化しない）
-  const baseCap = Math.min(16, 5 + Math.floor(n/3));    // 同時に湧く敵の数のソフト上限（泥沼化防止）
+  const enemyHP = Math.round(560 + n*195 + n*n*5);      // 城HP（＝ステージの長さ。sim調整）
+  const baseCd  = Math.max(2.8, 4.9 - n*0.05);          // 基本湧き間隔（軽め＝押し込めるので泥沼化しない）
+  const baseCap = Math.min(12, 4 + Math.floor(n/4));    // 同時に湧く敵の数のソフト上限（泥沼化防止）
   const ev=[];
   if(n>=3){                                             // HP割合イベント（大群）
     ev.push({at:0.66, wave:{key:'m_swarm', n:4+Math.floor(n/6)}, msg:'カビの大群！'});
@@ -423,7 +426,7 @@ const FOE_DEFS = {
   m_swarm:{name:'アオカビン', role:'melee',  atk:10, hp:58,  speed:112, range:26, cd:0.42, scale:0.82,
            num:1, mold:'blob',  col:'#7fae5c', col2:'#4f7038'},
   // 前線を止める壁（中HP・そこそこ殴る）
-  m_tank: {name:'ネバモチ',   role:'melee',  atk:24, hp:360, speed:56,  range:32, cd:1.0,  scale:1.18,
+  m_tank: {name:'ネバモチ',   role:'melee',  atk:22, hp:300, speed:56,  range:32, cd:1.05, scale:1.18,
            num:1, mold:'blob',  col:'#6b7d55', col2:'#39482c'},
   // 超硬スポンジ（高HP・低火力・遅い＝押し込みで城を削る）
   m_big:  {name:'ドロカビ',   role:'melee',  atk:16, hp:720, speed:42, range:32, cd:1.3,  scale:1.36,
@@ -473,25 +476,29 @@ let world, money, php, ehp, cd, enemyCd, elapsed, running, lastT, walletLv, towe
 let myMaxHP=1600, foeMaxHP=1600;   // 自城/敵城の最大HP（HPバーの分母。myMaxHP=UPG.tHp）
 let curStage=null, myLoadout=STARTERS.slice(0,LOADOUT_MAX);   // 現在のステージ／編成
 
-function effRate(){ return upgVal('wRate') + walletLv*CONF.walletRateStep; }   // 基礎生産(UPG)＋バトル中お財布Lv
-// 🍬上限：バトル中お財布Lv0=初期最大(wStart) → Lvmax=最大貯金(wMax) を線形補間
-function effCap(){ const s=upgVal('wStart'), m=upgVal('wMax'); return Math.round(s + (m-s)*(walletLv/CONF.walletMax)); }
-function walletCost(){ return CONF.walletCostBase + walletLv*CONF.walletCostStep; }
+// 財布Lvごとの最大貯金テーブル（にゃんこ式）。wMaxメタで上限Lvを+1（+100🍬）ずつ追加
+function walletCapTable(){ const t=WALLET_CAPS.slice(); let last=t[t.length-1];
+  for(let i=0;i<upgLv('wMax');i++){ last+=100; t.push(last); } return t; }
+function walletMaxLv(){ return walletCapTable().length - 1; }             // 財布UPできる最大Lv
+function walletStartLv(){ return Math.min(walletMaxLv(), upgLv('wStart')); } // 開始Lv（wStartメタ）
+function effRate(){ return upgVal('wRate') + walletLv*CONF.walletRateStep; } // 基礎生産(UPG)＋財布Lvボーナス
+function effCap(){ const t=walletCapTable(); return t[Math.max(0, Math.min(walletLv, t.length-1))]; } // 今の🍬上限
+function walletCost(){ return Math.round(effCap()*0.75); }               // 財布UPの費用＝今の上限の75%（貯めて上げる）
 
 function reset(){
   world = { units:[], shots:[], parts:[], slashes:[], pops:[], nextId:1, shake:0 };
-  walletLv = 0;
+  walletLv = walletStartLv();                           // 開始Lv＝wStartメタ
   myMaxHP = upgVal('tHp');                              // 自城HP＝メタ強化
   php = myMaxHP;
   foeMaxHP = curStage ? curStage.enemyHP : myMaxHP;
   ehp = foeMaxHP;                                       // 敵城HPはステージ難易度
   world.events = (curStage && curStage.events) ? curStage.events.map(e=>({...e, fired:false})) : [];
-  money = Math.min(CONF.moneyStart, effCap());          // 開始🍬（初期最大を超えない）
+  money = Math.min(effCap(), CONF.moneyStart + walletLv*40);   // 開始🍬（財布Lvが高いほど多め・上限は超えない）
   cd = {}; for(const k of ORDER) cd[k]=0;
   enemyCd = 1.2;
   elapsed = 0;
   towerCd = CONF.towerCd;   // タワー攻撃：最初はチャージ切れ（開幕は撃てない＝溜まってから）
-  if(TEST_MODE){ walletLv = CONF.walletMax; money = effCap(); }   // テスト：お財布MAX＋所持金満タンで即出撃し放題
+  if(TEST_MODE){ walletLv = walletMaxLv(); money = effCap(); }   // テスト：お財布MAX＋所持金満タンで即出撃し放題
   running = true;
 }
 
@@ -884,7 +891,7 @@ function deploy(key){
 
 /* --- お財布レベルアップ --- */
 function upgradeWallet(){
-  if(!running || walletLv>=CONF.walletMax) return;
+  if(!running || walletLv>=walletMaxLv()) return;
   const c = walletCost();
   if(money < c) return;
   money -= c; walletLv++; SFX_deploy();
@@ -1321,6 +1328,18 @@ function render(){
   ctx.fillStyle='#e7b57a'; ctx.fillRect(-8,g,W+16,H-g);
   ctx.fillStyle='#d59f63'; ctx.fillRect(-8,g,W+16,6);
   drawCastle(24,'e'); drawCastle(W-24,'p');   // 左＝敵(赤) / 右＝味方(青)
+  // タワー攻撃の射程ライン（自城=右 から ここまで届く）＝プレイヤーに「ここまで」を可視化
+  { const minX = W - upgVal('tRng');
+    ctx.save();
+    ctx.strokeStyle='#ff7aa8'; ctx.lineWidth=2; ctx.setLineDash([7,7]); ctx.globalAlpha=0.55;
+    ctx.beginPath(); ctx.moveTo(minX, g); ctx.lineTo(minX, g-100); ctx.stroke(); ctx.setLineDash([]);
+    ctx.globalAlpha=0.9; ctx.fillStyle='#ff7aa8';
+    ctx.beginPath(); ctx.moveTo(minX, g-100); ctx.lineTo(minX+7, g-108); ctx.lineTo(minX-7, g-108); ctx.closePath(); ctx.fill();  // ▲マーカー
+    ctx.font='bold 10px sans-serif'; ctx.textAlign='center'; ctx.fillStyle='#ffd7e6';
+    ctx.fillText('💥タワー射程', minX, g-112);
+    // 覆う範囲（minX→右）をうっすら
+    ctx.globalAlpha=0.06; ctx.fillStyle='#ff7aa8'; ctx.fillRect(minX, g-100, W-minX, 100);
+    ctx.restore(); }
   const us = world.units.slice().sort((a,b)=>a.y-b.y);   // 奥(小y)→手前(大y)
   for(const u of us) drawUnit(u);
   drawSlashes();
@@ -1372,7 +1391,7 @@ function hud(){
   document.getElementById('phpTxt').textContent=Math.max(0,Math.ceil(php));
   document.getElementById('ehpTxt').textContent=Math.max(0,Math.ceil(ehp));
   const wb=document.getElementById('walletBtn'), ws=document.getElementById('walletSub');
-  if(walletLv>=CONF.walletMax){ ws.textContent='MAX'; wb.classList.add('off'); wb.classList.remove('rdy'); }
+  if(walletLv>=walletMaxLv()){ ws.textContent='MAX'; wb.classList.add('off'); wb.classList.remove('rdy'); }
   else{ ws.textContent='🍬'+walletCost(); const poorW=money<walletCost(); wb.classList.toggle('off',poorW); wb.classList.toggle('rdy',!poorW); }
   const tb=document.getElementById('towerBtn'), ts=document.getElementById('towerSub'), tf=document.getElementById('towerCdFill');
   const ready = towerCd<=0;
@@ -1475,7 +1494,7 @@ function renderUpgrade(){
   const L=document.getElementById('upgList'); L.innerHTML='';
   for(const t of UPG_ORDER){
     const u=UPG[t], lv=upgLv(t), cur=upgVal(t), max=lv>=u.max, cost=upgCost(t);
-    const next = max ? null : u.base + (lv+1)*u.step;
+    const next = max ? null : (u.valFn ? u.valFn(lv+1) : u.base + (lv+1)*u.step);
     const poor = cost!=null && (save.exp||0)<cost;
     const row=document.createElement(max?'div':'button'); row.className='stagecard'+(max?' locked':'');
     row.innerHTML='<div class="no" style="font-size:20px">'+u.icon+'</div>'+
@@ -1650,6 +1669,7 @@ if(typeof globalThis!=='undefined') globalThis.__NYANKO = { CONF, DEFS, ORDER,
   reset, spawn, step, deploy, upgradeWallet, castTower, nearestEnemy, frontUnit, explode, effRate, effCap, walletCost,
   isUnlocked, unlockedUnits, stageUnlocked, newUnit, ATK_ANIM,
   UPG, upgVal, upgCost, upgLv, buyUpgrade, buyUnit, unlockAvailable, stageExp,
+  walletCapTable, walletMaxLv, walletStartLv,
   STAGES, STAGE_BY_ID, setStage(id){ curStage = STAGE_BY_ID[id]||null; },
   get save(){return save;}, get myMaxHP(){return myMaxHP;}, get foeMaxHP(){return foeMaxHP;},
   get world(){return world;}, get money(){return money;}, get php(){return php;}, get ehp(){return ehp;},
