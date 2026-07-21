@@ -9,19 +9,25 @@
 - **キャラ解放**：`buyUnit(k)` が **EXPを消費**。`UNLOCKS[k].need`（クリア済みステージ数）以上で解放可＝**ステージを進めるほど解放できるキャラが増える**（`unlockAvailable`）。コストは `UNLOCKS[k].cost`（EXP）。
 - **サイフ／タワーの恒久強化**：`UPG`（下記）を EXP で1Lvずつ購入（`buyUpgrade` / `renderUpgrade` / ホーム「⚙ 強化」）。`save.upg[track]` にLvを保存。
 
-### 強化トラック `UPG`（`upgVal`=base+Lv*step / `upgCost`=c0×1.55^Lv / 最大Lv=max）
+### サイフ（にゃんこ式の固定テーブル）
 
-| track | 名前 | base | step | max | 効果の接続先 |
-| --- | --- | --- | --- | --- | --- |
-| `wStart` | サイフ 初期最大 | 100 | 35 | 8 | `effCap()` のお財布Lv0上限（**最初期=100**） |
-| `wMax` | サイフ 最大貯金 | 600 | 170 | 8 | `effCap()` のお財布Lvmax上限 |
-| `wRate` | 生産速度 | 20 | 5 | 8 | `effRate()` の基礎🍬/秒 |
-| `tHp` | タワーHP | 1600 | 450 | 8 | 自城HP（`reset` で `php=upgVal('tHp')`、HPバー分母 `myMaxHP`） |
-| `tPow` | タワー攻撃力 | 120 | 55 | 8 | `castTower` の威力 |
-| `tRng` | タワー射程 | 380 | 95 | 6 | `castTower` が届く距離（自城=右 `W` から左へ `tRng`px） |
+にゃんこ大戦争の「働きネコ（お財布）」に寄せた設計＝**財布Lvごとに固定の最大貯金**を持ち、バトル中に🍬を払ってLvを上げる。メタ強化(EXP)は「開始Lv」と「上限Lv」と「生産速度」を伸ばす。
+- **`WALLET_CAPS = [50,100,200,300,400,500]`**：財布Lv0〜5の最大貯金（`effCap()`＝現在Lvのテーブル値）。
+- **`wMax`（最大貯金）メタ**：500の先に上限Lvを +100🍬 ずつ追加（`walletCapTable`／`walletMaxLv`）。
+- **`wStart`（初期Lv）メタ**：バトル開始時の財布Lvを上げる（`reset` で `walletLv=walletStartLv()`）。開始🍬も `CONF.moneyStart + walletLv*40`。
+- **バトル中UP**：`upgradeWallet`（🍬で1Lv上げる）。費用 `walletCost()=今の上限×0.75`（にゃんこ式＝ほぼ貯金を使って上げる）。
+- **`wRate`（生産速度）**：`effRate()=upgVal('wRate')+財布Lv*CONF.walletRateStep`。
 
-- **サイフのバトル中UP**：`upgradeWallet`（🍬で購入）は据え置き。上限は `wStart`→`wMax` を お財布Lv(0..walletMax) で線形補間（`effCap`）。`walletCostBase=80 / step=70`（初期最大100でも1段目を払える額）。
-- 調整はすべて `UPG` の base/step/max/c0、`stageExp`、`CONF.walletMax/walletRateStep/walletCost*` で完結。
+### 強化トラック `UPG`（`upgCost`=c0×1.55^Lv / 最大Lv=max。wStart/wMaxは`valFn`でテーブル値）
+
+| track | 名前 | 値 | max | 効果の接続先 |
+| --- | --- | --- | --- | --- |
+| `wStart` | サイフ 初期Lv | 50/100/200/300/400/500 | 5 | 開始時の財布Lv＝開始上限 |
+| `wMax` | サイフ 最大貯金 | 500,600,700… | 6 | 財布UPの上限Lv（+100ずつ） |
+| `wRate` | 生産速度 | 20+5/Lv | 8 | `effRate()` の基礎🍬/秒 |
+| `tHp` | タワーHP | 1600+450/Lv | 8 | 自城HP（HPバー分母 `myMaxHP`） |
+| `tPow` | タワー攻撃力 | 120+55/Lv | 8 | `castTower` の威力 |
+| `tRng` | タワー射程 | 440+80/Lv | 6 | 届く距離。**開幕チャージ切れ**（`reset` で `towerCd=CONF.towerCd`）。base=中央ちょい自陣寄り(minX≈520)／MAX=敵城の目の前(minX≈40)。**`render` が射程ラインを描画**（ピンクの点線＋💥ラベル） |
 
 ## タワーの派生要素（砲の種類）— **未実装・設計考察**
 
