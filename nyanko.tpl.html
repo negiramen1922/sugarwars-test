@@ -244,7 +244,7 @@ const CONF = {
   atkCdMul: 1.45,        // 全体の攻撃間隔の倍率（大きいほどゆっくり殴る＝せわしなさ解消）
   arrowSize: 70,         // シューの矢の描画サイズ(px)。大きいほど大量に飛ぶ迫力が出る
   castleAtkRange: 60,    // お城への攻撃が届く距離（大きいほど手前で殴れる＝城にめり込まない）
-  spawnInset: 18,        // ユニットの湧き位置（城のふち＝端からの距離）。castleAtkRangeより内側にして
+  spawnInset: 40,        // ユニットの湧き位置（城のふち＝端からの距離）。タワーの後ろに余裕をもたせる。castleAtkRangeより内側にして
                          // 「城に張り付いた敵ユニットの後ろ」に湧かせ、防衛側が張り付き組を最優先で攻撃できるように
   maxUnitsPerSide: 60,   // 片side上限（暴走防止）
   enemyStartCd: 3.6,     // 敵の出撃間隔（開始）
@@ -267,22 +267,23 @@ const CONF = {
    ★タワーの派生要素（スロー砲/毒砲など）は未実装＝設計メモ NYANKO_NOTES.md に考察を記載。
    ============================================================ */
 // 財布Lvごとの最大貯金（にゃんこ式＝固定テーブル）。wMaxメタで上限Lvを追加、wStartメタで開始Lvを上げる。
-const WALLET_CAPS = [50,100,200,300,400,500];
+const WALLET_CAPS = [100,200,300,400,500,600];
 const UPG = {
   // wStart=バトル開始時の財布Lv（＝開始時の🍬上限） / wMax=財布UPの上限Lv（＝最大貯金）
-  wStart:{ name:'サイフ 初期Lv',   icon:'👛', suffix:'🍬',   max:5, c0:120, valFn:(lv)=>WALLET_CAPS[Math.min(lv, WALLET_CAPS.length-1)] },
-  wMax:  { name:'サイフ 最大貯金',  icon:'💰', suffix:'🍬',   max:6, c0:110, valFn:(lv)=>500 + lv*100 },
-  wRate: { name:'生産速度',        icon:'⏱', suffix:'🍬/秒', base:20,   step:5,   max:8, c0:150 }, // 🍬がたまる速さ（基礎）
-  tHp:   { name:'タワーHP',        icon:'🏰', suffix:'',     base:1600, step:450, max:8, c0:100 }, // 自分のお城のHP
-  tPow:  { name:'タワー攻撃力',     icon:'💥', suffix:'',     base:120,  step:55,  max:8, c0:120 }, // タワー攻撃の威力
-  tRng:  { name:'タワー射程',      icon:'📡', suffix:'px',   base:440,  step:80,  max:6, c0:140 }, // 自城(右)から届く距離。base=中央ちょい自陣寄り(minX≈520) / MAX=敵城の目の前(minX≈40)
+  wStart:{ name:'サイフ 初期Lv',   icon:'👛', suffix:'🍬',   max:5, c0:450, valFn:(lv)=>WALLET_CAPS[Math.min(lv, WALLET_CAPS.length-1)] },
+  wMax:  { name:'サイフ 最大貯金',  icon:'💰', suffix:'🍬',   max:6, c0:400, valFn:(lv)=>600 + lv*100 },
+  wRate: { name:'生産速度',        icon:'⏱', suffix:'🍬/秒', base:20,   step:5,   max:8, c0:500 }, // 🍬がたまる速さ（基礎）
+  tHp:   { name:'タワーHP',        icon:'🏰', suffix:'',     base:1600, step:450, max:8, c0:400 }, // 自分のお城のHP
+  tPow:  { name:'タワー攻撃力',     icon:'💥', suffix:'',     base:120,  step:55,  max:8, c0:450 }, // タワー攻撃の威力
+  tRng:  { name:'タワー射程',      icon:'📡', suffix:'px',   base:440,  step:80,  max:6, c0:500 }, // 自城(右)から届く距離。base=中央ちょい自陣寄り(minX≈520) / MAX=敵城の目の前(minX≈40)
 };
 const UPG_GROWTH = 1.55;                                        // EXPコストの逓増率
 function upgLv(t){ return (save.upg && save.upg[t]) || 0; }
 function upgVal(t){ const u=UPG[t]; return u.valFn ? u.valFn(upgLv(t)) : (u.base + upgLv(t)*u.step); }
 function upgCost(t){ const u=UPG[t]; const lv=upgLv(t); return lv>=u.max ? null : Math.round(u.c0 * Math.pow(UPG_GROWTH, lv)); }
 // ステージ報酬EXP（初回は多め・再挑戦は少額。ステージが進むほど増える）
-function stageExp(s, first){ const n=s.id; return first ? Math.round(120 + n*26) : Math.round(20 + n*4); }
+// ★1-2面クリアで計約1500EXP＝クッキータンク(1000)＋少し強化 の塩梅
+function stageExp(s, first){ const n=s.id; return first ? Math.round(600 + n*100) : Math.round(120 + n*20); }
 
 /* --- ユニット定義（本家 UNITS の抜粋＋にゃんこ用の出撃コスト/リチャージ） ---
    role: melee=近接 / ranged=射手 / bomber=自爆
@@ -399,17 +400,17 @@ const REPLAY_COINS = 30;                // 再挑戦クリアの報酬
 // need=解放に必要な「クリア済みステージ数」＝そのステージをクリアすると解禁。
 // ★序盤(〜10面)はクッキー＋この4体だけ。11面以降の順番は仮置き（後で決める）。
 const UNLOCKS = {
-  ctank:      {via:'coin', cost:180,  need:3},    // ★ステージ3クリアで解禁（壁）
-  cwarrior:   {via:'coin', cost:320,  need:5},    // ★ステージ5クリアで解禁（攻撃特化）
-  clance:     {via:'coin', cost:520,  need:8},    // ★ステージ8クリアで解禁（長射程キャリア）
-  choco:      {via:'coin', cost:780,  need:10},   // ★ステージ10クリアで解禁（堅い高火力）
+  ctank:      {via:'coin', cost:1000, need:3},    // ★ステージ3クリアで解禁（壁）
+  cwarrior:   {via:'coin', cost:1800, need:5},    // ★ステージ5クリアで解禁（攻撃特化）
+  clance:     {via:'coin', cost:3000, need:8},    // ★ステージ8クリアで解禁（長射程キャリア）
+  choco:      {via:'coin', cost:4500, need:10},   // ★ステージ10クリアで解禁（堅い高火力）
   // --- 以下は仮ロック（11面以降で解禁予定・順番/コストは後で決める） ---
-  macaron:    {via:'coin', cost:450,  need:13},
-  slime:      {via:'coin', cost:500,  need:16},
-  shoe:       {via:'coin', cost:650,  need:20},
-  icewiz:     {via:'coin', cost:850,  need:24},
-  donut:      {via:'coin', cost:1050, need:28},
-  daifuku:    {via:'coin', cost:1800, need:34},
+  macaron:    {via:'coin', cost:2600, need:13},
+  slime:      {via:'coin', cost:3000, need:16},
+  shoe:       {via:'coin', cost:4200, need:20},
+  icewiz:     {via:'coin', cost:5500, need:24},
+  donut:      {via:'coin', cost:7000, need:28},
+  daifuku:    {via:'coin', cost:11000,need:34},
   partycookie:{via:'gacha'},
   bigslime:   {via:'gacha'},
 };
@@ -718,7 +719,9 @@ function step(dt){
       u.x += u.kbVX*dt;
       u.kbVY += KB_GRAV*dt; u.kbY += u.kbVY*dt;          // 上下は放物線
       if(u.kbY>=0){ u.kbY=0; if(u.kbVY>140){ u.kbVY=-u.kbVY*0.35; } else { u.kbVY=0; } }  // 着地バウンド
-      u.x = Math.max(CONF.castleAtkRange, Math.min(CONF.W-CONF.castleAtkRange, u.x));
+      // 画面内に留めるだけの小さいクランプ（castleAtkRangeで留めると、城際の敵が前へワープして
+      // 攻撃中の味方をすり抜け後ろへ回り込むバグになる）。城の手前まではノックバックしてよい。
+      u.x = Math.max(10, Math.min(CONF.W-10, u.x));
       continue;
     }
     const D = u.U;
