@@ -201,6 +201,9 @@ const SPRITE_DATA = /*__SPRITES__*/ {};
 /* にゃんこ専用スプライト（クッキーナイト＝四角いクッキーの剣士。index.html由来ではないのでここで直接注入）
    1=剣持ち立ち絵(カード用) / body=剣なし本体 / sword=構えの縦剣 / slash=横薙ぎ斬撃エフェクト付き剣 */
 Object.assign(SPRITE_DATA, {
+  'cwarrior_body_blue':'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAEbklEQVR4nO3dvWoUURTA8RNJYeUDBIKQkMInSGMISBp7tfINfAEJliK+gG9gFbe3CUKITRorYcGQgATyAKksAmthzmZ23Duf98y9s+f/q9bddWYye865cz9mVwQAAAAAAAAAAAAAAAAAAKyCtdQHkMLe/sFs2fOnJ8fuzseD1AeAtNZTH8CQNPM/vNxd+vqhyEzEVyWgAjiXfaTHaK/rMr/s8MtZ532U5V5NqADOZX0NsLd/MOvbXldtI0Tffygya7L94v9Zdpw5VwEqgHNZRmabNlvb65C22W+x/S7XFEPJugloou8HnHr7qdEEOEcAOEcAOEcAOEcAOEcAOEcAOJfVwETbSZuxyXFAiArg3CCRGJoqLVvVzC+rG15WQ1QKKoBzphG26m16Xz9+Titfn0xvRMS2ElABnDObDeyyEAOLXjx5dPfowGxRCRXAOQLAuawXhDx9837++Pund6bbt9pH7qgAzmXZDSxnZlGMLK3afqx9VKnr/im6gTBneg2gkatr+OkWNjNE5isqgHMEgHMEgHMEgHMEgHMEgHMEgHOm4wAsCFnUdASwOA0swkggDJlFVowFIas2G9i0ApRNpjdmVYAK4Fz0qKLdD+taAUTs5geiXQTywduyujCkCXCOAHCOAHCOAHCOAHAuWi+A5V+2rLqBVADnok8GFSsBVSAOhoJhxmw6+PTkeI3rgX64MQTmBv2OIK+VoO0kEDeGYDCm3xBite0xqfpGsPsZvnSoAM5FrwCa+a92t+fPHZ1dxN5N9jTz375+HnzPx89fRSRtJaACOBd9RVAx8z1qkvlKz5VWyBSVwPS+AP3DvHb/uuK+AAzGrAIcnV2Q+T3xRZEwl/X3BK6qy/NfqQ9hjgrgXPQlYXI3BeyNTvhou62DPFXd4pTdP0UFcM707mB9vMq9gaY/+rBMXeazIATm+NGojmLc6VuHBSEwl+QHDOsqQs6VwDLzU/ygJBXAuUEjTjN/8/a68n1X6xsikkcl6JPxSjO/6d89ZCWgAjg3yFxA08zPRYys70LPj56vISrBIKuCU37wqT7MPsqBIGIXDDQBzpmtCn72+GHh2S0RETm/uIy9u7kxZnodrQQ721siRs0CFcC56KuCFzPfXtWdNyL9p1rrBm+Gmsqdn9fIlYAK4FzvKOqS+U2vBa7WN4KDQZr5oR6GDqqIdM/SYvbX7Se0j8n0pnMvaGd7K/jat99/RKR/JaACOJdkUWg5skMVYfP2OtjGN8l8Ec2Qf1WqaSUoLsTQCqfbLe9X/z0JdELaZH9VxluhAjjXuf2wvOrvMl7QZCJFj7mqvW66jT6jmzEzve+1ABXAuSxvDGmTIW0y4P49yxektNlGqnGP2KgAzmVZAaylWHqVKyqAc6OrANrmq1TZPN9vaYHr2K4Jsg+AXD7wkP+OZ2QBQRPgXJLJoDrFrM8t49sqLuuyOEdMBqGXaNm17G6fuogvt+9q7FkfErojqst5YkEIojDNtLp7AFc109tKeZ6oAAAAAA79Bf6G/fXBafT6AAAAAElFTkSuQmCC',
+  'cwarrior_axe_blue':'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGgAAABoCAYAAAAdHLWhAAACqklEQVR4nO3dPVIVQRiF4W8sXYQbMCYgFQiQBGJSdsAOjNiBOzA1xkQNlJiAmA24CIMx+qi6Dc383P55u+e82RQEkzx15vatgWEcR9tSRyefRjOzu98/h9r3Mqc3tW9Avd7b2jdQKpfz5/brzjVdkgTB615QKKe1JAje0OtTXEzOzZdvO9e/fnw3M+4WSRC87jZorpxWkiB43QjqTY4nQfCaF5RKDvVkQYLgNStoXzn++YeeBMFrTtBW5HgSBK+Zs7jScihPcxIED79BW9ucMAmCh90gipzaWyRB8HAbRJETVuusToLg4TfIOz07f/X3cz+tHQyPZmb2MH4ws3KSJAgeVlBYKKp0LsgrJUmC4DUjKFYuWe/+3puZ2b/3hy/+XBukzKwDQbHWynI5YTFJXi5REgSvW0FhU6LWyomVSpQEwduMoLCYqKmnt31bKkuC4G1OkMuJnQzUKiZLguDhvg/KVUxOqaZO48NNdFESBK97QVNywlPp1Gd7U3K88Btkvw8JgtetoKVyUjdXzufry53r44srM9MGNVN3n4NSyVm7RankeBIEr5sN6mVzwiQIXvMblFvO1BblkuNJELxmN6jXzQmTIHjNCdqKHE+C4DUjqJacpafcqeR4EgQPL6j25swttRxPguBhBW1djidB8HBncXQ5sbfQU8vxJAgeZoPocmLlkuNJELzqG9SqnFJ/eUSC4FUT1Kqc0kkQvOJPcZKzLAmCV0yQ5KxLguBlFyQ5+yVB8LIJkpw0SRC85IIkJ20SBC+ZIMnJkwTB21uQ5ORNguCtFiQ5ZZIgeIsFSU7ZJAjebEGSUycJgjcpSHLqJkHwooIkh5EEwXsmSHJYSRC8J0GSw0yC4A0fj08lB5wEwXt6PyjcIMlhJEHwnr1hV+u/vquXkyB4/wGgv/a/8g1m4wAAAABJRU5ErkJggg==',
+  'cwarrior_blue':'data:image/png;base64,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',
   'ctank_blue':'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAEpUlEQVR4nO2dPWgUQRiGv8gJVpaCgRBMUEIkYCFYiAR/glhYKvjT2ga00spSK4W0toZIrAVBiahYBCyEYAiKShAikkZFghAhFudc9iY7u7N787f3vk+VvdztDMd8zzczu/udCCGEEEIIIYQQQgghhBBCCCGkPxmI3YGQnJg8s+XiPK9fPu+b721X7A6QuPTNSM5iivQjAx+cnP/d1iHj/5pmBxoAnEaN1jzyot1VpNdBt0PqRqABwEl6dOahR3zMaLchdSPQAOAkNRqLUJGfesSXoYyQigloAHCSGIV5NC3XVyWVuQENAE5yBuiXXF+VWHMDGgAcDgBwkkkBqOrXCZ0KaABwOAACMzM3KzNzs7G70YEDAJzocwC03K9H//SlK13H79d+iYjI5v6jIuJ/LkADgNOK1TBa5Fdl97e3IrL9PfkyAQ0ATjQD2DLzYrXrePrkcKPb0nN+bGgAcHLziqsHKGKzvv6963hq38/c9+mRr+PTOjpqFaCjVgUibucDNAA4hXOAyyO/RURk+cuaswbVCP+xsSkiItemJry1Ia0hZ+fsV2gAcKxWAeMHBkWktyg15baQbTQZtS8g4nZvgAYAp9I+QJUIu3B8rNZnbd+nn7/KZ1PAdEXw9OT5oP2gAcCptRN4eHCv635EaSMGZfcC3Lh1XURE7t25H6I7NAA6yV8LQOHJ04Wu4yITuLxSSAOAQwPI9l5/yCuPtvieE9AA4NAAGUJEvOl+ALWHoSI+FDQAOBwA4DAFJEaoDSAFDQAODeCYsgc/UoMGAIcG8EzqRqABwKEBApOaEWgAcGiAyCgjhL4VTEEDgEMDRIZzABIVGiAydW5ld1k+hgYAB8oAqghjCmVpYud+BQ0ATiUD5D2O5Rqfbdy8ek5ERO4+bB/HNEEqj7HRAOBAzQEUF4+NiojI/GL72GQC02NcveTvup9liRjihUoGePxmxVc/grZhwmcRZxX5qeR+BQ0AjpUBGPn16TXyfReNpgHAKTTAg2dL3jvgtQ2txsTnj/7X/ans8NlCA4BTaACfRRxDFIrcMPx/fvGTiGyv/1XUls0F6kR3qrlfQQOAwwEADlSlUF39OqZUoKs/L1WYfvunKqHUr6ABwIGqFPrq0e2uY9Okrs5kT1lBVfs6+//10I97V4UGAIeVQh2h1/mrSvZyr8jOX23hVjDxAuQNIS4xRX5Z7tcjfuhv8eonawTeEEKcQQNYoK8uivK9beSXRbxO9v38xRDiDGgDuHw02xT5VXO9DeocLlYKNAA4UAZwVYShKM/7iHgT6twHR0faL9SYG9AA4EAZwBV6lGfxGfFlnBre0/6jggloAHCgDFAUuXWJGfGd3K9RxQQ0ADhQBnC1h55df39tte9k8m0CU7T3Cg0ADpQBXJFnEmWFXk3gMtJt5gI0ADg0gCNUdCkTdKIvcWgAcDgAwOEAAIcDABxOAh3TWWppN2ukOimkAcCBqhQakh2bLokagQYAh3OAQMQwwsLqn/y2M9AA4LBSaCTKjKCwMYOK9NI2cqABwGGl0EQwRqvBDFaftYAGACd35IyNT5SOuiaysrwUpPBSk6ABCCGEEEIA+QdTzd3cazZ1pgAAAABJRU5ErkJggg==',
   'ctank_body_blue':'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAEgklEQVR4nO3dv2oVQRTH8YlE8BUUJGDQ2kKwkuCfxsJWEH2GgFb6BFop5BkMgfSChUTEKmCRxsaQQBC0txIUYhFOZE8ymZ3d+bd7vp8m3Jubu5tlzm9md2d3nQMAAAAAAAAAAAAAAAAAAHOwUHsFcrq1cu8wxfd8/vRhttvpXO0VQF2zaNm+Sr++8C3J9+8cXjv1/TkkAwlg3CRbsK74VJUeSyfDFBOBBDBuEi22lYoPmWIikADGNd1CpfJbrfgQSYSWk4AEMK6pljmVvj5Wy2MDEsC4Jlri1Pv6WC2NDUgA46q2QGuVr7WQBCSAcTSAjNY21t3axnrt1TgTDcC4Kn2Plb5fV//qo8ed119//HLOOffn4g3nXJ2xAAlg3GLJhVmp/Fjnf35xzv3fPiWTgAQwrmgC9LX28aDzevX20iSXo/v8FpEAxhXpa/r2/boitVQVWmo5IbIXoJXcKyABjKMBGEcDMC7rXgD7/cOUPC5AAhjX5HGAufGdEby78qDwmpxEAhhHAmQUmgvw7MVT55xzr1++KbE6pyIBjMuSAIz+z/bu/VbntS8JSuwNkADGNTUGkGPw2c/SFVpOrBpjAhLAuKYSQJSqxNzL8c0HkLOAUvE1kQDGNZkAVtTc/xckgHEkwAihef9TQAIYRwIkNMVEIAGMIwEymkIikADGkQAFSSK0MBNIkADGkQAFMQZAc7IkwPHMFWYGdfiuBfQpcY0gCWBc0gRI9ZSuWL5n+ojaCdRi3y9IAOOSJIBU/sOby533N7f3Uny9l1T+8yf3z/zcq7dHP2slQWzfXxIJYNyoBPBVvpD3N7ePXqd+jl+o8mPXw3clz9A+fOjfcYcQFGP6SGCu+/hK5bfc9wsSwLgiCZBrLDBUq5Vf457BJIBxsx4D7O/mTZqWj/D1RQIYl6SvCR0PEPrI4NixgBwP6LtcvbzQWCC2wqfU9wsSwLikLS50NlC38FR3Ehl7NjA0e7fvkz9i1ax8QQIYN+vnBqaal+8bK+h7/cRe7UsCoLoqzwzSpA9PlQS5n9WnKz+WVL7Q24UjgSimSAJIC7/898eZn9tZ7I7mYxOhVuWH+n5d8aHtUPLpYSSAcUWeFxBq8UJ/ThIhdj9+LL1fP7by+/7/Qj7P8wKQXdYjgbEt3+f74qXO69g5fVrs1bn6fn6+yo/t6/vS/3/KRCABjEt6NvDO0oVTf7+7t59iMcd0RchdtUvLVfE+V5evOOec2zr47ZxLkwQkgHGjWlCo8kXqBNB0IohUyaArXeSueE0SQKRIAhLAuEEtp2/la7mTQPgSYazSFS905WtjkoAEMK7o2UDdknPvHaTaX5bEk+8vNdovgQQwLqpChvb9fQ1NBKnMUufRY89x+KSu9CFjARLAuKauDIqtiJRHxGLI8nInYgkkgHE0AONoAMY1NQYIkT5f1JxP31m+mgcxpTEBCWBc0wnQWsX7nFivCSUCCWBc0bOBIVOp+Fh6rmSu7cbZQERLMiNIC7VwXeliLhUf0tJ2IwGMy1JxsXcKwZEa240EAAAAMOgfRLb4It4hctEAAAAASUVORK5CYII=',
   'ctank_shield_blue':'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADQAAABSCAYAAAAb1fesAAABNElEQVR4nO2cMQrCUBBEJ2KdAwgWWknEE4jY6BFs7D2d5xBPoNiInSBpRDSNhVZfSCAIIYuTdV6VBLL57w9pwpBoMp290GDS9JI7b/1oHWa0w8GyfwcA7E/nWgbvzjcAwDV7AgBW85HJfLS7uet+EwokvQ6A6jv52bkSrOf7TyjwbScCi/Gg0n1W8/8nocCwE5suoO757hKSEDsSYkdC7EiIHQmxIyF2JMSOhNiREDsSYkdC7JR+lyt+sawbq/nuEpIQO6Xv0HpzMH2w1Xz/CTU1mYC7hKLQU3gct79eSyWyuJ87d5fQ5x2y6hFY9xSywnW/CQXUUyBDPQV21FNgR0LsSIgdCbEjIXYkxI6E2JEQOxJiR0LsSIgdCbGjngI7EmJHPQV21FNgJxoko0b/T6GIu4TeN79xjpk0ew4AAAAASUVORK5CYII=',
@@ -259,6 +262,9 @@ const DEFS = {
   // クッキータンク：チョコ盾のチョコナッツクッキー。高HP・低攻撃。射程が短くナイトより前に出る壁（gear:'ctank'＝シールドバッシュ）
   ctank:  {name:'クッキータンク', role:'melee', atk:6, hp:320, speed:56, range:15, cd:1.1, scale:1.02,
            cost:110, rc:5.5, num:1, spr:'ctank', gear:'ctank', body:'ctank_body'},
+  // クッキーウォリアー：斧を斜め担ぎ。攻撃特化＝一撃が重い代わりに攻撃速度が遅い（gear:'axe'＝大振りの振り下ろし）
+  cwarrior:{name:'クッキーウォリアー', role:'melee', atk:72, hp:95, speed:82, range:36, cd:1.7, scale:0.98,
+           cost:130, rc:7.0, num:1, spr:'cwarrior', gear:'axe', body:'cwarrior_body'},
   // 支援：一定間隔でミラーボール→【軍全体】の攻撃UP（クッキーはさらにUP）。1レーン向けに全体化
   partycookie:{name:'パーティークッキー', role:'melee', atk:8, hp:110, speed:100, range:26, cd:0.6, scale:0.86,
            cost:140, rc:8.0, num:1, spr:'cookie_party',
@@ -299,7 +305,7 @@ const DEFS = {
            anim:{walk:['bomb','bomb2'], idle:'bomb', fps:4}},
 };
 // ※ポップコーン(bomb)は「爆発など特殊なものはとりあえずなし」の方針でロスターから除外（DEFSは温存＝将来復活可）
-const ORDER = ['cookie','clance','ctank','macaron','partycookie','slime','bigslime','daifuku','choco','donut','icewiz','shoe'];
+const ORDER = ['cookie','clance','ctank','cwarrior','macaron','partycookie','slime','bigslime','daifuku','choco','donut','icewiz','shoe'];
 
 /* ============================================================
    ゲーム基盤：スターター／ステージ／編成／進行（localStorage保存）
@@ -332,6 +338,7 @@ const REPLAY_COINS = 30;                // 再挑戦クリアの報酬
 const UNLOCKS = {
   clance:     {via:'coin', cost:180},   // クッキーランス（後衛チクチク）
   ctank:      {via:'coin', cost:220},   // クッキータンク（前衛の壁）
+  cwarrior:   {via:'coin', cost:260},   // クッキーウォリアー（攻撃特化・大振り）
   choco:      {via:'coin', cost:200},   // 最初の壁。まず解放したい1体
   macaron:    {via:'coin', cost:280},   // 速い前衛
   slime:      {via:'coin', cost:250},
@@ -841,6 +848,7 @@ function drawGearUnit(u, S, cx, footY, team){
   if(D.gear==='cknight') drawCookieSword(u,S,cx,cyb);
   if(D.gear==='lance')   drawCookieLance(u,S,cx,cyb);
   if(D.gear==='ctank')   drawCookieTank(u,S,cx,cyb);
+  if(D.gear==='axe')     drawCookieAxe(u,S,cx,cyb);
 }
 // クッキーの槍（本家 drawCookieSpear 移植）。待機=上向き／移動=左に倒す／攻撃=左へ突き出す
 const SP_PIVX=0.5, SP_PIVY=0.72;
@@ -867,6 +875,21 @@ function drawCookieLance(u, S, cx, cy){
   }
   ctx.save(); ctx.translate(px,py); ctx.rotate(ang); ctx.imageSmoothingEnabled=false;
   ctx.drawImage(sp, -SP_PIVX*spW, -SP_PIVY*spH, spW, spH); ctx.restore();
+}
+// クッキーウォリアーの斧。待機＝右肩に斜め担ぎ／攻撃＝大きく振りかぶって前方(左＝敵)へ振り下ろす（重い一撃）
+const AXE_PIVX=0.06, AXE_PIVY=0.95;   // 柄の握り（斧スプライトの左下）を回転軸に
+function drawCookieAxe(u, S, cx, cy){
+  const ax = SPRITES['cwarrior_axe_'+(u.side==='p'?'blue':'red')] || SPRITES['cwarrior_axe_blue'];
+  if(!ax || !ax.complete || !ax.naturalWidth) return;
+  const aH=S*1.22, aW=aH*(ax.naturalWidth/ax.naturalHeight);
+  let px=cx+S*0.05, py=cy+S*0.10, th=0.12;                    // 待機：斧を右肩に斜め担ぎ（刃が上・後方）
+  if(u.atkAnim>0){ const a=1-u.atkAnim/ATK_ANIM, j=Math.sin(a*Math.PI);
+    th = 0.12 - 3.1*j;                                         // 振りかぶって前方(左)へ大きく振り下ろす→戻す
+    px = cx+S*0.05 - j*S*0.10;
+    py = cy+S*0.10 + j*S*0.04;
+  }
+  ctx.save(); ctx.translate(px,py); ctx.rotate(th); ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(ax, -AXE_PIVX*aW, -AXE_PIVY*aH, aW, aH); ctx.restore();
 }
 // クッキータンクのチョコ盾。前方(左＝敵)に構え／攻撃＝盾を短く前へ突き出す（シールドバッシュ・突き出しすぎない）
 function drawCookieTank(u, S, cx, cy){
