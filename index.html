@@ -39,8 +39,10 @@
 <meta name="twitter:title" content="SUGAR WARS — お菓子の国の戦争">
 <meta name="twitter:description" content="お菓子の兵士を集めて軍を編成し、リアルタイム自動戦闘で覇権を争う無料ブラウザゲーム。友達と対戦しよう！">
 <meta name="twitter:image" content="https://sugar-wars.com/og-image.png">
-<!-- Google AdSense（サイト確認用。承認後に広告が有効化される。ca-pub-... は運営者の発行ID） -->
+<!-- Google AdSense（サイト確認用。承認後に広告が有効化される。ca-pub-... は運営者の発行ID）
+     ※サイト審査を通過するまで一時的に無効化中。審査をリクエストする直前に下のコメントを外して有効化すること。
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3379544618655910" crossorigin="anonymous"></script>
+-->
 <!-- PWA（ホーム追加・オフライン起動） -->
 <meta name="theme-color" content="#14161f">
 <link rel="manifest" href="manifest.webmanifest">
@@ -324,6 +326,9 @@
   .home-battle .hb-sub{font-size:12px;font-weight:800;opacity:.9;color:#7c3f10}
   /* ナビ：2×2 キャンディタイル（色分けの額＋共通の立体感で統一） */
   .home-nav-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:400px;margin:14px auto 0}
+  .home-links{display:flex;flex-wrap:wrap;justify-content:center;gap:3px 4px;max-width:420px;margin:16px auto 2px;opacity:.85}
+  .home-links a{font-size:11.5px;color:var(--ink);opacity:.72;text-decoration:none;padding:3px 7px;border-radius:4px;white-space:nowrap}
+  .home-links a:hover{opacity:1;text-decoration:underline}
   .home-nav-grid .hn-btn{display:flex;flex-direction:row;align-items:center;gap:11px;cursor:pointer;text-align:left;image-rendering:pixelated;
     background:var(--panel);border:3px solid var(--px-edge);border-radius:4px;padding:11px 12px;color:var(--ink);
     box-shadow:0 5px 0 var(--px-edge);transition:transform .08s ease, filter .12s ease}
@@ -605,6 +610,18 @@
         <button class="hn-btn char" onclick="goRoster()"><span class="hn-ico">🧁</span><span class="hn-tt"><span class="hn-txt">キャラ</span><span class="hn-sub">デッキを編成</span></span></button>
         <button class="hn-btn guide" onclick="openGuide()"><span class="hn-ico">🎓</span><span class="hn-tt"><span class="hn-txt">戦術指南</span><span class="hn-sub">レッスンで解禁</span></span></button>
         <button class="hn-btn rank" onclick="openRanking()"><span class="hn-ico">🏆</span><span class="hn-tt"><span class="hn-txt">ランキング</span><span class="hn-sub">世界と競う</span></span></button>
+      </nav>
+      <!-- サイト内の説明ページへのリンク（回遊性・SEO）。別ファイルのHTMLページ。 -->
+      <nav class="home-links" aria-label="サイト情報">
+        <a href="about.html">ゲーム紹介</a>
+        <a href="guide.html">遊び方</a>
+        <a href="characters.html">キャラ図鑑</a>
+        <a href="strategy.html">攻略ガイド</a>
+        <a href="faq.html">よくある質問</a>
+        <a href="news.html">更新履歴</a>
+        <a href="terms.html">利用規約</a>
+        <a href="privacy.html">プライバシーポリシー</a>
+        <a href="contact.html">お問い合わせ</a>
       </nav>
     </section>
 
