@@ -4,7 +4,7 @@
 
 ## メタ進行（EXP）— 実装済み
 
-- **EXP（`save.exp`）**：ステージクリアで獲得する恒久通貨。`stageExp(s, first)` ＝初回 `300 + id*80` / 再挑戦 `30 + id*10`。決着 `win()` で付与。
+- **EXP（`save.exp`）**：ステージクリアで獲得する恒久通貨。`stageExp(s, first)` ＝初回 `600 + id*100`（1-2面で計約1500）/ 再挑戦 `120 + id*20`。決着 `win()` で付与。
 - **🍬コイン（`save.coins`）**：ガチャ専用（`partycookie`/`bigslime`）に残置。ステージ初回で従来どおり付与。
 - **キャラ解放**：`buyUnit(k)` が **EXPを消費**。`UNLOCKS[k].need`（クリア済みステージ数）以上で解放可＝**ステージを進めるほど解放できるキャラが増える**（`unlockAvailable`）。コストは `UNLOCKS[k].cost`（EXP）。
 - **サイフ／タワーの恒久強化**：`UPG`（下記）を EXP で1Lvずつ購入（`buyUpgrade` / `renderUpgrade` / ホーム「⚙ 強化」）。`save.upg[track]` にLvを保存。
@@ -12,7 +12,7 @@
 ### サイフ（にゃんこ式の固定テーブル）
 
 にゃんこ大戦争の「働きネコ（お財布）」に寄せた設計＝**財布Lvごとに固定の最大貯金**を持ち、バトル中に🍬を払ってLvを上げる。メタ強化(EXP)は「開始Lv」と「上限Lv」と「生産速度」を伸ばす。
-- **`WALLET_CAPS = [50,100,200,300,400,500]`**：財布Lv0〜5の最大貯金（`effCap()`＝現在Lvのテーブル値）。
+- **`WALLET_CAPS = [100,200,300,400,500,600]`**：財布Lv0〜5の最大貯金（最初期＝100・`effCap()`＝現在Lvのテーブル値）。
 - **`wMax`（最大貯金）メタ**：500の先に上限Lvを +100🍬 ずつ追加（`walletCapTable`／`walletMaxLv`）。
 - **`wStart`（初期Lv）メタ**：バトル開始時の財布Lvを上げる（`reset` で `walletLv=walletStartLv()`）。開始🍬も `CONF.moneyStart + walletLv*40`。
 - **バトル中UP**：`upgradeWallet`（🍬で1Lv上げる）。費用 `walletCost()=今の上限×0.75`（にゃんこ式＝ほぼ貯金を使って上げる）。
@@ -53,6 +53,10 @@
 
 > まずはメタ強化（サイフ/タワーの数値）を回して、砲タイプは反応を見てから着手予定。着手時はこの節を仕様の起点にする。
 
+## その他の修正メモ
+- **ノックバックのクランプ**：`kbT>0` 中の座標クランプは `castleAtkRange` ではなく `[10, W-10]`（画面内に留めるだけ）。以前は城際(x<castleAtkRange)の敵がノックバックで前へワープし、攻撃中の味方をすり抜けて後ろに回り込むバグがあった（test.js 12）。
+- **タワー後ろの余裕**：`CONF.spawnInset=40`（湧き位置を端から離す）。さらに広くしたい/スクロールは将来対応（Wを広げる系）。
+
 ## 敵ロスター（カビ軍団）＆ステージ設計
 
 - **`enemySpawn` は `curStage.pools` を使う**（時間経過 `elapsed/ramp` でプールが切り替わる `[[しきい値,[敵…]],…]`）。以前はハードコードでステージ差が出ていなかったのを修正。
@@ -79,7 +83,7 @@
   - 1面はチュートリアル＝超軽量（アオカビだけ・イベントなし）。
 - **イベント発火**：`step()` → `checkStageEvents()` が `ehp/foeMaxHP` を見て、しきい値を下回った瞬間に一度だけ `spawnWave`/`spawnBoss`＋`showEventBanner('⚠ …')`。ボスは `u.boss=true`・`kbCount=3`（滅多にひるまず前進）。
 - **キャラ解禁順（`UNLOCKS[k].need`＝そのステージをクリアで解禁）**：**序盤(〜10面)はクッキー＋4体だけ**＝ctank(3面) / cwarrior(5面) / clance(8面) / choco(10面)。それ以外(macaron/slime/shoe/icewiz/donut/daifuku)は**仮ロック（need13〜34の仮置き・11面以降の順番は後で確定）**。gachaはpartycookie/bigslime。
-- **EXP**：`stageExp(s,first)= first? 120+n*26 : 20+n*4`（後半ほど多い）。
+- **EXP/コスト（塩梅）**：`stageExp= first? 600+n*100 : 120+n*20`（1-2面で計約1500）。解禁コスト＝ctank1000/cwarrior1800/clance3000/choco4500（以降仮）。強化コスト `c0` は 400〜500（1-2面のEXPで数個・少しだけ強化できる）。
 - **タワー（城砲）**：バトル開幕は**チャージ切れ**（`reset` で `towerCd=CONF.towerCd`＝溜まってから初撃）。射程 `UPG.tRng` は **base=中央ちょい自陣寄り(minX≈520)／MAX=敵城の目の前(minX≈40)**（base440・step80・max6＝敵城前まで届く）。
 - **バランス（1〜10面）**：limited roster（クッキー＋順次解禁の4体）でsim検証済み。**泥沼化なし・ボス面(5=中ボス/10=ボス)が時間の山**。ボスは「厚いHP＋高火力の壁」＝base湧きが軽いので必ず対面でき、押し切る本番。難易度は `genStage` の `enemyHP/baseCd/baseCap/events(boss.hp/atk)` で調整。
 
