@@ -209,8 +209,8 @@ const CONF = {
    cost=出撃🍬 / rc=リチャージ秒 / num=1回で出る数 / scale=描画倍率 / spr=スプライト名 */
 const DEFS = {
   // 量産（特殊なし・安い数押し）。槍を横に構えて前へ突き出す
-  cookie: {name:'クッキー',   role:'melee',  atk:14, hp:50,  speed:118, range:26, cd:0.35, scale:0.80,
-           cost:50,  rc:2.0, num:2, spr:'cookie',
+  cookie: {name:'クッキー',   role:'melee',  atk:14, hp:50,  speed:118, range:50, cd:0.35, scale:0.80,
+           cost:50,  rc:2.2, num:1, spr:'cookie',
            gear:'spear', body:'cookie_body', bodyWalk:['cookie_body','cookie_body2'], bodyFps:4},
   // 支援：一定間隔でミラーボール→【軍全体】の攻撃UP（クッキーはさらにUP）。1レーン向けに全体化
   partycookie:{name:'パーティークッキー', role:'melee', atk:8, hp:110, speed:100, range:26, cd:0.6, scale:0.86,
@@ -218,7 +218,7 @@ const DEFS = {
            disco:{cd:5.0, dur:2.5, r:9999, mul:1.3, cookieMul:1.6}},
   // スライム：倒れるとチビ2体に分裂。ぽよんジャンプ移動アニメ
   slime:  {name:'スライム',   role:'melee',  atk:8,  hp:90,  speed:84,  range:26, cd:0.6, scale:0.92,
-           cost:70,  rc:3.2, num:2, spr:'slime', split:{key:'chibi', n:2},
+           cost:70,  rc:3.6, num:1, spr:'slime', split:{key:'chibi', n:2},
            anim:{hop:true, base:'slime', squash:'slime_squash', up:'slime_up', fps:1.5}},
   // 巨大スライム：倒れるとスライム2体→さらにチビ2体に分裂（2段チェーン）
   bigslime:{name:'巨大スライム', role:'melee', atk:14, hp:280, speed:76, range:28, cd:0.7, scale:1.30,
@@ -228,23 +228,23 @@ const DEFS = {
            spr:'slime', anim:{hop:true, base:'slime', squash:'slime_squash', up:'slime_up', fps:1.8}}, // 分裂専用
   // 範囲アタッカー：刀の薙ぎで前方の敵をまとめて斬る（area）。開幕は居合突撃で強く踏み込む
   daifuku:{name:'大福',       role:'melee',  atk:20, hp:170, speed:66,  range:34, cd:0.9, scale:0.98,
-           cost:120, rc:6.5, num:1, spr:'daifuku', gear:'katana', body:'daifuku_body', area:true,
+           cost:120, rc:7.5, num:1, spr:'daifuku', gear:'katana', body:'daifuku_body', area:true,
            charge:{dmg:150, spd:6.0, r:46, windup:0.6}},
   // 壁：高HP・低コスト・速い再出撃で前線を支える（攻撃は弱い盾持ち）
-  choco:  {name:'チョコ',     role:'melee',  atk:8,  hp:340, speed:60,  range:30, cd:1.0, scale:1.05,
-           cost:90,  rc:4.5, num:1, spr:'choco', gear:'sword', body:'choco_body'},
+  choco:  {name:'チョコ',     role:'melee',  atk:8,  hp:340, speed:60,  range:16, cd:1.0, scale:1.05,
+           cost:90,  rc:5.0, num:1, spr:'choco', gear:'sword', body:'choco_body'},
   // ふっとばし妨害：攻撃するたび前方の敵をまとめて吹き飛ばす（area＋毎回ノックバック）
   donut:  {name:'ドーナッツ', role:'melee',  atk:12, hp:460, speed:48,  range:34, cd:1.2,  scale:1.12,
-           cost:210, rc:13.0,num:1, spr:'donut', area:true, kbHit:{every:1, dist:78}},
+           cost:210, rc:14.0,num:1, spr:'donut', area:true, kbHit:{every:1, dist:78}},
   // 速い前衛：手数で押す素早いアタッカー（2体・低コスト）
   macaron:{name:'シェルマカロン', role:'melee', atk:15, hp:85, speed:104, range:26, cd:0.55, scale:0.9,
-           cost:80,  rc:3.5, num:2, spr:'macaron'},
+           cost:80,  rc:2.8, num:1, spr:'macaron'},
   // 後衛の鈍足：氷弾を当てた敵の移動を遅くする（当たり判定は単体・遠距離）
   icewiz: {name:'アイスウィザード', role:'ranged', atk:10, hp:60, speed:56, range:165, cd:1.3, scale:0.9,
-           cost:130, rc:6.0, num:1, spr:'icewiz', slowHit:{mul:0.5, dur:1.4}},
+           cost:130, rc:8.5, num:1, spr:'icewiz', slowHit:{mul:0.5, dur:1.4}},
   // 後衛射手（矢）。歩行2フレーム＋構え（攻撃）／待機ポーズ
   shoe:   {name:'シュー',     role:'ranged', atk:16, hp:46,  speed:56,  range:175, cd:1.0, scale:0.86,
-           cost:90,  rc:4.0, num:1, spr:'shoe_aim', arc:true,
+           cost:90,  rc:4.5, num:1, spr:'shoe_aim', arc:true,
            anim:{walk:['shoe_walk1','shoe_walk2'], atk:'shoe_aim', idle:'shoe_idle', fps:3}},
   // 自爆。歩行2フレーム
   bomb:   {name:'ポップコーン',role:'bomber', atk:0,  hp:55,  speed:132, range:30, cd:1.0, scale:0.86,
@@ -379,7 +379,7 @@ function newUnit(key, side, x, y){
     moving: false, atkAnim: 0, px: x,     // アニメ用（歩行/攻撃/前フレームx）
     kbVX:0, kbVY:0, kbY:0, kbT:0,          // 吹き飛び（ノックバック）の速度・高さ・残り時間
     hitCount:0, slowT:0, slowMul:1,        // ふっとばし用ヒット数・鈍足の残り時間/倍率
-    kbCount:(D.kbCount!=null? D.kbCount : Math.max(2, Math.round(D.hp/130))),   // HPしきい値KBの回数（軽いキャラも最低2回はスタッガー）
+    kbCount:(D.kbCount!=null? D.kbCount : Math.max(4, Math.round(D.hp/70))),   // HPしきい値KBの回数（にゃんこ式に多め＝軽いキャラも最低4回はスタッガー）
     kbSeg:undefined,
   };
 }
