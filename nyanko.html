@@ -258,15 +258,15 @@ const DEFS = {
   cookie: {name:'クッキー',   role:'melee',  atk:14, hp:50,  speed:118, range:50, cd:0.35, scale:0.86,
            cost:50,  rc:2.2, num:1, spr:'cknight',
            gear:'cknight', body:'cknight_body'},   // 四角いクッキーナイト（剣持ち・横薙ぎ攻撃）
-  // クッキーランス：槍持ちの後衛チクチク。射程がナイトより少し長く、ナイトの後ろから突く（gear:'lance'）
-  clance: {name:'クッキーランス', role:'melee', atk:10, hp:45, speed:112, range:60, cd:0.4, scale:0.84,
-           cost:70,  rc:3.0, num:1, spr:'clance', gear:'lance', body:'clance_body'},
+  // クッキーランス：長射程で連続突きの高コスト後衛キャリア。前線の後ろから高DPSを出す（gear:'lance'）
+  clance: {name:'クッキーランス', role:'melee', atk:48, hp:200, speed:90, range:62, cd:0.5, scale:0.84,
+           cost:400, rc:9.2, num:1, spr:'clance', gear:'lance', body:'clance_body'},
   // クッキータンク：チョコ盾のチョコナッツクッキー。高HP・低攻撃。射程が短くナイトより前に出る壁（gear:'ctank'＝シールドバッシュ）
-  ctank:  {name:'クッキータンク', role:'melee', atk:6, hp:320, speed:56, range:15, cd:1.1, scale:1.02,
-           cost:110, rc:5.5, num:1, spr:'ctank', gear:'ctank', body:'ctank_body'},
+  ctank:  {name:'クッキータンク', role:'melee', atk:8, hp:300, speed:56, range:15, cd:1.1, scale:1.02,
+           cost:100, rc:4.0, num:1, spr:'ctank', gear:'ctank', body:'ctank_body'},
   // クッキーウォリアー：斧を斜め担ぎ。攻撃特化＝一撃が重い代わりに攻撃速度が遅い（gear:'axe'＝大振りの振り下ろし）
-  cwarrior:{name:'クッキーウォリアー', role:'melee', atk:72, hp:95, speed:82, range:36, cd:1.7, scale:0.98,
-           cost:130, rc:7.0, num:1, spr:'cwarrior', gear:'axe', body:'cwarrior_body'},
+  cwarrior:{name:'クッキーウォリアー', role:'melee', atk:78, hp:130, speed:82, range:36, cd:1.7, scale:0.98,
+           cost:200, rc:6.0, num:1, spr:'cwarrior', gear:'axe', body:'cwarrior_body'},
   // 支援：一定間隔でミラーボール→【軍全体】の攻撃UP（クッキーはさらにUP）。1レーン向けに全体化
   partycookie:{name:'パーティークッキー', role:'melee', atk:8, hp:110, speed:100, range:26, cd:0.6, scale:0.86,
            cost:140, rc:8.0, num:1, spr:'cookie_party',
@@ -283,12 +283,12 @@ const DEFS = {
            spr:'slime', anim:{hop:true, base:'slime', squash:'slime_squash', up:'slime_up', fps:1.8}}, // 分裂専用
   // 大福サムライ：カウンター型。攻撃までに受けたダメージを次の一撃でまとめて返す（上限＝atk×COUNTER_CAP）。
   // 高HP・攻撃速度が遅い。見た目は SUGAR WARS の「ちょんまげ大福」（daifuku_buff）を流用。
-  daifuku:{name:'大福サムライ', role:'melee', atk:22, hp:340, speed:64, range:34, cd:1.7, scale:1.0,
-           cost:130, rc:8.2, num:1, spr:'daifuku_buff', gear:'katana', body:'daifuku_buff_body',
+  daifuku:{name:'大福サムライ', role:'melee', atk:30, hp:560, speed:60, range:34, cd:1.7, scale:1.0,
+           cost:500, rc:11.0, num:1, spr:'daifuku_buff', gear:'katana', body:'daifuku_buff_body',
            counter:true},
   // チョコナイト：高コストの優秀な前衛。固くて攻撃もそれなりに強い（剣＝クッキーナイト／盾＝クッキータンクを流用）
-  choco:  {name:'チョコナイト', role:'melee', atk:28, hp:400, speed:58, range:18, cd:1.0, scale:1.06,
-           cost:200, rc:6.5, num:1, spr:'choco2', gear:'knight', body:'choco2_body'},
+  choco:  {name:'チョコナイト', role:'melee', atk:40, hp:520, speed:58, range:18, cd:1.0, scale:1.06,
+           cost:400, rc:9.5, num:1, spr:'choco2', gear:'knight', body:'choco2_body'},
   // ふっとばし妨害：攻撃するたび前方の敵をまとめて吹き飛ばす（area＋毎回ノックバック）
   donut:  {name:'ドーナッツ', role:'melee',  atk:12, hp:460, speed:48,  range:34, cd:1.2,  scale:1.12,
            cost:210, rc:14.0,num:1, spr:'donut', area:true, kbHit:{every:1, dist:78}},
