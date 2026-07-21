@@ -136,8 +136,12 @@
   <h1>SUGAR MARCH</h1>
   <div class="sub">お菓子の王国をカビ軍団から守れ！</div>
   <button class="bigbtn" onclick="goSelect()">▶ はじめる</button>
-  <button class="bigbtn" onclick="goCollect()" style="margin-top:12px;background:var(--grape);border-color:#6b2f9e;box-shadow:0 6px 0 #6b2f9e;font-size:16px;padding:13px 26px">🍬 なかま／ガチャ</button>
-  <div class="sub" id="homeProgress" style="margin-top:16px"></div>
+  <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;justify-content:center">
+    <button class="bigbtn" onclick="goCollect()" style="background:var(--grape);border-color:#6b2f9e;box-shadow:0 6px 0 #6b2f9e;font-size:16px;padding:13px 22px">🍬 なかま</button>
+    <button class="bigbtn" onclick="goUpgrade()" style="background:var(--steel);border-color:#1f6f8c;box-shadow:0 6px 0 #1f6f8c;font-size:16px;padding:13px 22px">⚙ 強化</button>
+  </div>
+  <div class="sub" id="homeExp" style="margin-top:14px;font-size:15px">🎓 <b style="color:#3f7fd0">0</b> EXP</div>
+  <div class="sub" id="homeProgress" style="margin-top:8px"></div>
   <button id="testModeBtn" onclick="toggleTestMode()" class="backbtn" style="align-self:center;margin-top:12px;font-size:12px"></button>
   <div style="flex:1"></div>
 </div>
@@ -145,9 +149,17 @@
 <div id="collectScreen" class="screen">
   <button class="backbtn" onclick="goHome()">← ホーム</button>
   <h1>なかま</h1>
-  <div class="sub">🍬 <b id="collectCoins">0</b> キャンディコイン</div>
+  <div class="sub">🎓 <b id="collectExp">0</b> EXP　・　🍬 <b id="collectCoins">0</b> コイン</div>
+  <div class="sub" style="margin-top:-8px">キャラは🎓EXPで解放（ステージを進めるほど解放できるキャラが増える）</div>
   <button class="bigbtn" onclick="doGacha()" id="gachaBtn" style="background:var(--gold);color:#3a2408;border-color:var(--px-edge-gold);box-shadow:0 6px 0 var(--px-edge-gold);font-size:16px;padding:13px 26px;margin-bottom:14px">🎰 ガチャを回す（🍬<span id="gachaCostTxt"></span>）</button>
   <div class="grid" id="collectGrid" style="max-width:560px"></div>
+</div>
+<!-- 強化（EXP：サイフ／タワー） -->
+<div id="upgradeScreen" class="screen">
+  <button class="backbtn" onclick="goHome()">← ホーム</button>
+  <h1>強化</h1>
+  <div class="sub">🎓 <b id="upgExp" style="color:#3f7fd0">0</b> EXP　でサイフとタワーを恒久強化</div>
+  <div class="list" id="upgList" style="max-width:540px"></div>
 </div>
 <!-- ステージ選択 -->
 <div id="selectScreen" class="screen">
@@ -226,9 +238,9 @@ const CONF = {
   groundY: 384,          // 地面のライン（足元がここに乗る）
   rowBand: 36,           // ユニットを縦に散らす幅（重なっても見分けやすいよう・浮かない範囲で）
   castleHP: 1600,        // 両陣営のお城HP
-  moneyStart: 130,       // 開始🍬
-  moneyRate: 24,         // 🍬/秒（お財布Lv0）
-  moneyCap: 300,         // 🍬上限（お財布Lv0）＝低めで早く頭打ち→お財布UPが効く
+  moneyStart: 50,        // 開始🍬（最初期のサイフ上限100より少なめ＝溜める余地を残す）
+  moneyRate: 24,         // 🍬/秒（未使用・生産速度はUPG.wRateで管理）
+  moneyCap: 300,         // 🍬上限（未使用・上限はUPG.wStart/wMaxで管理）
   atkCdMul: 1.45,        // 全体の攻撃間隔の倍率（大きいほどゆっくり殴る＝せわしなさ解消）
   arrowSize: 70,         // シューの矢の描画サイズ(px)。大きいほど大量に飛ぶ迫力が出る
   castleAtkRange: 60,    // お城への攻撃が届く距離（大きいほど手前で殴れる＝城にめり込まない）
@@ -238,17 +250,36 @@ const CONF = {
   enemyStartCd: 3.6,     // 敵の出撃間隔（開始）
   enemyMinCd: 1.5,       // 敵の出撃間隔（最短）
   enemyRampSec: 70,      // この秒数かけて最短まで詰める
-  // お財布レベルアップ
-  walletMax: 6,          // 最大Lv
-  walletRateStep: 10,    // 1Lvごとの🍬/秒アップ
-  walletCapStep: 160,    // 1Lvごとの上限アップ（Lv0=300 → 最大 300+6*160=1260）
-  walletCostBase: 130,   // Lv1→2のコスト
-  walletCostStep: 90,    // 以降1Lvごとの追加コスト
-  // タワー攻撃スキル（右下ボタン＝自分の城から放つ一撃）
-  towerDmg: 120,         // 敵ユニットへのダメージ
+  // お財布レベルアップ（バトル中に🍬を払って上限を上げる。上限の下限=UPG.wStart／上限の最大=UPG.wMax）
+  walletMax: 6,          // 最大Lv（Lv0=初期最大 → Lvmax=最大貯金 まで補間）
+  walletRateStep: 8,     // バトル中お財布Lv1ごとの🍬/秒アップ（基礎生産はUPG.wRate）
+  walletCostBase: 80,    // Lv0→1のコスト（初期最大100でも払える額に）
+  walletCostStep: 70,    // 以降1Lvごとの追加コスト
+  // タワー攻撃スキル（右下ボタン＝自分の城から放つ一撃。威力/射程はUPG.tPow/tRng・城HPはUPG.tHp）
   towerKB: 70,           // 敵を自陣（左）へ押し戻す距離
   towerCd: 12,           // クールダウン秒
 };
+
+/* ============================================================
+   メタ強化（EXP）: ステージクリアでEXPを稼ぎ、サイフ/タワーの基礎値を恒久強化。
+   にゃんこ準拠＝「にゃんこ経験値でお財布・城・にゃんこ砲を強化」のイメージ。
+   各トラック: base=Lv0の値 / step=1Lvごとの増分 / max=最大Lv / c0=Lv0→1のEXPコスト（以降1.55倍で逓増）。
+   ★タワーの派生要素（スロー砲/毒砲など）は未実装＝設計メモ NYANKO_NOTES.md に考察を記載。
+   ============================================================ */
+const UPG = {
+  wStart:{ name:'サイフ 初期最大',  icon:'👛', suffix:'🍬',   base:100,  step:35,  max:8, c0:120 }, // バトル開始時の🍬上限（最初期=100）
+  wMax:  { name:'サイフ 最大貯金',  icon:'💰', suffix:'🍬',   base:600,  step:170, max:8, c0:110 }, // お財布UP最大時の🍬上限
+  wRate: { name:'生産速度',        icon:'⏱', suffix:'🍬/秒', base:20,   step:5,   max:8, c0:150 }, // 🍬がたまる速さ（基礎）
+  tHp:   { name:'タワーHP',        icon:'🏰', suffix:'',     base:1600, step:450, max:8, c0:100 }, // 自分のお城のHP
+  tPow:  { name:'タワー攻撃力',     icon:'💥', suffix:'',     base:120,  step:55,  max:8, c0:120 }, // タワー攻撃の威力
+  tRng:  { name:'タワー射程',      icon:'📡', suffix:'px',   base:380,  step:95,  max:6, c0:140 }, // 自城(右)からタワー攻撃が届く距離
+};
+const UPG_GROWTH = 1.55;                                        // EXPコストの逓増率
+function upgLv(t){ return (save.upg && save.upg[t]) || 0; }
+function upgVal(t){ const u=UPG[t]; return u.base + upgLv(t)*u.step; }
+function upgCost(t){ const u=UPG[t]; const lv=upgLv(t); return lv>=u.max ? null : Math.round(u.c0 * Math.pow(UPG_GROWTH, lv)); }
+// ステージ報酬EXP（初回は多め・再挑戦は少額）
+function stageExp(s, first){ return first ? 300 + s.id*80 : 30 + s.id*10; }
 
 /* --- ユニット定義（本家 UNITS の抜粋＋にゃんこ用の出撃コスト/リチャージ） ---
    role: melee=近接 / ranged=射手 / bomber=自爆
@@ -337,18 +368,19 @@ const STAGES = [
 ];
 const STAGE_BY_ID = Object.fromEntries(STAGES.map(s=>[s.id,s]));
 const REPLAY_COINS = 30;                // 再挑戦クリアの報酬
-// キャラ解放：coin=🍬で購入 / gacha=ガチャ限定（コインでは買えない）
+// キャラ解放：coin=EXPで購入（costはEXP・needステージ数クリアで解放可） / gacha=ガチャ限定（🍬コイン）
+// need=解放に必要な「クリア済みステージ数」＝ステージを進めるほど解放できるキャラが増える
 const UNLOCKS = {
-  clance:     {via:'coin', cost:180},   // クッキーランス（後衛チクチク）
-  ctank:      {via:'coin', cost:220},   // クッキータンク（前衛の壁）
-  cwarrior:   {via:'coin', cost:260},   // クッキーウォリアー（攻撃特化・大振り）
-  choco:      {via:'coin', cost:200},   // 最初の壁。まず解放したい1体
-  macaron:    {via:'coin', cost:280},   // 速い前衛
-  slime:      {via:'coin', cost:250},
-  shoe:       {via:'coin', cost:400},
-  icewiz:     {via:'coin', cost:600},   // 鈍足の後衛
-  daifuku:    {via:'coin', cost:550},
-  donut:      {via:'coin', cost:750},
+  ctank:      {via:'coin', cost:220,  need:1},   // クッキータンク（前衛の壁）
+  macaron:    {via:'coin', cost:280,  need:1},   // 速い前衛
+  slime:      {via:'coin', cost:250,  need:1},
+  cwarrior:   {via:'coin', cost:360,  need:2},   // クッキーウォリアー（攻撃特化・大振り）
+  shoe:       {via:'coin', cost:400,  need:2},
+  icewiz:     {via:'coin', cost:600,  need:3},   // 鈍足の後衛
+  donut:      {via:'coin', cost:750,  need:3},
+  clance:     {via:'coin', cost:900,  need:4},   // クッキーランス（長射程キャリア）
+  choco:      {via:'coin', cost:900,  need:4},   // チョコナイト（堅い高火力）
+  daifuku:    {via:'coin', cost:1200, need:5},   // 大福サムライ（最上位カウンター）
   partycookie:{via:'gacha'},
   bigslime:   {via:'gacha'},
 };
@@ -402,21 +434,25 @@ function attrBadgeHTML(key){ if(!ATTR_ON) return ''; const a=UNIT_ATTR[key]; if(
 
 /* --- 状態 --- */
 let world, money, php, ehp, cd, enemyCd, elapsed, running, lastT, walletLv, towerCd, hintT;
+let myMaxHP=1600, foeMaxHP=1600;   // 自城/敵城の最大HP（HPバーの分母。myMaxHP=UPG.tHp）
 let curStage=null, myLoadout=STARTERS.slice(0,LOADOUT_MAX);   // 現在のステージ／編成
 
-function effRate(){ return CONF.moneyRate + walletLv*CONF.walletRateStep; }
-function effCap(){ return CONF.moneyCap + walletLv*CONF.walletCapStep; }
+function effRate(){ return upgVal('wRate') + walletLv*CONF.walletRateStep; }   // 基礎生産(UPG)＋バトル中お財布Lv
+// 🍬上限：バトル中お財布Lv0=初期最大(wStart) → Lvmax=最大貯金(wMax) を線形補間
+function effCap(){ const s=upgVal('wStart'), m=upgVal('wMax'); return Math.round(s + (m-s)*(walletLv/CONF.walletMax)); }
 function walletCost(){ return CONF.walletCostBase + walletLv*CONF.walletCostStep; }
 
 function reset(){
   world = { units:[], shots:[], parts:[], slashes:[], pops:[], nextId:1, shake:0 };
-  money = CONF.moneyStart;
-  php = CONF.castleHP;
-  ehp = curStage ? curStage.enemyHP : CONF.castleHP;   // 敵城HPはステージ難易度
+  walletLv = 0;
+  myMaxHP = upgVal('tHp');                              // 自城HP＝メタ強化
+  php = myMaxHP;
+  foeMaxHP = curStage ? curStage.enemyHP : myMaxHP;
+  ehp = foeMaxHP;                                       // 敵城HPはステージ難易度
+  money = Math.min(CONF.moneyStart, effCap());          // 開始🍬（初期最大を超えない）
   cd = {}; for(const k of ORDER) cd[k]=0;
   enemyCd = 1.2;
   elapsed = 0;
-  walletLv = 0;
   towerCd = 0;              // タワー攻撃：最初から撃てる
   if(TEST_MODE){ walletLv = CONF.walletMax; money = effCap(); }   // テスト：お財布MAX＋所持金満タンで即出撃し放題
   running = true;
@@ -795,14 +831,16 @@ function upgradeWallet(){
 function castTower(){
   if(!running || towerCd>0) return;
   towerCd = CONF.towerCd;
+  const pow = upgVal('tPow');                 // 威力（メタ強化）
+  const minX = CONF.W - upgVal('tRng');       // 自城(右)から射程ぶん左まで届く
   for(const o of world.units){
-    if(o.side!=='e' || o.dead) continue;
-    hurt(o, CONF.towerDmg);
+    if(o.side!=='e' || o.dead || o.x < minX) continue;   // 射程外はスルー
+    hurt(o, pow);
     applyKnock(o, CONF.W, CONF.towerKB);   // 自城(右)から左へパーンと吹き飛ばす
     for(let i=0;i<4;i++){ const a=Math.random()*6.28, s=30+Math.random()*90;
       world.parts.push({x:o.x,y:o.y-10,vx:Math.cos(a)*s,vy:-Math.random()*90,life:0.4,max:0.4,c:'#ffe9a8',r:2+Math.random()*2}); }
   }
-  world.beam = { t:0, dur:0.35 };   // 右→左へ走るビーム演出
+  world.beam = { t:0, dur:0.35, reach:minX };   // 右→左へ走るビーム演出（射程まで）
   SFX_tower();
 }
 
@@ -1242,7 +1280,8 @@ function drawBeam(){
   const bm = world.beam; if(!bm) return;
   const W=CONF.W, H=CONF.H, g=CONF.groundY;
   const k = bm.t/bm.dur;                 // 0→1
-  const headX = W - k*W;                 // 右から左へ
+  const reach = bm.reach!=null ? bm.reach : 0;
+  const headX = W - k*(W - reach);       // 右から射程ぶん左へ
   ctx.save();
   // うっすら全域フラッシュ
   ctx.globalAlpha = 0.25*(1-k);
@@ -1264,7 +1303,7 @@ function hud(){
   mt.style.color = capped ? '#ff8f5a' : '';             // 上限中はオレンジで警告
   document.getElementById('rateTxt').textContent = effRate();
   document.getElementById('capTxt').textContent = effCap();
-  const pv=Math.max(0,php/CONF.castleHP), ev=Math.max(0,ehp/CONF.castleHP);
+  const pv=Math.max(0,php/myMaxHP), ev=Math.max(0,ehp/foeMaxHP);
   document.getElementById('php').style.width=(pv*100)+'%';
   document.getElementById('ehp').style.width=(ev*100)+'%';
   document.getElementById('phpTxt').textContent=Math.max(0,Math.ceil(php));
@@ -1308,11 +1347,14 @@ function win(youWon){
   if(youWon){
     const s=curStage, first=!save.cleared.includes(s.id);
     const reward = first ? s.coins : REPLAY_COINS;
+    const exp = stageExp(s, first);
     save.coins += reward;
+    save.exp = (save.exp||0) + exp;
     if(first) save.cleared.push(s.id);
     saveGame();
     T.textContent='🎉 ステージクリア！';
-    P.innerHTML='🍬 <b style="color:#ffdf6b">+'+reward+'</b> キャンディコイン'+(first?'（初クリア）':'')+'<br>所持：🍬'+save.coins;
+    P.innerHTML='🎓 <b style="color:#6fb7ff">+'+exp+'</b> EXP　／　🍬 <b style="color:#ffdf6b">+'+reward+'</b> コイン'+(first?'（初クリア）':'')
+      +'<br>所持：🎓'+(save.exp)+' EXP・🍬'+save.coins;
     const next=STAGE_BY_ID[s.id+1];
     if(next && save.cleared.includes(s.id)) addBtn('▶ 次のステージへ',()=>{ closeOver(); openLoadout(next); });
     addBtn('🎒 編成にもどる',()=>{ closeOver(); openLoadout(s); }, true);
@@ -1332,8 +1374,9 @@ function closeOver(){ document.getElementById('overlay').style.display='none'; }
 
 /* ============================================================ ゲーム基盤：保存・画面遷移・編成・解放・ガチャ ============================================================ */
 const SAVE_KEY='sm_save_v1';
-let save={ coins:0, cleared:[], units:[] };   // units=解放したキャラ（スターターは含めない）
-function loadGame(){ try{ const j=JSON.parse(localStorage.getItem(SAVE_KEY)); if(j) save=Object.assign(save,j); }catch(e){} }
+let save={ coins:0, exp:0, cleared:[], units:[], upg:{} };   // exp=メタ強化用 / upg=強化Lv / units=解放したキャラ
+function loadGame(){ try{ const j=JSON.parse(localStorage.getItem(SAVE_KEY)); if(j) save=Object.assign(save,j); }catch(e){}
+  if(save.exp==null) save.exp=0; if(!save.upg) save.upg={}; }
 function saveGame(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(save)); }catch(e){} }
 /* --- テストモード：全キャラ・全ステージ解放＋バトルはお金MAXスタート（保存しない・URL ?test でも有効） --- */
 let TEST_MODE = false;
@@ -1352,13 +1395,41 @@ function isUnlocked(k){ return TEST_MODE || STARTERS.includes(k) || save.units.i
 function stageUnlocked(id){ return TEST_MODE || id===1 || save.cleared.includes(id-1); }
 
 // 画面遷移
-const SCREENS=['homeScreen','selectScreen','loadoutScreen','collectScreen'];
+const SCREENS=['homeScreen','selectScreen','loadoutScreen','collectScreen','upgradeScreen'];
 function showScreen(id){ running=false; for(const s of SCREENS){ document.getElementById(s).classList.toggle('on', s===id); } }
 function hideScreens(){ for(const s of SCREENS) document.getElementById(s).classList.remove('on'); }
 function goHome(){ document.getElementById('overlay').style.display='none'; clearTut(); showScreen('homeScreen');
+  document.getElementById('homeExp').innerHTML='🎓 <b style="color:#3f7fd0">'+(save.exp||0)+'</b> EXP';
   document.getElementById('homeProgress').textContent='クリア '+save.cleared.length+' / '+STAGES.length+' ステージ ・ なかま '+unlockedUnits().length+' / '+ORDER.length; }
 function goSelect(){ showScreen('selectScreen'); renderStages(); }
 function goCollect(){ showScreen('collectScreen'); renderCollect(); }
+
+// 強化（EXP：サイフ／タワー）
+const UPG_ORDER = ['wStart','wMax','wRate','tHp','tPow','tRng'];
+function goUpgrade(){ showScreen('upgradeScreen'); renderUpgrade(); }
+function renderUpgrade(){
+  document.getElementById('upgExp').textContent=(save.exp||0);
+  const L=document.getElementById('upgList'); L.innerHTML='';
+  for(const t of UPG_ORDER){
+    const u=UPG[t], lv=upgLv(t), cur=upgVal(t), max=lv>=u.max, cost=upgCost(t);
+    const next = max ? null : u.base + (lv+1)*u.step;
+    const poor = cost!=null && (save.exp||0)<cost;
+    const row=document.createElement(max?'div':'button'); row.className='stagecard'+(max?' locked':'');
+    row.innerHTML='<div class="no" style="font-size:20px">'+u.icon+'</div>'+
+      '<div style="flex:1"><div class="nm">'+u.name+' <span style="color:var(--muted);font-weight:700">Lv'+lv+'/'+u.max+'</span></div>'+
+      '<div class="meta">'+cur+u.suffix+(max?'（MAX）':' → <b style="color:#3f7fd0">'+next+u.suffix+'</b>')+'</div></div>'+
+      (max?'<div class="clr" style="font-size:14px;color:var(--brass)">MAX</div>'
+          :'<div class="co" style="margin-left:auto;color:'+(poor?'var(--muted)':'#3f7fd0')+'">🎓'+cost+'</div>');
+    if(!max) row.onclick=()=>buyUpgrade(t);
+    L.appendChild(row);
+  }
+}
+function buyUpgrade(t){
+  const cost=upgCost(t); if(cost==null){ return; }
+  if((save.exp||0)<cost){ toast('EXPが足りない！'); return; }
+  save.exp-=cost; save.upg[t]=upgLv(t)+1; saveGame(); SFX_deploy();
+  toast(UPG[t].name+' Lv'+upgLv(t)+'！'); renderUpgrade();
+}
 
 // ステージ選択
 function renderStages(){
@@ -1402,27 +1473,33 @@ function startBattle(){ hideScreens(); document.getElementById('overlay').style.
   else { clearTut(); showHint('🍬を貯めて下のボタンでなかまを出撃！ 左の敵のお城を落とそう（右＝自分）'); } }
 
 // なかま（解放＆ガチャ）
+function unlockAvailable(k){ const info=UNLOCKS[k]; return !!(info && info.via==='coin' && save.cleared.length >= (info.need||0)); }
 function renderCollect(){
+  document.getElementById('collectExp').textContent=(save.exp||0);
   document.getElementById('collectCoins').textContent=save.coins;
   document.getElementById('gachaCostTxt').textContent=GACHA_COST;
   document.getElementById('gachaBtn').classList.toggle('off', save.coins<GACHA_COST);
   const G=document.getElementById('collectGrid'); G.innerHTML='';
   for(const k of ORDER){
     const D=DEFS[k], owned=isUnlocked(k), info=UNLOCKS[k];
+    const avail = unlockAvailable(k), poor=(save.exp||0)<(info&&info.cost||0);
     const b=document.createElement('button'); b.className='ucard'+(owned?' sel':'');
     let foot;
     if(owned) foot='<div class="co" style="color:var(--brass)">✓解放済</div>';
     else if(!info) foot='<div class="co">—</div>';
     else if(info.via==='gacha') foot='<div class="co" style="color:var(--grape)">🎰ガチャ限定</div>';
-    else foot='<div class="co">🍬'+info.cost+'</div>';
+    else if(!avail) foot='<div class="co" style="color:var(--muted)">🔒'+info.need+'面クリアで</div>';
+    else foot='<div class="co" style="color:'+(poor?'var(--muted)':'#3f7fd0')+'">🎓'+info.cost+' EXP</div>';
+    if(!owned && info && info.via==='coin' && !avail) b.style.filter='grayscale(.5) brightness(.9)';
     b.innerHTML=attrBadgeHTML(k)+'<img src="'+(SPRITE_DATA[D.spr+'_blue']||'')+'"><div class="nm">'+D.name+'</div>'+foot;
     if(!owned && info && info.via==='coin') b.onclick=()=>buyUnit(k);
     G.appendChild(b);
   }
 }
 function buyUnit(k){ const info=UNLOCKS[k]; if(!info||info.via!=='coin'||isUnlocked(k)) return;
-  if(save.coins<info.cost){ toast('🍬が足りない！'); return; }
-  save.coins-=info.cost; save.units.push(k); saveGame(); SFX_win(); toast(DEFS[k].name+' を解放！'); renderCollect(); }
+  if(!unlockAvailable(k)){ toast('ステージを'+info.need+'つクリアすると解放できるよ'); return; }
+  if((save.exp||0)<info.cost){ toast('EXPが足りない！'); return; }
+  save.exp-=info.cost; save.units.push(k); saveGame(); SFX_win(); toast(DEFS[k].name+' を解放！'); renderCollect(); }
 function doGacha(){
   if(save.coins<GACHA_COST){ toast('🍬が足りない！'); return; }
   save.coins-=GACHA_COST;
@@ -1509,8 +1586,10 @@ requestAnimationFrame(loop);
 if(typeof globalThis!=='undefined') globalThis.__NYANKO = { CONF, DEFS, ORDER,
   reset, spawn, step, deploy, upgradeWallet, castTower, nearestEnemy, frontUnit, explode, effRate, effCap, walletCost,
   isUnlocked, unlockedUnits, stageUnlocked, newUnit, ATK_ANIM,
+  UPG, upgVal, upgCost, upgLv, buyUpgrade, buyUnit, unlockAvailable, stageExp,
+  get save(){return save;}, get myMaxHP(){return myMaxHP;},
   get world(){return world;}, get money(){return money;}, get php(){return php;}, get ehp(){return ehp;},
-  get walletLv(){return walletLv;}, get towerCd(){return towerCd;},
+  get walletLv(){return walletLv;}, set walletLv(v){walletLv=v;}, get towerCd(){return towerCd;},
   get testMode(){return TEST_MODE;}, set testMode(v){TEST_MODE=!!v;},
   set money(v){money=v;}, set php(v){php=v;}, set ehp(v){ehp=v;} };
 </script>
