@@ -112,6 +112,7 @@
   <button class="bigbtn" onclick="goSelect()">▶ はじめる</button>
   <button class="bigbtn" onclick="goCollect()" style="margin-top:10px;background:linear-gradient(90deg,#7b5cff,#a94bff);font-size:16px;padding:12px 26px">🍬 なかま／ガチャ</button>
   <div class="sub" id="homeProgress" style="margin-top:14px"></div>
+  <button id="testModeBtn" onclick="toggleTestMode()" style="margin-top:10px;background:#2b2440;color:#cbb8ff;border:1px solid #5a4b8c;border-radius:10px;font-size:13px;padding:8px 16px;cursor:pointer"></button>
   <div style="flex:1"></div>
 </div>
 <!-- なかま（解放＆ガチャ） -->
@@ -359,6 +360,7 @@ function reset(){
   elapsed = 0;
   walletLv = 0;
   towerCd = 0;              // タワー攻撃：最初から撃てる
+  if(TEST_MODE){ walletLv = CONF.walletMax; money = effCap(); }   // テスト：お財布MAX＋所持金満タンで即出撃し放題
   running = true;
 }
 
@@ -1159,9 +1161,20 @@ const SAVE_KEY='sm_save_v1';
 let save={ coins:0, cleared:[], units:[] };   // units=解放したキャラ（スターターは含めない）
 function loadGame(){ try{ const j=JSON.parse(localStorage.getItem(SAVE_KEY)); if(j) save=Object.assign(save,j); }catch(e){} }
 function saveGame(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(save)); }catch(e){} }
-function unlockedUnits(){ return ORDER.filter(k=> STARTERS.includes(k) || save.units.includes(k)); }
-function isUnlocked(k){ return STARTERS.includes(k) || save.units.includes(k); }
-function stageUnlocked(id){ return id===1 || save.cleared.includes(id-1); }
+/* --- テストモード：全キャラ・全ステージ解放＋バトルはお金MAXスタート（保存しない・URL ?test でも有効） --- */
+let TEST_MODE = false;
+try{ if(typeof location!=='undefined' && /[?&](test|dev)\b/.test(location.search)) TEST_MODE=true; }catch(e){}
+function renderTestBtn(){ const b=document.getElementById('testModeBtn'); if(!b) return;
+  b.textContent = TEST_MODE ? '🧪 テストモード：ON（全キャラ・全ステージ・お金MAX）' : '🧪 テストモード：OFF';
+  b.style.background = TEST_MODE ? '#4a2b52' : '#2b2440';
+  b.style.color = TEST_MODE ? '#ffb8ee' : '#cbb8ff';
+  b.style.borderColor = TEST_MODE ? '#c46bd6' : '#5a4b8c'; }
+function toggleTestMode(){ TEST_MODE=!TEST_MODE; renderTestBtn(); goHome();
+  toast(TEST_MODE ? '🧪 テストモードON：全キャラ・全ステージが使えます' : 'テストモードOFF'); }
+
+function unlockedUnits(){ return TEST_MODE ? ORDER.slice() : ORDER.filter(k=> STARTERS.includes(k) || save.units.includes(k)); }
+function isUnlocked(k){ return TEST_MODE || STARTERS.includes(k) || save.units.includes(k); }
+function stageUnlocked(id){ return TEST_MODE || id===1 || save.cleared.includes(id-1); }
 
 // 画面遷移
 const SCREENS=['homeScreen','selectScreen','loadoutScreen','collectScreen'];
@@ -1313,14 +1326,17 @@ function SFX_lose(){ [392,330,262].forEach((f,i)=>setTimeout(()=>blip(f,0.24,'sa
 loadGame();
 myLoadout = STARTERS.slice(0, LOADOUT_MAX);
 buildDock(); reset(); running=false;   // world等を初期化（描画がバトル前に走っても落ちないように）
+renderTestBtn();
 goHome();
 requestAnimationFrame(loop);
 
 /* ヘッドレステスト用に主要関数を公開 */
 if(typeof globalThis!=='undefined') globalThis.__NYANKO = { CONF, DEFS, ORDER,
   reset, spawn, step, deploy, upgradeWallet, castTower, nearestEnemy, frontUnit, explode, effRate, effCap, walletCost,
+  isUnlocked, unlockedUnits, stageUnlocked,
   get world(){return world;}, get money(){return money;}, get php(){return php;}, get ehp(){return ehp;},
   get walletLv(){return walletLv;}, get towerCd(){return towerCd;},
+  get testMode(){return TEST_MODE;}, set testMode(v){TEST_MODE=!!v;},
   set money(v){money=v;}, set php(v){php=v;}, set ehp(v){ehp=v;} };
 </script>
 </body>
