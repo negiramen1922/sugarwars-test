@@ -19,6 +19,8 @@ const NEED = [
   'choco_sword_blue','choco_sword_red',     // チョコ：剣
   'choco_shield_blue','choco_shield_red',   // チョコ：盾
   'daifuku_body_blue','daifuku_body_red',   // 大福：本体（武器なし）
+  'daifuku_buff_body_blue','daifuku_buff_body_red',   // ちょんまげ大福：本体（武器なし・サムライ用）
+  'daifuku_buff_blue','daifuku_buff_red',   // ちょんまげ大福：カード用（武器つき立ち絵）
   'daifuku_katana',                          // 大福：刀（陣営共通）
   'daifuku_sheath',                          // 大福：鞘（陣営共通）
   'slime_blue','slime_red',
