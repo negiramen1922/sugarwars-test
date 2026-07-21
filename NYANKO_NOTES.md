@@ -72,8 +72,10 @@
   - `events`：`{at:HP割合, wave:{key,n}}`（大群）/ `{at, boss:{hp,atk,sMul}}`（ボス）。**10面ごとにボス面**（`n%10`）、**5面ごとに中ボス**（`n%5`）。
   - 1面はチュートリアル＝超軽量（アオカビだけ・イベントなし）。
 - **イベント発火**：`step()` → `checkStageEvents()` が `ehp/foeMaxHP` を見て、しきい値を下回った瞬間に一度だけ `spawnWave`/`spawnBoss`＋`showEventBanner('⚠ …')`。ボスは `u.boss=true`・`kbCount=3`（滅多にひるまず前進）。
-- **キャラ解禁順（`UNLOCKS[k].need`＝クリア済みステージ数）**：ctank2 / macaron3 / slime5 / shoe7 / cwarrior9 / icewiz12 / donut16 / choco20 / clance26 / daifuku32。50面を進めるほど新キャラが増える。
+- **キャラ解禁順（`UNLOCKS[k].need`＝そのステージをクリアで解禁）**：**序盤(〜10面)はクッキー＋4体だけ**＝ctank(3面) / cwarrior(5面) / clance(8面) / choco(10面)。それ以外(macaron/slime/shoe/icewiz/donut/daifuku)は**仮ロック（need13〜34の仮置き・11面以降の順番は後で確定）**。gachaはpartycookie/bigslime。
 - **EXP**：`stageExp(s,first)= first? 120+n*26 : 20+n*4`（後半ほど多い）。
+- **タワー（城砲）**：バトル開幕は**チャージ切れ**（`reset` で `towerCd=CONF.towerCd`＝溜まってから初撃）。射程 `UPG.tRng` は **base=中央ちょい自陣寄り(minX≈520)／MAX=敵城の目の前(minX≈40)**（base440・step80・max6＝敵城前まで届く）。
+- **バランス（1〜10面）**：limited roster（クッキー＋順次解禁の4体）でsim検証済み。**泥沼化なし・ボス面(5=中ボス/10=ボス)が時間の山**。ボスは「厚いHP＋高火力の壁」＝base湧きが軽いので必ず対面でき、押し切る本番。難易度は `genStage` の `enemyHP/baseCd/baseCap/events(boss.hp/atk)` で調整。
 
 新ステージ/難易度は `genStage` の式（enemyHP・baseCd・baseCap・events）と `basePool`・`UNLOCKS.need` を触るだけ。個別に上書きしたい面は生成後に `STAGES[i].xxx=…` で調整可（1面がその例）。
 

@@ -272,7 +272,7 @@ const UPG = {
   wRate: { name:'生産速度',        icon:'⏱', suffix:'🍬/秒', base:20,   step:5,   max:8, c0:150 }, // 🍬がたまる速さ（基礎）
   tHp:   { name:'タワーHP',        icon:'🏰', suffix:'',     base:1600, step:450, max:8, c0:100 }, // 自分のお城のHP
   tPow:  { name:'タワー攻撃力',     icon:'💥', suffix:'',     base:120,  step:55,  max:8, c0:120 }, // タワー攻撃の威力
-  tRng:  { name:'タワー射程',      icon:'📡', suffix:'px',   base:380,  step:95,  max:6, c0:140 }, // 自城(右)からタワー攻撃が届く距離
+  tRng:  { name:'タワー射程',      icon:'📡', suffix:'px',   base:440,  step:80,  max:6, c0:140 }, // 自城(右)から届く距離。base=中央ちょい自陣寄り(minX≈520) / MAX=敵城の目の前(minX≈40)
 };
 const UPG_GROWTH = 1.55;                                        // EXPコストの逓増率
 function upgLv(t){ return (save.upg && save.upg[t]) || 0; }
@@ -372,38 +372,41 @@ const REGIONS = [
 function stageName(n){ let r=REGIONS[0]; for(const R of REGIONS){ if(n>=R.a) r=R; } return r.name+' '+(n-r.a+1); }
 function genStage(n){
   const boss = (n%10===0), mini = (n%5===0 && !boss);
-  const enemyHP = Math.round(560 + n*205 + n*n*6);      // 城HP（＝ステージの長さ。sim調整）
-  const baseCd  = Math.max(2.6, 4.7 - n*0.03);          // 基本湧き間隔（軽め）
-  const baseCap = Math.min(20, 6 + Math.floor(n/3.5));  // 同時に湧く敵の数のソフト上限（泥沼化防止）
+  const enemyHP = Math.round(600 + n*210 + n*n*6);      // 城HP（＝ステージの長さ。sim調整）
+  const baseCd  = Math.max(2.3, 4.7 - n*0.08);          // 基本湧き間隔（軽め＝押し込めるので泥沼化しない）
+  const baseCap = Math.min(16, 5 + Math.floor(n/3));    // 同時に湧く敵の数のソフト上限（泥沼化防止）
   const ev=[];
   if(n>=3){                                             // HP割合イベント（大群）
-    ev.push({at:0.66, wave:{key:'m_swarm', n:4+Math.floor(n/7)}, msg:'カビの大群！'});
+    ev.push({at:0.66, wave:{key:'m_swarm', n:4+Math.floor(n/6)}, msg:'カビの大群！'});
     ev.push({at:0.34, wave:{key:heavyKey(n), n:4+Math.floor(n/5)}, msg:'カビの増援！'});
   }
-  if(mini) ev.push({at:0.5,  boss:{hp:Math.round(820+n*130), atk:Math.round(26+n*2.3), sMul:0.85}, msg:'中ボスあらわる！'});
-  if(boss) ev.push({at:0.5,  boss:{hp:Math.round(1400+n*200), atk:Math.round(40+n*3.0), sMul:1.05}, msg:'ボスあらわる！'});
+  // ボスは「厚いHPの壁＋高火力」＝押し切った先の本番。base湧きは軽いので必ず対面できる（泥沼化しない）
+  if(mini) ev.push({at:0.5,  boss:{hp:Math.round(1900+n*320), atk:Math.round(34+n*3.6), sMul:0.92}, msg:'中ボスあらわる！'});
+  if(boss) ev.push({at:0.5,  boss:{hp:Math.round(3600+n*560), atk:Math.round(56+n*5.6), sMul:1.14}, msg:'ボスあらわる！'});
   return { id:n, name:stageName(n)+(boss?'（ボス）':mini?'（中ボス）':''), enemyHP, baseCd, baseCap,
            pool:basePool(n), events:ev, coins:80+n*16, tutorial:(n===1) };
 }
 const STAGES = Array.from({length:STAGE_COUNT}, (_,i)=>genStage(i+1));
 // 1面はチュートリアル＝超軽量（アオカビだけ・イベントなし・湧きゆっくり）
-STAGES[0].baseCd=5.2; STAGES[0].baseCap=4; STAGES[0].events=[]; STAGES[0].pool=['m_swarm']; STAGES[0].enemyHP=560;
+STAGES[0].baseCd=5.2; STAGES[0].baseCap=4; STAGES[0].events=[]; STAGES[0].pool=['m_swarm']; STAGES[0].enemyHP=440;
 const STAGE_BY_ID = Object.fromEntries(STAGES.map(s=>[s.id,s]));
 const REPLAY_COINS = 30;                // 再挑戦クリアの報酬
 // キャラ解放：coin=EXPで購入（costはEXP・needステージ数クリアで解放可） / gacha=ガチャ限定（🍬コイン）
 // need=解放に必要な「クリア済みステージ数」＝ステージを進めるほど解放できるキャラが増える
-// need=解放に必要な「クリア済みステージ数」＝50面ルートに沿って順にキャラが解禁される
+// need=解放に必要な「クリア済みステージ数」＝そのステージをクリアすると解禁。
+// ★序盤(〜10面)はクッキー＋この4体だけ。11面以降の順番は仮置き（後で決める）。
 const UNLOCKS = {
-  ctank:      {via:'coin', cost:220,  need:2},    // 壁（序盤の要）
-  macaron:    {via:'coin', cost:300,  need:3},    // 速い前衛
-  slime:      {via:'coin', cost:280,  need:5},    // 分裂
-  shoe:       {via:'coin', cost:420,  need:7},    // 後衛射手
-  cwarrior:   {via:'coin', cost:520,  need:9},    // 攻撃特化・大振り
-  icewiz:     {via:'coin', cost:700,  need:12},   // 鈍足の後衛
-  donut:      {via:'coin', cost:850,  need:16},   // ふっとばし
-  choco:      {via:'coin', cost:1100, need:20},   // 堅い高火力の前衛
-  clance:     {via:'coin', cost:1300, need:26},   // 長射程キャリア
-  daifuku:    {via:'coin', cost:1700, need:32},   // 最上位カウンター
+  ctank:      {via:'coin', cost:180,  need:3},    // ★ステージ3クリアで解禁（壁）
+  cwarrior:   {via:'coin', cost:320,  need:5},    // ★ステージ5クリアで解禁（攻撃特化）
+  clance:     {via:'coin', cost:520,  need:8},    // ★ステージ8クリアで解禁（長射程キャリア）
+  choco:      {via:'coin', cost:780,  need:10},   // ★ステージ10クリアで解禁（堅い高火力）
+  // --- 以下は仮ロック（11面以降で解禁予定・順番/コストは後で決める） ---
+  macaron:    {via:'coin', cost:450,  need:13},
+  slime:      {via:'coin', cost:500,  need:16},
+  shoe:       {via:'coin', cost:650,  need:20},
+  icewiz:     {via:'coin', cost:850,  need:24},
+  donut:      {via:'coin', cost:1050, need:28},
+  daifuku:    {via:'coin', cost:1800, need:34},
   partycookie:{via:'gacha'},
   bigslime:   {via:'gacha'},
 };
@@ -487,7 +490,7 @@ function reset(){
   cd = {}; for(const k of ORDER) cd[k]=0;
   enemyCd = 1.2;
   elapsed = 0;
-  towerCd = 0;              // タワー攻撃：最初から撃てる
+  towerCd = CONF.towerCd;   // タワー攻撃：最初はチャージ切れ（開幕は撃てない＝溜まってから）
   if(TEST_MODE){ walletLv = CONF.walletMax; money = effCap(); }   // テスト：お財布MAX＋所持金満タンで即出撃し放題
   running = true;
 }
@@ -1650,7 +1653,7 @@ if(typeof globalThis!=='undefined') globalThis.__NYANKO = { CONF, DEFS, ORDER,
   STAGES, STAGE_BY_ID, setStage(id){ curStage = STAGE_BY_ID[id]||null; },
   get save(){return save;}, get myMaxHP(){return myMaxHP;}, get foeMaxHP(){return foeMaxHP;},
   get world(){return world;}, get money(){return money;}, get php(){return php;}, get ehp(){return ehp;},
-  get walletLv(){return walletLv;}, set walletLv(v){walletLv=v;}, get towerCd(){return towerCd;},
+  get walletLv(){return walletLv;}, set walletLv(v){walletLv=v;}, get towerCd(){return towerCd;}, set towerCd(v){towerCd=v;},
   get testMode(){return TEST_MODE;}, set testMode(v){TEST_MODE=!!v;},
   set money(v){money=v;}, set php(v){php=v;}, set ehp(v){ehp=v;} };
 </script>
