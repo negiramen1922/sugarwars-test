@@ -1,0 +1,150 @@
+/* SUGAR WARS — サイト共通スタイル（コンテンツページ用）
+   ゲーム本体(index.html)は独自スタイルなので、このCSSは about/guide/characters などの
+   説明ページだけが読み込む。お菓子テーマのやさしい配色でそろえる。 */
+
+:root{
+  --bg:#f3faf4;
+  --ink:#4f4a44;
+  --ink-soft:#5a6b60;
+  --muted:#93a397;
+  --green:#43bd86;
+  --green-d:#3a8f68;
+  --line:rgba(70,110,90,.14);
+  --card:#fff;
+  --shadow:0 8px 22px rgba(120,180,150,.14);
+  --brass:#e8a53a;
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  background:
+    radial-gradient(1100px 600px at 50% -8%, #d7f3e0 0%, transparent 60%),
+    radial-gradient(820px 520px at 88% 10%, #f6f0cf 0%, transparent 55%),
+    var(--bg);
+  color:var(--ink);
+  font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,-apple-system,sans-serif;
+  line-height:1.85;
+  -webkit-text-size-adjust:100%;
+}
+
+a{color:#2f9e6e}
+
+/* ===== 共通ヘッダーナビ ===== */
+.sitenav{
+  position:sticky;top:0;z-index:20;
+  background:rgba(255,255,255,.86);
+  backdrop-filter:saturate(1.2) blur(8px);
+  border-bottom:1px solid var(--line);
+}
+.sitenav .inner{
+  max-width:940px;margin:0 auto;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:9px 16px;
+}
+.sitenav .brand{
+  font-weight:900;font-size:18px;color:var(--green-d);text-decoration:none;
+  letter-spacing:-.5px;white-space:nowrap;
+}
+.sitenav .links{display:flex;gap:2px;flex-wrap:wrap;margin-left:auto}
+.sitenav .links a{
+  color:var(--ink-soft);text-decoration:none;font-weight:700;font-size:13.5px;
+  padding:6px 10px;border-radius:10px;white-space:nowrap;
+}
+.sitenav .links a:hover{background:#e7f6ec;color:var(--green-d)}
+.sitenav .links a.play{background:var(--green);color:#fff}
+.sitenav .links a.play:hover{background:var(--green-d);color:#fff}
+
+/* ===== レイアウト ===== */
+.wrap{max-width:860px;margin:0 auto;padding:26px 18px 40px}
+.narrow{max-width:760px}
+
+.pagehead{text-align:center;padding:14px 0 6px}
+.pagehead h1{font-size:clamp(26px,5vw,36px);color:var(--green-d);margin:6px 0 6px;letter-spacing:-1px}
+.pagehead .lead{font-size:15.5px;color:var(--ink-soft);font-weight:700;max-width:620px;margin:0 auto}
+
+.crumbs{font-size:12.5px;color:var(--muted);margin:2px 0 14px}
+.crumbs a{color:var(--muted);text-decoration:none}
+.crumbs a:hover{text-decoration:underline}
+
+h2{font-size:21px;color:var(--green);margin:34px 0 10px;border-left:5px solid var(--green);padding-left:11px}
+h3{font-size:17px;color:var(--green-d);margin:22px 0 6px}
+p,li{font-size:15px}
+ul,ol{padding-left:22px}
+li{margin:3px 0}
+b,strong{color:#3f7d5f}
+
+.linkbtn{display:inline-block;margin:10px 8px 4px 0;background:linear-gradient(180deg,#56c598,#43bd86);color:#fff;text-decoration:none;font-weight:800;font-size:16px;padding:12px 28px;border-radius:14px;box-shadow:0 8px 22px rgba(67,189,134,.32)}
+.linkbtn.ghost{background:#fff;color:var(--green-d);border:2px solid var(--green);box-shadow:none}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow);margin:12px 0}
+.cards{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0}
+.cards .card{flex:1 1 240px;margin:0}
+.card h3{margin:0 0 6px}
+
+.note{background:#fff8ec;border:1px solid #f0e3c4;border-radius:12px;padding:12px 16px;font-size:13.5px;margin:16px 0}
+.tip{background:#eaf7f0;border:1px solid #c9ecdb;border-radius:12px;padding:12px 16px;font-size:14px;margin:16px 0}
+
+.steps{counter-reset:s;padding-left:0;list-style:none}
+.steps li{position:relative;padding:8px 0 8px 42px}
+.steps li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:6px;width:27px;height:27px;background:var(--green);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}
+
+/* テーブル */
+.tbl{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px;overflow:hidden;border-radius:12px;box-shadow:var(--shadow)}
+.tbl th,.tbl td{padding:9px 11px;text-align:left;border-bottom:1px solid var(--line)}
+.tbl th{background:#e7f6ec;color:var(--green-d);font-weight:800;white-space:nowrap}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td{background:#fff}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* ===== キャラ図鑑カード ===== */
+.unit{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px 18px;box-shadow:var(--shadow);margin:16px 0;scroll-margin-top:70px}
+.unit .u-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.unit .u-emoji{font-size:34px;line-height:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.12))}
+.unit .u-name{font-size:20px;font-weight:900;color:var(--green-d);margin:0}
+.unit .u-role{font-size:12.5px;color:var(--muted);font-weight:700}
+.badges{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 4px}
+.badge{font-size:12px;font-weight:800;padding:3px 10px;border-radius:999px;background:#e7f6ec;color:var(--green-d)}
+.badge.beta{background:#fbeccf;color:#b07d1a}
+.badge.tank{background:#e6eefb;color:#436bb0}
+.badge.back{background:#f0e8fb;color:#7d54b0}
+.badge.boom{background:#fbe6e6;color:#b04343}
+.stats{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.stat{background:#f5faf6;border:1px solid var(--line);border-radius:10px;padding:5px 11px;font-size:13px;min-width:74px}
+.stat b{display:block;color:var(--green-d);font-size:15px}
+.stat span{color:var(--muted);font-size:11.5px}
+.unit .u-desc{margin:8px 0 0;font-size:14.5px}
+.unit .u-buff{margin:8px 0 0;font-size:13.5px;color:var(--ink-soft);background:#f7fbf8;border-left:3px solid var(--green);padding:8px 12px;border-radius:8px}
+
+/* 目次（キャラ図鑑・FAQ） */
+.toc{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 6px}
+.toc a{font-size:13px;font-weight:700;text-decoration:none;color:var(--green-d);background:#fff;border:1px solid var(--line);padding:6px 11px;border-radius:999px}
+.toc a:hover{background:#e7f6ec}
+
+/* FAQ */
+.qa{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 18px;box-shadow:var(--shadow);margin:12px 0}
+.qa .q{font-weight:800;color:var(--green-d);font-size:15.5px;margin:0 0 6px}
+.qa .a{margin:0;font-size:14.5px}
+
+/* 更新履歴 */
+.rel{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 18px;box-shadow:var(--shadow);margin:14px 0}
+.rel .rv{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.rel .tag{background:var(--green);color:#fff;font-weight:800;font-size:12.5px;padding:2px 10px;border-radius:999px}
+.rel .date{color:var(--muted);font-size:12.5px}
+.rel h3{margin:6px 0 8px;font-size:16px;color:var(--ink)}
+.rel ul{margin:6px 0 0}
+.rel .news-h{display:block;margin:8px 0 2px;color:var(--green-d)}
+
+/* ===== 共通フッター ===== */
+.sitefoot{border-top:1px solid var(--line);background:rgba(255,255,255,.6);margin-top:20px}
+.sitefoot .inner{max-width:940px;margin:0 auto;padding:22px 16px 30px;text-align:center}
+.sitefoot .fl{display:flex;flex-wrap:wrap;gap:4px 6px;justify-content:center;margin-bottom:12px}
+.sitefoot .fl a{color:var(--ink-soft);text-decoration:none;font-size:13px;font-weight:700;padding:4px 9px;border-radius:8px}
+.sitefoot .fl a:hover{background:#e7f6ec;color:var(--green-d)}
+.sitefoot .cp{color:var(--muted);font-size:12px}
+
+@media (max-width:560px){
+  .sitenav .brand{font-size:16px}
+  .sitenav .links a{font-size:12.5px;padding:5px 8px}
+}
