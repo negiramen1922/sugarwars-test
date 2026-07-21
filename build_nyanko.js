@@ -27,6 +27,8 @@ const NEED = [
   'daifuku_blue','daifuku_red',
   'choco_blue','choco_red',
   'donut_blue','donut_red',
+  'icewiz_blue','icewiz_red',               // アイスウィザード（鈍足の後衛）
+  'macaron_blue','macaron_red',             // シェルマカロン（速い前衛）
   'shoe_aim_blue','shoe_aim_red',           // シュー：構え（攻撃）
   'shoe_idle_blue','shoe_idle_red',         // シュー：待機
   'shoe_walk1_blue','shoe_walk1_red',       // シュー：歩行1

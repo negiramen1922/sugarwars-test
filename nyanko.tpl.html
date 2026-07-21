@@ -93,6 +93,9 @@
   .ucard.sel{ box-shadow:0 3px 0 #0006, inset 0 0 0 2px #ffd23f; background:#33264a; }
   .ucard .pick{ position:absolute; top:3px; right:5px; width:20px; height:20px; border-radius:50%; background:#ffd23f;
     color:#20152e; font-weight:900; font-size:12px; display:none; align-items:center; justify-content:center; }
+  .abadge{ position:absolute; top:3px; left:5px; min-width:18px; height:18px; padding:0 3px; border-radius:9px;
+    color:#fff; font-weight:900; font-size:11px; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 1px 2px #0007, inset 0 0 0 1px #ffffff55; }
   .ucard.sel .pick{ display:flex; }
   #loadoutBar{ position:sticky; bottom:0; width:100%; max-width:560px; display:flex; align-items:center; gap:10px;
     padding:10px 0; background:linear-gradient(180deg,#12203a00,#12203a); }
@@ -206,8 +209,8 @@ const CONF = {
    cost=出撃🍬 / rc=リチャージ秒 / num=1回で出る数 / scale=描画倍率 / spr=スプライト名 */
 const DEFS = {
   // 量産（特殊なし・安い数押し）。槍を横に構えて前へ突き出す
-  cookie: {name:'クッキー',   role:'melee',  atk:14, hp:50,  speed:118, range:26, cd:0.35, scale:0.80,
-           cost:50,  rc:2.0, num:2, spr:'cookie',
+  cookie: {name:'クッキー',   role:'melee',  atk:14, hp:50,  speed:118, range:50, cd:0.35, scale:0.80,
+           cost:50,  rc:2.2, num:1, spr:'cookie',
            gear:'spear', body:'cookie_body', bodyWalk:['cookie_body','cookie_body2'], bodyFps:4},
   // 支援：一定間隔でミラーボール→【軍全体】の攻撃UP（クッキーはさらにUP）。1レーン向けに全体化
   partycookie:{name:'パーティークッキー', role:'melee', atk:8, hp:110, speed:100, range:26, cd:0.6, scale:0.86,
@@ -215,7 +218,7 @@ const DEFS = {
            disco:{cd:5.0, dur:2.5, r:9999, mul:1.3, cookieMul:1.6}},
   // スライム：倒れるとチビ2体に分裂。ぽよんジャンプ移動アニメ
   slime:  {name:'スライム',   role:'melee',  atk:8,  hp:90,  speed:84,  range:26, cd:0.6, scale:0.92,
-           cost:70,  rc:3.2, num:2, spr:'slime', split:{key:'chibi', n:2},
+           cost:70,  rc:3.6, num:1, spr:'slime', split:{key:'chibi', n:2},
            anim:{hop:true, base:'slime', squash:'slime_squash', up:'slime_up', fps:1.5}},
   // 巨大スライム：倒れるとスライム2体→さらにチビ2体に分裂（2段チェーン）
   bigslime:{name:'巨大スライム', role:'melee', atk:14, hp:280, speed:76, range:28, cd:0.7, scale:1.30,
@@ -225,17 +228,23 @@ const DEFS = {
            spr:'slime', anim:{hop:true, base:'slime', squash:'slime_squash', up:'slime_up', fps:1.8}}, // 分裂専用
   // 範囲アタッカー：刀の薙ぎで前方の敵をまとめて斬る（area）。開幕は居合突撃で強く踏み込む
   daifuku:{name:'大福',       role:'melee',  atk:20, hp:170, speed:66,  range:34, cd:0.9, scale:0.98,
-           cost:120, rc:6.5, num:1, spr:'daifuku', gear:'katana', body:'daifuku_body', area:true,
+           cost:120, rc:7.5, num:1, spr:'daifuku', gear:'katana', body:'daifuku_body', area:true,
            charge:{dmg:150, spd:6.0, r:46, windup:0.6}},
   // 壁：高HP・低コスト・速い再出撃で前線を支える（攻撃は弱い盾持ち）
-  choco:  {name:'チョコ',     role:'melee',  atk:8,  hp:340, speed:60,  range:30, cd:1.0, scale:1.05,
-           cost:90,  rc:4.5, num:1, spr:'choco', gear:'sword', body:'choco_body'},
+  choco:  {name:'チョコ',     role:'melee',  atk:8,  hp:340, speed:60,  range:16, cd:1.0, scale:1.05,
+           cost:90,  rc:5.0, num:1, spr:'choco', gear:'sword', body:'choco_body'},
   // ふっとばし妨害：攻撃するたび前方の敵をまとめて吹き飛ばす（area＋毎回ノックバック）
   donut:  {name:'ドーナッツ', role:'melee',  atk:12, hp:460, speed:48,  range:34, cd:1.2,  scale:1.12,
-           cost:210, rc:13.0,num:1, spr:'donut', area:true, kbHit:{every:1, dist:78}},
+           cost:210, rc:14.0,num:1, spr:'donut', area:true, kbHit:{every:1, dist:78}},
+  // 速い前衛：手数で押す素早いアタッカー（2体・低コスト）
+  macaron:{name:'シェルマカロン', role:'melee', atk:15, hp:85, speed:104, range:26, cd:0.55, scale:0.9,
+           cost:80,  rc:2.8, num:1, spr:'macaron'},
+  // 後衛の鈍足：氷弾を当てた敵の移動を遅くする（当たり判定は単体・遠距離）
+  icewiz: {name:'アイスウィザード', role:'ranged', atk:10, hp:60, speed:56, range:165, cd:1.3, scale:0.9,
+           cost:130, rc:8.5, num:1, spr:'icewiz', slowHit:{mul:0.5, dur:1.4}},
   // 後衛射手（矢）。歩行2フレーム＋構え（攻撃）／待機ポーズ
   shoe:   {name:'シュー',     role:'ranged', atk:16, hp:46,  speed:56,  range:175, cd:1.0, scale:0.86,
-           cost:90,  rc:4.0, num:1, spr:'shoe_aim', arc:true,
+           cost:90,  rc:4.5, num:1, spr:'shoe_aim', arc:true,
            anim:{walk:['shoe_walk1','shoe_walk2'], atk:'shoe_aim', idle:'shoe_idle', fps:3}},
   // 自爆。歩行2フレーム
   bomb:   {name:'ポップコーン',role:'bomber', atk:0,  hp:55,  speed:132, range:30, cd:1.0, scale:0.86,
@@ -243,7 +252,7 @@ const DEFS = {
            anim:{walk:['bomb','bomb2'], idle:'bomb', fps:4}},
 };
 // ※ポップコーン(bomb)は「爆発など特殊なものはとりあえずなし」の方針でロスターから除外（DEFSは温存＝将来復活可）
-const ORDER = ['cookie','partycookie','slime','bigslime','daifuku','choco','donut','shoe'];
+const ORDER = ['cookie','macaron','partycookie','slime','bigslime','daifuku','choco','donut','icewiz','shoe'];
 
 /* ============================================================
    ゲーム基盤：スターター／ステージ／編成／進行（localStorage保存）
@@ -263,14 +272,22 @@ const STAGES = [
     pools:[[0.3,['m_swarm','m_tank','m_puff']],[0.6,['m_swarm','m_tank','m_phage','m_puff']],[1,['m_swarm','m_tank','m_big','m_phage','m_puff']]] },
   { id:5, name:'カビ大帝の巣',     enemyHP:2600, spawnStart:2.6, spawnMin:1.4, ramp:95, coins:400,
     pools:[[0.3,['m_swarm','m_tank','m_phage']],[0.6,['m_swarm','m_tank','m_big','m_puff']],[1,['m_tank','m_big','m_phage','m_puff','m_swarm']]] },
+  { id:6, name:'苦いチョコ沼',     enemyHP:3100, spawnStart:2.5, spawnMin:1.3, ramp:100, coins:480,
+    pools:[[0.3,['m_swarm','m_tank','m_puff']],[0.6,['m_tank','m_phage','m_puff']],[1,['m_tank','m_big','m_phage','m_puff']]] },
+  { id:7, name:'霜のかかった回廊',  enemyHP:3700, spawnStart:2.4, spawnMin:1.2, ramp:105, coins:560,
+    pools:[[0.3,['m_swarm','m_phage','m_phage']],[0.6,['m_tank','m_big','m_phage']],[1,['m_big','m_tank','m_phage','m_puff']]] },
+  { id:8, name:'王国の最深部',      enemyHP:4400, spawnStart:2.3, spawnMin:1.1, ramp:110, coins:700,
+    pools:[[0.3,['m_swarm','m_tank','m_big']],[0.6,['m_tank','m_big','m_phage','m_puff']],[1,['m_big','m_big','m_tank','m_phage','m_puff']]] },
 ];
 const STAGE_BY_ID = Object.fromEntries(STAGES.map(s=>[s.id,s]));
 const REPLAY_COINS = 30;                // 再挑戦クリアの報酬
 // キャラ解放：coin=🍬で購入 / gacha=ガチャ限定（コインでは買えない）
 const UNLOCKS = {
   choco:      {via:'coin', cost:200},   // 最初の壁。まず解放したい1体
+  macaron:    {via:'coin', cost:280},   // 速い前衛
   slime:      {via:'coin', cost:250},
   shoe:       {via:'coin', cost:400},
+  icewiz:     {via:'coin', cost:600},   // 鈍足の後衛
   daifuku:    {via:'coin', cost:550},
   donut:      {via:'coin', cost:750},
   partycookie:{via:'gacha'},
@@ -295,6 +312,35 @@ const FOE_DEFS = {
            blast:120, blastR:64, num:1, mold:'spiky', col:'#a7b86a', col2:'#6f7d3f'}, // 自爆（ポップコーン相当）
 };
 
+/* ============================================================
+   属性（甘・辛・苦）＝三すくみの相性。有利ならダメージUP・不利でもペナルティなし。
+   三すくみ：甘→辛→苦→甘（甘は辛に強い / 辛は苦に強い / 苦は甘に強い）。
+   ============================================================ */
+const ATTR = {
+  sweet:  {name:'甘', color:'#ff8fc4', emoji:'🍬'},
+  spicy:  {name:'辛', color:'#ff5a4a', emoji:'🌶'},
+  bitter: {name:'苦', color:'#b07a4a', emoji:'🍫'},
+};
+const ATTR_STRONG = { sweet:'spicy', spicy:'bitter', bitter:'sweet' };   // 攻撃側→有利な相手の属性
+const ATTR_BONUS = 1.6;                                                  // 有利時のダメージ倍率
+// キャラ/カビの属性割り当て（バランス重視・後で調整可）
+const UNIT_ATTR = {
+  cookie:'sweet', slime:'sweet', donut:'sweet',          // 甘
+  partycookie:'spicy', daifuku:'spicy',                  // 辛
+  bigslime:'bitter', choco:'bitter', shoe:'bitter',      // 苦
+  bomb:'sweet',                                          // （現在ロスター外）
+  m_swarm:'spicy', m_phage:'spicy',                      // カビ：辛
+  m_tank:'bitter',                                       // カビ：苦
+  m_big:'sweet', m_puff:'sweet',                         // カビ：甘
+};
+function attrOf(u){ return UNIT_ATTR[u.key]; }
+/* 属性はとりあえず無効（最初から相性が絡むと難しくなるため）。倍率を常に1・バッジ非表示に。
+   復活させるときは attrMul を三すくみ判定に戻し、attrBadgeHTML/バトル中の色ドットを有効化するだけ。 */
+const ATTR_ON = false;
+function attrMul(atkAttr, tgtAttr){ return (ATTR_ON && atkAttr && ATTR_STRONG[atkAttr]===tgtAttr) ? ATTR_BONUS : 1; }
+function attrBadgeHTML(key){ if(!ATTR_ON) return ''; const a=UNIT_ATTR[key]; if(!a) return ''; const m=ATTR[a];
+  return '<span class="abadge" style="background:'+m.color+'">'+m.name+'</span>'; }
+
 /* --- 状態 --- */
 let world, money, php, ehp, cd, enemyCd, elapsed, running, lastT, walletLv, towerCd, hintT;
 let curStage=null, myLoadout=STARTERS.slice(0,LOADOUT_MAX);   // 現在のステージ／編成
@@ -304,7 +350,7 @@ function effCap(){ return CONF.moneyCap + walletLv*CONF.walletCapStep; }
 function walletCost(){ return CONF.walletCostBase + walletLv*CONF.walletCostStep; }
 
 function reset(){
-  world = { units:[], shots:[], parts:[], slashes:[], nextId:1, shake:0 };
+  world = { units:[], shots:[], parts:[], slashes:[], pops:[], nextId:1, shake:0 };
   money = CONF.moneyStart;
   php = CONF.castleHP;
   ehp = curStage ? curStage.enemyHP : CONF.castleHP;   // 敵城HPはステージ難易度
@@ -333,14 +379,23 @@ function newUnit(key, side, x, y){
     moving: false, atkAnim: 0, px: x,     // アニメ用（歩行/攻撃/前フレームx）
     kbVX:0, kbVY:0, kbY:0, kbT:0,          // 吹き飛び（ノックバック）の速度・高さ・残り時間
     hitCount:0, slowT:0, slowMul:1,        // ふっとばし用ヒット数・鈍足の残り時間/倍率
-    kbCount:(D.kbCount!=null? D.kbCount : Math.max(2, Math.round(D.hp/130))),   // HPしきい値KBの回数（軽いキャラも最低2回はスタッガー）
+    kbCount:(D.kbCount!=null? D.kbCount : Math.max(4, Math.round(D.hp/70))),   // HPしきい値KBの回数（にゃんこ式に多め＝軽いキャラも最低4回はスタッガー）
     kbSeg:undefined,
   };
 }
-/* --- 攻撃1発の適用（ダメージ＋鈍足付与）。ふっとばしは呼び出し側で --- */
+/* --- 攻撃1発の適用（属性相性でダメージ倍率＋鈍足付与）。ふっとばしは呼び出し側で --- */
 function attackHit(u, o, dmg){
-  hurt(o, dmg);
+  const mul = attrMul(attrOf(u), attrOf(o));
+  hurt(o, dmg*mul);
+  if(mul>1) advFx(o);          // 有利＝「ばつぐん！」演出
   if(u.U.slowHit && !o.dead){ o.slowT = u.U.slowHit.dur; o.slowMul = u.U.slowHit.mul; }
+}
+// 有利ヒットの演出（金色の火花＋「ばつぐん！」のフロートテキスト。テキストは間引いて重なり防止）
+let _lastPop=-1;
+function advFx(o){
+  for(let i=0;i<6;i++){ const a=Math.random()*6.28, s=60+Math.random()*120;
+    world.parts.push({x:o.x, y:o.y-18, vx:Math.cos(a)*s, vy:Math.sin(a)*s-50, life:0.4, max:0.4, c:'#ffe27a', r:2+Math.random()*2}); }
+  if(elapsed - _lastPop > 0.4){ _lastPop=elapsed; world.pops.push({x:o.x, y:o.y-46, t:0, dur:0.7, text:'ばつぐん！', c:'#ffe27a'}); }
 }
 const ATK_ANIM = 0.18;   // 攻撃モーションの表示時間(秒)
 /* --- ノックバック：座標ワープでなく、弧を描いて後ろへ吹き飛ばす --- */
@@ -471,11 +526,11 @@ function fireShot(u, target){
     // シューの矢：山なりの弧を描いて着弾（大きめ）
     const x0=u.x + u.dir*8, y0=u.y-34, tx=target.x, ty=target.y-14;
     const dist=Math.abs(tx-x0);
-    world.shots.push({ lob:true, side:u.side, dmg:u.atk*(u.buffMul||1), r:18, tid:target.id,
+    world.shots.push({ lob:true, side:u.side, dmg:u.atk*(u.buffMul||1), attr:attrOf(u), r:18, tid:target.id,
       x:x0, y:y0, x0, y0, tx, ty, t:0, dur:Math.max(0.4, dist/360), arcH:70+dist*0.35, ang:0, arrow:true });
   }else{
-    world.shots.push({ x:u.x, y:u.y-16, side:u.side, dmg:u.atk, sp:340, r:12,
-      tid:target.id, tx:target.x, ty:target.y-16, ang:0 });
+    world.shots.push({ x:u.x, y:u.y-16, side:u.side, dmg:u.atk, attr:attrOf(u), sp:320, r:12,
+      tid:target.id, tx:target.x, ty:target.y-16, ang:0, ice: u.key==='icewiz', slow:u.U.slowHit });
   }
 }
 
@@ -540,7 +595,7 @@ function step(dt){
       if(!windup && (enemyInRange || castleInRange)){
         if(enemyInRange){
           for(const o of world.units){ if(o.side===u.side || o.dead) continue;   // 敵だけに当てる
-            if(Math.abs(o.x-u.x) <= D.charge.r) hurt(o, D.charge.dmg); }
+            if(Math.abs(o.x-u.x) <= D.charge.r){ const m=attrMul(attrOf(u), attrOf(o)); hurt(o, D.charge.dmg*m); if(m>1) advFx(o); } }
           slashFx(u); world.slashes.push({x:u.x, y:u.y-CONF.rowBand, dir:u.dir, t:0, dur:0.28, reach:D.charge.r});
           if(u.side==='p') world.shake = 5;   // サムライの居合ヒットで軽く画面が揺れる
         }else{ if(u.side==='p') ehp -= D.charge.dmg; else php -= D.charge.dmg; }
@@ -601,7 +656,7 @@ function step(dt){
       if(p>=1){
         let t = world.units.find(u=>u.id===s.tid && !u.dead);
         if(!t){ let bd=44; for(const o of world.units){ if(o.side===s.side||o.dead) continue; const dd=Math.hypot(o.x-s.x,o.y-s.y); if(dd<bd){bd=dd;t=o;} } }
-        if(t) hurt(t, s.dmg);
+        if(t){ const m=attrMul(s.attr, attrOf(t)); hurt(t, s.dmg*m); if(m>1) advFx(t); if(s.slow && !t.dead){ t.slowT=s.slow.dur; t.slowMul=s.slow.mul; } }
         s.dead=true;
       }
       continue;
@@ -610,7 +665,7 @@ function step(dt){
     if(t){ s.tx=t.x; s.ty=t.y-16; }
     const dx=s.tx-s.x, dy=s.ty-s.y, d=Math.hypot(dx,dy)||1;
     s.ang = Math.atan2(dy,dx);
-    if(d < s.sp*dt + s.r){ if(t) hurt(t, s.dmg); s.dead=true; }
+    if(d < s.sp*dt + s.r){ if(t){ const m=attrMul(s.attr, attrOf(t)); hurt(t, s.dmg*m); if(m>1) advFx(t); if(s.slow && !t.dead){ t.slowT=s.slow.dur; t.slowMul=s.slow.mul; } } s.dead=true; }
     else{ s.x += dx/d*s.sp*dt; s.y += dy/d*s.sp*dt; }
   }
 
@@ -622,6 +677,8 @@ function step(dt){
   world.parts = world.parts.filter(p=>p.life>0);
   for(const sl of world.slashes){ sl.t += dt; }
   world.slashes = world.slashes.filter(sl=>sl.t < sl.dur);
+  for(const pp of world.pops){ pp.t += dt; pp.y -= 34*dt; }   // フロートテキストは上へ
+  world.pops = world.pops.filter(pp=>pp.t < pp.dur);
 
   if(ehp<=0){ running=false; win(true); }
   else if(php<=0){ running=false; win(false); }
@@ -864,6 +921,11 @@ function drawUnit(u){
     ctx.fillStyle='#0008'; ctx.fillRect(bx,by,w,h);
     ctx.fillStyle = u.side==='p'?'#6fd66f':'#b6e06a'; ctx.fillRect(bx,by,w*Math.max(0,u.hp/u.maxHp),h);
   }
+  // 属性バッジ（ATTR_ON のときだけ・現在は無効）
+  if(ATTR_ON){ const at=attrOf(u);
+    if(at){ const ax=cx+S*0.30, ay=footY-S+4;
+      ctx.fillStyle=ATTR[at].color; ctx.beginPath(); ctx.arc(ax,ay,5,0,6.28); ctx.fill();
+      ctx.lineWidth=1.5; ctx.strokeStyle='#00000066'; ctx.stroke(); } }
   // パーティークッキー：頭上のミラーボール
   if(u.U.disco && u.auraT>0) drawMirrorBall(cx, footY-S-6, elapsed);
   // 攻撃バフ中の味方：小さな♪キラキラ
@@ -954,6 +1016,12 @@ function drawShot(s){
     ctx.fillStyle='#a7c96a'; ctx.beginPath(); ctx.arc(0,0,5,0,6.283); ctx.fill();
     ctx.restore(); return;
   }
+  if(s.ice){   // アイスウィザードの氷弾（水色のキラキラ）
+    ctx.save(); ctx.translate(s.x,s.y);
+    ctx.fillStyle='#bfeaff'; ctx.beginPath(); ctx.arc(0,0,6,0,6.28); ctx.fill();
+    ctx.fillStyle='#7fc6ff'; for(let k=0;k<4;k++){ const a=k*1.57+elapsed*4; ctx.fillRect(Math.cos(a)*7-1.5,Math.sin(a)*7-1.5,3,3); }
+    ctx.restore(); return;
+  }
   const im = SPRITES['arrow_'+(s.side==='p'?'blue':'red')];
   const sz = s.arrow ? CONF.arrowSize : 28;     // 矢は大きめ（大量に飛ぶ迫力）
   ctx.save(); ctx.translate(s.x,s.y); ctx.rotate(s.ang);
@@ -982,6 +1050,12 @@ function render(){
   for(const s of world.shots) drawShot(s);
   for(const p of world.parts){ ctx.globalAlpha=Math.max(0,p.life/p.max); ctx.fillStyle=p.c;
     ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,6.28); ctx.fill(); }
+  ctx.globalAlpha=1;
+  // フロートテキスト（ばつぐん！ など）
+  for(const pp of world.pops){ const a=1-pp.t/pp.dur;
+    ctx.globalAlpha=Math.max(0,a); ctx.font='bold 15px sans-serif'; ctx.textAlign='center';
+    ctx.lineWidth=3; ctx.strokeStyle='#0009'; ctx.strokeText(pp.text, pp.x, pp.y);
+    ctx.fillStyle=pp.c||'#fff'; ctx.fillText(pp.text, pp.x, pp.y); }
   ctx.globalAlpha=1;
   ctx.restore();
   drawBeam();
@@ -1122,7 +1196,7 @@ function renderLoadout(){
   for(const k of unlockedUnits()){
     const D=DEFS[k], i=_pick.indexOf(k);
     const b=document.createElement('button'); b.className='ucard'+(i>=0?' sel':'');
-    b.innerHTML='<span class="pick">'+(i>=0?i+1:'')+'</span><img src="'+(SPRITE_DATA[D.spr+'_blue']||'')+'"><div class="nm">'+D.name+'</div><div class="co">🍬'+D.cost+'</div>';
+    b.innerHTML='<span class="pick">'+(i>=0?i+1:'')+'</span>'+attrBadgeHTML(k)+'<img src="'+(SPRITE_DATA[D.spr+'_blue']||'')+'"><div class="nm">'+D.name+'</div><div class="co">🍬'+D.cost+'</div>';
     b.onclick=()=>togglePick(k); G.appendChild(b);
   }
   const cnt=document.getElementById('loadoutCnt'); cnt.textContent=_pick.length+' / '+LOADOUT_MAX+' 体';
@@ -1153,7 +1227,7 @@ function renderCollect(){
     else if(!info) foot='<div class="co">—</div>';
     else if(info.via==='gacha') foot='<div class="co" style="color:#c79bff">🎰ガチャ限定</div>';
     else foot='<div class="co">🍬'+info.cost+'</div>';
-    b.innerHTML='<img src="'+(SPRITE_DATA[D.spr+'_blue']||'')+'"><div class="nm">'+D.name+'</div>'+foot;
+    b.innerHTML=attrBadgeHTML(k)+'<img src="'+(SPRITE_DATA[D.spr+'_blue']||'')+'"><div class="nm">'+D.name+'</div>'+foot;
     if(!owned && info && info.via==='coin') b.onclick=()=>buyUnit(k);
     G.appendChild(b);
   }
