@@ -279,10 +279,11 @@ const DEFS = {
            anim:{hop:true, base:'slimebig', squash:'slimebigsquash', up:'slimebigup', fps:1.1}},
   chibi:  {name:'チビスライム', role:'melee', atk:5,  hp:30,  speed:98,  range:24, cd:0.5, scale:0.60,
            spr:'slime', anim:{hop:true, base:'slime', squash:'slime_squash', up:'slime_up', fps:1.8}}, // 分裂専用
-  // 範囲アタッカー：刀の薙ぎで前方の敵をまとめて斬る（area）。開幕は居合突撃で強く踏み込む
-  daifuku:{name:'大福',       role:'melee',  atk:20, hp:170, speed:66,  range:34, cd:0.9, scale:0.98,
-           cost:120, rc:7.5, num:1, spr:'daifuku', gear:'katana', body:'daifuku_body', area:true,
-           charge:{dmg:150, spd:6.0, r:46, windup:0.6}},
+  // 大福サムライ：カウンター型。攻撃までに受けたダメージを次の一撃でまとめて返す（上限＝atk×COUNTER_CAP）。
+  // 高HP・攻撃速度が遅い。見た目は SUGAR WARS の「ちょんまげ大福」（daifuku_buff）を流用。
+  daifuku:{name:'大福サムライ', role:'melee', atk:22, hp:340, speed:64, range:34, cd:1.7, scale:1.0,
+           cost:130, rc:8.2, num:1, spr:'daifuku_buff', gear:'katana', body:'daifuku_buff_body',
+           counter:true},
   // 壁：高HP・低コスト・速い再出撃で前線を支える（攻撃は弱い盾持ち）
   choco:  {name:'チョコ',     role:'melee',  atk:8,  hp:340, speed:60,  range:16, cd:1.0, scale:1.05,
            cost:90,  rc:5.0, num:1, spr:'choco', gear:'sword', body:'choco_body'},
@@ -436,6 +437,7 @@ function newUnit(key, side, x, y){
     moving: false, atkAnim: 0, px: x,     // アニメ用（歩行/攻撃/前フレームx）
     kbVX:0, kbVY:0, kbY:0, kbT:0,          // 吹き飛び（ノックバック）の速度・高さ・残り時間
     hitCount:0, slowT:0, slowMul:1,        // ふっとばし用ヒット数・鈍足の残り時間/倍率
+    counter:0,                             // カウンター蓄積（受けたダメージ。次の攻撃で上限つきで返す）
     kbCount:(D.kbCount!=null? D.kbCount : Math.max(4, Math.round(D.hp/70))),   // HPしきい値KBの回数（にゃんこ式に多め＝軽いキャラも最低4回はスタッガー）
     kbSeg:undefined,
   };
@@ -447,6 +449,14 @@ function attackHit(u, o, dmg){
   if(mul>1) advFx(o);          // 有利＝「ばつぐん！」演出
   if(u.U.slowHit && !o.dead){ o.slowT = u.U.slowHit.dur; o.slowMul = u.U.slowHit.mul; }
 }
+// カウンター解放の演出（赤い斬撃＋火花＋「カウンター！」＋軽い画面揺れ）
+function counterFx(u, amt){
+  world.slashes.push({x:u.x, y:u.y-CONF.rowBand, dir:u.dir, t:0, dur:0.30, reach:40});
+  world.pops.push({x:u.x, y:u.y-46, t:0, dur:0.8, text:'カウンター！', c:'#ff5a4a'});
+  for(let i=0;i<12;i++){ const a=Math.random()*6.28, s=90+Math.random()*150;
+    world.parts.push({x:u.x, y:u.y-18, vx:Math.cos(a)*s, vy:Math.sin(a)*s-40, life:0.5, max:0.5, c:'#ff6b5a', r:2+Math.random()*2}); }
+  if(u.side==='p') world.shake = Math.max(world.shake, 6);
+}
 // 有利ヒットの演出（金色の火花＋「ばつぐん！」のフロートテキスト。テキストは間引いて重なり防止）
 let _lastPop=-1;
 function advFx(o){
@@ -455,6 +465,7 @@ function advFx(o){
   if(elapsed - _lastPop > 0.4){ _lastPop=elapsed; world.pops.push({x:o.x, y:o.y-46, t:0, dur:0.7, text:'ばつぐん！', c:'#ffe27a'}); }
 }
 const ATK_ANIM = 0.18;   // 攻撃モーションの表示時間(秒)
+const COUNTER_CAP = 8;   // カウンターで返せるダメージの上限倍率（自身の攻撃力の800%まで＝単体の一撃を重く）
 /* --- ノックバック：座標ワープでなく、弧を描いて後ろへ吹き飛ばす --- */
 const KB_TAU=0.12, KB_POP=250, KB_GRAV=1300, KB_TIME=0.5;
 function applyKnock(o, fromX, dist, opt){
@@ -504,7 +515,9 @@ function nearestEnemy(u){
    にゃんこ式KB：最大HPを kbCount で等分し、HPがしきい値を下回るたびに後ろへ1回ふっとぶ。 */
 const KB_HPDIST = 52;   // HPしきい値KBで後退する距離（スタッガー）
 function hurt(o, dmg){
-  o.hp -= dmg * (1 - (o.U.dr||0));
+  const real = dmg * (1 - (o.U.dr||0));
+  o.hp -= real;
+  if(o.U.counter && o.hp>0) o.counter = (o.counter||0) + real;   // カウンター型：受けた実ダメージを蓄積
   const kc = o.kbCount||0;
   if(kc>1 && o.hp>0){                                  // KB回数1（＝しきい値なし）はスタッガーしない
     const seg = Math.ceil(o.hp / (o.maxHp/kc));       // 残りHPセグメント数
@@ -667,7 +680,9 @@ function step(dt){
       u.cool -= dt;
       if(u.cool<=0){
         u.cool = u.cd; u.atkAnim = ATK_ANIM;
-        const dmg = u.atk * (u.buffMul||1);
+        let dmg = u.atk * (u.buffMul||1);
+        // カウンター型：攻撃までに受けたダメージを、上限(atk×COUNTER_CAP=800%)まで上乗せして一撃で返す
+        if(D.counter && u.counter>0){ const cb=Math.min(u.counter, u.atk*COUNTER_CAP); u.counter=0; dmg += cb; counterFx(u, cb); }
         const doKB = D.kbHit && (++u.hitCount % D.kbHit.every === 0);
         if(D.role==='ranged' && enemyInRange){ fireShot(u, fe.o); SFX_shot(); }
         else if(enemyInRange){
@@ -1055,6 +1070,14 @@ function drawUnit(u){
   if(u.buffMul>1 && !(u.U.disco)){
     ctx.fillStyle='#ffe27a'; ctx.font='11px sans-serif'; ctx.textAlign='center';
     ctx.globalAlpha=0.7+0.3*Math.sin(elapsed*8+u.x); ctx.fillText('♪', cx+S*0.3, footY-S+2); ctx.globalAlpha=1;
+  }
+  // カウンター蓄積中：赤いオーラ（溜まっているほど濃く脈動）＝返せる量が見える
+  if(u.U.counter && u.counter>0){
+    const f = Math.min(1, u.counter/(u.atk*COUNTER_CAP));
+    ctx.save(); ctx.globalAlpha=(0.25+0.45*f)*(0.7+0.3*Math.sin(elapsed*9+u.x));
+    ctx.strokeStyle='#ff4a3a'; ctx.lineWidth=2+2.5*f;
+    ctx.beginPath(); ctx.ellipse(cx, footY-S*0.42, S*0.46, S*0.5, 0, 0, 6.28); ctx.stroke();
+    ctx.restore(); ctx.globalAlpha=1;
   }
 }
 
