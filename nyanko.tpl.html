@@ -855,16 +855,15 @@ function drawCookieSpear(u, S, cx, cy){
   ctx.save(); ctx.translate(px,py); ctx.rotate(ang); ctx.imageSmoothingEnabled=false;
   ctx.drawImage(sp, -SP_PIVX*spW, -SP_PIVY*spH, spW, spH); ctx.restore();
 }
-// クッキーランスの槍。待機＝左手に立てて構え／攻撃＝前方(左＝敵)へチクッと突く（旧クッキーアーミー流の突き）
+// クッキーランスの槍。槍を水平に構え（穂先＝左＝敵へ）、攻撃＝そのまま前へ突き刺す（振り下ろさない）
 function drawCookieLance(u, S, cx, cy){
   const sp = SPRITES['clance_spear_'+(u.side==='p'?'blue':'red')] || SPRITES['clance_spear_blue'];
   if(!sp || !sp.complete || !sp.naturalWidth) return;
   const spH=S*1.18, spW=spH*(sp.naturalWidth/sp.naturalHeight);
-  let px=cx-S*0.20, py=cy+S*0.06, ang=-0.16;                 // 待機：左手に立てて構え（やや前傾）
+  const ang = -Math.PI/2 - 0.06;                              // ほぼ水平（穂先が左＝敵側／わずかに上向き）
+  let px=cx-S*0.02, py=cy+S*0.10;                             // 待機：脇に構えて敵へ穂先を向ける
   if(u.atkAnim>0){ const a=1-u.atkAnim/ATK_ANIM, j=Math.sin(a*Math.PI);
-    ang = -0.16 - 0.98*j;                                     // 前方へ倒してチクッと突く（振りすぎない）
-    px  = cx-S*0.20 - j*S*0.30;                               // 突き出し（左＝敵へ・手元から離れすぎない）
-    py  = cy+S*0.06 + j*S*0.15;
+    px = cx-S*0.02 - j*S*0.40;                                // 水平のまま前方(左＝敵)へ突き刺す→引く
   }
   ctx.save(); ctx.translate(px,py); ctx.rotate(ang); ctx.imageSmoothingEnabled=false;
   ctx.drawImage(sp, -SP_PIVX*spW, -SP_PIVY*spH, spW, spH); ctx.restore();
