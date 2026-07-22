@@ -57,6 +57,11 @@
 
 > まずはメタ強化（サイフ/タワーの数値）を回して、砲タイプは反応を見てから着手予定。着手時はこの節を仕様の起点にする。
 
+## 敵の立ち絵スプライト — 実装済み
+- **画像で描く敵**：`FOE_DEFS` に `spr:'<key>'`（`mold` なし）を持たせると、`drawUnit` が `drawFoeSprite`（足元アンカー・吹き飛び回転）で**画像**を描く（従来の手描き `drawMold` はそのまま併存）。単一画像＝陣営サフィックスなし。スプライトは `nyanko.tpl.html` の `Object.assign(SPRITE_DATA,{…})` に128px base64で注入（白背景を境界フラッドフィルで透過→クロップ→正方パディング→NEAREST）。
+- **追加した5体**（ユーザー提供の立ち絵）：`m_bump`（丸ボコ雑魚・plain）/`m_thorn`（トゲ突起・中HP）/`m_armor`（スパイク固め・`dr:0.25`装甲）/`m_legs`（足長・高HP950/高atk45）/`m_gboss`（緑スパイク・**中ボス**・`trait:'green'`）。`basePool` に難易度順で追加、中ボスは `spawnBoss` の `cfg.key='m_gboss'` で立ち絵に差し替え（`genStage`）。トレイトはボス以外plain。
+- **増やし方**：画像を `SPRITE_DATA` に注入→`FOE_DEFS` に `spr` 付き1行→`basePool`/イベントに配置。テスト：smoke 19。
+
 ## 色トレイト（属性）— 実装済み
 - **設計**：三すくみは廃止。**色トレイト**（`TRAITS`＝色数むせいげん・データ駆動）。`plain`＝無属性（塗り替えなし・倍率に一切関与しない＝序盤の雑魚は相性を気にしない）。緑/赤/青/黒/黄…は `TRAITS` に1行足すだけ。
 - **敵**：`u.trait`（または `FOE_DEFS.trait`）で体色を塗り替え（`drawMold` が `traitTint()` を反映）。現状**雑魚は全てplain・色つきはボスのみ**＝中ボス`green`／大ボス`red`（`genStage` の boss cfg → `spawnBoss` が `u.trait`）。

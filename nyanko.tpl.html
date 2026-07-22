@@ -244,6 +244,14 @@ Object.assign(SPRITE_DATA, {
   'cknight_sword_blue':'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAABYCAYAAADx5gcnAAAA0klEQVR4nO3ZMQrCQBCF4T+Szs47eAyjhZ7FWvEUIngBz2FjI7mEonews16rEQwMWTQbWHyvCywfw8uSYlKEEIhJNVsEgPp8KmLOD6LUL1K2HXhPejx8PrdMnmzi/ODCuxXNbi2X6w2A5XoL+F3nV0V/HXvdWqxji9d1flUIFixYsGDBggULFixYsGDBggX/DVzaDujXNJ10W6zJdB4A9puqE3C1q4EcX176jr143VuXXvrfH1vsfg4fdwCeozGgHb1gwYIFd5zWf6YW+w7HJtnELwXBQakf0xqTAAAAAElFTkSuQmCC',
   'cknight_slash_blue':'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFgAAABICAYAAAByQzKvAAABwUlEQVR4nO3cMU7DMBSH8ReUjY07cI2IhYVzcAEkxCkQnSsxcQgWJIQ6sXACdkY2WMP0kGIIDY3/sWt/vy0DVfT4MK4hbfq+txx0J6e9mdnm6aFJfS8xHaS+gdK1qW/gu9z72+F1ISVTsNjiBXuhzsstFQWLLVZwuNbWgoLF5AXXWq6jYDFZwbWX6yhYLHrBlDtEwWLRCqbc31GwWPLTNNednZtZOadojoLFZhfM2vs3ChbbuWDKnYaCxRiwGAMW+/caHHvtLXX/6yhYbHLB7Bp2Q8FiDFiMAYttXYNZe+ehYLHRgtXllr7/dRQsxoDFGLAYAxZjwGI/dhHse+OiYDEGLMaAxRp/0jPV2lv6OzoKFmPAYgxYjAGLMWAxBizGgMXaWs8ewqf+Q7H25RQslvwZjdSfdLK67AbXF9ebqK9PwWLJCw5tWxv3DQWLZVNwql3My+Od9PUpWCybgnPhu4pYvwsoWIyCRxy+v876+o+jYzOjYLnW3zmFa8765irNHWXCC5yLgsWasc8PrqXoz7fnwbWfRXCatidGdxHhd7C0MwIXnqbFRsFik/fBpf3nzVI/kRQsVv07udh/wQhRsNgX2U+Qoqq/d78AAAAASUVORK5CYII=',
 });
+/* 敵の立ち絵スプライト（ユーザー提供・drawFoeSprite で描画。単一画像＝陣営サフィックスなし） */
+Object.assign(SPRITE_DATA, {
+  "m_bump":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAADMUlEQVR42u3dQW7UMBiG4Qxiw024BAOLVqgrTlKJC7DqBZA4SVeomi6gXIKbdFk2BIVRMnHiOHbi51122qlbfX7/P7aTOTSV8e791cul13/9fDzU9P941aBqBKByqtBdV/tP379d/N7jzW1V5YABGGC/DVn7/mOzfswGS42jxMaTATSBUAIyqT9FQzal4ZtaClKNY6lSwwAo1wCxM7M7Cy+x1KzPMY4cl6AMoAlEzbzeykBTq31r42AACAAEAAIAAYAAQAAgABAACADCSb7jFHssq1bWOiPAAAwwbSZPxcxfxgRTCTUHA2gCoQQEqP/L56vgN73++Ml/diNNJAMwwOWGb8rMZ4Cym8g+GzCAJhACAAGAAEAAIACwDtC3JjBnPcCaQP7rfyuBUAIwzOjNoa1C7pomank4K2/e9n/9+XdZY4ocz5znCzAAA+yYoZl//vpaJggdz4pjYgBNIJSAnWv/+OH64o88/TilVW/MmBKXAgZQAiAAEABoAnuJ3Qw6Pdw3TWNTaA26d2Edb25fmsZmEJQATC4BsfcFoJxy0JaCoXLAAAywXMOH7TWGDKAJRM0c1mr4sqwDjO2/t5RyHmClMXVPDjGAEgBXAXul1Wgph0K7vy/BoVAGAAMUMdM3NCYG0ASi6hLQXRZs7/6xFLxP+m4YZQAlAK4C/rKLG0HRq/1z9TMAhtcBNIb7bPj0ABAA/M+sTwyJLQfuEcjT8DEABAACAAFA1gCcHu7/3TQKBoAAQAAgAFif5I+LD8Xq4LLYDIISgJklIPcTQpSD5UvBUDlgACUAAgABgAAUg80iBoAAINs6QN+aQO77AqwNzLv+txSMOAOcm2AqS5ujNhN0V/Km4Fg4NIFYsATMJWUTuedyENrEMQDKNkBfE7m7ZxInaPhSz3wGgABgh08K7dtEsorIABAAVFECQstCjVcZDIA6DbCmTbZmCAbQBEIJ2AB3Xx+Dvi/1yaWxcbSvdz+xkwEgACiTQ45fGnpGoKvb0N2xFLuOseMYKwdr7f0zAMowQN8s6SN2RsSeRmpn/lLjSPV3MgAEABssATlKTYrGkwHAAFu0QWkNGQNAALAufwDHyEQB4VkTpgAAAABJRU5ErkJggg==",
+  "m_thorn":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAADu0lEQVR42u2dO24UQRBAa5ET34RL2CZYCxFxEiQuQOSEEMkHsRxZZh2AuQQ3IVyikZpmpqc/1f/3QlipZ9dVr6pmundFJubq5ni+ujmeZ/4M3ghMzWHWzBcReX26FxGR6w+fRETk18+XAwYAAgAoAVXVnEPFZrO3qN9mKQW5r6GlUoMBJueipcz/8vkoIiJ3IuecmVjjvVlNZzMmwAAYoD0WE5g2iM0We+RzYb4mNUtD1sUAQAAAJcCp5ZYapxHUjwGgDwNsmWDPBqmZGGIen5tMGAAwgKYJbBu4XqdtnlxrYQAgAIASEFUORloLAwABAAQAEABAAAABAPmo9mTt+8NXrxM5t+8/Dvvh596EigGgPQP4ZP7IWb9ng9ImwACTU+xW8OyncPeotfMJAzAGAk1gAW2be/1p/sJGxFRc5QQDYIDtzPfJWg3I/HojJgbAAPs9QA4TkPV1Mx8DAAEAO3cCF3WYX9hQqjGE9PHR524iBqAJDCO1MaT5q9fwYQAI6wF8+oJueoLLt///25/fda9BYf3UfQQYgDEQaAITMJ8YuspBteZvTf0lS4HP+oHXoLmZFAPQBA6KlXnX7243X/r646RvgpXML34NGAAIACAAgAAA7Saw9LYxMBpGxS+1xgAYwD/bTdjm3ZYN1r7HkP0AEGcAO+Op8331BXZ/4DICBmAMhJk5rGlfS/lNNIEDPg2MZe0pIgaY3QDTnP4ZdEtYqg0wAD3A4D0A0APANhdrNwnMo2C5+gMom/H235j7AEAAwMazAFsVdkmgLLSv+y3lYwDYN4BPJHV3NnDwzGdHEEQx/tGwwes9R8OAMRAIACAAoOkAOD0/yun5kU8cA8AQY2DsTiLGwTwjITeCgBIABUqA1iZSSkEbpQADYAD/rNfIfGxQxgS+NsAAGCB/vccA7fYFGIAxECgBldRPKahfCjDA5Di3ha9tB4+FzaPx41wqNIEQNwZqEtJXzNwLpD7dYwoAAgAaLAFaI+ao5aG0+jEA1DGAbQKNEbFXK2ie8MEA0JcBNPuC3kxQq95jACAA4F+G+t3AtZNHPGHEADCLAXytgB0wAIxggLtvL5v/5zNShpxWdq219nMtGAAIAKAEZNW+606a1vcYLuu51jJ/nau3coABMEBfme97/9ze2BpqgpD1zNcsNujFBBgAA4yV+bVZrrMXE2AAxkCgBHQ66sU0g66GMMe6rY+IGAADtNM4LVnaS8MX8t5MG7T0/jDA5BxmfNP2JtTeRk0MAAQAgEopME8oYQCYjr9AW82aRooCPAAAAABJRU5ErkJggg==",
+  "m_legs":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAACl0lEQVR42u3dQU4iQRSH8ca4mZt4CXEWGuNqTkLiBVxxAZM5iSsz0YXjXGJu4hI3VoJIN1ANUvXq9+2IUgbyr++91xTtpGuM84vLxdDP//19nrT0fpx0aJpJ1N28upPT774+/h5cc3ozG3x+NGswAAPUu/OHdnPayYlNO3/M8/uswQAontOoL2zXHb/v5zMABAACAAGAAMB1gJw5v7YOffXawSolXidgAAYob+dHncFLvGLIAJpACAAEAG1y2twr/nH2+fHb//2sM2YtBoAx8NDj4Lodm7N7N62zZq2SD4wwgB6gLaY/rz49fn152ss6Y9ZiADDAwWp/AaTXM72ZLUrrBRiAAez8lk3AAAzQCB+z+ZdOfderd33r5KylBwADHMkExazDABAACACOg0Oh34hDoWCAFk3gPAA0gRAA6AFMAaYAKAEQAAgABACmgKFpoA+3iGEACADCloBtS0QppcDdwqEEQAAgABAACAAEAJVQ5VfD0rydvma9TN+1gac/D1l/6+r6FwOAAYo2Qddt/gApMb9/3mrtu9tLPQAYICx91+23NQkDgAEim2HedQtTAJQACAD0ABii5FvBMgAYYMw0kHZ11C+sMgADxCb3U0BTAAQAAgA9QAzSOYBdZ/To0wADKAEQAAgABAACAGMgmhoHGYABsC9qPBjCAJpACAD0AMibBmqfCBhACYAAQA8QrTZHPcbNABAACAD0AMdh6Fb1Nd42ngGUAAgA9ABoq/YzAAQAAqAH8BbksfxfQmus/QwABhjb/esBwAClk3tjiE21v+a6zwDQA7Re+xkAAgAloNnmjwEgABAAPYC3YHj8i1r7GQACAAHQA3gL2qz9DAAGWMfyUS89AMITrr6lWr5K9FrOAMjiHRG+D8zq3m6WAAAAAElFTkSuQmCC",
+  "m_armor":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAADr0lEQVR42u2dbU7kMAxAZ2AuwyH4kIDr7GG4zi4SH4fgNIj9s12hkrSJJ4nt+L2fM4hM2/jFTpr2eAjI9e3DV+rz99c/x2jn4uIAoTlGjPy356fk9zf3v8KZAANggDjjfS7ycyaIYAMMEBw6QHBOlGexjwcDYAAX5dmXJxN4Oh4MQBkYpzzrORHktdzEAOQAcViibBmDZ6k2MABgAIkJlnE7YuRjANCtAkZl5yXt9vq/HpadMUBw6AAMAXYYvXjSOwlkMQgoAyXl2V4EeS07yQEAA2jnE9K/nXWyCANQBfiJ5lQU5qK3dEm2lO9Lt3tm8DTFjAEwgO9xvXWktzCDp3wBA2CAthl2j96/t7hijZ6LPa3PPQYIDh2AIaCtilvqz5v6tc+FpD0MgAH6RGKLe+y9Rr72uahpDwMEx+Tu4Fkif2E5Hot7HDEABhgT1Vu9ftbIP8cEo26GwQBUAWNq0bUJJLtpZyO1OzhnTOYBQN8AJePTXu+LMt73mitgMQhIAkG5DIy8nVqb1uceA5AEjoHkr20yiAGADgB0AKADAB0A7FYBZP+2qwEMEJxTLmJTMAPog5priAFIAoEh4FB8x0n4Z+t6UH/NNcQA0Q1QU6ZZvr+dyJddQwxADtCn3DDD5dXPzz4/dNoWtNv7HGMADCCnJAdQs0Qq8tff9TJBrm1Bu73PMQaIboD1m7RGPf1jVOTf3D3mM+KX3+1MkIj6XNtN2z38fBtazTXEAOQA6V4kHY9AD8k1xADBoQMwBKD5WYcCDAD1BuidmHBv4DbsDAKSQKADwCw5wHCW6dV/U7P/p123/rZluyVtj1qOxgCwx/Caf/hOISc3hGgttGEAcgB5FG/V/eZygkna5jFxwBAASkkgzwpuC88KBh8GOOe9NSUJSrSHSJRE6jrZ451BYKcMrKGkF0ZZMq6JzFSuRBUA/gwgscVsJrC8nwIDUAWMmQeQwLuDmQcASwbI1ai1Wf/sJug55rMYBCSBoDwEaJHSn/awsJ7ytlruYQDwa4CtF1DnkqLWZkhF+t5v8mACDIABfEb+OeWShHN+g2UTYIDgnGY9sJrHq0V+JgIGwAC26/wZWB+XJeNgAAxgJ0Jytbu3x9N7Oh4MEBw6QHDUFCTZGZTaSdPiN7T8X5rHgwHAdxmoVZZFnhDCABggXuTPUm5iAPBbBVRGpjhT1sjOex4PBoD5coC9N114G5M9HQ8GwAD2ImcWuCkUKAOBMtAMnsozDAAYoLcJZk9CMQDs8hekQLS8k1gYiwAAAABJRU5ErkJggg==",
+  "m_gboss":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAADvklEQVR42u2du1EDMRCGbcY1kfEIIKEAiqACZoiZoQKKoAASCHhkNAWRZ2wh3emtXe33h8ZjIZ32238l3d12Y1BnF1e/vs+/P9+31sbiZINMa2cx8m/uTkNf+bVGAghgXFsrUb8S+Ud6ff4x4wsggHExATCBlGeW+wMBIADlmeX+QADKQDvl2Vpk7n+/5Le1lZsQAA9gRwdRxmYQBEDmCOBG+j5vW4x8CIDGEsCJumbunP5AAMQEQKJN4Gzlmab+QAAIINZIBbdTtZadeAAEAXophR4x3511sQgCQAD5uXNpyTYUvbFbsgmKdvSalpghgHGpymu+aG8Q6Uk6PNSh0S9AAAhQ12G3mP0RhyxFqeVmT+2xhwDGxQSgDKyO4molkDb0e4xp77FIbg8CYALbRGKNM/baIl/KWKS0BwHwAHI0W+S39ARUAUgHAWI2RmaN/BIS9DoMAwEgwLrcQ45LkRpyoC4Jcu6mnZUEvnHx0CF77CEAKlsHSMlPa7PPSr5vtVbAZhDCBKLBZaDl26lHq/bYQwBMYB9h/uqaQQiAmACICYCYAIgJgORWAbh/2dUABDCuXShifWIFUIdSriEEwAQiUsCm/10/aJjhPrqGEMA6AVLKNMnn24n8vGsIAfAAbcoNKbq/ffz32dPLw5C2c9ptPcYQAALkK8YDjKKEL/Ldv7UiQajtnHZbjzEEsE6AGnf9SM7555fXwe9+fbxVI4Ev6kNt12zXuR7J1xAC4AH8syg3H6FxyrmGEMC4mACkADA/cSqAACiRAK2NCWcDl8WdQQgTiJgAqJOmvTt4aTNor96bQTHt4gHQnASQRAKJB0JGbbRBANYB8qN4pe4XoV7R3qttHhOHSAFoUAoouXvI8wxcs88Kdo3f4biEnhXMO4PQuDKw5L01MQbF2kMkYko+1+zxziAkpwxMUcwstLJlnBKZvvcqUAUgfQTIpAXvDWQdAImpAlLces3Zrr066D0WvDMItSVAqEZNdf2zk6BlzmczCGEC0eAUMEo+/I1OC+6St9RyDwIgr3aaIj8QWV5TVJsMvkgP/U8xL8yGAAgPUBj52eVSjkr+B8kkgAB4gDmV8ng1y89EgAAQQHadP4PcfkkiDgSAAHIiZKF2V5WrNfUHAhgXE4AUMN4YrS3bum+5kJgOtPYHAkAAe3LLMssLQhAAAtiL/FnKTQiAirXVEJklp2xT3LnbXmmbLfoDAdB8HmDtTRfacrKm/kAACCAycqYQh0IRZSCiDBQjTeUZBEAQoDUJZjehEACt6g/Foo8WqBf89QAAAABJRU5ErkJggg==",
+});
 const SPRITES = {};
 for(const k in SPRITE_DATA){ const im = new Image(); im.src = SPRITE_DATA[k]; SPRITES[k] = im; }
 
@@ -422,11 +430,15 @@ const STAGE_COUNT = 50;
 // 基本湧きに使う敵プール（ステージnで解禁される敵。自爆は中盤から）
 function basePool(n){
   const p=['m_swarm','m_swarm'];
+  if(n>=2)  p.push('m_bump');                 // 丸ボコ雑魚（立ち絵）＝序盤の数押しに変化を
   if(n>=4)  p.push('m_tank');
+  if(n>=5)  p.push('m_thorn');                // トゲ突起（立ち絵）＝中HP前衛
   if(n>=8)  p.push('m_phage');
+  if(n>=9)  p.push('m_armor');                // スパイク固め（立ち絵・装甲）
   if(n>=13) { p.push('m_big'); p.push('m_tank'); }
+  if(n>=17) p.push('m_legs');                 // 足長ブルーザー（立ち絵・高耐久高火力）
   if(n>=18) p.push('m_puff');                 // ★自爆は中盤から
-  if(n>=26) { p.push('m_big'); p.push('m_phage'); }
+  if(n>=26) { p.push('m_big'); p.push('m_phage'); p.push('m_legs'); }
   return p;
 }
 function heavyKey(n){ return n>=13 ? 'm_big' : (n>=4 ? 'm_tank' : 'm_swarm'); }
@@ -448,7 +460,7 @@ function genStage(n){
   }
   // ボスは「厚いHPの壁＋高火力」＝押し切った先の本番。base湧きは軽いので必ず対面できる（泥沼化しない）
   // 色トレイト：中ボス＝みどり／大ボス＝あか（対〇色の味方だけが有利を取れる）。雑魚は無属性(plain)のまま。
-  if(mini) ev.push({at:0.5,  boss:{hp:Math.round(1900+n*320), atk:Math.round(34+n*3.6), sMul:0.92, trait:'green'}, msg:'中ボスあらわる！'});
+  if(mini) ev.push({at:0.5,  boss:{key:'m_gboss', hp:Math.round(1900+n*320), atk:Math.round(34+n*3.6), sMul:1.0, trait:'green'}, msg:'中ボスあらわる！'});
   if(boss) ev.push({at:0.5,  boss:{hp:Math.round(3600+n*560), atk:Math.round(56+n*5.6), sMul:1.14, trait:'red'}, msg:'ボスあらわる！'});
   return { id:n, name:stageName(n)+(boss?'（ボス）':mini?'（中ボス）':''), enemyHP, baseCd, baseCap,
            pool:basePool(n), events:ev, coins:80+n*16, tutorial:(n===1) };
@@ -504,6 +516,17 @@ const FOE_DEFS = {
   // ボス（超巨大・高HP高火力・遅い。終盤ステージの主）
   m_boss: {name:'カビ大帝',   role:'melee',  atk:75, hp:3600, speed:38, range:38, cd:1.6,  scale:1.8,
            num:1, mold:'blob',  col:'#7a4fae', col2:'#3f2a63'},
+  // ▼ ユーザー提供の立ち絵スプライト敵（spr＝画像・moldなし＝drawFoeSpriteで描画）。トレイトはplain（色つきは中ボスのみ）。
+  // 丸ボコ雑魚（コスト感50）＝アオカビンより少しタフな数押しザコ
+  m_bump: {name:'ホコリだま', role:'melee',  atk:11, hp:72,  speed:106, range:26, cd:0.5,  scale:0.88, num:1, spr:'m_bump'},
+  // トゲ突起（コスト感100）＝中HPの前衛
+  m_thorn:{name:'イガまる',   role:'melee',  atk:18, hp:210, speed:70,  range:28, cd:0.9,  scale:1.02, num:1, spr:'m_thorn'},
+  // スパイク固め（コスト感200）＝装甲で被ダメ25%減の壁（dr）
+  m_armor:{name:'テッコウ',   role:'melee',  atk:14, hp:420, speed:46,  range:30, cd:1.2,  scale:1.10, num:1, spr:'m_armor', dr:0.25},
+  // 足長（コスト感800）＝高耐久・高火力の大型ブルーザー
+  m_legs: {name:'ノッポし',   role:'melee',  atk:45, hp:950, speed:52,  range:42, cd:1.5,  scale:1.42, num:1, spr:'m_legs'},
+  // 緑スパイク（中ボス・緑属性）＝対緑の味方が有利を取れる中ボス
+  m_gboss:{name:'ミドリのぬし', role:'melee', atk:44, hp:2200, speed:40, range:38, cd:1.5, scale:1.5, num:1, spr:'m_gboss', trait:'green'},
 };
 
 /* ============================================================
@@ -941,7 +964,7 @@ function spawnWave(key, n){
 }
 function spawnBoss(cfg){
   cfg=cfg||{};
-  const u=newUnit('m_boss','e', CONF.spawnInset+12, CONF.groundY-2);
+  const u=newUnit(cfg.key||'m_boss','e', CONF.spawnInset+12, CONF.groundY-2);   // cfg.key で立ち絵ボス（緑中ボス等）に差し替え可
   if(cfg.hp){ u.hp=cfg.hp; u.maxHp=cfg.hp; }
   if(cfg.atk) u.atk=cfg.atk;
   if(cfg.sMul) u.sMul=cfg.sMul;
@@ -1241,7 +1264,9 @@ function drawUnit(u){
   // 影は地面に残し、浮くほど小さく薄く（＝飛んでる感）
   ctx.save(); ctx.globalAlpha=0.28*Math.max(0.25, 1-air/70); ctx.fillStyle='#000';
   ctx.beginPath(); ctx.ellipse(cx, u.y, S*0.30*Math.max(0.4,1-air/120), S*0.10, 0,0,6.28); ctx.fill(); ctx.restore();
-  if(u.side==='e' && D.mold){
+  if(u.side==='e' && D.spr && SPRITES[D.spr]){
+    drawFoeSprite(u, S, cx, footY + (Math.sin(u.bob)*2));       // 敵＝立ち絵スプライト（ユーザー提供の画像）
+  }else if(u.side==='e' && D.mold){
     drawMold(u, S, cx, footY + (Math.sin(u.bob)*2));            // 敵＝カビ軍団（手描き）
   }else if(D.gear){
     drawGearUnit(u, S, cx, footY, team);                        // 武器合成キャラ（槍/剣/刀）
@@ -1316,6 +1341,17 @@ function drawMirrorBall(x, y, t){
   ctx.globalAlpha=1; ctx.restore();
 }
 
+/* --- 敵の立ち絵スプライト描画（画像を足元アンカーで・吹き飛び中は回転） --- */
+function drawFoeSprite(u, S, cx, footY){
+  const im = SPRITES[u.U.spr]; if(!(im && im.complete && im.naturalWidth)) return;
+  ctx.save();
+  ctx.translate(cx, footY - S*0.5);
+  if(u.kbT>0) ctx.rotate((KB_TIME-u.kbT)*7*Math.sign(u.kbVX||-1));   // 吹き飛び中はくるっと回転
+  if(u.U.mold==='spiky' && u.fuseT>=0){ const p=1+0.18*Math.sin(elapsed*40); ctx.scale(p,p); }  // 自爆導火中はふくらむ（将来用）
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(im, -S/2, -S/2, S, S);
+  ctx.restore();
+}
 /* --- カビ敵の手描き（プレースホルダ／画像素材なし） ---
    mold: blob=もやもやカビ玉 / phage=脚つきウイルス砲 / spiky=トゲ球（自爆） */
 function drawMold(u, S, cx, cy){
