@@ -890,6 +890,22 @@ function step(dt){
     u.x = nx;
   }
 
+  // 対面ユニットのすり抜け防止：味方は敵の右、敵は味方の左（前線を保つ）。
+  // ノックバックで弾かれたり、速い/遅いの差で入れ替わって「敵が後ろに回り込む／味方が後ろに下がる」のを防ぐ。
+  // 吹き飛び中(kbT>0＝宙に浮いている)と当たり判定なし(noCollide/untargetable)は対象外。
+  const COLLIDE_W = 24;
+  for(const a of world.units){
+    if(a.side!=='p' || a.dead || a.kbT>0 || a.U.noCollide || a.U.untargetable) continue;
+    for(const b of world.units){
+      if(b.side!=='e' || b.dead || b.kbT>0 || b.U.noCollide || b.U.untargetable) continue;
+      if(a.x < b.x && (b.x - a.x) < COLLIDE_W){        // 入れ替わり（味方が敵の左＝すり抜けた）→押し戻す
+        const mid=(a.x+b.x)/2;
+        a.x = Math.min(CONF.W - CONF.castleBodyR, mid + COLLIDE_W/2);   // 味方を右（自陣側）へ
+        b.x = Math.max(CONF.castleBodyR, mid - COLLIDE_W/2);            // 敵を左（自陣側）へ
+      }
+    }
+  }
+
   // 弾の移動
   for(const s of world.shots){
     if(s.dead) continue;
@@ -1723,7 +1739,9 @@ function renderCollect(){
   document.getElementById('gachaCostTxt').textContent=GACHA_COST;
   document.getElementById('gachaBtn').classList.toggle('off', save.coins<GACHA_COST);
   const S=document.getElementById('collectSections'); S.innerHTML='';
-  const normal=ORDER.filter(k=>!(UNLOCKS[k]&&UNLOCKS[k].via==='gacha'));   // 進捗で解放（スターター含む）
+  // 解放ステージ順に並べる（スターター＝先頭 → need の小さい順）。ガチャ限定は別セクション。
+  const unlockOrder=k=>STARTERS.includes(k)?-1:((UNLOCKS[k]&&UNLOCKS[k].need)!=null?UNLOCKS[k].need:999);
+  const normal=ORDER.filter(k=>!(UNLOCKS[k]&&UNLOCKS[k].via==='gacha')).sort((a,b)=>unlockOrder(a)-unlockOrder(b));
   const gacha =ORDER.filter(k=>  UNLOCKS[k]&&UNLOCKS[k].via==='gacha');    // ガチャ限定
   function section(title, icon, keys){
     if(!keys.length) return;
