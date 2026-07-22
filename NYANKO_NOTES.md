@@ -86,7 +86,7 @@
 ## スマホ最適化 — pass2（縦持ちズームカメラ）実装済み
 - **縦持ちは戦場を画面いっぱいにズーム＋横スクロール**（にゃんこ式）。以前は横長の戦場が細い帯で下に大きな余白だった。
 - `resizeCanvas()`：明確に縦長のとき（`innerHeight > innerWidth*1.15`）だけモバイルカメラ。キャンバス内部解像度を `#stage` の実サイズ×dpr にし、`cam.zoom = cv.width/CAM_VISW`（`CAM_VISW=440`＝一度に見せる世界の横幅）でユニットを見やすい大きさに。地面は `CAM_GROUND_FRAC=0.82` の高さに固定（`cam.oy`）。横/PCは従来の全体表示（`zoom=1`）。
-- `updateCamera()`：味方最前線と敵最前線の中間（戦線）へ `cam.x` をなめらか追従（lerp）。`[0, W-visW]` にクランプ。
+- `updateCamera()`：**最前線の味方ユニット(pMin)** へ `cam.x` をなめらか追従（lerp・`[0, W-visW]` クランプ）。開幕は自陣(右)→出撃した先頭を映して前線へ追従（中央へ飛ばない）。味方全滅時は最前の敵(eMax)を映す。
 - `render()`：①空をスクリーン空間で全面塗り（カメラ非依存＝余白ゼロ）②`setTransform(zoom,0,0,zoom,-camX*zoom, oy)` で世界描画③地面は画面下まで延長。
 - CSS：縦持ちは `#stage` が `flex:1` で中央を占め、`canvas{width/height:100%}`。操作ボタンは下に固定。`resize`/`orientationchange`/`startBattle` で `resizeCanvas`。
 - テスト：smoke 25（非縦持ちは全体表示・カメラは範囲内クランプ）。Playwrightで縦=ズーム＋スクロール／横・PC=全体 を確認。
