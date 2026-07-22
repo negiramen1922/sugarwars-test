@@ -322,6 +322,8 @@ const CONF = {
   arrowSize: 70,         // シューの矢の描画サイズ(px)。大きいほど大量に飛ぶ迫力が出る
   castleAtkRange: 96,    // お城への攻撃が届く距離（大きいほど手前で殴れる＝城にめり込まず、湧いた敵の手前で足を止められる）
   castleBodyR: 20,       // お城本体の半径。ユニットはここより内側へは入らない（城にめり込まない最小マージン）
+  castleInset: 48,       // お城を画面端から内側へ置く距離＝タワーの後ろに「ノックバックの逃げ場（隙間）」を作る
+                         // （敵城=左, 味方城=右。knockAllAlliesで下がった味方がこの隙間に散って城際でハマらない）
   spawnInset: 40,        // ユニットの湧き位置（城のふち＝端からの距離）。castleAtkRangeより内側にして
                          // 「城に張り付いた敵ユニットの後ろ」に湧かせ、防衛側が張り付き組を最優先で攻撃できるように
   maxUnitsPerSide: 60,   // 片side上限（暴走防止）
@@ -475,31 +477,28 @@ const STAGE_COUNT = 50;
 // ── 敵プールはWAVEの種類ごとに分ける（各ステージのつくり込み用ノブ）──────────
 // 立ち絵に置き換え済み：雑魚=m_bump／壁=m_thorn／超硬=m_armor／大型=m_legs。
 // 射手m_phage・自爆m_puffは手描きのまま据え置き（立ち絵が届いたら差し替え）。
-// 【通常WAVE】で連続湧き＆入場する敵（軽め＝押し込める）
+// 【通常WAVE】で連続湧き＆入場する敵（軽め＝押し込める）※後衛（射手m_phage）は当面出さない方針
 function normalPool(n){
   const p=['m_bump','m_bump'];                 // 雑魚（旧m_swarm 引退→立ち絵）
   if(n>=4)  p.push('m_thorn');                 // 壁（旧m_tank 引退→立ち絵）
-  if(n>=8)  p.push('m_phage');                 // 射手（手描き据え置き）
   if(n>=9)  p.push('m_armor');                 // 装甲の重壁（旧m_big の超硬枠→立ち絵）
   if(n>=13) p.push('m_thorn');                 // 壁を厚めに
-  if(n>=17) p.push('m_legs');                  // 足長シロカビが通常湧きにも混ざる
   if(n>=18) p.push('m_puff');                  // ★自爆は中盤から（手描き据え置き）
-  if(n>=26) p.push('m_phage');
+  if(n>=28) p.push('m_legs');                  // 足長シロカビが通常湧きにも混ざる（終盤）
   return p;
 }
 // 【ブレイクWAVE】で連続湧き＆入場する敵（重め＝壁/装甲/エリートを厚く）
 function breakPool(n){
   const p = normalPool(n).slice();
   if(n>=4)  p.push('m_thorn');
-  if(n>=8)  p.push('m_legs');                  // ★足長シロカビはブレイクWAVEに8面からデビュー
   if(n>=9)  p.push('m_armor');
   if(n>=13) p.push('m_armor');
-  if(n>=17) p.push('m_legs');                  // 更に濃く
+  if(n>=20) p.push('m_legs');                  // ★足長シロカビはブレイクWAVEに20面からデビュー
   return p;
 }
 // ステージ全体で出る敵の和集合（pool＝描画/テスト用の一覧）
 function basePool(n){ return Array.from(new Set(normalPool(n).concat(breakPool(n)))); }
-function heavyKey(n){ return n>=13 ? 'm_armor' : (n>=8 ? 'm_legs' : (n>=4 ? 'm_thorn' : 'm_bump')); }   // 増援waveに混ぜる重め敵
+function heavyKey(n){ return n>=20 ? 'm_legs' : (n>=13 ? 'm_armor' : (n>=4 ? 'm_thorn' : 'm_bump')); }   // 増援waveに混ぜる重め敵
 // エリア名（10面ごとにテーマ）
 const REGIONS = [
   {a:1,  name:'おかしの平原'}, {a:11, name:'ねばねば湿原'}, {a:21, name:'むらさきカビ回廊'},
@@ -614,8 +613,8 @@ const FOE_DEFS = {
   m_thorn:{name:'イガまる',   role:'melee',  atk:18, hp:210, speed:70,  range:28, cd:0.9,  scale:1.02, num:1, spr:'m_thorn'},
   // スパイク固め（コスト感200）＝装甲で被ダメ25%減の壁（dr）
   m_armor:{name:'テッコウ',   role:'melee',  atk:14, hp:420, speed:46,  range:30, cd:1.2,  scale:1.10, num:1, spr:'m_armor', dr:0.25},
-  // 足長（コスト感800）＝高耐久・高火力の大型ブルーザー
-  m_legs: {name:'ノッポし',   role:'melee',  atk:45, hp:950, speed:52,  range:42, cd:1.5,  scale:1.42, num:1, spr:'m_legs'},
+  // 足長（コスト感800）＝高耐久・高火力の大型ブルーザー。hMul=縦だけ2倍に伸ばす（ノッポ＝見上げる背丈）
+  m_legs: {name:'ノッポし',   role:'melee',  atk:45, hp:950, speed:52,  range:42, cd:1.5,  scale:1.02, hMul:2, num:1, spr:'m_legs'},
   // 緑スパイク（中ボス・緑属性）＝対緑の味方が有利を取れる中ボス
   m_gboss:{name:'ミドリのぬし', role:'melee', atk:44, hp:2200, speed:40, range:38, cd:1.5, scale:1.5, num:1, spr:'m_gboss', trait:'green'},
 };
@@ -749,8 +748,8 @@ function spawn(key, side){
   if(world.units.filter(u=>u.side===side).length >= CONF.maxUnitsPerSide) return;
   const n = D.num || 1;
   for(let i=0;i<n;i++){
-    // 味方(p)は右端ふちから出て左へ／敵(e)は左端ふちから出て右へ（張り付き組を優先迎撃できる湧き位置）
-    const baseX = side==='p' ? CONF.W-CONF.spawnInset : CONF.spawnInset;
+    // 味方(p)は自陣（右の城）の手前から出て左へ／敵(e)は敵陣（左の城）の手前から出て右へ（城の前に湧く）
+    const baseX = side==='p' ? CONF.W-CONF.castleInset-14 : CONF.castleInset+14;
     const dir = side==='p' ? -1 : 1;
     const y = CONF.groundY - Math.random()*CONF.rowBand;
     world.units.push(newUnit(key, side, baseX + dir*(i*14 + Math.random()*8), y));
@@ -906,15 +905,14 @@ function step(dt){
       u.x += u.kbVX*dt;
       u.kbVY += KB_GRAV*dt; u.kbY += u.kbVY*dt;          // 上下は放物線
       if(u.kbY>=0){ u.kbY=0; if(u.kbVY>140){ u.kbVY=-u.kbVY*0.35; } else { u.kbVY=0; } }  // 着地バウンド
-      // 画面内に留めるだけの小さいクランプ（castleAtkRangeで留めると、城際の敵が前へワープして
-      // 攻撃中の味方をすり抜け後ろへ回り込むバグになる）。城の手前まではノックバックしてよい。
-      u.x = Math.max(10, Math.min(CONF.W-10, u.x));
+      // ノックバックはタワーの後ろの隙間まで逃がす（城際でハマらせない）。画面外へは出さない。
+      u.x = Math.max(6, Math.min(CONF.W-6, u.x));
       continue;
     }
     if(u.stunT>0){ u.stunT-=dt; u.moving=false; continue; }   // スタン中（ブレイクの大技）は行動不能
     const D = u.U;
     const fe = frontUnit(u,false);          // 前方の敵
-    const castleX = u.side==='p' ? 0 : CONF.W;   // 攻撃対象は相手の城（味方=左の敵城 / 敵=右の味方城）
+    const castleX = u.side==='p' ? CONF.castleInset : CONF.W-CONF.castleInset;   // 攻撃対象は相手の城（味方=左の敵城 / 敵=右の味方城）
     const castleGap = Math.abs(castleX - u.x);
     const enemyInRange  = fe && fe.gap <= u.range;
     // 前方に「城より手前の敵」がいる間は城を殴らない＝城に張り付いたまま、後ろ(城側)に湧いた敵を
@@ -981,12 +979,12 @@ function step(dt){
     let nx = u.x + u.dir*sp*dt;
     // 停止位置：前方に敵がいればその敵の射程手前まで踏み込む（城に張り付いた敵の後ろに湧いた敵も追える）。
     // 敵がいなければ城の攻撃距離(castleAtkRange)で足を止めて城を殴る。どちらも城本体(castleBodyR)へはめり込まない。
-    if(u.side==='p'){            // 左へ進む・敵城は左(0)
+    if(u.side==='p'){            // 左へ進む・敵城は左(castleInset)
       nx = fe ? Math.max(nx, fe.o.x + u.range) : Math.max(nx, CONF.castleAtkRange);
-      nx = Math.max(nx, CONF.castleBodyR);
-    }else{                        // 右へ進む・味方城は右(W)
+      nx = Math.max(nx, CONF.castleInset);       // 敵城の中心より奥へはめり込まない（後ろは隙間）
+    }else{                        // 右へ進む・味方城は右(W-castleInset)
       nx = fe ? Math.min(nx, fe.o.x - u.range) : Math.min(nx, CONF.W - CONF.castleAtkRange);
-      nx = Math.min(nx, CONF.W - CONF.castleBodyR);
+      nx = Math.min(nx, CONF.W - CONF.castleInset);
     }
     u.x = nx;
   }
@@ -1001,8 +999,8 @@ function step(dt){
       if(b.side!=='e' || b.dead || b.kbT>0 || b.U.noCollide || b.U.untargetable) continue;
       if(a.x < b.x && (b.x - a.x) < COLLIDE_W){        // 入れ替わり（味方が敵の左＝すり抜けた）→押し戻す
         const mid=(a.x+b.x)/2;
-        a.x = Math.min(CONF.W - CONF.castleBodyR, mid + COLLIDE_W/2);   // 味方を右（自陣側）へ
-        b.x = Math.max(CONF.castleBodyR, mid - COLLIDE_W/2);            // 敵を左（自陣側）へ
+        a.x = Math.min(CONF.W - CONF.castleInset, mid + COLLIDE_W/2);   // 味方を右（自陣側）へ
+        b.x = Math.max(CONF.castleInset, mid - COLLIDE_W/2);            // 敵を左（自陣側）へ
       }
     }
   }
@@ -1090,7 +1088,7 @@ function spawnWaveBurst(w){
     let key=pool[(Math.random()*pool.length)|0];
     if(w.type==='break' && w.heavy && Math.random()<0.5) key=w.heavy;   // ブレイクは重め敵を混ぜる
     const y=CONF.groundY - Math.random()*CONF.rowBand;
-    const u=newUnit(key,'e', CONF.spawnInset + Math.random()*60, y); u.fromEvent=true;
+    const u=newUnit(key,'e', CONF.castleInset + 14 + Math.random()*60, y); u.fromEvent=true;
     world.units.push(u);
   }
   world.shake=Math.max(world.shake,4);
@@ -1102,13 +1100,13 @@ function updateBreak(dt){
   if(w && w.tower){ world.towerAtkCd-=dt; if(world.towerAtkCd<=0){ towerAttack(); world.towerAtkCd=TOWER_ATK_CD; } }
   if(world.breakTimer>0){ world.breakTimer-=dt; if(world.breakTimer<=0 && !world.breakPenalized) breakPenalty(); }
 }
-// 敵タワー（左・x=0）から最前(最左)の味方へ弾を撃つ
+// 敵タワー（左）から最前(最左)の味方へ弾を撃つ
 function towerAttack(){
   let t=null, best=1e9;
   for(const u of world.units){ if(u.side!=='p'||u.dead) continue; if(u.x<best){best=u.x;t=u;} }
   if(!t) return;
   const dmg = 22 + (curStage?curStage.id:1)*2;
-  world.shots.push({ x:CONF.castleBodyR, y:CONF.groundY-42, side:'e', dmg, sp:300, r:14,
+  world.shots.push({ x:CONF.castleInset, y:CONF.groundY-42, side:'e', dmg, sp:300, r:14,
     tid:t.id, tx:t.x, ty:t.y-16, ang:0, tower:true });
   SFX_shot();
 }
@@ -1123,7 +1121,7 @@ function spawnWave(key, n){
   for(let i=0;i<n;i++){
     if(world.units.filter(u=>u.side==='e').length >= CONF.maxUnitsPerSide) break;
     const y=CONF.groundY - Math.random()*CONF.rowBand;
-    const u=newUnit(key,'e', CONF.spawnInset + Math.random()*50, y); u.fromEvent=true;
+    const u=newUnit(key,'e', CONF.castleInset + 14 + Math.random()*50, y); u.fromEvent=true;
     world.units.push(u);
   }
   // 増援は「城に張り付いた味方」を少し後ろへ剥がして、湧いた増援が前で防衛できるようにする
@@ -1133,7 +1131,7 @@ function spawnWave(key, n){
 }
 function spawnBoss(cfg){
   cfg=cfg||{};
-  const u=newUnit(cfg.key||'m_boss','e', CONF.spawnInset+12, CONF.groundY-2);   // cfg.key で立ち絵ボス（緑中ボス等）に差し替え可
+  const u=newUnit(cfg.key||'m_boss','e', CONF.castleInset+16, CONF.groundY-2);   // cfg.key で立ち絵ボス（緑中ボス等）に差し替え可
   if(cfg.hp){ u.hp=cfg.hp; u.maxHp=cfg.hp; }
   if(cfg.atk) u.atk=cfg.atk;
   if(cfg.sMul) u.sMul=cfg.sMul;
@@ -1553,12 +1551,13 @@ function drawMirrorBall(x, y, t){
 /* --- 敵の立ち絵スプライト描画（画像を足元アンカーで・吹き飛び中は回転） --- */
 function drawFoeSprite(u, S, cx, footY){
   const im = SPRITES[u.U.spr]; if(!(im && im.complete && im.naturalWidth)) return;
+  const H = S*(u.U.hMul||1);                       // 縦伸ばし（ノッポ＝足長シロカビ用）。幅はそのまま
   ctx.save();
-  ctx.translate(cx, footY - S*0.5);
+  ctx.translate(cx, footY - H*0.5);               // 足元を地面に残したまま縦だけ伸ばす
   if(u.kbT>0) ctx.rotate((KB_TIME-u.kbT)*7*Math.sign(u.kbVX||-1));   // 吹き飛び中はくるっと回転
   if(u.U.mold==='spiky' && u.fuseT>=0){ const p=1+0.18*Math.sin(elapsed*40); ctx.scale(p,p); }  // 自爆導火中はふくらむ（将来用）
   ctx.imageSmoothingEnabled=false;
-  ctx.drawImage(im, -S/2, -S/2, S, S);
+  ctx.drawImage(im, -S/2, -H/2, S, H);
   ctx.restore();
 }
 /* --- カビ敵の手描き（プレースホルダ／画像素材なし） ---
@@ -1661,8 +1660,8 @@ function render(){
   const gh = Math.max(H-g, cv.height);   // 地面は画面下まで届くよう十分下へ延ばす（スマホ縦で下に空きを作らない）
   ctx.fillStyle='#e7b57a'; ctx.fillRect(-8,g,W+16,gh);
   ctx.fillStyle='#d59f63'; ctx.fillRect(-8,g,W+16,6);
-  drawCastle(24,'e'); drawCastle(W-24,'p');   // 左＝敵(赤) / 右＝味方(青)
-  drawCastleHP(W-24, php, myMaxHP);           // 自陣タワーのHP（城の上に数値＋バー）
+  drawCastle(CONF.castleInset,'e'); drawCastle(W-CONF.castleInset,'p');   // 左＝敵(赤) / 右＝味方(青)。後ろに隙間
+  drawCastleHP(W-CONF.castleInset, php, myMaxHP);           // 自陣タワーのHP（城の上に数値＋バー）
   // タワー攻撃の射程ライン（自城=右 から ここまで届く）＝プレイヤーに「ここまで」を可視化
   { const minX = W - upgVal('tRng');
     ctx.save();
