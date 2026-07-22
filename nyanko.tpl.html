@@ -319,13 +319,13 @@ const DEFS = {
            gear:'cknight', body:'cknight_body'},   // 四角いクッキーナイト（剣持ち・横薙ぎ攻撃）
   // クッキーランス：長射程で連続突きの高コスト後衛キャリア。前線の後ろから高DPSを出す（gear:'lance'）
   clance: {name:'クッキーランス', role:'melee', atk:48, hp:200, speed:90, range:62, cd:0.5, scale:0.84,
-           cost:400, rc:9.2, num:1, spr:'clance', gear:'lance', body:'clance_body'},
+           cost:400, rc:9.2, num:1, spr:'clance', gear:'lance', body:'clance_body', strongVs:['red']},
   // クッキータンク：チョコ盾のチョコナッツクッキー。高HP・低攻撃。射程が短くナイトより前に出る壁（gear:'ctank'＝シールドバッシュ）
   ctank:  {name:'クッキータンク', role:'melee', atk:8, hp:300, speed:56, range:15, cd:1.1, scale:1.02,
            cost:100, rc:4.0, num:1, spr:'ctank', gear:'ctank', body:'ctank_body'},
   // クッキーウォリアー：斧を斜め担ぎ。攻撃特化＝一撃が重い代わりに攻撃速度が遅い（gear:'axe'＝大振りの振り下ろし）
   cwarrior:{name:'クッキーウォリアー', role:'melee', atk:78, hp:130, speed:82, range:36, cd:1.7, scale:0.98,
-           cost:200, rc:6.0, num:1, spr:'cwarrior', gear:'axe', body:'cwarrior_body'},
+           cost:200, rc:6.0, num:1, spr:'cwarrior', gear:'axe', body:'cwarrior_body', strongVs:['red']},
   // 支援：一定間隔でミラーボール→【軍全体】の攻撃UP（クッキーはさらにUP）。1レーン向けに全体化
   partycookie:{name:'パーティークッキー', role:'melee', atk:8, hp:110, speed:100, range:26, cd:0.6, scale:0.86,
            cost:140, rc:8.0, num:1, spr:'cookie_party',
@@ -344,19 +344,19 @@ const DEFS = {
   // 高HP・攻撃速度が遅い。見た目は SUGAR WARS の「ちょんまげ大福」（daifuku_buff）を流用。
   daifuku:{name:'大福サムライ', role:'melee', atk:30, hp:560, speed:60, range:34, cd:1.7, scale:1.0,
            cost:500, rc:11.0, num:1, spr:'daifuku_buff', gear:'katana', body:'daifuku_buff_body',
-           counter:true},
+           counter:true, strongVs:['red']},
   // チョコナイト：高コストの優秀な前衛。固くて攻撃もそれなりに強い（剣＝クッキーナイト／盾＝クッキータンクを流用）
   choco:  {name:'チョコナイト', role:'melee', atk:40, hp:520, speed:58, range:18, cd:1.0, scale:1.06,
-           cost:400, rc:9.5, num:1, spr:'choco2', gear:'knight', body:'choco2_body'},
+           cost:400, rc:9.5, num:1, spr:'choco2', gear:'knight', body:'choco2_body', strongVs:['green']},
   // ふっとばし妨害：攻撃するたび前方の敵をまとめて吹き飛ばす（area＋毎回ノックバック）
   donut:  {name:'ドーナッツ', role:'melee',  atk:12, hp:460, speed:48,  range:34, cd:1.2,  scale:1.12,
            cost:210, rc:14.0,num:1, spr:'donut', area:true, kbHit:{every:1, dist:78}},
   // 速い前衛：手数で押す素早いアタッカー（2体・低コスト）
   macaron:{name:'シェルマカロン', role:'melee', atk:15, hp:85, speed:104, range:26, cd:0.55, scale:0.9,
-           cost:80,  rc:2.8, num:1, spr:'macaron'},
+           cost:80,  rc:2.8, num:1, spr:'macaron', strongVs:['green']},
   // 後衛の鈍足：氷弾を当てた敵の移動を遅くする（当たり判定は単体・遠距離）
   icewiz: {name:'アイスウィザード', role:'ranged', atk:10, hp:60, speed:56, range:165, cd:1.3, scale:0.9,
-           cost:130, rc:8.5, num:1, spr:'icewiz', slowHit:{mul:0.5, dur:1.4}},
+           cost:130, rc:8.5, num:1, spr:'icewiz', slowHit:{mul:0.5, dur:1.4}, strongVs:['green']},
   // 後衛射手（矢）。歩行2フレーム＋構え（攻撃）／待機ポーズ
   shoe:   {name:'シュー',     role:'ranged', atk:16, hp:46,  speed:56,  range:175, cd:1.0, scale:0.86,
            cost:90,  rc:4.5, num:1, spr:'shoe_aim', arc:true,
@@ -447,8 +447,9 @@ function genStage(n){
     ev.push({at:0.34, wave:{key:heavyKey(n), n:4+Math.floor(n/5)}, msg:'カビの増援！'});
   }
   // ボスは「厚いHPの壁＋高火力」＝押し切った先の本番。base湧きは軽いので必ず対面できる（泥沼化しない）
-  if(mini) ev.push({at:0.5,  boss:{hp:Math.round(1900+n*320), atk:Math.round(34+n*3.6), sMul:0.92}, msg:'中ボスあらわる！'});
-  if(boss) ev.push({at:0.5,  boss:{hp:Math.round(3600+n*560), atk:Math.round(56+n*5.6), sMul:1.14}, msg:'ボスあらわる！'});
+  // 色トレイト：中ボス＝みどり／大ボス＝あか（対〇色の味方だけが有利を取れる）。雑魚は無属性(plain)のまま。
+  if(mini) ev.push({at:0.5,  boss:{hp:Math.round(1900+n*320), atk:Math.round(34+n*3.6), sMul:0.92, trait:'green'}, msg:'中ボスあらわる！'});
+  if(boss) ev.push({at:0.5,  boss:{hp:Math.round(3600+n*560), atk:Math.round(56+n*5.6), sMul:1.14, trait:'red'}, msg:'ボスあらわる！'});
   return { id:n, name:stageName(n)+(boss?'（ボス）':mini?'（中ボス）':''), enemyHP, baseCd, baseCap,
            pool:basePool(n), events:ev, coins:80+n*16, tutorial:(n===1) };
 }
@@ -506,33 +507,30 @@ const FOE_DEFS = {
 };
 
 /* ============================================================
-   属性（甘・辛・苦）＝三すくみの相性。有利ならダメージUP・不利でもペナルティなし。
-   三すくみ：甘→辛→苦→甘（甘は辛に強い / 辛は苦に強い / 苦は甘に強い）。
+   属性＝「色トレイト」（色数むせいげん・データ駆動）。
+   ・敵は trait（色）を持つと体がその色に塗り替わる。plain＝無属性（塗り替えなし・倍率に関与しない）。
+   ・味方は strongVs（対〇色）を持つと、その色の敵に EFFECT_MUL 倍ダメージ（有利ボーナスのみ・減衰なし）。
+   ・無属性(plain)どうしは倍率なし＝序盤の雑魚は相性を気にしなくてよい。色つきは主にボス。
+   ・色を増やすときは TRAITS に1行足すだけ。敵に trait / 味方に strongVs を付けるだけで機能する。
    ============================================================ */
-const ATTR = {
-  sweet:  {name:'甘', color:'#ff8fc4', emoji:'🍬'},
-  spicy:  {name:'辛', color:'#ff5a4a', emoji:'🌶'},
-  bitter: {name:'苦', color:'#b07a4a', emoji:'🍫'},
+const TRAITS = {
+  plain:  { name:'プレーン', tint:null },                       // 無属性（白/ベージュ/黄の見た目・倍率なし）
+  green:  { name:'みどり',   tint:'#5fbf5f', dark:'#357a35' },  // 毒など
+  red:    { name:'あか',     tint:'#ff5a4a', dark:'#a3322a' },  // 強個体・ボス
+  blue:   { name:'あお',     tint:'#4aa3ff', dark:'#2a5fa8' },
+  black:  { name:'くろ',     tint:'#3a3340', dark:'#17141c' },  // 強化された雑魚/ボス
+  yellow: { name:'きいろ',   tint:'#ffd23f', dark:'#b8901a' },
 };
-const ATTR_STRONG = { sweet:'spicy', spicy:'bitter', bitter:'sweet' };   // 攻撃側→有利な相手の属性
-const ATTR_BONUS = 1.6;                                                  // 有利時のダメージ倍率
-// キャラ/カビの属性割り当て（バランス重視・後で調整可）
-const UNIT_ATTR = {
-  cookie:'sweet', slime:'sweet', donut:'sweet',          // 甘
-  partycookie:'spicy', daifuku:'spicy',                  // 辛
-  bigslime:'bitter', choco:'bitter', shoe:'bitter',      // 苦
-  bomb:'sweet',                                          // （現在ロスター外）
-  m_swarm:'spicy', m_phage:'spicy',                      // カビ：辛
-  m_tank:'bitter',                                       // カビ：苦
-  m_big:'sweet', m_puff:'sweet',                         // カビ：甘
-};
-function attrOf(u){ return UNIT_ATTR[u.key]; }
-/* 属性はとりあえず無効（最初から相性が絡むと難しくなるため）。倍率を常に1・バッジ非表示に。
-   復活させるときは attrMul を三すくみ判定に戻し、attrBadgeHTML/バトル中の色ドットを有効化するだけ。 */
-const ATTR_ON = false;
-function attrMul(atkAttr, tgtAttr){ return (ATTR_ON && atkAttr && ATTR_STRONG[atkAttr]===tgtAttr) ? ATTR_BONUS : 1; }
-function attrBadgeHTML(key){ if(!ATTR_ON) return ''; const a=UNIT_ATTR[key]; if(!a) return ''; const m=ATTR[a];
-  return '<span class="abadge" style="background:'+m.color+'">'+m.name+'</span>'; }
+const EFFECT_MUL = 1.6;                                          // 「ばつぐん！」＝有効時のダメージ倍率
+function traitOf(u){ return (u && (u.trait || (u.U && u.U.trait))) || 'plain'; }
+function traitTint(u){ const t=TRAITS[traitOf(u)]; return (t && t.tint) ? {col:t.tint, dk:t.dark||t.tint} : null; }
+// 味方(strongVs)が 相手の色(targetTrait) に有効か。plain（無属性）は常に非有利＝倍率に関与しない。
+function isEffective(strongVs, targetTrait){ return !!(strongVs && strongVs.length && targetTrait && targetTrait!=='plain' && strongVs.indexOf(targetTrait)>=0); }
+function effHitMul(attacker, target){ return isEffective(attacker && attacker.U && attacker.U.strongVs, traitOf(target)) ? EFFECT_MUL : 1; }
+// カード用バッジ：味方が「対〇色に強い」ならその色ドットを表示（無ければ空）
+function attrBadgeHTML(key){ const sv=DEFS[key] && DEFS[key].strongVs; if(!sv || !sv.length) return '';
+  const dots=sv.map(t=>{ const c=TRAITS[t]&&TRAITS[t].tint; return c?'<i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+c+';border:1px solid #0006"></i>':''; }).join('');
+  return '<span class="abadge" title="この色の敵に強い">'+dots+'</span>'; }
 
 /* --- 状態 --- */
 let world, money, php, ehp, cd, enemyCd, elapsed, running, lastT, walletLv, towerCd, hintT;
@@ -590,11 +588,11 @@ function newUnit(key, side, x, y){
     kbSeg:undefined,
   };
 }
-/* --- 攻撃1発の適用（属性相性でダメージ倍率＋鈍足付与）。ふっとばしは呼び出し側で --- */
+/* --- 攻撃1発の適用（色トレイト相性でダメージ倍率＋鈍足付与）。ふっとばしは呼び出し側で --- */
 function attackHit(u, o, dmg){
-  const mul = attrMul(attrOf(u), attrOf(o));
-  hurt(o, dmg*mul);
-  if(mul>1) advFx(o);          // 有利＝「ばつぐん！」演出
+  const eff = isEffective(u.U.strongVs, traitOf(o));
+  hurt(o, dmg*(eff?EFFECT_MUL:1));
+  if(eff) advFx(o, traitOf(o));   // 有効＝属性色の閃光＋「ばつぐん！」
   if(u.U.slowHit && !o.dead){ o.slowT = u.U.slowHit.dur; o.slowMul = u.U.slowHit.mul; }
 }
 // カウンター解放の演出（赤い斬撃＋火花＋「カウンター！」＋軽い画面揺れ）
@@ -605,12 +603,13 @@ function counterFx(u, amt){
     world.parts.push({x:u.x, y:u.y-18, vx:Math.cos(a)*s, vy:Math.sin(a)*s-40, life:0.5, max:0.5, c:'#ff6b5a', r:2+Math.random()*2}); }
   if(u.side==='p') world.shake = Math.max(world.shake, 6);
 }
-// 有利ヒットの演出（金色の火花＋「ばつぐん！」のフロートテキスト。テキストは間引いて重なり防止）
+// 有効ヒットの演出（属性色の火花＋「ばつぐん！」のフロートテキスト。テキストは間引いて重なり防止）
 let _lastPop=-1;
-function advFx(o){
-  for(let i=0;i<6;i++){ const a=Math.random()*6.28, s=60+Math.random()*120;
-    world.parts.push({x:o.x, y:o.y-18, vx:Math.cos(a)*s, vy:Math.sin(a)*s-50, life:0.4, max:0.4, c:'#ffe27a', r:2+Math.random()*2}); }
-  if(elapsed - _lastPop > 0.4){ _lastPop=elapsed; world.pops.push({x:o.x, y:o.y-46, t:0, dur:0.7, text:'ばつぐん！', c:'#ffe27a'}); }
+function advFx(o, traitKey){
+  const c = (TRAITS[traitKey] && TRAITS[traitKey].tint) || '#ffe27a';
+  for(let i=0;i<7;i++){ const a=Math.random()*6.28, s=60+Math.random()*120;
+    world.parts.push({x:o.x, y:o.y-18, vx:Math.cos(a)*s, vy:Math.sin(a)*s-50, life:0.4, max:0.4, c:c, r:2+Math.random()*2.4}); }
+  if(elapsed - _lastPop > 0.4){ _lastPop=elapsed; world.pops.push({x:o.x, y:o.y-46, t:0, dur:0.7, text:'ばつぐん！', c:c}); }
 }
 const ATK_ANIM = 0.18;   // 攻撃モーションの表示時間(秒)
 const COUNTER_CAP = 8;   // カウンターで返せるダメージの上限倍率（自身の攻撃力の800%まで＝単体の一撃を重く）
@@ -744,10 +743,10 @@ function fireShot(u, target){
     // シューの矢：山なりの弧を描いて着弾（大きめ）
     const x0=u.x + u.dir*8, y0=u.y-34, tx=target.x, ty=target.y-14;
     const dist=Math.abs(tx-x0);
-    world.shots.push({ lob:true, side:u.side, dmg:u.atk*(u.buffMul||1), attr:attrOf(u), r:18, tid:target.id,
+    world.shots.push({ lob:true, side:u.side, dmg:u.atk*(u.buffMul||1), strongVs:u.U.strongVs, r:18, tid:target.id,
       x:x0, y:y0, x0, y0, tx, ty, t:0, dur:Math.max(0.4, dist/360), arcH:70+dist*0.35, ang:0, arrow:true });
   }else{
-    world.shots.push({ x:u.x, y:u.y-16, side:u.side, dmg:u.atk, attr:attrOf(u), sp:320, r:12,
+    world.shots.push({ x:u.x, y:u.y-16, side:u.side, dmg:u.atk, strongVs:u.U.strongVs, sp:320, r:12,
       tid:target.id, tx:target.x, ty:target.y-16, ang:0, ice: u.key==='icewiz', slow:u.U.slowHit });
   }
 }
@@ -815,7 +814,7 @@ function step(dt){
       if(!windup && (enemyInRange || castleInRange)){
         if(enemyInRange){
           for(const o of world.units){ if(o.side===u.side || o.dead) continue;   // 敵だけに当てる
-            if(Math.abs(o.x-u.x) <= D.charge.r){ const m=attrMul(attrOf(u), attrOf(o)); hurt(o, D.charge.dmg*m); if(m>1) advFx(o); } }
+            if(Math.abs(o.x-u.x) <= D.charge.r){ const eff=isEffective(u.U.strongVs, traitOf(o)); hurt(o, D.charge.dmg*(eff?EFFECT_MUL:1)); if(eff) advFx(o, traitOf(o)); } }
           slashFx(u); world.slashes.push({x:u.x, y:u.y-CONF.rowBand, dir:u.dir, t:0, dur:0.28, reach:D.charge.r});
           if(u.side==='p') world.shake = 5;   // サムライの居合ヒットで軽く画面が揺れる
         }else{ if(u.side==='p') ehp -= D.charge.dmg; else php -= D.charge.dmg; }
@@ -880,7 +879,7 @@ function step(dt){
       if(p>=1){
         let t = world.units.find(u=>u.id===s.tid && !u.dead);
         if(!t){ let bd=44; for(const o of world.units){ if(o.side===s.side||o.dead) continue; const dd=Math.hypot(o.x-s.x,o.y-s.y); if(dd<bd){bd=dd;t=o;} } }
-        if(t){ const m=attrMul(s.attr, attrOf(t)); hurt(t, s.dmg*m); if(m>1) advFx(t); if(s.slow && !t.dead){ t.slowT=s.slow.dur; t.slowMul=s.slow.mul; } }
+        if(t){ const eff=isEffective(s.strongVs, traitOf(t)); hurt(t, s.dmg*(eff?EFFECT_MUL:1)); if(eff) advFx(t, traitOf(t)); if(s.slow && !t.dead){ t.slowT=s.slow.dur; t.slowMul=s.slow.mul; } }
         s.dead=true;
       }
       continue;
@@ -889,7 +888,7 @@ function step(dt){
     if(t){ s.tx=t.x; s.ty=t.y-16; }
     const dx=s.tx-s.x, dy=s.ty-s.y, d=Math.hypot(dx,dy)||1;
     s.ang = Math.atan2(dy,dx);
-    if(d < s.sp*dt + s.r){ if(t){ const m=attrMul(s.attr, attrOf(t)); hurt(t, s.dmg*m); if(m>1) advFx(t); if(s.slow && !t.dead){ t.slowT=s.slow.dur; t.slowMul=s.slow.mul; } } s.dead=true; }
+    if(d < s.sp*dt + s.r){ if(t){ const eff=isEffective(s.strongVs, traitOf(t)); hurt(t, s.dmg*(eff?EFFECT_MUL:1)); if(eff) advFx(t, traitOf(t)); if(s.slow && !t.dead){ t.slowT=s.slow.dur; t.slowMul=s.slow.mul; } } s.dead=true; }
     else{ s.x += dx/d*s.sp*dt; s.y += dy/d*s.sp*dt; }
   }
 
@@ -946,6 +945,7 @@ function spawnBoss(cfg){
   if(cfg.hp){ u.hp=cfg.hp; u.maxHp=cfg.hp; }
   if(cfg.atk) u.atk=cfg.atk;
   if(cfg.sMul) u.sMul=cfg.sMul;
+  if(cfg.trait) u.trait=cfg.trait;                 // 色トレイト（緑=中ボス/赤=大ボス）＝体色に反映＋対〇色の有利判定に使う
   u.kbCount=3; u.kbSeg=undefined;            // ボスは滅多にひるまず前進する
   u.boss=true; u.fromEvent=true;
   world.units.push(u);
@@ -1283,11 +1283,7 @@ function drawUnit(u){
     ctx.fillStyle='#0008'; ctx.fillRect(bx,by,w,h);
     ctx.fillStyle = u.side==='p'?'#6fd66f':'#b6e06a'; ctx.fillRect(bx,by,w*Math.max(0,u.hp/u.maxHp),h);
   }
-  // 属性バッジ（ATTR_ON のときだけ・現在は無効）
-  if(ATTR_ON){ const at=attrOf(u);
-    if(at){ const ax=cx+S*0.30, ay=footY-S+4;
-      ctx.fillStyle=ATTR[at].color; ctx.beginPath(); ctx.arc(ax,ay,5,0,6.28); ctx.fill();
-      ctx.lineWidth=1.5; ctx.strokeStyle='#00000066'; ctx.stroke(); } }
+  // 色トレイト（敵の属性）は drawMold で体色に反映済み＝ここでのバッジ描画は不要
   // パーティークッキー：頭上のミラーボール
   if(u.U.disco && u.auraT>0) drawMirrorBall(cx, footY-S-6, elapsed);
   // 攻撃バフ中の味方：小さな♪キラキラ
@@ -1323,7 +1319,8 @@ function drawMirrorBall(x, y, t){
 /* --- カビ敵の手描き（プレースホルダ／画像素材なし） ---
    mold: blob=もやもやカビ玉 / phage=脚つきウイルス砲 / spiky=トゲ球（自爆） */
 function drawMold(u, S, cx, cy){
-  const D = u.U, col = D.col||'#7fae5c', dk = D.col2||'#4f7038';
+  const D = u.U, tt = traitTint(u);                       // 色トレイトがあれば体色を塗り替え（plainは元の配色）
+  const col = tt ? tt.col : (D.col||'#7fae5c'), dk = tt ? tt.dk : (D.col2||'#4f7038');
   const r = S*0.36;
   const top = cy - S*0.5;                       // 体の中心を足元より上へ
   const puls = D.mold==='spiky' && u.fuseT>=0 ? (1 + 0.18*Math.sin(elapsed*40)) : 1;
@@ -1738,6 +1735,11 @@ function renderCharDetail(){
   stats+=statRow('攻撃速度', D.cd.toFixed(2)+'秒/回');
   if(D.rc) stats+=statRow('再出撃', D.rc.toFixed(1)+'秒');
   if((D.num||1)>1) stats+=statRow('出撃数', D.num+'体');
+  // 色トレイト特効（対〇色に強い＝EFFECT_MUL倍）
+  if(D.strongVs && D.strongVs.length){
+    const chips=D.strongVs.map(t=>{ const T=TRAITS[t]; return T?'<span style="display:inline-flex;align-items:center;gap:4px"><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+T.tint+';border:1px solid #0006"></i>'+T.name+'</span>':''; }).join('　');
+    stats+=statRow('とくせい', chips+' に強い <span style="color:var(--brass)">×'+EFFECT_MUL+'</span>');
+  }
   // レベル / 解放アクション
   let action='';
   if(owned){
@@ -1872,6 +1874,7 @@ if(typeof globalThis!=='undefined') globalThis.__NYANKO = { CONF, DEFS, ORDER,
   get world(){return world;}, get money(){return money;}, get php(){return php;}, get ehp(){return ehp;},
   get walletLv(){return walletLv;}, set walletLv(v){walletLv=v;}, get towerCd(){return towerCd;}, set towerCd(v){towerCd=v;},
   get enemyCd(){return enemyCd;}, set enemyCd(v){enemyCd=v;}, spawnBoss, knockAllAllies,
+  TRAITS, EFFECT_MUL, traitOf, isEffective, effHitMul, FOE_DEFS,
   get testMode(){return TEST_MODE;}, set testMode(v){TEST_MODE=!!v;},
   set money(v){money=v;}, set php(v){php=v;}, set ehp(v){ehp=v;} };
 </script>
