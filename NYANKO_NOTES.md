@@ -71,6 +71,15 @@
 - **演出**：有効ヒットは `advFx(o, traitOf(o))`＝**属性色の火花＋「ばつぐん！」**（色は相手のトレイト色）。キャラ詳細に「とくせい：◯に強い ×1.6」、なかまカードに対象色ドット（`attrBadgeHTML`）。
 - **テスト**：smoke 18（plain無効・同色有効・不利は倍率1・ボスの色・与ダメ増をエンドツーエンド）。**色/対象を増やすときは `TRAITS`＋敵`trait`／味方`strongVs` を足すだけ**。
 
+## スマホ最適化 — pass1（実装済み）
+- **フルスクリーン/PWA下地**：`viewport-fit=cover`＋`apple-mobile-web-app-capable`/`mobile-web-app-capable`/`theme-color`/status-bar メタ＝「ホーム画面に追加」でアドレスバー無しの全画面に。
+- **100vh対策**：JSが `window.innerHeight` を `--vh` に反映し、`#wrap` の高さを `calc(var(--vh)*100)`＝モバイルのアドレスバーで下が切れない。`resize`/`orientationchange` で更新。
+- **セーフエリア**：`#wrap` に `env(safe-area-inset-*)` パディング（ノッチ対応）。`overscroll-behavior:none`＋`touch-action:manipulation`＋`-webkit-tap-highlight-color:transparent` で引っぱり更新/ダブルタップ拡大/タップ光を抑制。
+- **バトルHUDのコンパクト化**：狭い/低い画面（`max-width:760px` または `max-height:560px`）でバトル上部タイトルを非表示（ホームのh1は別要素なので不変）。
+- **縦持ちレイアウト**：戦場を上寄せ（`#stage` align-flex-start）＋操作ボタンを下（親指ゾーン）に寄せて拡大（`.btn` の `.ic` 52px・出撃/サイドボタン大型化）。以前は戦場が中央に小さく浮いて上下に大きな余白だったのを解消。
+- **横持ち低画面**：上下パディングを詰めて戦場を最大化。デスクトップ（大画面）はメディアクエリ外なので従来どおり。
+- **残タスク（pass2候補）**：縦持ちの中央の空きを埋める＝戦場キャンバスを縦に大きくする（canvas高さ/groundY/背景描画の調整）。要相談。
+
 ## その他の修正メモ
 - **対面ユニットのすり抜け防止（前線を保つ）**：`stepWorld` の移動後に、味方(右)と敵(左)が入れ替わった（味方が敵の左に回り込んだ）ペアを押し戻す当たり判定（`COLLIDE_W=24`）。ノックバックや速度差で「敵が後ろに回り込む／味方が後ろに下がって取り残される」不具合を解消。吹き飛び中(`kbT>0`)と `noCollide`/`untargetable` は対象外。20試行シムで取り残しフレーム率 0.99%→0.00%（勝率ほぼ不変）。smoke 21。
 - **なかま一覧の並び**：ノーマル欄は**解放ステージ順**（スターター先頭→`UNLOCKS.need`昇順）にソート。ガチャ限定は別セクション。`renderCollect`。
