@@ -47,6 +47,14 @@
     background:var(--panel); border:2px solid var(--px-edge); border-radius:4px; padding:4px 10px; box-shadow:0 3px 0 var(--px-edge); }
   #speedBtn:active{ transform:translateY(2px); box-shadow:0 1px 0 var(--px-edge); }
   #speedBtn.on{ background:var(--grape); color:#fff; border-color:#6b2f9e; box-shadow:0 3px 0 #6b2f9e; }
+  /* 一時停止ボタン（speedBtnと同じ見た目） */
+  #pauseBtn{ cursor:pointer; white-space:nowrap; font-weight:800; font-size:13px; color:var(--ink); font-family:Inter,system-ui,sans-serif;
+    background:var(--panel); border:2px solid var(--px-edge); border-radius:4px; padding:4px 10px; box-shadow:0 3px 0 var(--px-edge); }
+  #pauseBtn:active{ transform:translateY(2px); box-shadow:0 1px 0 var(--px-edge); }
+  #pauseBtn.on{ background:var(--steel); color:#fff; border-color:#1f6f8c; box-shadow:0 3px 0 #1f6f8c; }
+  /* 一時停止オーバーレイ */
+  #pauseOverlay{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(74,42,18,.45); z-index:18; cursor:pointer; }
+  #pauseOverlay .pausecard{ background:var(--panel); color:var(--ink); border:3px solid var(--px-edge); border-radius:8px; padding:22px 34px; text-align:center; box-shadow:0 8px 0 var(--px-edge); }
   #moneyBox b{ color:var(--gold-dk); font-size:20px; font-family:"Space Mono",monospace; }
   #moneyBox .sub{ display:block; font-size:10px; font-weight:600; font-family:"Space Mono",monospace; }
   #stage{ width:100%; max-width:960px; flex:1; min-height:0; display:flex; align-items:center; justify-content:center; padding:4px 6px; }
@@ -229,6 +237,7 @@
   <div id="top">
     <div class="tophead">
       <div class="title" style="flex:1;min-width:0">🍭 SUGAR MARCH <span style="opacity:.5;font-weight:400">— にゃんこ風・試作</span></div>
+      <button id="pauseBtn" onclick="togglePause()" title="一時停止">⏸</button>
       <button id="speedBtn" onclick="toggleSpeed()" title="バトルの速さ">▶ ×1</button>
       <div id="moneyBox"><i class="candy"></i> <b id="moneyTxt">0</b><span class="sub">/<span id="capTxt">0</span> ・+<span id="rateTxt">0</span>/秒</span></div>
     </div>
@@ -245,6 +254,7 @@
   </div>
 </div>
 <div id="hint"><i class="candy"></i>を貯めて下のボタンでなかまを出撃！ 左の敵のお城を落とそう（右＝自分）</div>
+<div id="pauseOverlay" onclick="togglePause()"><div class="pausecard"><div style="font-size:40px">⏸</div><div style="font-size:20px;font-weight:800;margin-top:6px">一時停止中</div><div style="color:var(--muted);font-size:13px;margin-top:8px">タップで再開</div></div></div>
 <div id="overlay"><div class="card"><h1 id="ovT"></h1><p id="ovP"></p><div id="overButtons" style="display:flex;flex-direction:column;gap:8px;align-items:center"></div></div></div>
 
 <script>
@@ -715,7 +725,8 @@ function nearestEnemy(u){
 
 /* --- ダメージ適用（装甲＝被ダメ軽減／HPしきい値ノックバックをここで一本化） ---
    にゃんこ式KB：最大HPを kbCount で等分し、HPがしきい値を下回るたびに後ろへ1回ふっとぶ。 */
-const KB_HPDIST = 52;   // HPしきい値KBで後退する距離（スタッガー）
+const KB_HPDIST = 52;      // HPしきい値KBで後退する距離（スタッガー）
+const KB_STAGGER_CD = 0.6; // スタッガー後のクールダウン（この間は再スタッガーしない）＝壁際で連続ノックバックにハメられて動けなくなるのを防ぐ
 function hurt(o, dmg){
   const real = dmg * (1 - (o.U.dr||0));
   o.hp -= real;
@@ -724,7 +735,9 @@ function hurt(o, dmg){
   if(kc>1 && o.hp>0){                                  // KB回数1（＝しきい値なし）はスタッガーしない
     const seg = Math.ceil(o.hp / (o.maxHp/kc));       // 残りHPセグメント数
     if(o.kbSeg===undefined) o.kbSeg = kc;
-    if(seg < o.kbSeg){ o.kbSeg = seg; kbBackward(o, KB_HPDIST); }   // しきい値を割った→ふっとぶ
+    // しきい値を割った→ふっとぶ。ただしクールダウン中は「攻撃する隙」を確保するためスタッガーしない
+    // （大量の敵に囲まれて連続ノックバックで永久に動けなくなる＝ハメ の防止）。
+    if(seg < o.kbSeg){ o.kbSeg = seg; if((o.kbCd||0)<=0){ kbBackward(o, KB_HPDIST); o.kbCd = KB_STAGGER_CD; } }
   }
 }
 // 後ろ（自陣側＝進行方向の逆）へ短くスタッガー（HPしきい値KB＝小さめの後退）
@@ -831,6 +844,7 @@ function step(dt){
     u.bob += dt*10;
     if(u.atkAnim>0) u.atkAnim -= dt;
     if(u.slowT>0) u.slowT -= dt;   // 鈍足の残り時間
+    if(u.kbCd>0) u.kbCd -= dt;     // スタッガーのクールダウン（連続ノックバックのハメ防止）
     // 吹き飛び中：弧を描いて後ろへ飛ぶ（この間はAIしない）
     if(u.kbT>0){
       u.kbT -= dt;
@@ -1586,10 +1600,17 @@ function loop(t){
   if(!lastT) lastT=t;
   let dt=(t-lastT)/1000; lastT=t;
   if(dt>0.05) dt=0.05;
-  if(running){ for(let i=0;i<gameSpeed;i++) step(dt); }   // 倍速＝1フレームでstepを複数回（大きなdtでの貫通を防ぐ）
+  if(running && !paused){ for(let i=0;i<gameSpeed;i++) step(dt); }   // 倍速＝1フレームでstepを複数回（大きなdtでの貫通を防ぐ）／一時停止中は進めない
   render(); hud();
   requestAnimationFrame(loop);
 }
+/* --- 一時停止（バトルを止める。もう一度で再開） --- */
+let paused=false;
+function renderPauseBtn(){ const b=document.getElementById('pauseBtn'); if(!b) return;
+  b.textContent = paused ? '▶ 再開' : '⏸'; b.classList.toggle('on', paused); }
+function togglePause(){ if(!running) return; paused=!paused; renderPauseBtn();
+  const ov=document.getElementById('pauseOverlay'); if(ov) ov.style.display = paused ? 'flex' : 'none'; }
+function clearPause(){ paused=false; renderPauseBtn(); const ov=document.getElementById('pauseOverlay'); if(ov) ov.style.display='none'; }
 /* --- 倍速トグル（×1 ⇄ ×2）。端末に保存＝好みを覚える --- */
 function renderSpeedBtn(){ const b=document.getElementById('speedBtn'); if(!b) return;
   b.textContent = gameSpeed>1 ? '▶▶ ×2' : '▶ ×1'; b.classList.toggle('on', gameSpeed>1); }
@@ -1599,7 +1620,7 @@ try{ const sv=parseInt(localStorage.getItem('sm_speed'),10); if(sv===2) gameSpee
 
 /* --- 決着 --- */
 function win(youWon){
-  clearTut();
+  clearTut(); clearPause();
   const ov=document.getElementById('overlay');
   const T=document.getElementById('ovT'), P=document.getElementById('ovP'), B=document.getElementById('overButtons');
   B.innerHTML='';
@@ -1737,7 +1758,7 @@ function sortie(){ if(_pick.length===0) return; myLoadout=_pick.slice(); startBa
 
 // バトル開始
 function startBattle(){ hideScreens(); document.getElementById('overlay').style.display='none';
-  buildDock(); reset(); running=true;
+  buildDock(); reset(); running=true; clearPause();
   if(curStage && curStage.tutorial) runTutorial();
   else { clearTut(); showHint('🍬を貯めて下のボタンでなかまを出撃！ 左の敵のお城を落とそう（右＝自分）'); } }
 
@@ -1892,7 +1913,9 @@ const dock = document.getElementById('dock');
 const btnEls = {};
 function buildDock(){
   dock.innerHTML=''; for(const k in btnEls) delete btnEls[k];
-  for(const k of myLoadout){
+  // 出撃ボタンは左からコストの安い順に並べる（安い＝すぐ出せる前衛が左）
+  const dockKeys = myLoadout.slice().sort((a,b)=>(DEFS[a].cost||0)-(DEFS[b].cost||0));
+  for(const k of dockKeys){
     const D=DEFS[k];
     const b=document.createElement('button'); b.className='btn';
     const cdEl=document.createElement('div'); cdEl.className='cd';
@@ -1950,7 +1973,7 @@ function SFX_lose(){ [392,330,262].forEach((f,i)=>setTimeout(()=>blip(f,0.24,'sa
 loadGame();
 myLoadout = STARTERS.slice(0, LOADOUT_MAX);
 buildDock(); reset(); running=false;   // world等を初期化（描画がバトル前に走っても落ちないように）
-renderTestBtn(); renderSpeedBtn();
+renderTestBtn(); renderSpeedBtn(); renderPauseBtn();
 // スマホの実表示高さ（アドレスバー分を除いた高さ）を --vh に反映＝100vhがアドレスバーで隠れる問題の対策
 function setVH(){ try{ document.documentElement.style.setProperty('--vh', (window.innerHeight*0.01)+'px'); }catch(e){} }
 setVH();
@@ -1971,7 +1994,8 @@ if(typeof globalThis!=='undefined') globalThis.__NYANKO = { CONF, DEFS, ORDER,
   get save(){return save;}, get myMaxHP(){return myMaxHP;}, get foeMaxHP(){return foeMaxHP;},
   get world(){return world;}, get money(){return money;}, get php(){return php;}, get ehp(){return ehp;},
   get walletLv(){return walletLv;}, set walletLv(v){walletLv=v;}, get towerCd(){return towerCd;}, set towerCd(v){towerCd=v;},
-  get enemyCd(){return enemyCd;}, set enemyCd(v){enemyCd=v;}, spawnBoss, knockAllAllies,
+  get enemyCd(){return enemyCd;}, set enemyCd(v){enemyCd=v;}, spawnBoss, knockAllAllies, hurt, KB_STAGGER_CD,
+  get paused(){return paused;}, togglePause, buildDock,
   TRAITS, EFFECT_MUL, traitOf, isEffective, effHitMul, FOE_DEFS,
   get testMode(){return TEST_MODE;}, set testMode(v){TEST_MODE=!!v;},
   set money(v){money=v;}, set php(v){php=v;}, set ehp(v){ehp=v;} };
