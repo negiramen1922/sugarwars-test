@@ -118,21 +118,24 @@
 
 ### 50面ルート（プロシージャル生成）＋HP連動イベント — 実装済み
 
-**泥沼化しない設計**：敵は「時間経過で無限湧き」ではなく、**軽めの基本湧き（同時数ソフト上限 `baseCap`）＋城HP割合で発火するイベント（大群/ボス）**で構成。プレイヤーが押し込んで敵城HPを削ると、しきい値でイベントが起きる＝**有限で押し合いが決着する**。
+**泥沼化しない設計**：敵は「時間経過で無限湧き」ではなく、**軽めの基本湧き（同時数ソフト上限 `baseCap`）＋敵タワーの複数ゲージ＝WAVE制**で構成。プレイヤーが押し込んで今のゲージ（WAVE）を削り切ると次のWAVEへ、**最後のゲージを削り切ると勝ち**＝有限で押し合いが決着する。
 
-- **`genStage(n)`（n=1..50）**：`STAGES = Array.from({length:50}, …)`。
-  - `enemyHP = 560 + n*205 + n*n*6`（＝ステージの長さ／削り切ると勝ち）。
-  - `baseCd`（基本湧き間隔・軽め）／`baseCap`（同時に湧く敵のソフト上限＝泥沼化防止）。
-  - `pool = basePool(n)`：敵の解禁スケジュール。**自爆(m_puff)は18面から**（序盤に出さない）。swarm→壁(4)→射手(8)→超硬(13)→自爆(18)→混成(26)。
-  - `events`：`{at:HP割合, wave:{key,n}}`（大群）/ `{at, boss:{hp,atk,sMul}}`（ボス）。**10面ごとにボス面**（`n%10`）、**5面ごとに中ボス**（`n%5`）。
-  - 1面はチュートリアル＝超軽量（アオカビだけ・イベントなし）。
-- **イベント発火**：`step()` → `checkStageEvents()` が `ehp/foeMaxHP` を見て、しきい値を下回った瞬間に一度だけ `spawnWave`/`spawnBoss`＋`showEventBanner('⚠ …')`。ボスは `u.boss=true`・`kbCount=3`（滅多にひるまず前進）。
+#### WAVE制（敵タワーの複数HPゲージ）— 実装済み
+- **`makeWaves(n, boss, mini, total)`**：`genStage` が敵城HP総量(`total`)を**複数のWAVEゲージに分割**して `curStage.waves`（`[{idx,type,final,hp,burst,limit?,tower,boss?,mini?}]`）を作る。ゲージ数＝`2 + floor(n/6)` を 2〜5 でクランプ（ボス面は最低4）。重み配分＝ブレイクゲージは×1.4厚い。
+  - **WAVE 2種**：`type:'normal'`（通常）と `type:'break'`（ブレイク）。**基本は最後のゲージがブレイク**。ゲージ4本以上なら**途中(最後から2番目)にもブレイク**が入る。
+  - **通常WAVE**：切替時に `spawnWaveBurst`（`burst=3+floor(n/7)`体）で敵が多めに湧く。
+  - **ブレイクWAVE**：`burst`が多い（`4+floor(n/4)`・重めの敵`heavyKey`を混ぜる）／敵タワーが手前を攻撃（`tower:true`）／敵の湧き間隔が0.6倍に短縮（`world.waveType==='break'`）／**制限時間 `limit=round(16+n*0.5)`秒**。
+  - **ボス/中ボス**：最終ゲージに `boss`(`m_boss`/red)または `mini`(`m_gboss`/green)を積む（**10面ごとボス／5面ごと中ボス**）。ボスはHP割合イベントではなく**最終ブレイクWAVEにユニットとして登場**（壁として立ちはだかる）。
+  - 1面(STAGE_BY_ID[1])は上書きで**単一の通常ゲージ**（チュートリアル＝WAVEなし）。
+- **WAVE切替（`advanceWave`）**：今のゲージを削り切る（`ehp<=0` かつ非最終）と発火。①`curWave++`＋次ゲージのHP/タイプをセット、②**`knockAllAllies()`＝味方ユニット全体を必ずノックバック**（にゃんこの「城まで押したら跳ね返される」感）、③`spawnWaveBurst`で入場バースト、④ボス/中ボスがいれば`spawnBoss`、⑤バナー（通常=「WAVE N！」／ブレイク=「⚡ ブレイクWAVE！」／最終=「⚡ 最終ブレイク！」）。
+- **ブレイク進行（`updateBreak(dt)`）**：`step()`から毎フレーム。①`tower`ゲージなら`TOWER_ATK_CD`(2.6秒)ごとに`towerAttack()`＝敵タワー(x=0)から最前(最左)の味方へ弾（`dmg=22+id*2`・`side:'e' tower:true`）、②`breakTimer`を減算し**0で `breakPenalty()`＝味方全員スタン(`u.stunT=2.5`)**（＝制限時間オーバーの「敵の大技」）。スタン中は`step`の各ユニットループで`moving=false`＝行動不能。
+- **HP表示**：HTMLの城バー(`.bars`)は非表示化。代わりに①**画面上部に大きな敵バー `drawWaveHud()`**（screen-space・WAVEピップ`●○`＋ブレイクは赤＋残り秒`⏱`）、②**自陣タワーの真上に数値＋バー `drawCastleHP()`**（world-space）。
 - **キャラ解禁順（`UNLOCKS[k].need`＝そのステージをクリアで解禁）**：**序盤(〜10面)はクッキー＋4体だけ**＝ctank(3面) / cwarrior(5面) / clance(8面) / choco(10面)。それ以外(macaron/slime/shoe/icewiz/donut/daifuku)は**仮ロック（need13〜34の仮置き・11面以降の順番は後で確定）**。gachaはpartycookie/bigslime。
 - **EXP/コスト（塩梅）**：`stageExp= first? 600+n*100 : 120+n*20`（1-2面で計約1500）。解禁コスト＝ctank1000/cwarrior1800/clance3000/choco4500（以降仮）。強化コスト `c0` は 400〜500（1-2面のEXPで数個・少しだけ強化できる）。
 - **タワー（城砲）**：バトル開幕は**チャージ切れ**（`reset` で `towerCd=CONF.towerCd`＝溜まってから初撃）。射程 `UPG.tRng` は **base=中央ちょい自陣寄り(minX≈520)／MAX=敵城の目の前(minX≈40)**（base440・step80・max6＝敵城前まで届く）。
-- **バランス（1〜10面）**：limited roster（クッキー＋順次解禁の4体）でsim検証済み。**泥沼化なし・ボス面(5=中ボス/10=ボス)が時間の山**。ボスは「厚いHP＋高火力の壁」＝base湧きが軽いので必ず対面でき、押し切る本番。難易度は `genStage` の `enemyHP/baseCd/baseCap/events(boss.hp/atk)` で調整。
+- **バランス（1〜10面）**：limited roster（クッキー＋順次解禁の4体）でsim検証済み。**泥沼化なし・ボス面(5=中ボス/10=ボス)が時間の山**。ボスは最終ブレイクWAVEの「厚いHP＋高火力の壁」＝base湧きが軽いので必ず対面でき、押し切る本番。難易度は `genStage` の `enemyHP/baseCd/baseCap` と `makeWaves`（ゲージ数/ブレイク重み/burst/limit/boss.hp・atk）で調整。
 
-新ステージ/難易度は `genStage` の式（enemyHP・baseCd・baseCap・events）と `basePool`・`UNLOCKS.need` を触るだけ。個別に上書きしたい面は生成後に `STAGES[i].xxx=…` で調整可（1面がその例）。
+新ステージ/難易度は `genStage` の式（enemyHP・baseCd・baseCap）と `makeWaves`（WAVE構成）・`basePool`・`UNLOCKS.need` を触るだけ。個別に上書きしたい面は生成後に `STAGES[i].xxx=…` で調整可（1面がその例＝単一ゲージ）。
 
 ### バランス検証（ヘッドレス・シミュレータ）
 
