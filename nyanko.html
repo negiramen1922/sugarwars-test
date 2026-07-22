@@ -282,6 +282,7 @@ const CONF = {
   // タワー攻撃スキル（右下ボタン＝自分の城から放つ一撃。威力/射程はUPG.tPow/tRng・城HPはUPG.tHp）
   towerKB: 70,           // 敵を自陣（左）へ押し戻す距離
   towerCd: 12,           // クールダウン秒
+  bossKnock: 120,        // ボス登場時に味方全員をこの距離だけ後ろ（自陣側）へ吹き飛ばす＝城への張り付きをはがす
 };
 
 /* ============================================================
@@ -949,6 +950,17 @@ function spawnBoss(cfg){
   u.boss=true; u.fromEvent=true;
   world.units.push(u);
   world.shake = 8;
+  knockAllAllies();                          // ボス登場の衝撃波＝味方全員を自陣へ吹き飛ばし、城への張り付きをはがす
+}
+// ボス登場時：味方ユニット全員を自陣側（敵城の逆＝右）へ強制ノックバック。城に張り付いた組をはがす。
+function knockAllAllies(){
+  for(const u of world.units){
+    if(u.side!=='p' || u.dead) continue;
+    if(u.fuseT>=0) continue;                 // 導火中の自爆はそのまま（触らない）
+    applyKnock(u, 0, CONF.bossKnock, {pop:300, time:0.6});   // 敵城(x=0)から遠ざかる＝右へ吹き飛ぶ
+    u.charging=false;                        // 大福の突撃などはリセット（宙に浮くので）
+  }
+  world.shake = Math.max(world.shake, 8);
 }
 function showEventBanner(msg){ showHint('⚠ '+msg); }
 
@@ -1859,7 +1871,7 @@ if(typeof globalThis!=='undefined') globalThis.__NYANKO = { CONF, DEFS, ORDER,
   get save(){return save;}, get myMaxHP(){return myMaxHP;}, get foeMaxHP(){return foeMaxHP;},
   get world(){return world;}, get money(){return money;}, get php(){return php;}, get ehp(){return ehp;},
   get walletLv(){return walletLv;}, set walletLv(v){walletLv=v;}, get towerCd(){return towerCd;}, set towerCd(v){towerCd=v;},
-  get enemyCd(){return enemyCd;}, set enemyCd(v){enemyCd=v;},
+  get enemyCd(){return enemyCd;}, set enemyCd(v){enemyCd=v;}, spawnBoss, knockAllAllies,
   get testMode(){return TEST_MODE;}, set testMode(v){TEST_MODE=!!v;},
   set money(v){money=v;}, set php(v){php=v;}, set ehp(v){ehp=v;} };
 </script>
