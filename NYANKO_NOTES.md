@@ -72,6 +72,9 @@
 - **テスト**：smoke 18（plain無効・同色有効・不利は倍率1・ボスの色・与ダメ増をエンドツーエンド）。**色/対象を増やすときは `TRAITS`＋敵`trait`／味方`strongVs` を足すだけ**。
 
 ## その他の修正メモ
+- **対面ユニットのすり抜け防止（前線を保つ）**：`stepWorld` の移動後に、味方(右)と敵(左)が入れ替わった（味方が敵の左に回り込んだ）ペアを押し戻す当たり判定（`COLLIDE_W=24`）。ノックバックや速度差で「敵が後ろに回り込む／味方が後ろに下がって取り残される」不具合を解消。吹き飛び中(`kbT>0`)と `noCollide`/`untargetable` は対象外。20試行シムで取り残しフレーム率 0.99%→0.00%（勝率ほぼ不変）。smoke 21。
+- **なかま一覧の並び**：ノーマル欄は**解放ステージ順**（スターター先頭→`UNLOCKS.need`昇順）にソート。ガチャ限定は別セクション。`renderCollect`。
+- **HPしきい値スタッガー（にゃんこ式KB）**：`hurt` が `kbCount` 等分のしきい値割れで `kbBackward`（`KB_HPDIST=52`）。すり抜け防止と併用で前線が安定。
 - **ボス登場の衝撃波**：`spawnBoss()` が `knockAllAllies()` を呼び、味方ユニット全員を自陣側（敵城の逆＝右）へ強制ノックバック（`applyKnock(u,0,CONF.bossKnock=120,{pop,time})`）＝城に張り付いた組を強制的にはがす。導火中の自爆は対象外。中ボス/ボス両方で発動。smoke 17。
 - **増援waveの張り付きはがし**：`spawnWave()` が `knockAllAllies({maxX:spawnInset+140, dist:CONF.waveKnock=95})` を呼ぶ＝**城際に張り付いた味方だけ**を少し後ろへ剥がす。プレイヤーが敵を追って城の手前(x<湧き位置)まで踏み込むと、そこに湧いた増援が味方の後ろに出て無視され、増援が防衛にならず城が落ちる不具合の対策（`knockAllAllies` に `maxX`/`dist` オプションを追加。ボスは従来どおり全員・bossKnock）。smoke 20。
 - **倍速（×1 ⇄ ×2）**：上部バーの `#speedBtn`＝`toggleSpeed()`（`gameSpeed` 1/2・`localStorage 'sm_speed'` に保存）。`loop()` は1フレームで `step(dt)` を `gameSpeed` 回まわす（大きなdtでの当たり判定貫通を防ぐため2回ステップ）。smoke 15。
