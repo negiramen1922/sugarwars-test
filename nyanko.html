@@ -239,7 +239,7 @@ const CONF = {
   rowBand: 36,           // ユニットを縦に散らす幅（重なっても見分けやすいよう・浮かない範囲で）
   castleHP: 1600,        // 両陣営のお城HP
   moneyStart: 50,        // 開始🍬（最初期のサイフ上限100より少なめ＝溜める余地を残す）
-  moneyRate: 24,         // 🍬/秒（未使用・生産速度はUPG.wRateで管理）
+  moneyRate: 20,         // 🍬/秒（生産速度の基礎。財布Lvで加算・EXP強化はしない）
   moneyCap: 300,         // 🍬上限（未使用・上限はUPG.wStart/wMaxで管理）
   atkCdMul: 1.45,        // 全体の攻撃間隔の倍率（大きいほどゆっくり殴る＝せわしなさ解消）
   arrowSize: 70,         // シューの矢の描画サイズ(px)。大きいほど大量に飛ぶ迫力が出る
@@ -252,9 +252,7 @@ const CONF = {
   enemyRampSec: 70,      // この秒数かけて最短まで詰める
   // お財布レベルアップ（バトル中に🍬を払って上限を上げる。上限の下限=UPG.wStart／上限の最大=UPG.wMax）
   walletMax: 6,          // 最大Lv（Lv0=初期最大 → Lvmax=最大貯金 まで補間）
-  walletRateStep: 8,     // バトル中お財布Lv1ごとの🍬/秒アップ（基礎生産はUPG.wRate）
-  walletCostBase: 80,    // Lv0→1のコスト（初期最大100でも払える額に）
-  walletCostStep: 70,    // 以降1Lvごとの追加コスト
+  walletRateStep: 8,     // バトル中お財布Lv1ごとの🍬/秒アップ（基礎生産は CONF.moneyRate）
   // タワー攻撃スキル（右下ボタン＝自分の城から放つ一撃。威力/射程はUPG.tPow/tRng・城HPはUPG.tHp）
   towerKB: 70,           // 敵を自陣（左）へ押し戻す距離
   towerCd: 12,           // クールダウン秒
@@ -272,7 +270,6 @@ const UPG = {
   // wStart=バトル開始時の財布Lv（＝開始時の🍬上限） / wMax=財布UPの上限Lv（＝最大貯金）
   wStart:{ name:'サイフ 初期Lv',   icon:'👛', suffix:'🍬',   max:5, c0:450, valFn:(lv)=>WALLET_CAPS[Math.min(lv, WALLET_CAPS.length-1)] },
   wMax:  { name:'サイフ 最大貯金',  icon:'💰', suffix:'🍬',   max:6, c0:400, valFn:(lv)=>600 + lv*100 },
-  wRate: { name:'生産速度',        icon:'⏱', suffix:'🍬/秒', base:20,   step:5,   max:8, c0:500 }, // 🍬がたまる速さ（基礎）
   tHp:   { name:'タワーHP',        icon:'🏰', suffix:'',     base:1600, step:450, max:8, c0:400 }, // 自分のお城のHP
   tPow:  { name:'タワー攻撃力',     icon:'💥', suffix:'',     base:120,  step:55,  max:8, c0:450 }, // タワー攻撃の威力
   tRng:  { name:'タワー射程',      icon:'📡', suffix:'px',   base:440,  step:80,  max:6, c0:500 }, // 自城(右)から届く距離。base=中央ちょい自陣寄り(minX≈520) / MAX=敵城の目の前(minX≈40)
@@ -482,9 +479,9 @@ function walletCapTable(){ const t=WALLET_CAPS.slice(); let last=t[t.length-1];
   for(let i=0;i<upgLv('wMax');i++){ last+=100; t.push(last); } return t; }
 function walletMaxLv(){ return walletCapTable().length - 1; }             // 財布UPできる最大Lv
 function walletStartLv(){ return Math.min(walletMaxLv(), upgLv('wStart')); } // 開始Lv（wStartメタ）
-function effRate(){ return upgVal('wRate') + walletLv*CONF.walletRateStep; } // 基礎生産(UPG)＋財布Lvボーナス
+function effRate(){ return CONF.moneyRate + walletLv*CONF.walletRateStep; } // 生産速度は固定（基礎＋財布Lvボーナス。EXP強化なし）
 function effCap(){ const t=walletCapTable(); return t[Math.max(0, Math.min(walletLv, t.length-1))]; } // 今の🍬上限
-function walletCost(){ return Math.round(effCap()*0.75); }               // 財布UPの費用＝今の上限の75%（貯めて上げる）
+function walletCost(){ return Math.round(effCap()*0.5); }                // 財布UPの費用＝今の上限の半分（にゃんこ式・上限100→費用50）
 
 function reset(){
   world = { units:[], shots:[], parts:[], slashes:[], pops:[], nextId:1, shake:0 };
@@ -1490,7 +1487,7 @@ function goSelect(){ showScreen('selectScreen'); renderStages(); }
 function goCollect(){ showScreen('collectScreen'); renderCollect(); }
 
 // 強化（EXP：サイフ／タワー）
-const UPG_ORDER = ['wStart','wMax','wRate','tHp','tPow','tRng'];
+const UPG_ORDER = ['wStart','wMax','tHp','tPow','tRng'];
 function goUpgrade(){ showScreen('upgradeScreen'); renderUpgrade(); }
 function renderUpgrade(){
   document.getElementById('upgExp').textContent=(save.exp||0);
