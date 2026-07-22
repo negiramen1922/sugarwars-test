@@ -8,6 +8,7 @@
 - **🍬コイン（`save.coins`）**：ガチャ専用（`partycookie`/`bigslime`）に残置。ステージ初回で従来どおり付与。
 - **キャラ解放**：`buyUnit(k)` が **EXPを消費**。`UNLOCKS[k].need`（クリア済みステージ数）以上で解放可＝**ステージを進めるほど解放できるキャラが増える**（`unlockAvailable`）。コストは `UNLOCKS[k].cost`（EXP）。
 - **サイフ／タワーの恒久強化**：`UPG`（下記）を EXP で1Lvずつ購入（`buyUpgrade` / `renderUpgrade` / ホーム「⚙ 強化」）。`save.upg[track]` にLvを保存。
+- **キャラ別レベル（にゃんこの「にゃんこ強化」相当）**：`save.lv[key]`（1〜`CHAR_LV_MAX`=20）を EXP で1Lvずつ上げると **HPと攻撃が `CHAR_LV_STEP`(8%)ずつ上昇**（`charLvMul`）。`newUnit` が自軍(side'p')のみ hp/atk に倍率を掛ける（敵は対象外）。レベルUPコスト `charLvCost`＝`(25+出撃コスト×0.3)×1.35^(lv-1)`＝**高コストキャラほど強化も重い**。UIは **なかま一覧のキャラをタップ→キャラ詳細ダイアログ**（`openCharDetail`/`renderCharDetail`）＝立ち絵・特徴（`UNIT_DESC`）・性能（コスト/HP/攻撃/射程/移動/攻撃速度/再出撃）・レベルUPボタンを表示。ロック中のキャラは性能プレビュー＋解放/ガチャ案内。見た目でなく**性能に効く恒久強化**（サイフ/タワーと同じEXP経済の追加シンク）。
 
 ### サイフ（にゃんこ式の固定テーブル）
 
