@@ -57,6 +57,14 @@
 
 > まずはメタ強化（サイフ/タワーの数値）を回して、砲タイプは反応を見てから着手予定。着手時はこの節を仕様の起点にする。
 
+## 色トレイト（属性）— 実装済み
+- **設計**：三すくみは廃止。**色トレイト**（`TRAITS`＝色数むせいげん・データ駆動）。`plain`＝無属性（塗り替えなし・倍率に一切関与しない＝序盤の雑魚は相性を気にしない）。緑/赤/青/黒/黄…は `TRAITS` に1行足すだけ。
+- **敵**：`u.trait`（または `FOE_DEFS.trait`）で体色を塗り替え（`drawMold` が `traitTint()` を反映）。現状**雑魚は全てplain・色つきはボスのみ**＝中ボス`green`／大ボス`red`（`genStage` の boss cfg → `spawnBoss` が `u.trait`）。
+- **味方**：`DEFS.strongVs`（対〇色）を持つ子だけ、その色の敵に **`EFFECT_MUL`(1.6)倍**（有利のみ・**減衰なし**）。初期割り当て＝対赤：cwarrior/clance/daifuku、対緑：choco/macaron/icewiz（"何体か"）。
+- **判定**：`isEffective(strongVs, targetTrait)`＝plainは常に非有利。近接=`attackHit`、居合=`chargerStep`、遠距離=`world.shots`（`s.strongVs`）で共通適用。
+- **演出**：有効ヒットは `advFx(o, traitOf(o))`＝**属性色の火花＋「ばつぐん！」**（色は相手のトレイト色）。キャラ詳細に「とくせい：◯に強い ×1.6」、なかまカードに対象色ドット（`attrBadgeHTML`）。
+- **テスト**：smoke 18（plain無効・同色有効・不利は倍率1・ボスの色・与ダメ増をエンドツーエンド）。**色/対象を増やすときは `TRAITS`＋敵`trait`／味方`strongVs` を足すだけ**。
+
 ## その他の修正メモ
 - **ボス登場の衝撃波**：`spawnBoss()` が `knockAllAllies()` を呼び、味方ユニット全員を自陣側（敵城の逆＝右）へ強制ノックバック（`applyKnock(u,0,CONF.bossKnock=120,{pop,time})`）＝城に張り付いた組を強制的にはがす。導火中の自爆は対象外。中ボス/ボス両方で発動。smoke 17。
 - **倍速（×1 ⇄ ×2）**：上部バーの `#speedBtn`＝`toggleSpeed()`（`gameSpeed` 1/2・`localStorage 'sm_speed'` に保存）。`loop()` は1フレームで `step(dt)` を `gameSpeed` 回まわす（大きなdtでの当たり判定貫通を防ぐため2回ステップ）。smoke 15。
