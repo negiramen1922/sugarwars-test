@@ -25,6 +25,8 @@
   .tophead{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
   .bars{ display:flex; gap:10px; align-items:center; margin-top:4px; }
   .castle{ flex:1; }
+  /* 通貨アイコン＝ドット絵キャンディ（🍬絵文字の置き換え。data URIは実行時に --candy-img へ注入） */
+  .candy{ display:inline-block; width:1.05em; height:1.05em; background:var(--candy-img) center/contain no-repeat; vertical-align:-0.18em; image-rendering:pixelated; }
   .clabel{ font-size:11px; color:var(--muted); font-weight:600; display:flex; justify-content:space-between; }
   .clabel span:last-child{ font-family:"Space Mono",monospace; }
   .track{ height:14px; border-radius:3px; background:var(--parch-dk); overflow:hidden; border:2px solid var(--px-edge); box-shadow:0 2px 0 var(--px-edge); }
@@ -137,7 +139,7 @@
   <div class="sub">お菓子の王国をカビ軍団から守れ！</div>
   <button class="bigbtn" onclick="goSelect()">▶ はじめる</button>
   <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;justify-content:center">
-    <button class="bigbtn" onclick="goCollect()" style="background:var(--grape);border-color:#6b2f9e;box-shadow:0 6px 0 #6b2f9e;font-size:16px;padding:13px 22px">🍬 なかま</button>
+    <button class="bigbtn" onclick="goCollect()" style="background:var(--grape);border-color:#6b2f9e;box-shadow:0 6px 0 #6b2f9e;font-size:16px;padding:13px 22px"><i class="candy"></i> なかま</button>
     <button class="bigbtn" onclick="goUpgrade()" style="background:var(--steel);border-color:#1f6f8c;box-shadow:0 6px 0 #1f6f8c;font-size:16px;padding:13px 22px">⚙ 強化</button>
   </div>
   <div class="sub" id="homeExp" style="margin-top:14px;font-size:15px">🎓 <b style="color:#3f7fd0">0</b> EXP</div>
@@ -149,9 +151,9 @@
 <div id="collectScreen" class="screen">
   <button class="backbtn" onclick="goHome()">← ホーム</button>
   <h1>なかま</h1>
-  <div class="sub">🎓 <b id="collectExp">0</b> EXP　・　🍬 <b id="collectCoins">0</b> コイン</div>
+  <div class="sub">🎓 <b id="collectExp">0</b> EXP　・　<i class="candy"></i> <b id="collectCoins">0</b> コイン</div>
   <div class="sub" style="margin-top:-8px">キャラは🎓EXPで解放（ステージを進めるほど解放できるキャラが増える）</div>
-  <button class="bigbtn" onclick="doGacha()" id="gachaBtn" style="background:var(--gold);color:#3a2408;border-color:var(--px-edge-gold);box-shadow:0 6px 0 var(--px-edge-gold);font-size:16px;padding:13px 26px;margin-bottom:14px">🎰 ガチャを回す（🍬<span id="gachaCostTxt"></span>）</button>
+  <button class="bigbtn" onclick="doGacha()" id="gachaBtn" style="background:var(--gold);color:#3a2408;border-color:var(--px-edge-gold);box-shadow:0 6px 0 var(--px-edge-gold);font-size:16px;padding:13px 26px;margin-bottom:14px">🎰 ガチャを回す（<i class="candy"></i><span id="gachaCostTxt"></span>）</button>
   <div class="grid" id="collectGrid" style="max-width:560px"></div>
 </div>
 <!-- 強化（EXP：サイフ／タワー） -->
@@ -183,7 +185,7 @@
   <div id="top">
     <div class="tophead">
       <div class="title">🍭 SUGAR MARCH <span style="opacity:.5;font-weight:400">— にゃんこ風・試作</span></div>
-      <div id="moneyBox">🍬 <b id="moneyTxt">0</b><span class="sub">/<span id="capTxt">0</span> ・+<span id="rateTxt">0</span>/秒</span></div>
+      <div id="moneyBox"><i class="candy"></i> <b id="moneyTxt">0</b><span class="sub">/<span id="capTxt">0</span> ・+<span id="rateTxt">0</span>/秒</span></div>
     </div>
     <div class="bars">
       <div class="castle e"><div class="clabel"><span>敵のお城 🏰</span><span id="ehpTxt"></span></div><div class="track"><div class="fill" id="ehp"></div></div></div>
@@ -197,7 +199,7 @@
     <button id="towerBtn" class="sidebtn" onclick="castTower()"><span class="cd" id="towerCdFill"></span><span class="big">💥</span><span class="lbl">タワー攻撃</span><span class="sub" id="towerSub">OK</span></button>
   </div>
 </div>
-<div id="hint">🍬を貯めて下のボタンでなかまを出撃！ 左の敵のお城を落とそう（右＝自分）</div>
+<div id="hint"><i class="candy"></i>を貯めて下のボタンでなかまを出撃！ 左の敵のお城を落とそう（右＝自分）</div>
 <div id="overlay"><div class="card"><h1 id="ovT"></h1><p id="ovP"></p><div id="overButtons" style="display:flex;flex-direction:column;gap:8px;align-items:center"></div></div></div>
 
 <script>
@@ -231,6 +233,16 @@ Object.assign(SPRITE_DATA, {
 });
 const SPRITES = {};
 for(const k in SPRITE_DATA){ const im = new Image(); im.src = SPRITE_DATA[k]; SPRITES[k] = im; }
+
+/* 通貨アイコン＝ドット絵キャンディ（🍬絵文字の全置き換え）。
+   ・CSS変数 --candy-img に注入＝クラス .candy の背景に使う（静的HTML/innerHTML用）。
+   ・CANDY＝インラインimgのHTML文字列。candyify(s)＝文字列中の🍬をキャンディ画像に置換（toast/hint等）。
+   ・CANDY_IMG＝Canvas描画用のImage（スプライト欠けのフォールバックで🍬の代わりに描く）。 */
+const CANDY_URI = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAADzUlEQVR42u1bLW/jQBAdR2ZRlF9QmTcsKrNUUhhUciD8oIOC+gOMihx4PKAkqDDkJLPILOFWfkF0Cqu0B5rZrtde7669/owH9UOO/N68mXmz2wIMMUTnI3BmJHBmpMizdteBAwB4r5/fP9gtyCo+WjqfMeqFBNwJgDsB7/UTdJUwuvfysbosfyp9dwIQ/qO/2+wWoFoKvVSATimM+lD7sibZ2ylAg5E/loA3XX5/42xzJ4PdJ+Ap8H0tgUQDlID3psvcUuhNE2TBh9c4k4QsImzoWYTXGNyxk54Mgp5g9yX7c9tNgOeJ2Fy27WmCKuNJxchsdgsAAJjbbgq4O3YSoBM9g9kZ7t4K201k3Hv/K39o/Uzy1ICyBwCafcx4dAnTWW+KgMCZESXAfNNin1k/U8kimXPbhegr1Aa8P4f1LENs1osQkMr4+pl+jeBVAIuAnw4+rOKjZVWW9d/vPy//Z50v/wxHJ2t8j09vpd6xMgJ48CkANzIoERrgeRJUQ0TW6eCbLYFc8B9REsStYenImJUzZrBIE0ZCTge/Jh/AgWedGWazCBGqwRMVgE+MN0Gd7GfKWkMR2NBOB1/ZNInCqhS8AnAREXlkiDp6o0aINjckogD4xNJSU3kMVtjUB+FYQ8OicyojU0OVSrDK1r7I3Jgkgu8PWXO9aB+obAxitmj2TCri1v3LusFaliGeCBNkeNMlhNcYohsRrV+H+fo1pQpchwGAboatJaBqVbRLAYoLThWqaIQA2vFL7P1NqcIIAej+KBEl5rWKKvhz/8EJNmWEZCdAppwbq4Ss7EdfYfPLUJUWlu8P7Phr3xRgtkCeCBP9YX8OqQEyQYSxEqDNULIGlz0K4/1/rQcieVdaj09vcDr4yqNLlwiThyBKJZAF1psuAX7NU1IXXTya6hM8eONTQAgW4AcwV+csaMx+GQMjUkQWeFPZBwCwAmdGMl+YBX7LNn9ehy/38uDSTK7io/gzZQ76GieWGpN7v1QBeS+clZ39OYSXB5fKGK+r+Ds8GRF5rg7JYM/xTYKnPWAVHy1wtikS8mSJ4EVBX9TZkqLjCp+LDHT7wQrrToHNZStsSFnZd8cOvabmlRA4QEQHGTL5V5X5FAFYBiLHxsoev1bd4VNXUxwhKs/UogDs4FlzmAdfJuoCV8oJiv4Ykd3Q2MzjCGsTuFI9YBUfLdgtiIpdNXlA0RoCElLdLUiV93NNxki1ZtmVFuUfXuNOZ1/LB/AkdB14oQMRti/03gjJ+gI7y00eUbW2BO7OCuuYmcAB0mUVGImi/7o6xBDNxn9+DFmV32UnCAAAAABJRU5ErkJggg==';
+const CANDY = '<i class="candy"></i>';                        // インライン用（innerHTML）
+function candyify(s){ return (''+s).split('🍬').join(CANDY); } // 文字列中の🍬をキャンディ画像へ
+try{ if(typeof document!=='undefined') document.documentElement.style.setProperty('--candy-img', "url('"+CANDY_URI+"')"); }catch(e){}
+const CANDY_IMG = (typeof Image!=='undefined') ? (function(){ const im=new Image(); im.src=CANDY_URI; return im; })() : null;
 
 /* --- 設定（ここを触ればバランス調整できる） --- */
 const CONF = {
@@ -1006,6 +1018,7 @@ function drawGearUnit(u, S, cx, footY, team){
   }
   const cyb = cy + bob;
   if(im && im.complete && im.naturalWidth){ ctx.imageSmoothingEnabled=false; ctx.drawImage(im, cx-S/2, cyb-S/2, S, S); }
+  else if(CANDY_IMG && CANDY_IMG.complete && CANDY_IMG.naturalWidth){ ctx.imageSmoothingEnabled=false; ctx.drawImage(CANDY_IMG, cx-S/2, cyb-S/2, S, S); }
   else { ctx.font=(S*0.7)+'px serif'; ctx.textAlign='center'; ctx.textBaseline='alphabetic'; ctx.fillText('🍬', cx, footY-6); }
   if(D.gear==='spear')   drawCookieSpear(u,S,cx,cyb);
   if(D.gear==='sword')   drawChocoGear(u,S,cx,cyb);
@@ -1229,6 +1242,7 @@ function drawUnit(u){
     ctx.scale(sqx, sqy);
     if(u.fuseT>=0) ctx.globalAlpha = 0.6 + 0.4*Math.sin(elapsed*40);
     if(im && im.complete && im.naturalWidth){ ctx.drawImage(im, -S/2, -S, S, S); }
+    else if(CANDY_IMG && CANDY_IMG.complete && CANDY_IMG.naturalWidth){ ctx.imageSmoothingEnabled=false; ctx.drawImage(CANDY_IMG, -S/2, -S, S, S); }
     else { ctx.font=(S*0.7)+'px serif'; ctx.textAlign='center'; ctx.textBaseline='alphabetic'; ctx.fillText('🍬',0,-6); }
     ctx.restore();
   }
@@ -1432,7 +1446,7 @@ function hud(){
   document.getElementById('ehpTxt').textContent=Math.max(0,Math.ceil(ehp));
   const wb=document.getElementById('walletBtn'), ws=document.getElementById('walletSub');
   if(walletLv>=walletMaxLv()){ ws.textContent='MAX'; wb.classList.add('off'); wb.classList.remove('rdy'); }
-  else{ ws.textContent='🍬'+walletCost(); const poorW=money<walletCost(); wb.classList.toggle('off',poorW); wb.classList.toggle('rdy',!poorW); }
+  else{ ws.innerHTML=CANDY+walletCost(); const poorW=money<walletCost(); wb.classList.toggle('off',poorW); wb.classList.toggle('rdy',!poorW); }
   const tb=document.getElementById('towerBtn'), ts=document.getElementById('towerSub'), tf=document.getElementById('towerCdFill');
   const ready = towerCd<=0;
   ts.textContent = ready ? 'OK' : Math.ceil(towerCd)+'秒';
@@ -1475,8 +1489,8 @@ function win(youWon){
     if(first) save.cleared.push(s.id);
     saveGame();
     T.textContent='🎉 ステージクリア！';
-    P.innerHTML='🎓 <b style="color:#6fb7ff">+'+exp+'</b> EXP　／　🍬 <b style="color:#ffdf6b">+'+reward+'</b> コイン'+(first?'（初クリア）':'')
-      +'<br>所持：🎓'+(save.exp)+' EXP・🍬'+save.coins;
+    P.innerHTML='🎓 <b style="color:#6fb7ff">+'+exp+'</b> EXP　／　'+CANDY+' <b style="color:#ffdf6b">+'+reward+'</b> コイン'+(first?'（初クリア）':'')
+      +'<br>所持：🎓'+(save.exp)+' EXP・'+CANDY+save.coins;
     const next=STAGE_BY_ID[s.id+1];
     if(next && save.cleared.includes(s.id)) addBtn('▶ 次のステージへ',()=>{ closeOver(); openLoadout(next); });
     addBtn('🎒 編成にもどる',()=>{ closeOver(); openLoadout(s); }, true);
@@ -1537,11 +1551,11 @@ function renderUpgrade(){
     const next = max ? null : (u.valFn ? u.valFn(lv+1) : u.base + (lv+1)*u.step);
     const poor = cost!=null && (save.exp||0)<cost;
     const row=document.createElement(max?'div':'button'); row.className='stagecard'+(max?' locked':'');
-    row.innerHTML='<div class="no" style="font-size:20px">'+u.icon+'</div>'+
+    row.innerHTML=candyify('<div class="no" style="font-size:20px">'+u.icon+'</div>'+
       '<div style="flex:1"><div class="nm">'+u.name+' <span style="color:var(--muted);font-weight:700">Lv'+lv+'/'+u.max+'</span></div>'+
       '<div class="meta">'+cur+u.suffix+(max?'（MAX）':' → <b style="color:#3f7fd0">'+next+u.suffix+'</b>')+'</div></div>'+
       (max?'<div class="clr" style="font-size:14px;color:var(--brass)">MAX</div>'
-          :'<div class="co" style="margin-left:auto;color:'+(poor?'var(--muted)':'#3f7fd0')+'">🎓'+cost+'</div>');
+          :'<div class="co" style="margin-left:auto;color:'+(poor?'var(--muted)':'#3f7fd0')+'">🎓'+cost+'</div>'));
     if(!max) row.onclick=()=>buyUpgrade(t);
     L.appendChild(row);
   }
@@ -1577,7 +1591,7 @@ function renderLoadout(){
   for(const k of unlockedUnits()){
     const D=DEFS[k], i=_pick.indexOf(k);
     const b=document.createElement('button'); b.className='ucard'+(i>=0?' sel':'');
-    b.innerHTML='<span class="pick">'+(i>=0?i+1:'')+'</span>'+attrBadgeHTML(k)+'<img src="'+(SPRITE_DATA[D.spr+'_blue']||'')+'"><div class="nm">'+D.name+'</div><div class="co">🍬'+D.cost+'</div>';
+    b.innerHTML='<span class="pick">'+(i>=0?i+1:'')+'</span>'+attrBadgeHTML(k)+'<img src="'+(SPRITE_DATA[D.spr+'_blue']||'')+'"><div class="nm">'+D.name+'</div><div class="co">'+CANDY+D.cost+'</div>';
     b.onclick=()=>togglePick(k); G.appendChild(b);
   }
   const cnt=document.getElementById('loadoutCnt'); cnt.textContent=_pick.length+' / '+LOADOUT_MAX+' 体';
@@ -1654,7 +1668,7 @@ function renderCharDetail(){
   const role=ROLE_JA[D.role]||D.role||'', desc=UNIT_DESC[k]||'';
   const sub='<span style="color:var(--muted);font-size:11px">('+D.hp+')</span>';
   let stats='';
-  stats+=statRow('出撃コスト','🍬'+D.cost);
+  stats+=statRow('出撃コスト',CANDY+D.cost);
   stats+=statRow('HP', owned&&lv>1 ? hp+' <span style="color:var(--muted);font-size:11px">('+D.hp+')</span>' : D.hp);
   stats+=statRow('攻撃力', D.atk ? (owned&&lv>1 ? atk+' <span style="color:var(--muted);font-size:11px">('+D.atk+')</span>' : D.atk) : '—');
   if(D.blast) stats+=statRow('爆発ダメージ','💥'+D.blast);
@@ -1705,7 +1719,7 @@ function doUnlockFromDetail(){ const k=_detailKey; buyUnit(k); if(isUnlocked(k))
 let _toastT=null;
 function toast(msg){ let t=document.getElementById('smToast');
   if(!t){ t=document.createElement('div'); t.id='smToast'; t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#fffaf3;color:#4a2a1c;border:3px solid #4a2a12;padding:9px 18px;border-radius:5px;font-weight:700;z-index:60;box-shadow:0 5px 0 #4a2a12;transition:opacity .3s;font-family:Inter,system-ui,sans-serif'; document.body.appendChild(t); }
-  t.textContent=msg; t.style.opacity='1'; clearTimeout(_toastT); _toastT=setTimeout(()=>t.style.opacity='0',1800); }
+  t.innerHTML=candyify(msg); t.style.opacity='1'; clearTimeout(_toastT); _toastT=setTimeout(()=>t.style.opacity='0',1800); }
 
 /* --- ボタンUI --- */
 const dock = document.getElementById('dock');
@@ -1718,14 +1732,14 @@ function buildDock(){
     const cdEl=document.createElement('div'); cdEl.className='cd';
     const img=document.createElement('img'); img.className='ic'; img.src=SPRITE_DATA[D.spr+'_blue']||'';
     const nm=document.createElement('div'); nm.className='nm'; nm.textContent=D.name;
-    const co=document.createElement('div'); co.className='co'; co.textContent='🍬'+D.cost;
+    const co=document.createElement('div'); co.className='co'; co.innerHTML=CANDY+D.cost;
     b.appendChild(cdEl); b.appendChild(img); b.appendChild(nm); b.appendChild(co);
     b.addEventListener('click',()=>deploy(k)); b._cd=cdEl;
     dock.appendChild(b); btnEls[k]=b;
   }
 }
 
-function showHint(msg){ const h=document.getElementById('hint'); if(msg) h.textContent=msg; h.style.opacity='0.9'; clearTimeout(hintT); hintT=setTimeout(hideHint,6500); }
+function showHint(msg){ const h=document.getElementById('hint'); if(msg) h.innerHTML=candyify(msg); h.style.opacity='0.9'; clearTimeout(hintT); hintT=setTimeout(hideHint,6500); }
 function hideHint(){ document.getElementById('hint').style.opacity='0'; }
 // にゃんこ風チュートリアル：ステージ1で順番にコツを案内
 let _tutT=[];
