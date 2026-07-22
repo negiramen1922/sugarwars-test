@@ -291,6 +291,7 @@ const CONF = {
   towerKB: 70,           // 敵を自陣（左）へ押し戻す距離
   towerCd: 12,           // クールダウン秒
   bossKnock: 120,        // ボス登場時に味方全員をこの距離だけ後ろ（自陣側）へ吹き飛ばす＝城への張り付きをはがす
+  waveKnock: 95,         // 増援wave登場時に「城際の張り付き組だけ」をこの距離だけ後ろへ剥がす（ボスより控えめ）
 };
 
 /* ============================================================
@@ -959,6 +960,9 @@ function spawnWave(key, n){
     const u=newUnit(key,'e', CONF.spawnInset + Math.random()*50, y); u.fromEvent=true;
     world.units.push(u);
   }
+  // 増援は「城に張り付いた味方」を少し後ろへ剥がして、湧いた増援が前で防衛できるようにする
+  // （張り付き組が城の手前(x<40)に踏み込むと、後ろに湧いた増援を無視して城を殴り続ける不具合の対策）
+  knockAllAllies({maxX: CONF.spawnInset + 140, dist: CONF.waveKnock});
   world.shake = Math.max(world.shake, 4);
 }
 function spawnBoss(cfg){
@@ -974,12 +978,17 @@ function spawnBoss(cfg){
   world.shake = 8;
   knockAllAllies();                          // ボス登場の衝撃波＝味方全員を自陣へ吹き飛ばし、城への張り付きをはがす
 }
-// ボス登場時：味方ユニット全員を自陣側（敵城の逆＝右）へ強制ノックバック。城に張り付いた組をはがす。
-function knockAllAllies(){
+// 味方を自陣側（敵城の逆＝右）へ強制ノックバック＝城に張り付いた組をはがす。
+// opt.maxX＝このx未満（敵城寄り）の味方だけ対象（増援wave用に「張り付き組だけ」剥がす）。省略で全員（ボス用）。
+function knockAllAllies(opt){
+  opt = opt||{};
+  const maxX = (opt.maxX!=null) ? opt.maxX : Infinity;
+  const dist = (opt.dist!=null) ? opt.dist : CONF.bossKnock;
   for(const u of world.units){
     if(u.side!=='p' || u.dead) continue;
     if(u.fuseT>=0) continue;                 // 導火中の自爆はそのまま（触らない）
-    applyKnock(u, 0, CONF.bossKnock, {pop:300, time:0.6});   // 敵城(x=0)から遠ざかる＝右へ吹き飛ぶ
+    if(u.x > maxX) continue;                 // 城際の張り付き組だけ（wave時）
+    applyKnock(u, 0, dist, {pop:300, time:0.6});   // 敵城(x=0)から遠ざかる＝右へ吹き飛ぶ
     u.charging=false;                        // 大福の突撃などはリセット（宙に浮くので）
   }
   world.shake = Math.max(world.shake, 8);

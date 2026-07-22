@@ -73,6 +73,7 @@
 
 ## その他の修正メモ
 - **ボス登場の衝撃波**：`spawnBoss()` が `knockAllAllies()` を呼び、味方ユニット全員を自陣側（敵城の逆＝右）へ強制ノックバック（`applyKnock(u,0,CONF.bossKnock=120,{pop,time})`）＝城に張り付いた組を強制的にはがす。導火中の自爆は対象外。中ボス/ボス両方で発動。smoke 17。
+- **増援waveの張り付きはがし**：`spawnWave()` が `knockAllAllies({maxX:spawnInset+140, dist:CONF.waveKnock=95})` を呼ぶ＝**城際に張り付いた味方だけ**を少し後ろへ剥がす。プレイヤーが敵を追って城の手前(x<湧き位置)まで踏み込むと、そこに湧いた増援が味方の後ろに出て無視され、増援が防衛にならず城が落ちる不具合の対策（`knockAllAllies` に `maxX`/`dist` オプションを追加。ボスは従来どおり全員・bossKnock）。smoke 20。
 - **倍速（×1 ⇄ ×2）**：上部バーの `#speedBtn`＝`toggleSpeed()`（`gameSpeed` 1/2・`localStorage 'sm_speed'` に保存）。`loop()` は1フレームで `step(dt)` を `gameSpeed` 回まわす（大きなdtでの当たり判定貫通を防ぐため2回ステップ）。smoke 15。
 - **城への張り付き無視バグの修正**：前方に「城より手前の敵」がいる間は城を殴らない（`feNearer = fe.gap < castleGap` のとき `castleInRange=false`）＝城に張り付いたまま、城側に湧いた敵を無視する不具合を解消。移動クランプも「敵がいれば敵の射程手前まで踏み込む／いなければ `castleAtkRange` で停止・どちらも `castleBodyR` へはめり込まない」に整理。`castleAtkRange` を 60→**96**（手前で殴れる＝湧いた敵の手前で足を止められる）、`castleBodyR`(20) を追加。smoke 16。
 - **ノックバックのクランプ**：`kbT>0` 中の座標クランプは `castleAtkRange` ではなく `[10, W-10]`（画面内に留めるだけ）。以前は城際(x<castleAtkRange)の敵がノックバックで前へワープし、攻撃中の味方をすり抜けて後ろに回り込むバグがあった（test.js 12）。
