@@ -61,7 +61,7 @@
 - **画像で描く敵**：`FOE_DEFS` に `spr:'<key>'`（`mold` なし）を持たせると、`drawUnit` が `drawFoeSprite`（足元アンカー・吹き飛び回転）で**画像**を描く（従来の手描き `drawMold` はそのまま併存）。単一画像＝陣営サフィックスなし。スプライトは `nyanko.tpl.html` の `Object.assign(SPRITE_DATA,{…})` に128px base64で注入（白背景を境界フラッドフィルで透過→クロップ→正方パディング→NEAREST）。
 - **追加した5体**（ユーザー提供の立ち絵）：`m_bump`（丸ボコ雑魚・plain）/`m_thorn`（トゲ突起・中HP）/`m_armor`（スパイク固め・`dr:0.25`装甲）/`m_legs`（足長・高HP950/高atk45）/`m_gboss`（緑スパイク・**中ボス**・`trait:'green'`）。`basePool` に難易度順で追加、中ボスは `spawnBoss` の `cfg.key='m_gboss'` で立ち絵に差し替え（`genStage`）。トレイトはボス以外plain。
 - **旧・手描き敵の引退（置き換え）**：雑魚`m_swarm`／壁`m_tank`／超硬`m_big` は**スポーンしない**（`basePool`/`heavyKey`/wave/チュートリアルpool を立ち絵 `m_bump`/`m_thorn`/`m_armor`/`m_legs` に張り替え）。定義自体は数値参照用に温存。**まだ手描きなのは3体＝射手`m_phage`／自爆`m_puff`／大ボス`m_boss`**（立ち絵が届いたら同様に `spr` を付けて差し替え）。バランスシムで序盤4/4を確認済み。
-- **増やし方**：画像を `SPRITE_DATA` に注入→`FOE_DEFS` に `spr` 付き1行→`basePool`/イベントに配置。テスト：smoke 19。
+- **増やし方**：画像を `SPRITE_DATA` に注入→`FOE_DEFS` に `spr` 付き1行→`normalPool`/`breakPool`（どのWAVEに出すか）に配置。テスト：smoke 19。
 
 ## 色トレイト（属性）— 実装済み
 - **設計**：三すくみは廃止。**色トレイト**（`TRAITS`＝色数むせいげん・データ駆動）。`plain`＝無属性（塗り替えなし・倍率に一切関与しない＝序盤の雑魚は相性を気にしない）。緑/赤/青/黒/黄…は `TRAITS` に1行足すだけ。
@@ -123,8 +123,9 @@
 #### WAVE制（敵タワーの複数HPゲージ）— 実装済み
 - **`makeWaves(n, boss, mini, total)`**：`genStage` が敵城HP総量(`total`)を**複数のWAVEゲージに分割**して `curStage.waves`（`[{idx,type,final,hp,burst,limit?,tower,boss?,mini?}]`）を作る。ゲージ数＝`2 + floor(n/6)` を 2〜5 でクランプ（ボス面は最低4）。重み配分＝ブレイクゲージは×1.4厚い。
   - **WAVE 2種**：`type:'normal'`（通常）と `type:'break'`（ブレイク）。**基本は最後のゲージがブレイク**。ゲージ4本以上なら**途中(最後から2番目)にもブレイク**が入る。
-  - **通常WAVE**：切替時に `spawnWaveBurst`（`burst=3+floor(n/7)`体）で敵が多めに湧く。
-  - **ブレイクWAVE**：`burst`が多い（`4+floor(n/4)`・重めの敵`heavyKey`を混ぜる）／敵タワーが手前を攻撃（`tower:true`）／敵の湧き間隔が0.6倍に短縮（`world.waveType==='break'`）／**制限時間 `limit=round(16+n*0.5)`秒**。
+  - **通常WAVE**：切替時に `spawnWaveBurst`（`burst=3+floor(n/7)`体）で敵が多めに湧く。連続湧き＆バーストの敵＝`normalPool(n)`（軽め）。
+  - **ブレイクWAVE**：`burst`が多い（`4+floor(n/4)`・重めの敵`w.heavy`を混ぜる）／敵タワーが手前を攻撃（`tower:true`）／敵の湧き間隔が0.6倍に短縮（`world.waveType==='break'`）／**制限時間 `limit=round(16+n*0.5)`秒**。連続湧き＆バーストの敵＝`breakPool(n)`（壁/装甲/エリートを厚く）。
+  - **WAVEごとの敵プール（つくり込みノブ）**：各waveは `w.spawn`（そのWAVE中に連続湧きする敵の配列）と `w.burstPool`（切替バーストの敵・既定＝`spawn`）を持つ。`enemySpawn()` は**現在のWAVEの `spawn`** を、`spawnWaveBurst()` は `w.burstPool` を引く＝**通常/ブレイクで湧く敵が変わる**。`normalPool(n)`＝軽め／`breakPool(n)`＝重め＋エリート。`basePool(n)`＝両者の和集合（`pool`＝描画/テスト用の一覧）。**足長シロカビ `m_legs` は8面からブレイクWAVE限定でデビュー→17面から通常湧きにも混ざる**。
   - **ボス/中ボス**：最終ゲージに `boss`(`m_boss`/red)または `mini`(`m_gboss`/green)を積む（**10面ごとボス／5面ごと中ボス**）。ボスはHP割合イベントではなく**最終ブレイクWAVEにユニットとして登場**（壁として立ちはだかる）。
   - 1面(STAGE_BY_ID[1])は上書きで**単一の通常ゲージ**（チュートリアル＝WAVEなし）。
 - **WAVE切替（`advanceWave`）**：今のゲージを削り切る（`ehp<=0` かつ非最終）と発火。①`curWave++`＋次ゲージのHP/タイプをセット、②**`knockAllAllies()`＝味方ユニット全体を必ずノックバック**（にゃんこの「城まで押したら跳ね返される」感）、③`spawnWaveBurst`で入場バースト、④ボス/中ボスがいれば`spawnBoss`、⑤バナー（通常=「WAVE N！」／ブレイク=「⚡ ブレイクWAVE！」／最終=「⚡ 最終ブレイク！」）。
@@ -135,7 +136,15 @@
 - **タワー（城砲）**：バトル開幕は**チャージ切れ**（`reset` で `towerCd=CONF.towerCd`＝溜まってから初撃）。射程 `UPG.tRng` は **base=中央ちょい自陣寄り(minX≈520)／MAX=敵城の目の前(minX≈40)**（base440・step80・max6＝敵城前まで届く）。
 - **バランス（1〜10面）**：limited roster（クッキー＋順次解禁の4体）でsim検証済み。**泥沼化なし・ボス面(5=中ボス/10=ボス)が時間の山**。ボスは最終ブレイクWAVEの「厚いHP＋高火力の壁」＝base湧きが軽いので必ず対面でき、押し切る本番。難易度は `genStage` の `enemyHP/baseCd/baseCap` と `makeWaves`（ゲージ数/ブレイク重み/burst/limit/boss.hp・atk）で調整。
 
-新ステージ/難易度は `genStage` の式（enemyHP・baseCd・baseCap）と `makeWaves`（WAVE構成）・`basePool`・`UNLOCKS.need` を触るだけ。個別に上書きしたい面は生成後に `STAGES[i].xxx=…` で調整可（1面がその例＝単一ゲージ）。
+新ステージ/難易度は `genStage` の式（enemyHP・baseCd・baseCap）と `makeWaves`（WAVE構成）・`normalPool`/`breakPool`・`UNLOCKS.need` を触るだけ。
+
+#### 各ステージのつくり込み（`STAGE_OVERRIDES`）
+自動生成の上から**ステージ個別に手動オーバーライド**できる（`STAGES` 生成直後に `STAGE_OVERRIDES[id](s)` を適用）。1面がその一例（単一ゲージへ上書き）。触れるノブ：
+- **WAVE数**＝`s.waves` の要素数（増減 or 差し替え）。
+- **通常WAVEの敵**＝`w.spawn`（`type:'normal'` のwave）／**ブレイクの敵**＝`w.spawn`（`type:'break'`）。
+- **切替時に出る敵**＝`w.burstPool`（既定は `spawn`）／**数**＝`w.burst`。
+- **ゲージHP/種類/制限秒**＝`w.hp` / `w.type` / `w.limit`。
+- 例）`STAGE_OVERRIDES[8]=(s)=>{ s.waves[1].spawn=['m_bump','m_legs']; s.waves[1].burst=6; };`
 
 ### バランス検証（ヘッドレス・シミュレータ）
 
