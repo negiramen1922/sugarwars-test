@@ -71,6 +71,11 @@
 - **演出**：有効ヒットは `advFx(o, traitOf(o))`＝**属性色の火花＋「ばつぐん！」**（色は相手のトレイト色）。キャラ詳細に「とくせい：◯に強い ×1.6」、なかまカードに対象色ドット（`attrBadgeHTML`）。
 - **テスト**：smoke 18（plain無効・同色有効・不利は倍率1・ボスの色・与ダメ増をエンドツーエンド）。**色/対象を増やすときは `TRAITS`＋敵`trait`／味方`strongVs` を足すだけ**。
 
+## 操作系（実装済み）
+- **出撃ボタンの並び**：dock は**コストの安い順（左→右）**に並べる（`buildDock` が `myLoadout` をコストでソートしたコピーで生成）。ロジックは `cd[key]` 参照なので並びは表示のみ。smoke 22。
+- **一時停止**：上部バーの `⏸`（`togglePause`／`paused` フラグ）。`loop()` は `running && !paused` のときだけ `step`。全画面 `#pauseOverlay`（タップで再開）。`startBattle`/`win` で `clearPause`。smoke 23。
+- **連続ノックバックのハメ防止**：`hurt` のHPしきい値スタッガーに**クールダウン**（`KB_STAGGER_CD=0.6`／`u.kbCd`）。壁際で大量の敵に囲まれても、0.6秒に1回しかスタッガーしない＝攻撃する隙を確保して「動けないままハメ殺される」のを防ぐ。通常戦闘は不変（バランスシムで確認）。smoke 24。
+
 ## スマホ最適化 — pass1（実装済み）
 - **フルスクリーン/PWA下地**：`viewport-fit=cover`＋`apple-mobile-web-app-capable`/`mobile-web-app-capable`/`theme-color`/status-bar メタ＝「ホーム画面に追加」でアドレスバー無しの全画面に。
 - **100vh対策**：JSが `window.innerHeight` を `--vh` に反映し、`#wrap` の高さを `calc(var(--vh)*100)`＝モバイルのアドレスバーで下が切れない。`resize`/`orientationchange` で更新。
