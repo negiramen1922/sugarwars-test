@@ -472,21 +472,34 @@ const LOADOUT_MAX = 6;                  // 編成に持ち込める最大数
    ・自爆(m_puff)は序盤に出さず中盤(18面〜)から。10面ごとにボス面。
    ============================================================ */
 const STAGE_COUNT = 50;
-// 基本湧きに使う敵プール（ステージnで解禁される敵。自爆は中盤から）
-function basePool(n){
-  // 立ち絵に置き換え済み：雑魚=m_bump／壁=m_thorn／超硬=m_armor／大型=m_legs。
-  // 射手m_phage・自爆m_puffは手描きのまま据え置き（立ち絵が届いたら差し替え）。
+// ── 敵プールはWAVEの種類ごとに分ける（各ステージのつくり込み用ノブ）──────────
+// 立ち絵に置き換え済み：雑魚=m_bump／壁=m_thorn／超硬=m_armor／大型=m_legs。
+// 射手m_phage・自爆m_puffは手描きのまま据え置き（立ち絵が届いたら差し替え）。
+// 【通常WAVE】で連続湧き＆入場する敵（軽め＝押し込める）
+function normalPool(n){
   const p=['m_bump','m_bump'];                 // 雑魚（旧m_swarm 引退→立ち絵）
   if(n>=4)  p.push('m_thorn');                 // 壁（旧m_tank 引退→立ち絵）
   if(n>=8)  p.push('m_phage');                 // 射手（手描き据え置き）
   if(n>=9)  p.push('m_armor');                 // 装甲の重壁（旧m_big の超硬枠→立ち絵）
-  if(n>=13) { p.push('m_armor'); p.push('m_thorn'); }
-  if(n>=17) p.push('m_legs');                  // 足長の大型ブルーザー（エリート）
+  if(n>=13) p.push('m_thorn');                 // 壁を厚めに
+  if(n>=17) p.push('m_legs');                  // 足長シロカビが通常湧きにも混ざる
   if(n>=18) p.push('m_puff');                  // ★自爆は中盤から（手描き据え置き）
-  if(n>=26) { p.push('m_legs'); p.push('m_phage'); }
+  if(n>=26) p.push('m_phage');
   return p;
 }
-function heavyKey(n){ return n>=13 ? 'm_armor' : (n>=4 ? 'm_thorn' : 'm_bump'); }   // 増援waveの重め敵（立ち絵に置換）
+// 【ブレイクWAVE】で連続湧き＆入場する敵（重め＝壁/装甲/エリートを厚く）
+function breakPool(n){
+  const p = normalPool(n).slice();
+  if(n>=4)  p.push('m_thorn');
+  if(n>=8)  p.push('m_legs');                  // ★足長シロカビはブレイクWAVEに8面からデビュー
+  if(n>=9)  p.push('m_armor');
+  if(n>=13) p.push('m_armor');
+  if(n>=17) p.push('m_legs');                  // 更に濃く
+  return p;
+}
+// ステージ全体で出る敵の和集合（pool＝描画/テスト用の一覧）
+function basePool(n){ return Array.from(new Set(normalPool(n).concat(breakPool(n)))); }
+function heavyKey(n){ return n>=13 ? 'm_armor' : (n>=8 ? 'm_legs' : (n>=4 ? 'm_thorn' : 'm_bump')); }   // 増援waveに混ぜる重め敵
 // エリア名（10面ごとにテーマ）
 const REGIONS = [
   {a:1,  name:'おかしの平原'}, {a:11, name:'ねばねば湿原'}, {a:21, name:'むらさきカビ回廊'},
@@ -507,12 +520,16 @@ function makeWaves(n, boss, mini, total){
     const isMid  = (cnt>=4 && i===cnt-2);                    // 最後の1つ手前にもブレイク
     waves.push({ idx:i, type:(isLast||isMid)?'break':'normal', final:isLast });
   }
+  const np = normalPool(n), bp = breakPool(n);
   const wt=waves.map(w=>w.type==='break'?1.4:1); const wsum=wt.reduce((a,b)=>a+b,0);
   waves.forEach((w,i)=>{
+    const brk = (w.type==='break');
     w.hp = Math.max(220, Math.round(total*wt[i]/wsum));      // HP配分（ブレイクは厚め）
-    w.burst = (w.type==='break') ? 4+Math.floor(n/4) : 3+Math.floor(n/7);   // 切替時の入場バースト数
-    if(w.type==='break') w.limit = Math.round(16 + n*0.5);  // ブレイクの制限時間(秒)
-    w.tower = (w.type==='break');                           // ブレイク中はタワーが手前を攻撃
+    w.spawn = brk ? bp : np;                                 // このWAVE中に連続湧きする敵
+    w.burst = brk ? 4+Math.floor(n/4) : 3+Math.floor(n/7);   // 切替時の入場バースト数
+    w.burstPool = w.spawn;                                   // 切替時バーストの敵（既定＝連続湧きと同じ）
+    if(brk){ w.limit = Math.round(16 + n*0.5); w.tower = true; w.heavy = heavyKey(n); }
+    else   { w.tower = false; }
   });
   if(boss)      waves[cnt-1].boss = { key:'m_boss',  hp:Math.round(2600+n*420), atk:Math.round(52+n*5.2), sMul:1.14, trait:'red' };
   else if(mini) waves[cnt-1].mini = { key:'m_gboss', hp:Math.round(1500+n*280), atk:Math.round(32+n*3.4), sMul:1.0,  trait:'green' };
@@ -529,7 +546,20 @@ function genStage(n){
 const STAGES = Array.from({length:STAGE_COUNT}, (_,i)=>genStage(i+1));
 // 1面はチュートリアル＝超軽量（アオカビだけ・1ゲージ・湧きゆっくり）
 STAGES[0].baseCd=5.2; STAGES[0].baseCap=4; STAGES[0].pool=['m_bump']; STAGES[0].enemyHP=440;
-STAGES[0].waves=[{idx:0, type:'normal', final:true, hp:440, burst:0, tower:false}];
+STAGES[0].waves=[{idx:0, type:'normal', final:true, hp:440, burst:0, tower:false, spawn:['m_bump'], burstPool:['m_bump']}];
+
+/* ── 各ステージのつくり込み（手動オーバーライド）─────────────────────────────
+   自動生成の上から、ステージ個別に「WAVE数・各WAVEの敵・切替バースト」を上書きできる。
+   キー＝ステージid。値の関数 tune(s) で s.waves などを自由に書き換える。
+   ・s.waves.length          … WAVE数
+   ・w.spawn:['m_xxx',…]     … そのWAVE中に連続湧きする敵（通常/切替後）
+   ・w.burstPool / w.burst   … WAVE切替の入場バーストの敵と数
+   ・w.hp / w.type / w.limit … ゲージHP・種類(normal/break)・ブレイク制限秒
+   例）STAGE_OVERRIDES[8]=(s)=>{ s.waves[1].spawn=['m_bump','m_legs']; };            */
+const STAGE_OVERRIDES = {
+  // ここに各ステージのつくり込みを足していく（未指定は自動生成のまま）
+};
+for(const s of STAGES){ const fn=STAGE_OVERRIDES[s.id]; if(fn) fn(s); }
 const STAGE_BY_ID = Object.fromEntries(STAGES.map(s=>[s.id,s]));
 const REPLAY_COINS = 30;                // 再挑戦クリアの報酬
 // キャラ解放：coin=EXPで購入（costはEXP・needステージ数クリアで解放可） / gacha=ガチャ限定（🍬コイン）
@@ -1028,7 +1058,9 @@ function deathBurst(u){
 
 /* --- 敵の出撃AI（時間経過で強い編成も混ざる） --- */
 function enemySpawn(){
-  const pool = (curStage && curStage.pool) || ['m_swarm'];
+  // 現在のWAVEの敵プールを優先（通常/ブレイクで湧く敵が変わる）。無ければステージ全体プール。
+  const w = curStage && curStage.waves && curStage.waves[curWave];
+  const pool = (w && w.spawn) || (curStage && curStage.pool) || ['m_bump'];
   spawn(pool[(Math.random()*pool.length)|0], 'e');
 }
 /* --- WAVE制（敵タワーの複数ゲージ） --- */
@@ -1051,12 +1083,12 @@ function advanceWave(){
 }
 // WAVE切替時の入場バースト（敵城側から一気に湧く）。ブレイクは重めの敵を混ぜる。
 function spawnWaveBurst(w){
-  const pool=(curStage&&curStage.pool)||['m_bump'];
+  const pool = w.burstPool || w.spawn || (curStage&&curStage.pool) || ['m_bump'];
   const n=w.burst||0;
   for(let i=0;i<n;i++){
     if(world.units.filter(u=>u.side==='e').length>=CONF.maxUnitsPerSide) break;
     let key=pool[(Math.random()*pool.length)|0];
-    if(w.type==='break' && Math.random()<0.5) key=heavyKey(curStage.id);   // ブレイクは重め
+    if(w.type==='break' && w.heavy && Math.random()<0.5) key=w.heavy;   // ブレイクは重め敵を混ぜる
     const y=CONF.groundY - Math.random()*CONF.rowBand;
     const u=newUnit(key,'e', CONF.spawnInset + Math.random()*60, y); u.fromEvent=true;
     world.units.push(u);
