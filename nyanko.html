@@ -30,7 +30,7 @@
     padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); box-sizing:border-box; }
   #top{ width:100%; max-width:960px; padding:6px 10px 0; }
   .tophead{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
-  .bars{ display:flex; gap:10px; align-items:center; margin-top:4px; }
+  .bars{ display:none; }   /* 敵HP＝キャンバス上部に大バー／自陣HP＝城の上（in-canvas描画）に移行 */
   .castle{ flex:1; }
   /* 通貨アイコン＝ドット絵キャンディ（🍬絵文字の置き換え。data URIは実行時に --candy-img へ注入） */
   .candy{ display:inline-block; width:1.05em; height:1.05em; background:var(--candy-img) center/contain no-repeat; vertical-align:-0.18em; image-rendering:pixelated; }
@@ -493,26 +493,43 @@ const REGIONS = [
   {a:31, name:'こおりのフラン城'}, {a:41, name:'王国の最深部'},
 ];
 function stageName(n){ let r=REGIONS[0]; for(const R of REGIONS){ if(n>=R.a) r=R; } return r.name+' '+(n-r.a+1); }
+/* --- WAVE（敵タワーの複数ゲージ）を生成 ---
+   ・1ステージ＝複数ゲージ。1本削るごとに次WAVEへ。最後を削り切ると勝ち。
+   ・type: normal=切替時に敵バースト / break=難易度UP（湧き速い・タワー攻撃・強敵・制限時間つき）。
+   ・基本「…通常→（後半にもう1本ブレイク）→最後ブレイク」。制限時間内に割れないと大技（味方スタン）。
+   ・ボス/中ボスは最後のブレイクに配置。 */
+function makeWaves(n, boss, mini, total){
+  let cnt = Math.max(2, Math.min(5, 2 + Math.floor(n/6)));   // 後半ほどゲージ数↑（2〜5）
+  if(boss) cnt = Math.max(cnt, 4);
+  const waves=[];
+  for(let i=0;i<cnt;i++){
+    const isLast = i===cnt-1;
+    const isMid  = (cnt>=4 && i===cnt-2);                    // 最後の1つ手前にもブレイク
+    waves.push({ idx:i, type:(isLast||isMid)?'break':'normal', final:isLast });
+  }
+  const wt=waves.map(w=>w.type==='break'?1.4:1); const wsum=wt.reduce((a,b)=>a+b,0);
+  waves.forEach((w,i)=>{
+    w.hp = Math.max(220, Math.round(total*wt[i]/wsum));      // HP配分（ブレイクは厚め）
+    w.burst = (w.type==='break') ? 4+Math.floor(n/4) : 3+Math.floor(n/7);   // 切替時の入場バースト数
+    if(w.type==='break') w.limit = Math.round(16 + n*0.5);  // ブレイクの制限時間(秒)
+    w.tower = (w.type==='break');                           // ブレイク中はタワーが手前を攻撃
+  });
+  if(boss)      waves[cnt-1].boss = { key:'m_boss',  hp:Math.round(2600+n*420), atk:Math.round(52+n*5.2), sMul:1.14, trait:'red' };
+  else if(mini) waves[cnt-1].mini = { key:'m_gboss', hp:Math.round(1500+n*280), atk:Math.round(32+n*3.4), sMul:1.0,  trait:'green' };
+  return waves;
+}
 function genStage(n){
   const boss = (n%10===0), mini = (n%5===0 && !boss);
-  const enemyHP = Math.round(560 + n*195 + n*n*5);      // 城HP（＝ステージの長さ。sim調整）
+  const enemyHP = Math.round(560 + n*195 + n*n*5);      // 総HP（全ゲージ合計。ステージの長さ）
   const baseCd  = Math.max(2.8, 4.9 - n*0.05);          // 基本湧き間隔（軽め＝押し込めるので泥沼化しない）
   const baseCap = Math.min(12, 4 + Math.floor(n/4));    // 同時に湧く敵の数のソフト上限（泥沼化防止）
-  const ev=[];
-  if(n>=3){                                             // HP割合イベント（大群）
-    ev.push({at:0.66, wave:{key:'m_bump', n:4+Math.floor(n/6)}, msg:'カビの大群！'});
-    ev.push({at:0.34, wave:{key:heavyKey(n), n:4+Math.floor(n/5)}, msg:'カビの増援！'});
-  }
-  // ボスは「厚いHPの壁＋高火力」＝押し切った先の本番。base湧きは軽いので必ず対面できる（泥沼化しない）
-  // 色トレイト：中ボス＝みどり／大ボス＝あか（対〇色の味方だけが有利を取れる）。雑魚は無属性(plain)のまま。
-  if(mini) ev.push({at:0.5,  boss:{key:'m_gboss', hp:Math.round(1900+n*320), atk:Math.round(34+n*3.6), sMul:1.0, trait:'green'}, msg:'中ボスあらわる！'});
-  if(boss) ev.push({at:0.5,  boss:{hp:Math.round(3600+n*560), atk:Math.round(56+n*5.6), sMul:1.14, trait:'red'}, msg:'ボスあらわる！'});
   return { id:n, name:stageName(n)+(boss?'（ボス）':mini?'（中ボス）':''), enemyHP, baseCd, baseCap,
-           pool:basePool(n), events:ev, coins:80+n*16, tutorial:(n===1) };
+           pool:basePool(n), waves:makeWaves(n, boss, mini, enemyHP), coins:80+n*16, tutorial:(n===1) };
 }
 const STAGES = Array.from({length:STAGE_COUNT}, (_,i)=>genStage(i+1));
-// 1面はチュートリアル＝超軽量（アオカビだけ・イベントなし・湧きゆっくり）
-STAGES[0].baseCd=5.2; STAGES[0].baseCap=4; STAGES[0].events=[]; STAGES[0].pool=['m_bump']; STAGES[0].enemyHP=440;
+// 1面はチュートリアル＝超軽量（アオカビだけ・1ゲージ・湧きゆっくり）
+STAGES[0].baseCd=5.2; STAGES[0].baseCap=4; STAGES[0].pool=['m_bump']; STAGES[0].enemyHP=440;
+STAGES[0].waves=[{idx:0, type:'normal', final:true, hp:440, burst:0, tower:false}];
 const STAGE_BY_ID = Object.fromEntries(STAGES.map(s=>[s.id,s]));
 const REPLAY_COINS = 30;                // 再挑戦クリアの報酬
 // キャラ解放：coin=EXPで購入（costはEXP・needステージ数クリアで解放可） / gacha=ガチャ限定（🍬コイン）
@@ -603,6 +620,7 @@ function attrBadgeHTML(key){ const sv=DEFS[key] && DEFS[key].strongVs; if(!sv ||
 let world, money, php, ehp, cd, enemyCd, elapsed, running, lastT, walletLv, towerCd, hintT;
 let gameSpeed = 1;   // バトルの倍速（1 or 2）。loop()が step を gameSpeed 回まわす
 let myMaxHP=1600, foeMaxHP=1600;   // 自城/敵城の最大HP（HPバーの分母。myMaxHP=UPG.tHp）
+let curWave=0;                     // 現在のWAVE（敵タワーのゲージ番号）
 let curStage=null, myLoadout=STARTERS.slice(0,LOADOUT_MAX);   // 現在のステージ／編成
 
 // 財布Lvごとの最大貯金テーブル（にゃんこ式）。wMaxメタで上限Lvを+1（+100🍬）ずつ追加
@@ -619,9 +637,13 @@ function reset(){
   walletLv = walletStartLv();                           // 開始Lv＝wStartメタ
   myMaxHP = upgVal('tHp');                              // 自城HP＝メタ強化
   php = myMaxHP;
-  foeMaxHP = curStage ? curStage.enemyHP : myMaxHP;
-  ehp = foeMaxHP;                                       // 敵城HPはステージ難易度
-  world.events = (curStage && curStage.events) ? curStage.events.map(e=>({...e, fired:false})) : [];
+  // WAVE（敵タワーのゲージ）初期化：最初のゲージから
+  curWave = 0;
+  const w0 = (curStage && curStage.waves && curStage.waves[0]) || null;
+  foeMaxHP = w0 ? w0.hp : (curStage ? curStage.enemyHP : myMaxHP);
+  ehp = foeMaxHP;
+  world.waveType = w0 ? w0.type : 'normal';
+  world.breakTimer = 0; world.breakPenalized = false; world.towerAtkCd = 0; world.stunFlashT = 0;
   money = Math.min(effCap(), CONF.moneyStart + walletLv*40);   // 開始🍬（財布Lvが高いほど多め・上限は超えない）
   cd = {}; for(const k of ORDER) cd[k]=0;
   enemyCd = 1.2;
@@ -830,14 +852,14 @@ function step(dt){
   if(world.shake>0) world.shake = Math.max(0, world.shake - dt*40);   // 画面揺れの減衰
   if(world.beam){ world.beam.t += dt; if(world.beam.t >= world.beam.dur) world.beam=null; }
 
-  // 敵の基本湧き（軽め・同時数ソフト上限で泥沼化を防ぐ）
+  // 敵の基本湧き（軽め・同時数ソフト上限で泥沼化を防ぐ／ブレイクWAVE中は速い）
   enemyCd -= dt;
   if(enemyCd<=0){
     const S=curStage, cap = S ? (S.baseCap||14) : 14;
     if(world.units.filter(u=>u.side==='e').length < cap) enemySpawn();
-    enemyCd = S ? S.baseCd : 3.0;
+    enemyCd = (S ? S.baseCd : 3.0) * (world.waveType==='break' ? 0.6 : 1);
   }
-  checkStageEvents();   // 城HP割合で発火するイベント（大群/ボス）
+  updateBreak(dt);      // ブレイクWAVE：タワーの手前攻撃＋制限時間ペナルティ
 
   updateBuffs(dt);   // パーティークッキーのミラーボール→味方の攻撃バフ(u.buffMul)を先に計算
 
@@ -859,6 +881,7 @@ function step(dt){
       u.x = Math.max(10, Math.min(CONF.W-10, u.x));
       continue;
     }
+    if(u.stunT>0){ u.stunT-=dt; u.moving=false; continue; }   // スタン中（ブレイクの大技）は行動不能
     const D = u.U;
     const fe = frontUnit(u,false);          // 前方の敵
     const castleX = u.side==='p' ? 0 : CONF.W;   // 攻撃対象は相手の城（味方=左の敵城 / 敵=右の味方城）
@@ -990,7 +1013,10 @@ function step(dt){
   for(const pp of world.pops){ pp.t += dt; pp.y -= 34*dt; }   // フロートテキストは上へ
   world.pops = world.pops.filter(pp=>pp.t < pp.dur);
 
-  if(ehp<=0){ running=false; win(true); }
+  if(ehp<=0){
+    if(curStage && curStage.waves && curWave < curStage.waves.length-1) advanceWave();   // ゲージ削り切り→次WAVE
+    else { running=false; win(true); }                                                    // 最後のゲージ＝勝ち
+  }
   else if(php<=0){ running=false; win(false); }
 }
 
@@ -1005,17 +1031,61 @@ function enemySpawn(){
   const pool = (curStage && curStage.pool) || ['m_swarm'];
   spawn(pool[(Math.random()*pool.length)|0], 'e');
 }
-// 城HP割合で発火するステージイベント（大群 wave / ボス boss）。一度だけ発火。
-function checkStageEvents(){
-  if(!world.events || !world.events.length || foeMaxHP<=0) return;
-  const frac = ehp/foeMaxHP;
-  for(const e of world.events){
-    if(e.fired || frac > e.at) continue;
-    e.fired = true;
-    if(e.wave) spawnWave(e.wave.key, e.wave.n);
-    if(e.boss) spawnBoss(e.boss);
-    if(e.msg) showEventBanner(e.msg);
+/* --- WAVE制（敵タワーの複数ゲージ） --- */
+const TOWER_ATK_CD = 2.6;   // ブレイク中のタワー攻撃の間隔(秒)
+// 次のWAVEへ（ゲージを削り切ったとき）：味方全体ノックバック＋入場バースト＋（最後は）ボス
+function advanceWave(){
+  curWave++;
+  const w = curStage.waves[curWave];
+  foeMaxHP = w.hp; ehp = w.hp;
+  world.waveType = w.type;
+  world.breakTimer = (w.type==='break') ? (w.limit||0) : 0;
+  world.breakPenalized = false;
+  world.towerAtkCd = TOWER_ATK_CD;
+  knockAllAllies();                                        // WAVE切替＝味方全体を必ずノックバック
+  spawnWaveBurst(w);                                       // 入場バースト（多め／ブレイクはさらに多い）
+  if(w.boss) spawnBoss(w.boss);
+  if(w.mini) spawnBoss(w.mini);
+  showEventBanner(w.type==='break' ? (w.final?'⚡ 最終ブレイク！':'⚡ ブレイクWAVE！') : ('WAVE '+(curWave+1)+'！'));
+  world.shake = Math.max(world.shake, 8);
+}
+// WAVE切替時の入場バースト（敵城側から一気に湧く）。ブレイクは重めの敵を混ぜる。
+function spawnWaveBurst(w){
+  const pool=(curStage&&curStage.pool)||['m_bump'];
+  const n=w.burst||0;
+  for(let i=0;i<n;i++){
+    if(world.units.filter(u=>u.side==='e').length>=CONF.maxUnitsPerSide) break;
+    let key=pool[(Math.random()*pool.length)|0];
+    if(w.type==='break' && Math.random()<0.5) key=heavyKey(curStage.id);   // ブレイクは重め
+    const y=CONF.groundY - Math.random()*CONF.rowBand;
+    const u=newUnit(key,'e', CONF.spawnInset + Math.random()*60, y); u.fromEvent=true;
+    world.units.push(u);
   }
+  world.shake=Math.max(world.shake,4);
+}
+// ブレイクWAVE：敵タワーが手前の味方を攻撃＋制限時間オーバーで大技（味方スタン）
+function updateBreak(dt){
+  if(world.waveType!=='break') return;
+  const w = curStage && curStage.waves && curStage.waves[curWave];
+  if(w && w.tower){ world.towerAtkCd-=dt; if(world.towerAtkCd<=0){ towerAttack(); world.towerAtkCd=TOWER_ATK_CD; } }
+  if(world.breakTimer>0){ world.breakTimer-=dt; if(world.breakTimer<=0 && !world.breakPenalized) breakPenalty(); }
+}
+// 敵タワー（左・x=0）から最前(最左)の味方へ弾を撃つ
+function towerAttack(){
+  let t=null, best=1e9;
+  for(const u of world.units){ if(u.side!=='p'||u.dead) continue; if(u.x<best){best=u.x;t=u;} }
+  if(!t) return;
+  const dmg = 22 + (curStage?curStage.id:1)*2;
+  world.shots.push({ x:CONF.castleBodyR, y:CONF.groundY-42, side:'e', dmg, sp:300, r:14,
+    tid:t.id, tx:t.x, ty:t.y-16, ang:0, tower:true });
+  SFX_shot();
+}
+// 制限時間オーバーの大技＝味方全員スタン（一定時間 行動不能）
+function breakPenalty(){
+  world.breakPenalized=true;
+  for(const u of world.units){ if(u.side==='p'&&!u.dead) u.stunT=Math.max(u.stunT||0, 2.5); }
+  showEventBanner('⚡ 敵の大技！ 味方スタン！');
+  world.shake=Math.max(world.shake,12); world.stunFlashT=0.6;
 }
 function spawnWave(key, n){
   for(let i=0;i<n;i++){
@@ -1560,6 +1630,7 @@ function render(){
   ctx.fillStyle='#e7b57a'; ctx.fillRect(-8,g,W+16,gh);
   ctx.fillStyle='#d59f63'; ctx.fillRect(-8,g,W+16,6);
   drawCastle(24,'e'); drawCastle(W-24,'p');   // 左＝敵(赤) / 右＝味方(青)
+  drawCastleHP(W-24, php, myMaxHP);           // 自陣タワーのHP（城の上に数値＋バー）
   // タワー攻撃の射程ライン（自城=右 から ここまで届く）＝プレイヤーに「ここまで」を可視化
   { const minX = W - upgVal('tRng');
     ctx.save();
@@ -1588,6 +1659,46 @@ function render(){
   ctx.restore();
   drawBeam();
   ctx.setTransform(1,0,0,1,0,0);   // 変換をリセット
+  drawWaveHud();                   // 敵タワーの大HPバー＋WAVE進行（スクリーン空間・上部固定）
+  if(world.stunFlashT>0){ world.stunFlashT-=1/60; ctx.fillStyle='rgba(255,220,80,'+Math.max(0,world.stunFlashT*0.5)+')'; ctx.fillRect(0,0,cv.width,cv.height); }
+}
+// 自陣タワーのHP（城の上に数値＋バー・世界座標）
+function drawCastleHP(x, hp, maxHp){
+  const g=CONF.groundY, by=g-92, bw=66, bh=8, bx=x-bw/2;
+  ctx.fillStyle='#0009'; ctx.fillRect(bx-2,by-2,bw+4,bh+4);
+  ctx.fillStyle='#2a1a12'; ctx.fillRect(bx,by,bw,bh);
+  ctx.fillStyle='#4aa3ff'; ctx.fillRect(bx+1,by+1,(bw-2)*Math.max(0,hp/maxHp),bh-2);
+  ctx.fillStyle='#fff'; ctx.font='bold 12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='bottom';
+  ctx.lineWidth=3; ctx.strokeStyle='#0009'; ctx.strokeText(Math.max(0,Math.ceil(hp)), x, by-2);
+  ctx.fillText(Math.max(0,Math.ceil(hp)), x, by-2);
+}
+// 敵タワーの大HPバー＋WAVE進行（●○）＋ブレイク制限時間（スクリーン空間・上部）
+function drawWaveHud(){
+  const waves = curStage && curStage.waves; if(!waves) return;
+  const w = waves[curWave] || {};
+  const pad=Math.round(cv.width*0.03), bw=cv.width-pad*2, bx=pad, by=Math.round(cv.height*0.015);
+  const bh=Math.max(16, Math.round(cv.height*0.030));
+  ctx.textBaseline='middle';
+  ctx.fillStyle='#0008'; ctx.fillRect(bx-3,by-3,bw+6,bh+6);
+  ctx.fillStyle='#2a1a12'; ctx.fillRect(bx,by,bw,bh);
+  const frac=Math.max(0, foeMaxHP? ehp/foeMaxHP : 0);
+  ctx.fillStyle = w.type==='break' ? '#ff6a5a' : '#8fd24a';
+  ctx.fillRect(bx+2,by+2,(bw-4)*frac,bh-4);
+  const label = w.type==='break' ? (w.final?'最終ブレイク':'ブレイク') : ('WAVE '+(curWave+1));
+  ctx.font='bold '+Math.round(bh*0.62)+'px sans-serif'; ctx.fillStyle='#fff';
+  ctx.textAlign='left';  ctx.lineWidth=3; ctx.strokeStyle='#0009';
+  ctx.strokeText('🏰 '+label, bx+8, by+bh/2); ctx.fillText('🏰 '+label, bx+8, by+bh/2);
+  ctx.textAlign='right'; ctx.strokeText(Math.max(0,Math.ceil(ehp))+' / '+foeMaxHP, bx+bw-8, by+bh/2); ctx.fillText(Math.max(0,Math.ceil(ehp))+' / '+foeMaxHP, bx+bw-8, by+bh/2);
+  // WAVEピップ
+  const pr=Math.max(4,Math.round(bh*0.24)), pipY=by+bh+pr+4;
+  for(let i=0;i<waves.length;i++){ const px=bx+8+pr+i*(pr*2.6);
+    ctx.beginPath(); ctx.arc(px, pipY, pr, 0, 6.28);
+    ctx.fillStyle = i<curWave ? '#6a4a30' : (i===curWave ? (waves[i].type==='break'?'#ff6a5a':'#8fd24a') : '#b89a86'); ctx.fill();
+    if(waves[i].type==='break'){ ctx.lineWidth=2; ctx.strokeStyle='#ffd24a'; ctx.stroke(); } }
+  // ブレイク制限時間
+  if(w.type==='break' && world.breakTimer>0){ ctx.textAlign='right'; ctx.textBaseline='middle';
+    ctx.fillStyle= world.breakTimer<5?'#ff5a4a':'#ffd24a'; ctx.font='bold '+Math.round(bh*0.6)+'px sans-serif';
+    ctx.strokeText('⏱ '+Math.ceil(world.breakTimer), bx+bw-8, pipY); ctx.fillText('⏱ '+Math.ceil(world.breakTimer), bx+bw-8, pipY); }
 }
 
 /* タワー攻撃のビーム演出（右の自城→左へ走る光の帯） */
@@ -2041,6 +2152,8 @@ if(typeof globalThis!=='undefined') globalThis.__NYANKO = { CONF, DEFS, ORDER,
   get walletLv(){return walletLv;}, set walletLv(v){walletLv=v;}, get towerCd(){return towerCd;}, set towerCd(v){towerCd=v;},
   get enemyCd(){return enemyCd;}, set enemyCd(v){enemyCd=v;}, spawnBoss, knockAllAllies, hurt, KB_STAGGER_CD,
   get cam(){return cam;}, resizeCanvas, updateCamera,
+  get curWave(){return curWave;}, set curWave(v){curWave=v;}, advanceWave, updateBreak,
+  get curStage(){return curStage;}, get running(){return running;}, set running(v){running=v;},
   get paused(){return paused;}, togglePause, buildDock,
   TRAITS, EFFECT_MUL, traitOf, isEffective, effHitMul, FOE_DEFS,
   get testMode(){return TEST_MODE;}, set testMode(v){TEST_MODE=!!v;},
