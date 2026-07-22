@@ -35,6 +35,11 @@
   .e .fill{ background:linear-gradient(180deg,#b6dd6a,#5f8a34); }
   #moneyBox{ text-align:right; white-space:nowrap; font-weight:700; font-size:13px; color:var(--muted);
     background:var(--panel); border:2px solid var(--px-edge); border-radius:4px; padding:3px 10px; box-shadow:0 3px 0 var(--px-edge); }
+  /* バトルの倍速トグル */
+  #speedBtn{ cursor:pointer; white-space:nowrap; font-weight:800; font-size:13px; color:var(--ink); font-family:Inter,system-ui,sans-serif;
+    background:var(--panel); border:2px solid var(--px-edge); border-radius:4px; padding:4px 10px; box-shadow:0 3px 0 var(--px-edge); }
+  #speedBtn:active{ transform:translateY(2px); box-shadow:0 1px 0 var(--px-edge); }
+  #speedBtn.on{ background:var(--grape); color:#fff; border-color:#6b2f9e; box-shadow:0 3px 0 #6b2f9e; }
   #moneyBox b{ color:var(--gold-dk); font-size:20px; font-family:"Space Mono",monospace; }
   #moneyBox .sub{ display:block; font-size:10px; font-weight:600; font-family:"Space Mono",monospace; }
   #stage{ width:100%; max-width:960px; flex:1; min-height:0; display:flex; align-items:center; justify-content:center; padding:4px 6px; }
@@ -191,7 +196,8 @@
 <div id="wrap">
   <div id="top">
     <div class="tophead">
-      <div class="title">🍭 SUGAR MARCH <span style="opacity:.5;font-weight:400">— にゃんこ風・試作</span></div>
+      <div class="title" style="flex:1;min-width:0">🍭 SUGAR MARCH <span style="opacity:.5;font-weight:400">— にゃんこ風・試作</span></div>
+      <button id="speedBtn" onclick="toggleSpeed()" title="バトルの速さ">▶ ×1</button>
       <div id="moneyBox"><i class="candy"></i> <b id="moneyTxt">0</b><span class="sub">/<span id="capTxt">0</span> ・+<span id="rateTxt">0</span>/秒</span></div>
     </div>
     <div class="bars">
@@ -262,8 +268,9 @@ const CONF = {
   moneyCap: 300,         // 🍬上限（未使用・上限はUPG.wStart/wMaxで管理）
   atkCdMul: 1.45,        // 全体の攻撃間隔の倍率（大きいほどゆっくり殴る＝せわしなさ解消）
   arrowSize: 70,         // シューの矢の描画サイズ(px)。大きいほど大量に飛ぶ迫力が出る
-  castleAtkRange: 60,    // お城への攻撃が届く距離（大きいほど手前で殴れる＝城にめり込まない）
-  spawnInset: 40,        // ユニットの湧き位置（城のふち＝端からの距離）。タワーの後ろに余裕をもたせる。castleAtkRangeより内側にして
+  castleAtkRange: 96,    // お城への攻撃が届く距離（大きいほど手前で殴れる＝城にめり込まず、湧いた敵の手前で足を止められる）
+  castleBodyR: 20,       // お城本体の半径。ユニットはここより内側へは入らない（城にめり込まない最小マージン）
+  spawnInset: 40,        // ユニットの湧き位置（城のふち＝端からの距離）。castleAtkRangeより内側にして
                          // 「城に張り付いた敵ユニットの後ろ」に湧かせ、防衛側が張り付き組を最優先で攻撃できるように
   maxUnitsPerSide: 60,   // 片side上限（暴走防止）
   enemyStartCd: 3.6,     // 敵の出撃間隔（開始）
@@ -528,6 +535,7 @@ function attrBadgeHTML(key){ if(!ATTR_ON) return ''; const a=UNIT_ATTR[key]; if(
 
 /* --- 状態 --- */
 let world, money, php, ehp, cd, enemyCd, elapsed, running, lastT, walletLv, towerCd, hintT;
+let gameSpeed = 1;   // バトルの倍速（1 or 2）。loop()が step を gameSpeed 回まわす
 let myMaxHP=1600, foeMaxHP=1600;   // 自城/敵城の最大HP（HPバーの分母。myMaxHP=UPG.tHp）
 let curStage=null, myLoadout=STARTERS.slice(0,LOADOUT_MAX);   // 現在のステージ／編成
 
@@ -785,7 +793,10 @@ function step(dt){
     const castleX = u.side==='p' ? 0 : CONF.W;   // 攻撃対象は相手の城（味方=左の敵城 / 敵=右の味方城）
     const castleGap = Math.abs(castleX - u.x);
     const enemyInRange  = fe && fe.gap <= u.range;
-    const castleInRange = castleGap <= Math.max(u.range, CONF.castleAtkRange);
+    // 前方に「城より手前の敵」がいる間は城を殴らない＝城に張り付いたまま、後ろ(城側)に湧いた敵を
+    // 無視してしまう不具合を防ぐ。敵が城より手前なら足を止めず踏み込んで倒しにいく。
+    const feNearer = fe && fe.gap < castleGap;
+    const castleInRange = !feNearer && castleGap <= Math.max(u.range, CONF.castleAtkRange);
 
     // 導火中（bomber）
     if(u.fuseT>=0){
@@ -844,12 +855,14 @@ function step(dt){
     const slowF = u.slowT>0 ? (u.slowMul||1) : 1;
     const sp = (u.charging ? u.speed*(windup ? 0.30 : D.charge.spd) : u.speed) * slowF;
     let nx = u.x + u.dir*sp*dt;
+    // 停止位置：前方に敵がいればその敵の射程手前まで踏み込む（城に張り付いた敵の後ろに湧いた敵も追える）。
+    // 敵がいなければ城の攻撃距離(castleAtkRange)で足を止めて城を殴る。どちらも城本体(castleBodyR)へはめり込まない。
     if(u.side==='p'){            // 左へ進む・敵城は左(0)
-      nx = Math.max(nx, CONF.castleAtkRange);
-      if(fe) nx = Math.max(nx, fe.o.x + u.range);   // 前方の敵の射程手前で停止
+      nx = fe ? Math.max(nx, fe.o.x + u.range) : Math.max(nx, CONF.castleAtkRange);
+      nx = Math.max(nx, CONF.castleBodyR);
     }else{                        // 右へ進む・味方城は右(W)
-      nx = Math.min(nx, CONF.W - CONF.castleAtkRange);
-      if(fe) nx = Math.min(nx, fe.o.x - u.range);
+      nx = fe ? Math.min(nx, fe.o.x - u.range) : Math.min(nx, CONF.W - CONF.castleAtkRange);
+      nx = Math.min(nx, CONF.W - CONF.castleBodyR);
     }
     u.x = nx;
   }
@@ -1472,10 +1485,16 @@ function loop(t){
   if(!lastT) lastT=t;
   let dt=(t-lastT)/1000; lastT=t;
   if(dt>0.05) dt=0.05;
-  if(running) step(dt);
+  if(running){ for(let i=0;i<gameSpeed;i++) step(dt); }   // 倍速＝1フレームでstepを複数回（大きなdtでの貫通を防ぐ）
   render(); hud();
   requestAnimationFrame(loop);
 }
+/* --- 倍速トグル（×1 ⇄ ×2）。端末に保存＝好みを覚える --- */
+function renderSpeedBtn(){ const b=document.getElementById('speedBtn'); if(!b) return;
+  b.textContent = gameSpeed>1 ? '▶▶ ×2' : '▶ ×1'; b.classList.toggle('on', gameSpeed>1); }
+function toggleSpeed(){ gameSpeed = gameSpeed>1 ? 1 : 2; renderSpeedBtn();
+  try{ localStorage.setItem('sm_speed', gameSpeed); }catch(e){} }
+try{ const sv=parseInt(localStorage.getItem('sm_speed'),10); if(sv===2) gameSpeed=2; }catch(e){}
 
 /* --- 決着 --- */
 function win(youWon){
@@ -1823,7 +1842,7 @@ function SFX_lose(){ [392,330,262].forEach((f,i)=>setTimeout(()=>blip(f,0.24,'sa
 loadGame();
 myLoadout = STARTERS.slice(0, LOADOUT_MAX);
 buildDock(); reset(); running=false;   // world等を初期化（描画がバトル前に走っても落ちないように）
-renderTestBtn();
+renderTestBtn(); renderSpeedBtn();
 goHome();
 requestAnimationFrame(loop);
 
@@ -1833,12 +1852,14 @@ if(typeof globalThis!=='undefined') globalThis.__NYANKO = { CONF, DEFS, ORDER,
   isUnlocked, unlockedUnits, stageUnlocked, newUnit, ATK_ANIM,
   UPG, upgVal, upgCost, upgLv, buyUpgrade, buyUnit, unlockAvailable, stageExp,
   CHAR_LV_MAX, charLv, charLvMul, charLvCost, levelUpChar, UNIT_DESC,
-  UNLOCKS, resetProgress, renderCollect,
+  UNLOCKS, resetProgress, renderCollect, toggleSpeed,
+  get gameSpeed(){return gameSpeed;}, set gameSpeed(v){gameSpeed=v;},
   walletCapTable, walletMaxLv, walletStartLv,
   STAGES, STAGE_BY_ID, setStage(id){ curStage = STAGE_BY_ID[id]||null; },
   get save(){return save;}, get myMaxHP(){return myMaxHP;}, get foeMaxHP(){return foeMaxHP;},
   get world(){return world;}, get money(){return money;}, get php(){return php;}, get ehp(){return ehp;},
   get walletLv(){return walletLv;}, set walletLv(v){walletLv=v;}, get towerCd(){return towerCd;}, set towerCd(v){towerCd=v;},
+  get enemyCd(){return enemyCd;}, set enemyCd(v){enemyCd=v;},
   get testMode(){return TEST_MODE;}, set testMode(v){TEST_MODE=!!v;},
   set money(v){money=v;}, set php(v){php=v;}, set ehp(v){ehp=v;} };
 </script>
