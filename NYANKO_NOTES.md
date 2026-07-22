@@ -60,6 +60,7 @@
 ## 敵の立ち絵スプライト — 実装済み
 - **画像で描く敵**：`FOE_DEFS` に `spr:'<key>'`（`mold` なし）を持たせると、`drawUnit` が `drawFoeSprite`（足元アンカー・吹き飛び回転）で**画像**を描く（従来の手描き `drawMold` はそのまま併存）。単一画像＝陣営サフィックスなし。スプライトは `nyanko.tpl.html` の `Object.assign(SPRITE_DATA,{…})` に128px base64で注入（白背景を境界フラッドフィルで透過→クロップ→正方パディング→NEAREST）。
 - **追加した5体**（ユーザー提供の立ち絵）：`m_bump`（丸ボコ雑魚・plain）/`m_thorn`（トゲ突起・中HP）/`m_armor`（スパイク固め・`dr:0.25`装甲）/`m_legs`（足長・高HP950/高atk45）/`m_gboss`（緑スパイク・**中ボス**・`trait:'green'`）。`basePool` に難易度順で追加、中ボスは `spawnBoss` の `cfg.key='m_gboss'` で立ち絵に差し替え（`genStage`）。トレイトはボス以外plain。
+- **旧・手描き敵の引退（置き換え）**：雑魚`m_swarm`／壁`m_tank`／超硬`m_big` は**スポーンしない**（`basePool`/`heavyKey`/wave/チュートリアルpool を立ち絵 `m_bump`/`m_thorn`/`m_armor`/`m_legs` に張り替え）。定義自体は数値参照用に温存。**まだ手描きなのは3体＝射手`m_phage`／自爆`m_puff`／大ボス`m_boss`**（立ち絵が届いたら同様に `spr` を付けて差し替え）。バランスシムで序盤4/4を確認済み。
 - **増やし方**：画像を `SPRITE_DATA` に注入→`FOE_DEFS` に `spr` 付き1行→`basePool`/イベントに配置。テスト：smoke 19。
 
 ## 色トレイト（属性）— 実装済み
