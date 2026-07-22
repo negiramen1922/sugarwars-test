@@ -1125,9 +1125,8 @@ function updateCamera(){
   for(const u of world.units){ if(u.dead) continue;
     if(u.side==='p'){ np++; if(u.x<pMin)pMin=u.x; } else { ne++; if(u.x>eMax)eMax=u.x; } }
   let target;
-  if(np&&ne) target=(pMin+eMax)/2;             // 戦線（味方最前線と敵最前線の中間）
-  else if(np) target=pMin;
-  else if(ne) target=eMax;
+  if(np) target=pMin;                          // 最前線の味方ユニットを映す（先頭＝戦線。中央へ飛ばず自陣から前線へ追従）
+  else if(ne) target=eMax;                      // 味方がいなければ最前の敵（自陣に迫る脅威）
   else target=CONF.W-cam.visW/2;               // 開幕は自陣(右)寄り
   const want=Math.max(0, Math.min(maxX, target-cam.visW/2));
   cam.x += (want-cam.x)*0.1;                    // なめらか追従
