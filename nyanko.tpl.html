@@ -119,6 +119,12 @@
   .ucard img{ width:44px; height:44px; display:block; margin:0 auto; image-rendering:pixelated; }
   .ucard .nm{ font-size:10.5px; color:var(--muted); font-weight:700; }
   .ucard .co{ font-size:11px; font-weight:700; color:var(--gold-dk); font-family:"Space Mono",monospace; }
+  /* なかま一覧のセクション見出し（ノーマル／ガチャ限定） */
+  .csect{ display:flex; align-items:center; gap:8px; margin:4px 2px 8px; font-weight:800; color:var(--ink); font-size:14px; }
+  .csect::after{ content:""; flex:1; height:3px; border-radius:2px; background:var(--px-edge); opacity:.35; }
+  .csect .cs-ic{ font-size:15px; }
+  /* 未開放（？）カード＝立ち絵と名前を伏せてシルエットのはてなに */
+  .ucard.locked .qmark{ width:44px; height:44px; margin:0 auto; display:flex; align-items:center; justify-content:center; font-size:30px; font-weight:900; color:var(--muted); background:var(--parch-dk); border-radius:6px; }
   .ucard.sel{ border-color:var(--berry-dk); box-shadow:0 4px 0 var(--berry-dk); background:#fff2e6; }
   .ucard .pick{ position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:4px; background:var(--berry); border:2px solid var(--berry-dk);
     color:#fff; font-weight:700; font-size:12px; font-family:"Space Mono",monospace; display:none; align-items:center; justify-content:center; }
@@ -145,6 +151,7 @@
   <div class="sub" id="homeExp" style="margin-top:14px;font-size:15px">🎓 <b style="color:#3f7fd0">0</b> EXP</div>
   <div class="sub" id="homeProgress" style="margin-top:8px"></div>
   <button id="testModeBtn" onclick="toggleTestMode()" class="backbtn" style="align-self:center;margin-top:12px;font-size:12px"></button>
+  <button onclick="resetProgress()" class="backbtn" style="align-self:center;margin-top:8px;font-size:12px;color:var(--rust);border-color:var(--rust)">🗑 進捗をリセット（テスト用）</button>
   <div style="flex:1"></div>
 </div>
 <!-- なかま（解放＆ガチャ） -->
@@ -154,7 +161,7 @@
   <div class="sub">🎓 <b id="collectExp">0</b> EXP　・　<i class="candy"></i> <b id="collectCoins">0</b> コイン</div>
   <div class="sub" style="margin-top:-8px">キャラは🎓EXPで解放（ステージを進めるほど解放できるキャラが増える）</div>
   <button class="bigbtn" onclick="doGacha()" id="gachaBtn" style="background:var(--gold);color:#3a2408;border-color:var(--px-edge-gold);box-shadow:0 6px 0 var(--px-edge-gold);font-size:16px;padding:13px 26px;margin-bottom:14px">🎰 ガチャを回す（<i class="candy"></i><span id="gachaCostTxt"></span>）</button>
-  <div class="grid" id="collectGrid" style="max-width:560px"></div>
+  <div id="collectSections" style="width:100%;max-width:560px"></div>
 </div>
 <!-- 強化（EXP：サイフ／タワー） -->
 <div id="upgradeScreen" class="screen">
@@ -1525,6 +1532,12 @@ function renderTestBtn(){ const b=document.getElementById('testModeBtn'); if(!b)
   b.style.boxShadow = TEST_MODE ? '0 3px 0 #6b2f9e' : '0 3px 0 var(--px-edge)'; }
 function toggleTestMode(){ TEST_MODE=!TEST_MODE; renderTestBtn(); goHome();
   toast(TEST_MODE ? '🧪 テストモードON：全キャラ・全ステージが使えます' : 'テストモードOFF'); }
+/* --- 進捗リセット（テスト用）：セーブを初期状態に戻す。難易度・ゲーム進行の検証に使う --- */
+function resetProgress(){
+  if(typeof confirm==='function' && !confirm('進捗をすべてリセットします。\n（解放キャラ・EXP・コイン・レベル・クリア状況が消えます）\nよろしいですか？')) return;
+  save={ coins:0, exp:0, cleared:[], units:[], upg:{}, lv:{} };
+  saveGame(); myLoadout=STARTERS.slice(0,LOADOUT_MAX); goHome(); toast('進捗をリセットしました');
+}
 
 function unlockedUnits(){ return TEST_MODE ? ORDER.slice() : ORDER.filter(k=> STARTERS.includes(k) || save.units.includes(k)); }
 function isUnlocked(k){ return TEST_MODE || STARTERS.includes(k) || save.units.includes(k); }
@@ -1610,28 +1623,45 @@ function startBattle(){ hideScreens(); document.getElementById('overlay').style.
 
 // なかま（解放＆ガチャ）
 function unlockAvailable(k){ const info=UNLOCKS[k]; return !!(info && info.via==='coin' && save.cleared.length >= (info.need||0)); }
+function collectFoot(k){                            // カード下部：解放状況の表示
+  const owned=isUnlocked(k), info=UNLOCKS[k];
+  if(owned) return '<div class="co" style="color:var(--brass)">✓解放済</div>';
+  if(!info) return '<div class="co">—</div>';
+  if(info.via==='gacha') return '<div class="co" style="color:var(--grape)">🎰ガチャ限定</div>';
+  if(!unlockAvailable(k)) return '<div class="co" style="color:var(--muted)">🔒'+info.need+'面クリアで</div>';
+  const poor=(save.exp||0)<(info.cost||0);
+  return '<div class="co" style="color:'+(poor?'var(--muted)':'#3f7fd0')+'">🎓'+info.cost+' EXP</div>';
+}
+function collectCard(k){
+  const D=DEFS[k], owned=isUnlocked(k);
+  const b=document.createElement('button'); b.className='ucard'+(owned?' sel':' locked');
+  if(owned){
+    const lvTag = charLv(k)>1 ? '<div class="co" style="color:var(--brass)">Lv'+charLv(k)+'</div>' : '';
+    b.innerHTML=attrBadgeHTML(k)+'<img src="'+(SPRITE_DATA[D.spr+'_blue']||'')+'"><div class="nm">'+D.name+'</div>'+collectFoot(k)+lvTag;
+  } else {
+    // 未開放＝立ち絵と名前を伏せて「？」で表示（解放条件だけ見せる）
+    b.innerHTML='<div class="qmark">？</div><div class="nm">？？？</div>'+collectFoot(k);
+  }
+  b.onclick=()=>openCharDetail(k);   // タップで詳細（解放済＝性能/レベルUP・未開放＝解放方法）
+  return b;
+}
 function renderCollect(){
   document.getElementById('collectExp').textContent=(save.exp||0);
   document.getElementById('collectCoins').textContent=save.coins;
   document.getElementById('gachaCostTxt').textContent=GACHA_COST;
   document.getElementById('gachaBtn').classList.toggle('off', save.coins<GACHA_COST);
-  const G=document.getElementById('collectGrid'); G.innerHTML='';
-  for(const k of ORDER){
-    const D=DEFS[k], owned=isUnlocked(k), info=UNLOCKS[k];
-    const avail = unlockAvailable(k), poor=(save.exp||0)<(info&&info.cost||0);
-    const b=document.createElement('button'); b.className='ucard'+(owned?' sel':'');
-    let foot;
-    if(owned) foot='<div class="co" style="color:var(--brass)">✓解放済</div>';
-    else if(!info) foot='<div class="co">—</div>';
-    else if(info.via==='gacha') foot='<div class="co" style="color:var(--grape)">🎰ガチャ限定</div>';
-    else if(!avail) foot='<div class="co" style="color:var(--muted)">🔒'+info.need+'面クリアで</div>';
-    else foot='<div class="co" style="color:'+(poor?'var(--muted)':'#3f7fd0')+'">🎓'+info.cost+' EXP</div>';
-    if(!owned && info && info.via==='coin' && !avail) b.style.filter='grayscale(.5) brightness(.9)';
-    const lvTag = owned && charLv(k)>1 ? '<div class="co" style="color:var(--brass)">Lv'+charLv(k)+'</div>' : '';
-    b.innerHTML=attrBadgeHTML(k)+'<img src="'+(SPRITE_DATA[D.spr+'_blue']||'')+'"><div class="nm">'+D.name+'</div>'+foot+lvTag;
-    b.onclick=()=>openCharDetail(k);   // タップで詳細（特徴・性能・レベルUP）
-    G.appendChild(b);
+  const S=document.getElementById('collectSections'); S.innerHTML='';
+  const normal=ORDER.filter(k=>!(UNLOCKS[k]&&UNLOCKS[k].via==='gacha'));   // 進捗で解放（スターター含む）
+  const gacha =ORDER.filter(k=>  UNLOCKS[k]&&UNLOCKS[k].via==='gacha');    // ガチャ限定
+  function section(title, icon, keys){
+    if(!keys.length) return;
+    const h=document.createElement('div'); h.className='csect'; h.innerHTML='<span class="cs-ic">'+icon+'</span>'+title; S.appendChild(h);
+    const g=document.createElement('div'); g.className='grid'; g.style.marginBottom='18px';
+    for(const k of keys) g.appendChild(collectCard(k));
+    S.appendChild(g);
   }
+  section('ノーマル','📦',normal);
+  section('ガチャ限定','🎰',gacha);
 }
 function buyUnit(k){ const info=UNLOCKS[k]; if(!info||info.via!=='coin'||isUnlocked(k)) return;
   if(!unlockAvailable(k)){ toast('ステージを'+info.need+'つクリアすると解放できるよ'); return; }
@@ -1697,15 +1727,24 @@ function renderCharDetail(){
   } else if(info && info.via==='gacha'){
     action='<div style="margin-top:12px;padding:11px;border:2px solid var(--px-edge);border-radius:6px;background:var(--parch);text-align:center;color:var(--grape);font-weight:800">🎰 ガチャ限定キャラ</div>';
   }
+  // 未開放は立ち絵・名前・性能を伏せて「？」表示（解放条件だけ見せる）
+  const avatarHTML = owned
+    ? '<img src="'+(SPRITE_DATA[D.spr+'_blue']||'')+'" style="width:72px;height:72px;image-rendering:pixelated;background:var(--parch-dk);border:2px solid var(--px-edge);border-radius:6px">'
+    : '<div style="width:72px;height:72px;display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:900;color:var(--muted);background:var(--parch-dk);border:2px solid var(--px-edge);border-radius:6px">？</div>';
+  const nameHTML = owned ? D.name : '？？？';
+  const roleHTML = owned ? role+'　Lv'+lv : '未開放';
+  const bodyHTML = owned
+    ? (desc?'<div style="margin-top:11px;font-size:13px;line-height:1.55">'+desc+'</div>':'')
+      +'<div style="margin-top:11px;font-size:13px">'+stats+'</div>'
+    : '<div style="margin-top:11px;font-size:12px;color:var(--muted);text-align:center;line-height:1.6">解放するとステータスや<br>とくちょうが見られるよ</div>';
   el.innerHTML='<div style="background:var(--panel);border:3px solid var(--px-edge);border-radius:10px;box-shadow:0 8px 0 var(--px-edge);max-width:400px;width:100%;max-height:90vh;overflow-y:auto;padding:18px">'
     +'<div style="display:flex;align-items:center;gap:12px">'
-    +'<img src="'+(SPRITE_DATA[D.spr+'_blue']||'')+'" style="width:72px;height:72px;image-rendering:pixelated;background:var(--parch-dk);border:2px solid var(--px-edge);border-radius:6px">'
-    +'<div style="flex:1"><div style="font-size:18px;font-weight:800">'+D.name+'</div>'
-    +'<div style="color:var(--muted);font-weight:700;font-size:12px;margin-top:2px">'+role+(owned?'　Lv'+lv:'')+'</div></div>'
+    +avatarHTML
+    +'<div style="flex:1"><div style="font-size:18px;font-weight:800">'+nameHTML+'</div>'
+    +'<div style="color:var(--muted);font-weight:700;font-size:12px;margin-top:2px">'+roleHTML+'</div></div>'
     +'<button onclick="closeCharDetail()" style="background:none;border:none;font-size:22px;line-height:1;color:var(--muted);cursor:pointer;padding:2px 4px">✕</button>'
     +'</div>'
-    +(desc?'<div style="margin-top:11px;font-size:13px;line-height:1.55">'+desc+'</div>':'')
-    +'<div style="margin-top:11px;font-size:13px">'+stats+'</div>'
+    +bodyHTML
     +action
     +'<div style="margin-top:12px;text-align:center;color:var(--muted);font-size:11px">🎓 所持 <b style="color:#3f7fd0">'+(save.exp||0)+'</b> EXP</div>'
     +'</div>';
@@ -1794,6 +1833,7 @@ if(typeof globalThis!=='undefined') globalThis.__NYANKO = { CONF, DEFS, ORDER,
   isUnlocked, unlockedUnits, stageUnlocked, newUnit, ATK_ANIM,
   UPG, upgVal, upgCost, upgLv, buyUpgrade, buyUnit, unlockAvailable, stageExp,
   CHAR_LV_MAX, charLv, charLvMul, charLvCost, levelUpChar, UNIT_DESC,
+  UNLOCKS, resetProgress, renderCollect,
   walletCapTable, walletMaxLv, walletStartLv,
   STAGES, STAGE_BY_ID, setStage(id){ curStage = STAGE_BY_ID[id]||null; },
   get save(){return save;}, get myMaxHP(){return myMaxHP;}, get foeMaxHP(){return foeMaxHP;},
