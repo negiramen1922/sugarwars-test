@@ -2062,7 +2062,7 @@ function renderCharDetail(){
   if(D.blast) stats+=statRow('爆発ダメージ','💥'+D.blast);
   stats+=statRow('射程', D.range+'px');
   stats+=statRow('移動速度', D.speed);
-  stats+=statRow('攻撃速度', D.cd.toFixed(2)+'秒/回');
+  stats+=statRow('攻撃速度', (D.cd*(CONF.atkCdMul||1)).toFixed(1)+'秒/回');   // 実際の攻撃間隔（atkCdMul込み）を切りよく1桁で表示
   if(D.rc) stats+=statRow('再出撃', D.rc.toFixed(1)+'秒');
   if((D.num||1)>1) stats+=statRow('出撃数', D.num+'体');
   // 色トレイト特効（対〇色に強い＝EFFECT_MUL倍）
