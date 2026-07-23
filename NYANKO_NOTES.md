@@ -59,13 +59,14 @@
 
 ## 敵の立ち絵スプライト — 実装済み
 - **画像で描く敵**：`FOE_DEFS` に `spr:'<key>'`（`mold` なし）を持たせると、`drawUnit` が `drawFoeSprite`（足元アンカー・吹き飛び回転）で**画像**を描く（従来の手描き `drawMold` はそのまま併存）。単一画像＝陣営サフィックスなし。スプライトは `nyanko.tpl.html` の `Object.assign(SPRITE_DATA,{…})` に128px base64で注入（白背景を境界フラッドフィルで透過→クロップ→正方パディング→NEAREST）。
-- **追加した5体**（ユーザー提供の立ち絵）：`m_bump`（丸ボコ雑魚・plain）/`m_thorn`（トゲ突起・中HP）/`m_armor`（スパイク固め・`dr:0.25`装甲）/`m_legs`（足長・高HP950/高atk45）/`m_gboss`（緑スパイク・**中ボス**・`trait:'green'`）。`basePool` に難易度順で追加、中ボスは `spawnBoss` の `cfg.key='m_gboss'` で立ち絵に差し替え（`genStage`）。トレイトはボス以外plain。
-- **旧・手描き敵の引退（置き換え）**：雑魚`m_swarm`／壁`m_tank`／超硬`m_big` は**スポーンしない**（`basePool`/`heavyKey`/wave/チュートリアルpool を立ち絵 `m_bump`/`m_thorn`/`m_armor`/`m_legs` に張り替え）。定義自体は数値参照用に温存。**まだ手描きなのは3体＝射手`m_phage`／自爆`m_puff`／大ボス`m_boss`**（立ち絵が届いたら同様に `spr` を付けて差し替え）。バランスシムで序盤4/4を確認済み。
+- **立ち絵の敵（ユーザー提供）**：`m_bump`（丸ボコ雑魚・plain）/`m_thorn`（トゲ突起・中HP）/`m_armor`（スパイク固め・`dr:0.25`装甲）/`m_legs`（足長ノッポ・高HP950/高atk45・`hMul:2`で縦2倍）/`m_gboss`（緑スパイク・**中ボス**・`trait:'green'`）/**`m_neba`（ネバモチ＝白・無属性のネバネバ雑魚・遅い）**/**`m_gspike`（トゲミドリ＝緑属性の中HP前衛）**/**`m_boss`（カビ大帝＝赤トゲトゲの大ボス・`spr:'m_boss'`・`scale:2.3`で他より一回り大きい・`trait:'red'`）**。中ボスは `spawnBoss` の `cfg.key='m_gboss'` で立ち絵に差し替え。
+- **敵タワーの立ち絵**：敵城は「菌の親」タワー（白属性）の立ち絵 `tower_kin` を `drawCastle(side==='e')` で描画（味方城は従来の手描き青）。地面に接地・城位置(`castleInset`)を中心に132px。
+- **旧・手描き敵の引退（置き換え）**：雑魚`m_swarm`／壁`m_tank`／超硬`m_big` は**スポーンしない**（定義は数値参照用に温存）。射手`m_phage`は**後衛を当面出さない方針でプールから除外**（定義は温存）。**まだ手描きなのは自爆`m_puff` の1体のみ**。バランスシムで序盤4/4を確認済み。
 - **増やし方**：画像を `SPRITE_DATA` に注入→`FOE_DEFS` に `spr` 付き1行→`normalPool`/`breakPool`（どのWAVEに出すか）に配置。テスト：smoke 19。
 
 ## 色トレイト（属性）— 実装済み
 - **設計**：三すくみは廃止。**色トレイト**（`TRAITS`＝色数むせいげん・データ駆動）。`plain`＝無属性（塗り替えなし・倍率に一切関与しない＝序盤の雑魚は相性を気にしない）。緑/赤/青/黒/黄…は `TRAITS` に1行足すだけ。
-- **敵**：`u.trait`（または `FOE_DEFS.trait`）で体色を塗り替え（`drawMold` が `traitTint()` を反映）。現状**雑魚は全てplain・色つきはボスのみ**＝中ボス`green`／大ボス`red`（`genStage` の boss cfg → `spawnBoss` が `u.trait`）。
+- **敵**：`u.trait`（または `FOE_DEFS.trait`）で判定。**立ち絵の敵は絵の色そのまま**（recolorなし＝traitは相性計算だけに使う）。色つき＝`m_gspike`(緑)・中ボス`m_gboss`(緑)・大ボス`m_boss`(赤)／それ以外の雑魚は`plain`。手描き`drawMold`の敵だけ `traitTint()` で体色を塗り替える。
 - **味方**：`DEFS.strongVs`（対〇色）を持つ子だけ、その色の敵に **`EFFECT_MUL`(1.6)倍**（有利のみ・**減衰なし**）。初期割り当て＝対赤：cwarrior/clance/daifuku、対緑：choco/macaron/icewiz（"何体か"）。
 - **判定**：`isEffective(strongVs, targetTrait)`＝plainは常に非有利。近接=`attackHit`、居合=`chargerStep`、遠距離=`world.shots`（`s.strongVs`）で共通適用。
 - **演出**：有効ヒットは `advFx(o, traitOf(o))`＝**属性色の火花＋「ばつぐん！」**（色は相手のトレイト色）。キャラ詳細に「とくせい：◯に強い ×1.6」、なかまカードに対象色ドット（`attrBadgeHTML`）。
@@ -121,16 +122,16 @@
 **泥沼化しない設計**：敵は「時間経過で無限湧き」ではなく、**軽めの基本湧き（同時数ソフト上限 `baseCap`）＋敵タワーの複数ゲージ＝WAVE制**で構成。プレイヤーが押し込んで今のゲージ（WAVE）を削り切ると次のWAVEへ、**最後のゲージを削り切ると勝ち**＝有限で押し合いが決着する。
 
 #### WAVE制（敵タワーの複数HPゲージ）— 実装済み
-- **`makeWaves(n, boss, mini, total)`**：`genStage` が敵城HP総量(`total`)を**複数のWAVEゲージに分割**して `curStage.waves`（`[{idx,type,final,hp,burst,limit?,tower,boss?,mini?}]`）を作る。ゲージ数＝`2 + floor(n/6)` を 2〜5 でクランプ（ボス面は最低4）。重み配分＝ブレイクゲージは×1.4厚い。
+- **`makeWaves(n, boss, mini, total)`**：`genStage` が敵城HP総量(`total`)を**複数のWAVEゲージに分割**して `curStage.waves`（`[{idx,type,final,hp,spawn,burst,burstPool,tower,heavy?,boss?,mini?}]`）を作る。ゲージ数＝`2 + floor(n/6)` を 2〜5 でクランプ（ボス面は最低4）。重み配分＝ブレイクゲージは×1.4厚い。
   - **WAVE 2種**：`type:'normal'`（通常）と `type:'break'`（ブレイク）。**基本は最後のゲージがブレイク**。ゲージ4本以上なら**途中(最後から2番目)にもブレイク**が入る。
   - **通常WAVE**：切替時に `spawnWaveBurst`（`burst=3+floor(n/7)`体）で敵が多めに湧く。連続湧き＆バーストの敵＝`normalPool(n)`（軽め）。
-  - **ブレイクWAVE**：`burst`が多い（`4+floor(n/4)`・重めの敵`w.heavy`を混ぜる）／敵タワーが手前を攻撃（`tower:true`）／敵の湧き間隔が0.6倍に短縮（`world.waveType==='break'`）／**制限時間 `limit=round(16+n*0.5)`秒**。連続湧き＆バーストの敵＝`breakPool(n)`（壁/装甲/エリートを厚く）。
-  - **WAVEごとの敵プール（つくり込みノブ）**：各waveは `w.spawn`（そのWAVE中に連続湧きする敵の配列）と `w.burstPool`（切替バーストの敵・既定＝`spawn`）を持つ。`enemySpawn()` は**現在のWAVEの `spawn`** を、`spawnWaveBurst()` は `w.burstPool` を引く＝**通常/ブレイクで湧く敵が変わる**。`normalPool(n)`＝軽め／`breakPool(n)`＝重め＋エリート。`basePool(n)`＝両者の和集合（`pool`＝描画/テスト用の一覧）。**足長シロカビ `m_legs` は8面からブレイクWAVE限定でデビュー→17面から通常湧きにも混ざる**。
+  - **ブレイクWAVE**：`burst`が多い（`4+floor(n/4)`・重めの敵`w.heavy`を混ぜる）／敵タワーが手前を攻撃（`tower:true`）／敵の湧き間隔が0.6倍に短縮（`world.waveType==='break'`）。連続湧き＆バーストの敵＝`breakPool(n)`（壁/装甲/エリートを厚く）。**※制限時間（大技スタン）は撤廃**＝あまり機能しなかったため。
+  - **WAVEごとの敵プール（つくり込みノブ）**：各waveは `w.spawn`（そのWAVE中に連続湧きする敵の配列）と `w.burstPool`（切替バーストの敵・既定＝`spawn`）を持つ。`enemySpawn()` は**現在のWAVEの `spawn`** を、`spawnWaveBurst()` は `w.burstPool` を引く＝**通常/ブレイクで湧く敵が変わる**。`normalPool(n)`＝軽め／`breakPool(n)`＝重め＋エリート。`basePool(n)`＝両者の和集合（`pool`＝描画/テスト用の一覧）。**足長ノッポ `m_legs` は20面からブレイクWAVE限定でデビュー→28面から通常湧きにも混ざる**。後衛（射手`m_phage`）は当面プールに入れない。
   - **ボス/中ボス**：最終ゲージに `boss`(`m_boss`/red)または `mini`(`m_gboss`/green)を積む（**10面ごとボス／5面ごと中ボス**）。ボスはHP割合イベントではなく**最終ブレイクWAVEにユニットとして登場**（壁として立ちはだかる）。
   - 1面(STAGE_BY_ID[1])は上書きで**単一の通常ゲージ**（チュートリアル＝WAVEなし）。
 - **WAVE切替（`advanceWave`）**：今のゲージを削り切る（`ehp<=0` かつ非最終）と発火。①`curWave++`＋次ゲージのHP/タイプをセット、②**`knockAllAllies()`＝味方ユニット全体を必ずノックバック**（にゃんこの「城まで押したら跳ね返される」感）、③`spawnWaveBurst`で入場バースト、④ボス/中ボスがいれば`spawnBoss`、⑤バナー（通常=「WAVE N！」／ブレイク=「⚡ ブレイクWAVE！」／最終=「⚡ 最終ブレイク！」）。
-- **ブレイク進行（`updateBreak(dt)`）**：`step()`から毎フレーム。①`tower`ゲージなら`TOWER_ATK_CD`(2.6秒)ごとに`towerAttack()`＝敵タワー(x=0)から最前(最左)の味方へ弾（`dmg=22+id*2`・`side:'e' tower:true`）、②`breakTimer`を減算し**0で `breakPenalty()`＝味方全員スタン(`u.stunT=2.5`)**（＝制限時間オーバーの「敵の大技」）。スタン中は`step`の各ユニットループで`moving=false`＝行動不能。
-- **HP表示**：HTMLの城バー(`.bars`)は非表示化。代わりに①**画面上部に大きな敵バー `drawWaveHud()`**（screen-space・WAVEピップ`●○`＋ブレイクは赤＋残り秒`⏱`）、②**自陣タワーの真上に数値＋バー `drawCastleHP()`**（world-space）。
+- **ブレイク進行（`updateBreak(dt)`）**：`step()`から毎フレーム、`tower`ゲージなら`TOWER_ATK_CD`(2.6秒)ごとに`towerAttack()`＝敵タワー(左・`castleInset`)から最前(最左)の味方へ弾（`dmg=22+id*2`・`side:'e' tower:true`）。※制限時間・大技スタン(`breakPenalty`/`breakTimer`)は撤廃。
+- **HP表示**：HTMLの城バー(`.bars`)は非表示化。代わりに①**画面上部に大きな敵バー `drawWaveHud()`**（screen-space・WAVEピップ`●○`・ブレイクは赤）、②**自陣タワーの真上に数値＋バー `drawCastleHP()`**（world-space）。
 - **キャラ解禁順（`UNLOCKS[k].need`＝そのステージをクリアで解禁）**：**序盤(〜10面)はクッキー＋4体だけ**＝ctank(3面) / cwarrior(5面) / clance(8面) / choco(10面)。それ以外(macaron/slime/shoe/icewiz/donut/daifuku)は**仮ロック（need13〜34の仮置き・11面以降の順番は後で確定）**。gachaはpartycookie/bigslime。
 - **EXP/コスト（塩梅）**：`stageExp= first? 600+n*100 : 120+n*20`（1-2面で計約1500）。解禁コスト＝ctank1000/cwarrior1800/clance3000/choco4500（以降仮）。強化コスト `c0` は 400〜500（1-2面のEXPで数個・少しだけ強化できる）。
 - **タワー（城砲）**：バトル開幕は**チャージ切れ**（`reset` で `towerCd=CONF.towerCd`＝溜まってから初撃）。射程 `UPG.tRng` は **base=中央ちょい自陣寄り(minX≈520)／MAX=敵城の目の前(minX≈40)**（base440・step80・max6＝敵城前まで届く）。
