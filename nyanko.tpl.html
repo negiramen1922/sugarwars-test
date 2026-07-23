@@ -1933,7 +1933,8 @@ function openLoadout(stage){ curStage=stage; _pick = myLoadout.filter(isUnlocked
 function renderLoadout(){
   document.getElementById('loadoutHint').textContent='「'+curStage.name+'」に持ち込むなかまを選ぼう（最大'+LOADOUT_MAX+'）';
   const G=document.getElementById('unitGrid'); G.innerHTML='';
-  for(const k of unlockedUnits()){
+  const keys=unlockedUnits().slice().sort((a,b)=>(DEFS[a].cost||0)-(DEFS[b].cost||0));   // コスト昇順（ドックと同じ並び）
+  for(const k of keys){
     const D=DEFS[k], i=_pick.indexOf(k);
     const b=document.createElement('button'); b.className='ucard'+(i>=0?' sel':'');
     b.innerHTML='<span class="pick">'+(i>=0?i+1:'')+'</span>'+attrBadgeHTML(k)+'<img src="'+(SPRITE_DATA[D.spr+'_blue']||'')+'"><div class="nm">'+D.name+'</div><div class="co">'+CANDY+D.cost+'</div>';
