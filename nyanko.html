@@ -614,14 +614,14 @@ const FOE_DEFS = {
   m_bump: {name:'ホコリだま', role:'melee',  atk:11, hp:72,  speed:106, range:26, cd:0.5,  scale:0.88, num:1, spr:'m_bump'},
   // ②ネバモチ（雑魚2・タンク役）＝シロカビより前でHPを盾に。足は少し遅い（旧イガまるを置き換え）
   m_neba: {name:'ネバモチ',   role:'melee',  atk:12, hp:230, speed:52,  range:28, cd:0.9,  scale:1.02, num:1, spr:'m_neba'},
-  // ③トゲミドリ（雑魚3・アタッカー役）＝範囲攻撃（前方の敵を最大3体ヒット）・緑属性。紙装甲＝1体あたりは軽い（AoEは味方の団子に刺さり強いので控えめ）
-  m_gspike:{name:'トゲミドリ', role:'melee', atk:11, hp:120, speed:80,  range:30, cd:1.0,  scale:1.02, num:1, spr:'m_gspike', trait:'green', hits:3},
+  // ③トゲミドリ（雑魚3・アタッカー役）＝単体→単体→ジャンプ範囲(slam)のループ・緑属性。紙装甲
+  m_gspike:{name:'トゲミドリ', role:'melee', atk:13, hp:130, speed:80,  range:30, cd:0.95, scale:1.02, num:1, spr:'m_gspike', trait:'green', slam:{r:52}, slamEvery:3},
   // ④キモシロカビ＝足長（高コスト雑魚・味方のチョコナイト相当）＝高耐久・高火力の大型
   m_legs: {name:'ノッポし',   role:'melee',  atk:45, hp:950, speed:52,  range:42, cd:1.5,  scale:1.7, num:1, spr:'m_legs'},
   // 緑スパイク（中ボス・緑属性）＝対緑の味方が有利を取れる中ボス
   m_gboss:{name:'ミドリのぬし', role:'melee', atk:44, hp:2200, speed:40, range:38, cd:1.5, scale:1.5, num:1, spr:'m_gboss', trait:'green'},
-  // シロトゲ（イガまる）＝ジャンプ衝撃波のアタッカー。跳ねて着地し半径slam.r内の敵をまとめて叩く（cd長め・範囲で当たるので軽め）
-  m_thorn:{name:'イガまる',   role:'melee',  atk:12, hp:180, speed:64,  range:30, cd:1.7,  scale:1.02, num:1, spr:'m_thorn', slam:{r:54}},
+  // シロトゲ（イガまる）＝単体→単体→ジャンプ範囲(slam)のループ。跳ねて着地し半径slam.r内をまとめて叩く
+  m_thorn:{name:'イガまる',   role:'melee',  atk:16, hp:200, speed:64,  range:30, cd:1.1,  scale:1.02, num:1, spr:'m_thorn', slam:{r:58}, slamEvery:3},
   // ▼ 引退（プールに出さない・数値参照用に温存）：旧テッコウはネバモチ(タンク)に集約
   m_armor:{name:'テッコウ',   role:'melee',  atk:14, hp:420, speed:46,  range:30, cd:1.2,  scale:1.10, num:1, spr:'m_armor', dr:0.25},
 };
@@ -964,6 +964,8 @@ function step(dt){
         // カウンター型：攻撃までに受けたダメージを、上限(atk×COUNTER_CAP=800%)まで上乗せして一撃で返す
         if(D.counter && u.counter>0){ const cb=Math.min(u.counter, u.atk*COUNTER_CAP); u.counter=0; dmg += cb; counterFx(u, cb); }
         const doKB = D.kbHit && (++u.hitCount % D.kbHit.every === 0);
+        // ジャンプ衝撃波は「単体→単体→範囲」のループ＝slamEvery回に1回だけ発動（毎回範囲だと強すぎるため）
+        const doSlam = D.slam && ((u.atkN=(u.atkN||0)+1) % (D.slamEvery||3) === 0);
         if(D.role==='ranged' && enemyInRange){ fireShot(u, fe.o); SFX_shot(); }
         else if(enemyInRange){
           if(D.area){   // 範囲攻撃：射程内の前方の敵をまとめて攻撃（無制限）
@@ -971,7 +973,7 @@ function step(dt){
               const ah = u.dir>0 ? o.x>u.x : o.x<u.x;
               if(ah && Math.abs(o.x-u.x) <= u.range){ attackHit(u,o,dmg); if(doKB) applyKnock(o, u.x, D.kbHit.dist); } }
             if(doKB){ windFx(u); world.shake = Math.max(world.shake, u.side==='p'?3:0); }
-          } else if(D.slam){   // ジャンプ衝撃波：跳ねて着地し、周囲(半径slam.r)の敵をまとめて叩く
+          } else if(doSlam){   // ジャンプ衝撃波：跳ねて着地し、周囲(半径slam.r)の敵をまとめて叩く
             u.hopT = SLAM_HOP;                                   // 跳ね上がりの演出
             for(const o of world.units){ if(o.side===u.side || o.dead) continue;
               if(Math.abs(o.x-u.x) <= D.slam.r){ attackHit(u,o,dmg); if(doKB) applyKnock(o, u.x, D.kbHit.dist); } }
