@@ -513,8 +513,8 @@ const REGIONS = [
 function stageName(n){ let r=REGIONS[0]; for(const R of REGIONS){ if(n>=R.a) r=R; } return r.name+' '+(n-r.a+1); }
 /* --- WAVE（敵タワーの複数ゲージ）を生成 ---
    ・1ステージ＝複数ゲージ。1本削るごとに次WAVEへ。最後を削り切ると勝ち。
-   ・type: normal=切替時に敵バースト / break=難易度UP（湧き速い・タワー攻撃・強敵・制限時間つき）。
-   ・基本「…通常→（後半にもう1本ブレイク）→最後ブレイク」。制限時間内に割れないと大技（味方スタン）。
+   ・type: normal=切替時に敵バースト / break=難易度UP（湧き速い・タワー攻撃・強敵）。
+   ・基本「…通常→（後半にもう1本ブレイク）→最後ブレイク」。
    ・ボス/中ボスは最後のブレイクに配置。 */
 function makeWaves(n, boss, mini, total){
   let cnt = Math.max(2, Math.min(5, 2 + Math.floor(n/6)));   // 後半ほどゲージ数↑（2〜5）
@@ -533,7 +533,7 @@ function makeWaves(n, boss, mini, total){
     w.spawn = brk ? bp : np;                                 // このWAVE中に連続湧きする敵
     w.burst = brk ? 4+Math.floor(n/4) : 3+Math.floor(n/7);   // 切替時の入場バースト数
     w.burstPool = w.spawn;                                   // 切替時バーストの敵（既定＝連続湧きと同じ）
-    if(brk){ w.limit = Math.round(16 + n*0.5); w.tower = true; w.heavy = heavyKey(n); }
+    if(brk){ w.tower = true; w.heavy = heavyKey(n); }   // ブレイク＝タワー攻撃＋重敵（制限時間は撤廃）
     else   { w.tower = false; }
   });
   if(boss)      waves[cnt-1].boss = { key:'m_boss',  hp:Math.round(2600+n*420), atk:Math.round(52+n*5.2), sMul:1.14, trait:'red' };
@@ -559,7 +559,7 @@ STAGES[0].waves=[{idx:0, type:'normal', final:true, hp:440, burst:0, tower:false
    ・s.waves.length          … WAVE数
    ・w.spawn:['m_xxx',…]     … そのWAVE中に連続湧きする敵（通常/切替後）
    ・w.burstPool / w.burst   … WAVE切替の入場バーストの敵と数
-   ・w.hp / w.type / w.limit … ゲージHP・種類(normal/break)・ブレイク制限秒
+   ・w.hp / w.type … ゲージHP・種類(normal/break)
    例）STAGE_OVERRIDES[8]=(s)=>{ s.waves[1].spawn=['m_bump','m_legs']; };            */
 const STAGE_OVERRIDES = {
   // ここに各ステージのつくり込みを足していく（未指定は自動生成のまま）
@@ -619,8 +619,8 @@ const FOE_DEFS = {
   m_thorn:{name:'イガまる',   role:'melee',  atk:18, hp:210, speed:70,  range:28, cd:0.9,  scale:1.02, num:1, spr:'m_thorn'},
   // スパイク固め（コスト感200）＝装甲で被ダメ25%減の壁（dr）
   m_armor:{name:'テッコウ',   role:'melee',  atk:14, hp:420, speed:46,  range:30, cd:1.2,  scale:1.10, num:1, spr:'m_armor', dr:0.25},
-  // 足長（コスト感800）＝高耐久・高火力の大型ブルーザー。hMul=縦だけ2倍に伸ばす（ノッポ＝見上げる背丈）
-  m_legs: {name:'ノッポし',   role:'melee',  atk:45, hp:950, speed:52,  range:42, cd:1.5,  scale:1.02, hMul:2, num:1, spr:'m_legs'},
+  // 足長（コスト感800）＝高耐久・高火力の大型ブルーザー。元絵が足長なので比率そのまま大きくして背高に（縦伸ばしはしない）
+  m_legs: {name:'ノッポし',   role:'melee',  atk:45, hp:950, speed:52,  range:42, cd:1.5,  scale:1.7, num:1, spr:'m_legs'},
   // 緑スパイク（中ボス・緑属性）＝対緑の味方が有利を取れる中ボス
   m_gboss:{name:'ミドリのぬし', role:'melee', atk:44, hp:2200, speed:40, range:38, cd:1.5, scale:1.5, num:1, spr:'m_gboss', trait:'green'},
   // ネバモチ（白＝無属性のネバネバ雑魚）＝遅いが少しタフな数押しザコ
@@ -682,7 +682,7 @@ function reset(){
   foeMaxHP = w0 ? w0.hp : (curStage ? curStage.enemyHP : myMaxHP);
   ehp = foeMaxHP;
   world.waveType = w0 ? w0.type : 'normal';
-  world.breakTimer = 0; world.breakPenalized = false; world.towerAtkCd = 0; world.stunFlashT = 0;
+  world.towerAtkCd = 0; world.stunFlashT = 0;
   money = Math.min(effCap(), CONF.moneyStart + walletLv*40);   // 開始🍬（財布Lvが高いほど多め・上限は超えない）
   cd = {}; for(const k of ORDER) cd[k]=0;
   enemyCd = 1.2;
@@ -898,7 +898,7 @@ function step(dt){
     if(world.units.filter(u=>u.side==='e').length < cap) enemySpawn();
     enemyCd = (S ? S.baseCd : 3.0) * (world.waveType==='break' ? 0.6 : 1);
   }
-  updateBreak(dt);      // ブレイクWAVE：タワーの手前攻撃＋制限時間ペナルティ
+  updateBreak(dt);      // ブレイクWAVE：タワーの手前攻撃
 
   updateBuffs(dt);   // パーティークッキーのミラーボール→味方の攻撃バフ(u.buffMul)を先に計算
 
@@ -1079,8 +1079,6 @@ function advanceWave(){
   const w = curStage.waves[curWave];
   foeMaxHP = w.hp; ehp = w.hp;
   world.waveType = w.type;
-  world.breakTimer = (w.type==='break') ? (w.limit||0) : 0;
-  world.breakPenalized = false;
   world.towerAtkCd = TOWER_ATK_CD;
   knockAllAllies();                                        // WAVE切替＝味方全体を必ずノックバック
   spawnWaveBurst(w);                                       // 入場バースト（多め／ブレイクはさらに多い）
@@ -1103,12 +1101,11 @@ function spawnWaveBurst(w){
   }
   world.shake=Math.max(world.shake,4);
 }
-// ブレイクWAVE：敵タワーが手前の味方を攻撃＋制限時間オーバーで大技（味方スタン）
+// ブレイクWAVE：敵タワーが手前の味方を攻撃（制限時間・大技スタンは撤廃）
 function updateBreak(dt){
   if(world.waveType!=='break') return;
   const w = curStage && curStage.waves && curStage.waves[curWave];
   if(w && w.tower){ world.towerAtkCd-=dt; if(world.towerAtkCd<=0){ towerAttack(); world.towerAtkCd=TOWER_ATK_CD; } }
-  if(world.breakTimer>0){ world.breakTimer-=dt; if(world.breakTimer<=0 && !world.breakPenalized) breakPenalty(); }
 }
 // 敵タワー（左）から最前(最左)の味方へ弾を撃つ
 function towerAttack(){
@@ -1119,13 +1116,6 @@ function towerAttack(){
   world.shots.push({ x:CONF.castleInset, y:CONF.groundY-42, side:'e', dmg, sp:300, r:14,
     tid:t.id, tx:t.x, ty:t.y-16, ang:0, tower:true });
   SFX_shot();
-}
-// 制限時間オーバーの大技＝味方全員スタン（一定時間 行動不能）
-function breakPenalty(){
-  world.breakPenalized=true;
-  for(const u of world.units){ if(u.side==='p'&&!u.dead) u.stunT=Math.max(u.stunT||0, 2.5); }
-  showEventBanner('⚡ 敵の大技！ 味方スタン！');
-  world.shake=Math.max(world.shake,12); world.stunFlashT=0.6;
 }
 function spawnWave(key, n){
   for(let i=0;i<n;i++){
@@ -1722,7 +1712,7 @@ function drawCastleHP(x, hp, maxHp){
   ctx.lineWidth=3; ctx.strokeStyle='#0009'; ctx.strokeText(Math.max(0,Math.ceil(hp)), x, by-2);
   ctx.fillText(Math.max(0,Math.ceil(hp)), x, by-2);
 }
-// 敵タワーの大HPバー＋WAVE進行（●○）＋ブレイク制限時間（スクリーン空間・上部）
+// 敵タワーの大HPバー＋WAVE進行（●○）（スクリーン空間・上部）
 function drawWaveHud(){
   const waves = curStage && curStage.waves; if(!waves) return;
   const w = waves[curWave] || {};
@@ -1745,10 +1735,6 @@ function drawWaveHud(){
     ctx.beginPath(); ctx.arc(px, pipY, pr, 0, 6.28);
     ctx.fillStyle = i<curWave ? '#6a4a30' : (i===curWave ? (waves[i].type==='break'?'#ff6a5a':'#8fd24a') : '#b89a86'); ctx.fill();
     if(waves[i].type==='break'){ ctx.lineWidth=2; ctx.strokeStyle='#ffd24a'; ctx.stroke(); } }
-  // ブレイク制限時間
-  if(w.type==='break' && world.breakTimer>0){ ctx.textAlign='right'; ctx.textBaseline='middle';
-    ctx.fillStyle= world.breakTimer<5?'#ff5a4a':'#ffd24a'; ctx.font='bold '+Math.round(bh*0.6)+'px sans-serif';
-    ctx.strokeText('⏱ '+Math.ceil(world.breakTimer), bx+bw-8, pipY); ctx.fillText('⏱ '+Math.ceil(world.breakTimer), bx+bw-8, pipY); }
 }
 
 /* タワー攻撃のビーム演出（右の自城→左へ走る光の帯） */
