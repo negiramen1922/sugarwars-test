@@ -485,7 +485,8 @@ const STAGE_COUNT = 50;
 function normalPool(n){
   const p=['m_bump','m_bump'];                 // ①白もこもこ（基本前衛）
   if(n>=2)  p.push('m_neba');                  // ②ネバモチ（タンク）
-  if(n>=6)  p.push('m_gspike');                // ③トゲミドリ（範囲アタッカー）
+  if(n>=6)  p.push('m_gspike');                // ③トゲミドリ（前方最大3体のアタッカー）
+  if(n>=11) p.push('m_thorn');                 // シロトゲ（ジャンプ衝撃波の範囲アタッカー・最初のボス後から）
   if(n>=18) p.push('m_puff');                  // 自爆（手描き据え置き）
   if(n>=28) p.push('m_legs');                  // ④キモシロカビ足長が通常湧きにも（終盤）
   return p;
@@ -619,8 +620,9 @@ const FOE_DEFS = {
   m_legs: {name:'ノッポし',   role:'melee',  atk:45, hp:950, speed:52,  range:42, cd:1.5,  scale:1.7, num:1, spr:'m_legs'},
   // 緑スパイク（中ボス・緑属性）＝対緑の味方が有利を取れる中ボス
   m_gboss:{name:'ミドリのぬし', role:'melee', atk:44, hp:2200, speed:40, range:38, cd:1.5, scale:1.5, num:1, spr:'m_gboss', trait:'green'},
-  // ▼ 引退（プールに出さない・数値参照用に温存）：旧イガまる/テッコウはネバモチ(タンク)に集約
-  m_thorn:{name:'イガまる',   role:'melee',  atk:18, hp:210, speed:70,  range:28, cd:0.9,  scale:1.02, num:1, spr:'m_thorn'},
+  // シロトゲ（イガまる）＝ジャンプ衝撃波のアタッカー。跳ねて着地し半径slam.r内の敵をまとめて叩く（cd長め・範囲で当たるので軽め）
+  m_thorn:{name:'イガまる',   role:'melee',  atk:12, hp:180, speed:64,  range:30, cd:1.7,  scale:1.02, num:1, spr:'m_thorn', slam:{r:54}},
+  // ▼ 引退（プールに出さない・数値参照用に温存）：旧テッコウはネバモチ(タンク)に集約
   m_armor:{name:'テッコウ',   role:'melee',  atk:14, hp:420, speed:46,  range:30, cd:1.2,  scale:1.10, num:1, spr:'m_armor', dr:0.25},
 };
 
@@ -667,7 +669,7 @@ function effCap(){ const t=walletCapTable(); return t[Math.max(0, Math.min(walle
 function walletCost(){ return Math.round(effCap()*0.5); }                // 財布UPの費用＝今の上限の半分（にゃんこ式・上限100→費用50）
 
 function reset(){
-  world = { units:[], shots:[], parts:[], slashes:[], pops:[], nextId:1, shake:0 };
+  world = { units:[], shots:[], parts:[], slashes:[], pops:[], shocks:[], nextId:1, shake:0 };
   walletLv = walletStartLv();                           // 開始Lv＝wStartメタ
   myMaxHP = upgVal('tHp');                              // 自城HP＝メタ強化
   php = myMaxHP;
@@ -735,6 +737,7 @@ function advFx(o, traitKey){
   if(elapsed - _lastPop > 0.4){ _lastPop=elapsed; world.pops.push({x:o.x, y:o.y-46, t:0, dur:0.7, text:'ばつぐん！', c:c}); }
 }
 const ATK_ANIM = 0.18;   // 攻撃モーションの表示時間(秒)
+const SLAM_HOP = 0.34;   // ジャンプ衝撃波（イガまる）の跳ね上がり時間(秒)
 const COUNTER_CAP = 8;   // カウンターで返せるダメージの上限倍率（自身の攻撃力の800%まで＝単体の一撃を重く）
 /* --- ノックバック：座標ワープでなく、弧を描いて後ろへ吹き飛ばす --- */
 const KB_TAU=0.12, KB_POP=250, KB_GRAV=1300, KB_TIME=0.5;
@@ -903,6 +906,7 @@ function step(dt){
     if(u.atkAnim>0) u.atkAnim -= dt;
     if(u.slowT>0) u.slowT -= dt;   // 鈍足の残り時間
     if(u.kbCd>0) u.kbCd -= dt;     // スタッガーのクールダウン（連続ノックバックのハメ防止）
+    if(u.hopT>0) u.hopT -= dt;     // ジャンプ衝撃波（イガまる）の跳ね上がり残り時間
     // 吹き飛び中：弧を描いて後ろへ飛ぶ（この間はAIしない）
     if(u.kbT>0){
       u.kbT -= dt;
@@ -967,6 +971,12 @@ function step(dt){
               const ah = u.dir>0 ? o.x>u.x : o.x<u.x;
               if(ah && Math.abs(o.x-u.x) <= u.range){ attackHit(u,o,dmg); if(doKB) applyKnock(o, u.x, D.kbHit.dist); } }
             if(doKB){ windFx(u); world.shake = Math.max(world.shake, u.side==='p'?3:0); }
+          } else if(D.slam){   // ジャンプ衝撃波：跳ねて着地し、周囲(半径slam.r)の敵をまとめて叩く
+            u.hopT = SLAM_HOP;                                   // 跳ね上がりの演出
+            for(const o of world.units){ if(o.side===u.side || o.dead) continue;
+              if(Math.abs(o.x-u.x) <= D.slam.r){ attackHit(u,o,dmg); if(doKB) applyKnock(o, u.x, D.kbHit.dist); } }
+            world.shocks.push({x:u.x, y:u.y, t:0, dur:0.4, r:D.slam.r, side:u.side});   // 広がる衝撃リング
+            world.shake = Math.max(world.shake, u.side==='p'?4:3);
           } else if(D.hits && D.hits>1){   // 範囲攻撃：射程内の前方の敵を近い順に最大 hits 体だけヒット
             const cand=[];
             for(const o of world.units){ if(o.side===u.side || o.dead) continue;
@@ -1048,6 +1058,8 @@ function step(dt){
 
   for(const p of world.parts){ p.life-=dt; p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=260*dt; }
   world.parts = world.parts.filter(p=>p.life>0);
+  for(const s of world.shocks) s.t += dt;                 // 衝撃波リングの拡大
+  world.shocks = world.shocks.filter(s=>s.t < s.dur);
   for(const sl of world.slashes){ sl.t += dt; }
   world.slashes = world.slashes.filter(sl=>sl.t < sl.dur);
   for(const pp of world.pops){ pp.t += dt; pp.y -= 34*dt; }   // フロートテキストは上へ
@@ -1477,8 +1489,9 @@ function drawUnit(u){
   const team = u.side==='p'?'blue':'red';
   const S = 58 * (D.scale||1) * (u.sMul||1);
   const cx = u.x;
-  const air = -(u.kbY||0);                      // 吹き飛びの高さ（px・0以上）
-  const footY = u.y + (u.kbY||0);               // 本体は吹き飛び中は浮く（kbYは負＝上）
+  const hop = u.hopT>0 ? Math.sin(Math.PI*(1 - u.hopT/SLAM_HOP)) * S*0.55 : 0;   // ジャンプ衝撃波の跳ね上がり（着地でゼロ）
+  const air = -(u.kbY||0) + hop;                // 浮いている高さ（px・0以上）
+  const footY = u.y + (u.kbY||0) - hop;         // 本体は吹き飛び/ジャンプ中は浮く
   // 影は地面に残し、浮くほど小さく薄く（＝飛んでる感）
   ctx.save(); ctx.globalAlpha=0.28*Math.max(0.25, 1-air/70); ctx.fillStyle='#000';
   ctx.beginPath(); ctx.ellipse(cx, u.y, S*0.30*Math.max(0.4,1-air/120), S*0.10, 0,0,6.28); ctx.fill(); ctx.restore();
@@ -1685,6 +1698,11 @@ function render(){
     // 覆う範囲（minX→右）をうっすら
     ctx.globalAlpha=0.06; ctx.fillStyle='#ff7aa8'; ctx.fillRect(minX, g-100, W-minX, 100);
     ctx.restore(); }
+  // ジャンプ衝撃波の広がるリング（地面に沿った楕円）
+  for(const s of world.shocks){ const k=s.t/s.dur, rr=s.r*(0.35+0.85*k);
+    ctx.save(); ctx.globalAlpha=Math.max(0,(1-k))*0.7; ctx.lineWidth=3+3*(1-k);
+    ctx.strokeStyle = s.side==='e' ? '#ffe4a0' : '#bfe0ff';
+    ctx.beginPath(); ctx.ellipse(s.x, g-4, rr, rr*0.34, 0, 0, 6.28); ctx.stroke(); ctx.restore(); }
   const us = world.units.slice().sort((a,b)=>a.y-b.y);   // 奥(小y)→手前(大y)
   for(const u of us) drawUnit(u);
   drawSlashes();
