@@ -1105,7 +1105,10 @@ function advanceWave(){
   foeMaxHP = w.hp; ehp = w.hp;
   world.waveType = w.type;
   world.towerAtkCd = TOWER_ATK_CD;
-  knockAllAllies();                                        // WAVE切替＝味方全体を必ずノックバック
+  // WAVE切替のノックバック：ブレイク/ボスは劇的に全体を大きく／通常は城際の前線だけを軽く剥がす
+  // （通常切替まで毎回 全軍120pxだと「敵の押し込みが強い」＝押し返しづらく感じるため）
+  if(w.type==='break' || w.boss || w.mini) knockAllAllies();
+  else knockAllAllies({ maxX: CONF.castleInset + 230, dist: 64 });
   spawnWaveBurst(w);                                       // 入場バースト（多め／ブレイクはさらに多い）
   if(w.boss) spawnBoss(w.boss);
   if(w.mini) spawnBoss(w.mini);
