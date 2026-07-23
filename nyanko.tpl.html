@@ -483,28 +483,23 @@ const STAGE_COUNT = 50;
 // 射手m_phage・自爆m_puffは手描きのまま据え置き（立ち絵が届いたら差し替え）。
 // 【通常WAVE】で連続湧き＆入場する敵（軽め＝押し込める）※後衛（射手m_phage）は当面出さない方針
 function normalPool(n){
-  const p=['m_bump','m_bump'];                 // 雑魚（旧m_swarm 引退→立ち絵）
-  if(n>=3)  p.push('m_neba');                  // ネバモチ（白・ネバネバ雑魚）
-  if(n>=4)  p.push('m_thorn');                 // 壁（旧m_tank 引退→立ち絵）
-  if(n>=6)  p.push('m_gspike');                // トゲミドリ（緑・中HP前衛）
-  if(n>=9)  p.push('m_armor');                 // 装甲の重壁（旧m_big の超硬枠→立ち絵）
-  if(n>=13) p.push('m_thorn');                 // 壁を厚めに
-  if(n>=18) p.push('m_puff');                  // ★自爆は中盤から（手描き据え置き）
-  if(n>=28) p.push('m_legs');                  // 足長シロカビが通常湧きにも混ざる（終盤）
+  const p=['m_bump','m_bump'];                 // ①白もこもこ（基本前衛）
+  if(n>=2)  p.push('m_neba');                  // ②ネバモチ（タンク）
+  if(n>=6)  p.push('m_gspike');                // ③トゲミドリ（範囲アタッカー）
+  if(n>=18) p.push('m_puff');                  // 自爆（手描き据え置き）
+  if(n>=28) p.push('m_legs');                  // ④キモシロカビ足長が通常湧きにも（終盤）
   return p;
 }
-// 【ブレイクWAVE】で連続湧き＆入場する敵（重め＝壁/装甲/エリートを厚く）
+// 【ブレイクWAVE】で連続湧き＆入場する敵（重め＝タンク/アタッカー/エリートを厚く）
 function breakPool(n){
   const p = normalPool(n).slice();
-  if(n>=4)  p.push('m_thorn');
-  if(n>=9)  p.push('m_armor');
-  if(n>=13) p.push('m_armor');
-  if(n>=20) p.push('m_legs');                  // ★足長シロカビはブレイクWAVEに20面からデビュー
+  if(n>=3)  p.push('m_neba');                  // タンクを厚めに（アタッカーは団子に刺さり強いので増やさない）
+  if(n>=20) p.push('m_legs');                  // ④キモシロカビ足長はブレイクに20面からデビュー
   return p;
 }
 // ステージ全体で出る敵の和集合（pool＝描画/テスト用の一覧）
 function basePool(n){ return Array.from(new Set(normalPool(n).concat(breakPool(n)))); }
-function heavyKey(n){ return n>=20 ? 'm_legs' : (n>=13 ? 'm_armor' : (n>=4 ? 'm_thorn' : 'm_bump')); }   // 増援waveに混ぜる重め敵
+function heavyKey(n){ return n>=20 ? 'm_legs' : (n>=5 ? 'm_gspike' : 'm_neba'); }   // 増援waveに混ぜる重め敵
 // エリア名（10面ごとにテーマ）
 const REGIONS = [
   {a:1,  name:'おかしの平原'}, {a:11, name:'ねばねば湿原'}, {a:21, name:'むらさきカビ回廊'},
@@ -609,24 +604,24 @@ const FOE_DEFS = {
   // 自爆ラッシュ（速い・接触で大爆発。前衛をまとめて吹き飛ばす）
   m_puff: {name:'プクーレ',   role:'bomber', atk:0,  hp:80,  speed:134, range:30, cd:1.0,  scale:0.92,
            blast:180, blastR:66, num:1, mold:'spiky', col:'#a7b86a', col2:'#6f7d3f'},
-  // ボス（超巨大・高HP高火力・遅い。終盤ステージの主）＝赤トゲトゲの立ち絵・他より一回り大きい(scale)
+  // ボス（超巨大・高HP高火力・遅い。終盤ステージの主）＝赤トゲトゲの立ち絵・他より一回り大きい(scale)。単体強打（AoEは付けると climax が理不尽になったため見送り）
   m_boss: {name:'カビ大帝',   role:'melee',  atk:75, hp:3600, speed:38, range:38, cd:1.6,  scale:2.3,
            num:1, spr:'m_boss', trait:'red'},
-  // ▼ ユーザー提供の立ち絵スプライト敵（spr＝画像・moldなし＝drawFoeSpriteで描画）。トレイトはplain（色つきは中ボスのみ）。
-  // 丸ボコ雑魚（コスト感50）＝アオカビンより少しタフな数押しザコ
+  // ▼ ユーザー提供の立ち絵スプライト敵（spr＝画像・moldなし＝drawFoeSpriteで描画）。
+  // ── 敵ザコの役割（味方の並びに対応させたシンプルな4段） ────────────────────
+  // ①白もこもこ（雑魚1・味方のクッキーナイト相当）＝安い数押しの基本前衛
   m_bump: {name:'ホコリだま', role:'melee',  atk:11, hp:72,  speed:106, range:26, cd:0.5,  scale:0.88, num:1, spr:'m_bump'},
-  // トゲ突起（コスト感100）＝中HPの前衛
-  m_thorn:{name:'イガまる',   role:'melee',  atk:18, hp:210, speed:70,  range:28, cd:0.9,  scale:1.02, num:1, spr:'m_thorn'},
-  // スパイク固め（コスト感200）＝装甲で被ダメ25%減の壁（dr）
-  m_armor:{name:'テッコウ',   role:'melee',  atk:14, hp:420, speed:46,  range:30, cd:1.2,  scale:1.10, num:1, spr:'m_armor', dr:0.25},
-  // 足長（コスト感800）＝高耐久・高火力の大型ブルーザー。元絵が足長なので比率そのまま大きくして背高に（縦伸ばしはしない）
+  // ②ネバモチ（雑魚2・タンク役）＝シロカビより前でHPを盾に。足は少し遅い（旧イガまるを置き換え）
+  m_neba: {name:'ネバモチ',   role:'melee',  atk:12, hp:230, speed:52,  range:28, cd:0.9,  scale:1.02, num:1, spr:'m_neba'},
+  // ③トゲミドリ（雑魚3・アタッカー役）＝範囲攻撃（前方の敵を最大3体ヒット）・緑属性。紙装甲＝1体あたりは軽い（AoEは味方の団子に刺さり強いので控えめ）
+  m_gspike:{name:'トゲミドリ', role:'melee', atk:11, hp:120, speed:80,  range:30, cd:1.0,  scale:1.02, num:1, spr:'m_gspike', trait:'green', hits:3},
+  // ④キモシロカビ＝足長（高コスト雑魚・味方のチョコナイト相当）＝高耐久・高火力の大型
   m_legs: {name:'ノッポし',   role:'melee',  atk:45, hp:950, speed:52,  range:42, cd:1.5,  scale:1.7, num:1, spr:'m_legs'},
   // 緑スパイク（中ボス・緑属性）＝対緑の味方が有利を取れる中ボス
   m_gboss:{name:'ミドリのぬし', role:'melee', atk:44, hp:2200, speed:40, range:38, cd:1.5, scale:1.5, num:1, spr:'m_gboss', trait:'green'},
-  // ネバモチ（白＝無属性のネバネバ雑魚）＝遅いが少しタフな数押しザコ
-  m_neba: {name:'ネバモチ',   role:'melee',  atk:13, hp:150, speed:58,  range:26, cd:0.8,  scale:0.98, num:1, spr:'m_neba'},
-  // 緑トゲトゲ（緑属性）＝中HPの前衛（対緑の味方が有利）
-  m_gspike:{name:'トゲミドリ', role:'melee', atk:17, hp:200, speed:78,  range:28, cd:0.9,  scale:1.02, num:1, spr:'m_gspike', trait:'green'},
+  // ▼ 引退（プールに出さない・数値参照用に温存）：旧イガまる/テッコウはネバモチ(タンク)に集約
+  m_thorn:{name:'イガまる',   role:'melee',  atk:18, hp:210, speed:70,  range:28, cd:0.9,  scale:1.02, num:1, spr:'m_thorn'},
+  m_armor:{name:'テッコウ',   role:'melee',  atk:14, hp:420, speed:46,  range:30, cd:1.2,  scale:1.10, num:1, spr:'m_armor', dr:0.25},
 };
 
 /* ============================================================
@@ -967,11 +962,18 @@ function step(dt){
         const doKB = D.kbHit && (++u.hitCount % D.kbHit.every === 0);
         if(D.role==='ranged' && enemyInRange){ fireShot(u, fe.o); SFX_shot(); }
         else if(enemyInRange){
-          if(D.area){   // 範囲攻撃：射程内の前方の敵をまとめて攻撃
+          if(D.area){   // 範囲攻撃：射程内の前方の敵をまとめて攻撃（無制限）
             for(const o of world.units){ if(o.side===u.side || o.dead) continue;
               const ah = u.dir>0 ? o.x>u.x : o.x<u.x;
               if(ah && Math.abs(o.x-u.x) <= u.range){ attackHit(u,o,dmg); if(doKB) applyKnock(o, u.x, D.kbHit.dist); } }
             if(doKB){ windFx(u); world.shake = Math.max(world.shake, u.side==='p'?3:0); }
+          } else if(D.hits && D.hits>1){   // 範囲攻撃：射程内の前方の敵を近い順に最大 hits 体だけヒット
+            const cand=[];
+            for(const o of world.units){ if(o.side===u.side || o.dead) continue;
+              const ah = u.dir>0 ? o.x>u.x : o.x<u.x;
+              if(ah && Math.abs(o.x-u.x) <= u.range) cand.push(o); }
+            cand.sort((a,b)=>Math.abs(a.x-u.x)-Math.abs(b.x-u.x));
+            for(let i=0;i<Math.min(D.hits,cand.length);i++){ attackHit(u,cand[i],dmg); if(doKB) applyKnock(cand[i], u.x, D.kbHit.dist); }
           } else { attackHit(u, fe.o, dmg); if(doKB) applyKnock(fe.o, u.x, D.kbHit.dist); }
           SFX_hit();
         }
