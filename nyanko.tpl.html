@@ -325,6 +325,7 @@ const CONF = {
   arrowSize: 70,         // シューの矢の描画サイズ(px)。大きいほど大量に飛ぶ迫力が出る
   castleAtkRange: 96,    // お城への攻撃が届く距離（大きいほど手前で殴れる＝城にめり込まず、湧いた敵の手前で足を止められる）
   castleBodyR: 20,       // お城本体の半径。ユニットはここより内側へは入らない（城にめり込まない最小マージン）
+  engageGap: 10,         // 交戦時に相手との間にあける最低すき間（射程に上乗せ＝短射程どうしの立ち絵の食い込みを軽減）
   castleInset: 48,       // お城を画面端から内側へ置く距離＝タワーの後ろに「ノックバックの逃げ場（隙間）」を作る
                          // （敵城=左, 味方城=右。knockAllAlliesで下がった味方がこの隙間に散って城際でハマらない）
   spawnInset: 40,        // ユニットの湧き位置（城のふち＝端からの距離）。castleAtkRangeより内側にして
@@ -717,7 +718,14 @@ function attackHit(u, o, dmg){
   const eff = isEffective(u.U.strongVs, traitOf(o));
   hurt(o, dmg*(eff?EFFECT_MUL:1));
   if(eff) advFx(o, traitOf(o));   // 有効＝属性色の閃光＋「ばつぐん！」
+  else hitFx(u, o);               // 通常ヒットも小さな火花＝どちらの攻撃が当たったか見える
   if(u.U.slowHit && !o.dead){ o.slowT = u.U.slowHit.dur; o.slowMul = u.U.slowHit.mul; }
+}
+// 通常ヒットの小さな火花（接触点＝攻撃側と対象の間に少しだけ）
+function hitFx(u, o){
+  const ix = (u.x+o.x)/2, iy = o.y-16;
+  for(let i=0;i<3;i++){ const a=Math.random()*6.28, s=40+Math.random()*70;
+    world.parts.push({x:ix, y:iy, vx:Math.cos(a)*s, vy:Math.sin(a)*s-28, life:0.22, max:0.22, c:'#fff2cf', r:1.3+Math.random()*1.4}); }
 }
 // カウンター解放の演出（赤い斬撃＋火花＋「カウンター！」＋軽い画面揺れ）
 function counterFx(u, amt){
@@ -920,13 +928,14 @@ function step(dt){
     if(u.stunT>0){ u.stunT-=dt; u.moving=false; continue; }   // スタン中（ブレイクの大技）は行動不能
     const D = u.U;
     const fe = frontUnit(u,false);          // 前方の敵
+    const reach = u.range + CONF.engageGap;  // 交戦距離＝射程＋すき間（立ち絵の食い込み軽減。当たり判定と停止位置で共通に使う）
     const castleX = u.side==='p' ? CONF.castleInset : CONF.W-CONF.castleInset;   // 攻撃対象は相手の城（味方=左の敵城 / 敵=右の味方城）
     const castleGap = Math.abs(castleX - u.x);
-    const enemyInRange  = fe && fe.gap <= u.range;
+    const enemyInRange  = fe && fe.gap <= reach;
     // 前方に「城より手前の敵」がいる間は城を殴らない＝城に張り付いたまま、後ろ(城側)に湧いた敵を
     // 無視してしまう不具合を防ぐ。敵が城より手前なら足を止めず踏み込んで倒しにいく。
     const feNearer = fe && fe.gap < castleGap;
-    const castleInRange = !feNearer && castleGap <= Math.max(u.range, CONF.castleAtkRange);
+    const castleInRange = !feNearer && castleGap <= Math.max(reach, CONF.castleAtkRange);
 
     // 導火中（bomber）
     if(u.fuseT>=0){
@@ -970,7 +979,7 @@ function step(dt){
           if(D.area){   // 範囲攻撃：射程内の前方の敵をまとめて攻撃（無制限）
             for(const o of world.units){ if(o.side===u.side || o.dead) continue;
               const ah = u.dir>0 ? o.x>u.x : o.x<u.x;
-              if(ah && Math.abs(o.x-u.x) <= u.range){ attackHit(u,o,dmg); if(doKB) applyKnock(o, u.x, D.kbHit.dist); } }
+              if(ah && Math.abs(o.x-u.x) <= reach){ attackHit(u,o,dmg); if(doKB) applyKnock(o, u.x, D.kbHit.dist); } }
             if(doKB){ windFx(u); world.shake = Math.max(world.shake, u.side==='p'?3:0); }
           } else if(doSlam){   // ジャンプ衝撃波：跳ねて着地し、周囲(半径slam.r)の敵をまとめて叩く（slam.dmgMulで範囲ダメージを軽くできる）
             u.hopT = SLAM_HOP;                                   // 跳ね上がりの演出
@@ -983,7 +992,7 @@ function step(dt){
             const cand=[];
             for(const o of world.units){ if(o.side===u.side || o.dead) continue;
               const ah = u.dir>0 ? o.x>u.x : o.x<u.x;
-              if(ah && Math.abs(o.x-u.x) <= u.range) cand.push(o); }
+              if(ah && Math.abs(o.x-u.x) <= reach) cand.push(o); }
             cand.sort((a,b)=>Math.abs(a.x-u.x)-Math.abs(b.x-u.x));
             for(let i=0;i<Math.min(D.hits,cand.length);i++){ attackHit(u,cand[i],dmg); if(doKB) applyKnock(cand[i], u.x, D.kbHit.dist); }
           } else { attackHit(u, fe.o, dmg); if(doKB) applyKnock(fe.o, u.x, D.kbHit.dist); }
@@ -1004,10 +1013,10 @@ function step(dt){
     // 停止位置：前方に敵がいればその敵の射程手前まで踏み込む（城に張り付いた敵の後ろに湧いた敵も追える）。
     // 敵がいなければ城の攻撃距離(castleAtkRange)で足を止めて城を殴る。どちらも城本体(castleBodyR)へはめり込まない。
     if(u.side==='p'){            // 左へ進む・敵城は左(castleInset)
-      nx = fe ? Math.max(nx, fe.o.x + u.range) : Math.max(nx, CONF.castleAtkRange);
+      nx = fe ? Math.max(nx, fe.o.x + reach) : Math.max(nx, CONF.castleAtkRange);
       nx = Math.max(nx, CONF.castleInset);       // 敵城の中心より奥へはめり込まない（後ろは隙間）
     }else{                        // 右へ進む・味方城は右(W-castleInset)
-      nx = fe ? Math.min(nx, fe.o.x - u.range) : Math.min(nx, CONF.W - CONF.castleAtkRange);
+      nx = fe ? Math.min(nx, fe.o.x - reach) : Math.min(nx, CONF.W - CONF.castleAtkRange);
       nx = Math.min(nx, CONF.W - CONF.castleInset);
     }
     u.x = nx;
@@ -1578,9 +1587,12 @@ function drawMirrorBall(x, y, t){
 function drawFoeSprite(u, S, cx, footY){
   const im = SPRITES[u.U.spr]; if(!(im && im.complete && im.naturalWidth)) return;
   const H = S*(u.U.hMul||1);                       // 縦伸ばし（ノッポ＝足長シロカビ用）。幅はそのまま
+  const la = u.atkAnim>0 ? u.atkAnim/ATK_ANIM : 0; // 攻撃モーション 1→0（カビの通常攻撃を見えるように）
+  const lunge = la*la * S*0.26 * (u.dir||1);       // 攻撃時に狙う方向へグッと突き出して戻る
   ctx.save();
-  ctx.translate(cx, footY - H*0.5);               // 足元を地面に残したまま縦だけ伸ばす
+  ctx.translate(cx + lunge, footY - H*0.5);        // 足元を地面に残したまま縦だけ伸ばす＋攻撃で前へ踏み込む
   if(u.kbT>0) ctx.rotate((KB_TIME-u.kbT)*7*Math.sign(u.kbVX||-1));   // 吹き飛び中はくるっと回転
+  if(la>0){ const sq=1+0.14*la; ctx.scale(sq, 2-sq); }   // 突き出しに合わせて横伸び・縦縮み（パンチ感）
   if(u.U.mold==='spiky' && u.fuseT>=0){ const p=1+0.18*Math.sin(elapsed*40); ctx.scale(p,p); }  // 自爆導火中はふくらむ（将来用）
   ctx.imageSmoothingEnabled=false;
   ctx.drawImage(im, -S/2, -H/2, S, H);
