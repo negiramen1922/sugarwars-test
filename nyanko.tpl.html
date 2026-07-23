@@ -532,7 +532,7 @@ function makeWaves(n, boss, mini, total){
     if(brk){ w.tower = true; w.heavy = heavyKey(n); }   // ブレイク＝タワー攻撃＋重敵（制限時間は撤廃）
     else   { w.tower = false; }
   });
-  if(boss)      waves[cnt-1].boss = { key:'m_boss',  hp:Math.round(2600+n*420), atk:Math.round(52+n*5.2), sMul:1.14, trait:'red' };
+  if(boss)      waves[cnt-1].boss = { key:'m_boss',  hp:Math.round(900+n*150), atk:Math.round(30+n*2.6), sMul:1.14, trait:'red' };   // 前線を維持する壁＝倒し切れるHP/atkに（旧「城をすり抜けて勝つ」前提から大幅下方修正）
   else if(mini) waves[cnt-1].mini = { key:'m_gboss', hp:Math.round(1500+n*280), atk:Math.round(32+n*3.4), sMul:1.0,  trait:'green' };
   return waves;
 }
@@ -605,9 +605,9 @@ const FOE_DEFS = {
   // 自爆ラッシュ（速い・接触で大爆発。前衛をまとめて吹き飛ばす）
   m_puff: {name:'プクーレ',   role:'bomber', atk:0,  hp:80,  speed:134, range:30, cd:1.0,  scale:0.92,
            blast:180, blastR:66, num:1, mold:'spiky', col:'#a7b86a', col2:'#6f7d3f'},
-  // ボス（超巨大・高HP高火力・遅い。終盤ステージの主）＝赤トゲトゲの立ち絵・他より一回り大きい(scale)。単体強打（AoEは付けると climax が理不尽になったため見送り）
+  // ボス（超巨大・高HP高火力・遅い。終盤ステージの主）＝赤トゲトゲの立ち絵・他より一回り大きい(scale)。単体→単体→ジャンプ範囲(slam)のループ・広範囲
   m_boss: {name:'カビ大帝',   role:'melee',  atk:75, hp:3600, speed:38, range:38, cd:1.6,  scale:2.3,
-           num:1, spr:'m_boss', trait:'red'},
+           num:1, spr:'m_boss', trait:'red', slam:{r:64, dmgMul:0.5}, slamEvery:3},
   // ▼ ユーザー提供の立ち絵スプライト敵（spr＝画像・moldなし＝drawFoeSpriteで描画）。
   // ── 敵ザコの役割（味方の並びに対応させたシンプルな4段） ────────────────────
   // ①白もこもこ（雑魚1・味方のクッキーナイト相当）＝安い数押しの基本前衛
@@ -973,10 +973,11 @@ function step(dt){
               const ah = u.dir>0 ? o.x>u.x : o.x<u.x;
               if(ah && Math.abs(o.x-u.x) <= u.range){ attackHit(u,o,dmg); if(doKB) applyKnock(o, u.x, D.kbHit.dist); } }
             if(doKB){ windFx(u); world.shake = Math.max(world.shake, u.side==='p'?3:0); }
-          } else if(doSlam){   // ジャンプ衝撃波：跳ねて着地し、周囲(半径slam.r)の敵をまとめて叩く
+          } else if(doSlam){   // ジャンプ衝撃波：跳ねて着地し、周囲(半径slam.r)の敵をまとめて叩く（slam.dmgMulで範囲ダメージを軽くできる）
             u.hopT = SLAM_HOP;                                   // 跳ね上がりの演出
+            const sdmg = dmg * (D.slam.dmgMul||1);
             for(const o of world.units){ if(o.side===u.side || o.dead) continue;
-              if(Math.abs(o.x-u.x) <= D.slam.r){ attackHit(u,o,dmg); if(doKB) applyKnock(o, u.x, D.kbHit.dist); } }
+              if(Math.abs(o.x-u.x) <= D.slam.r){ attackHit(u,o,sdmg); if(doKB) applyKnock(o, u.x, D.kbHit.dist); } }
             world.shocks.push({x:u.x, y:u.y, t:0, dur:0.4, r:D.slam.r, side:u.side});   // 広がる衝撃リング
             world.shake = Math.max(world.shake, u.side==='p'?4:3);
           } else if(D.hits && D.hits>1){   // 範囲攻撃：射程内の前方の敵を近い順に最大 hits 体だけヒット
@@ -1152,7 +1153,7 @@ function spawnBoss(cfg){
   if(cfg.atk) u.atk=cfg.atk;
   if(cfg.sMul) u.sMul=cfg.sMul;
   if(cfg.trait) u.trait=cfg.trait;                 // 色トレイト（緑=中ボス/赤=大ボス）＝体色に反映＋対〇色の有利判定に使う
-  u.kbCount=3; u.kbSeg=undefined;            // ボスは滅多にひるまず前進する
+  u.kbCount=2; u.kbSeg=undefined;            // ボスクラスはひるみにくく前線を維持（旧3→2＝スタッガーの隙に味方がすり抜けて城を叩き、ボスを残したまま勝ててしまうのを抑える）
   u.boss=true; u.fromEvent=true;
   world.units.push(u);
   world.shake = 8;
