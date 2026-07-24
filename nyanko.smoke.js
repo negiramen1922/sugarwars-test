@@ -77,16 +77,17 @@ try{ for(let i=0;i<60*90;i++){ API.money=Math.min(300, API.money+0.3); if(i%40==
 catch(e){ crashed=true; console.error('STEP CRASH:',e.message); }
 ok(!crashed, 'battle steps without crash');
 
-// 7) TEST MODE: all units + all stages unlocked, money starts maxed
+// 7) TEST MODE: all units + all stages unlocked, but money is NOT auto-maxed (test the real economy)
 ok(API.testMode===false, 'test mode default OFF');
 ok(!API.isUnlocked('donut'), 'donut locked when test mode off');
 API.testMode = true;
 ok(API.isUnlocked('donut') && API.isUnlocked('icewiz'), 'all units unlocked in test mode');
 ok(API.unlockedUnits().length === API.ORDER.length, `all ${API.ORDER.length} units usable in test mode`);
 ok(API.stageUnlocked(8), 'stage 8 unlocked in test mode');
-API.reset(3); // some stage
-ok(API.money >= API.effCap()-0.01, `money starts maxed in test mode (money=${API.money.toFixed(0)}, cap=${API.effCap()})`);
-ok(API.walletLv === API.walletMaxLv(), 'wallet maxed in test mode');
+API.save.upg={}; API.reset(3); // some stage; no wStart upgrade → normal (not maxed) start
+ok(API.money <= API.effCap()+0.01, `money within cap in test mode (money=${API.money.toFixed(0)}, cap=${API.effCap()})`);
+ok(API.money < API.effCap(), 'money is NOT auto-maxed in test mode (real economy)');
+ok(API.walletLv === API.walletStartLv(), 'wallet starts at normal start-Lv in test mode');
 API.testMode = false;
 API.reset(1);
 ok(API.money > 0 && API.money <= API.effCap(), 'money within cap at normal start');
@@ -544,6 +545,27 @@ API.testMode=false; API.save.lv={};
 ok(API.FOE_DEFS.m_thorn.slam.dmgMul===1.4, 'シロトゲ slam dmgMul is 1.4 (reference)');
 ok(API.FOE_DEFS.m_boss.slam.dmgMul===1.4, 'アカトゲ slam dmgMul strengthened to 1.4 (matches シロトゲ)');
 ok(API.FOE_DEFS.m_gspike.slam.dmgMul===1.4, 'ミドリトゲ slam dmgMul strengthened to 1.4 (matches シロトゲ)');
+
+// 28) TEST MODE free upgrade-set + cumulative EXP helpers (balance tuning)
+API.testMode=false; API.save.upg={}; API.save.exp=0;
+ok(API.setUpgradeLevelFree('tHp',5)===false, 'free upgrade-set blocked when TEST_MODE off');
+ok(API.upgLv('tHp')===0, 'upgrade level unchanged when TEST_MODE off');
+API.testMode=true;
+const exp28=API.save.exp;
+ok(API.setUpgradeLevelFree('tHp',5)===true, 'free upgrade-set works in TEST_MODE');
+ok(API.upgLv('tHp')===5, 'upgrade level set directly to 5');
+ok(API.save.exp===exp28, 'free upgrade-set spends no EXP');
+API.setUpgradeLevelFree('tHp',999); ok(API.upgLv('tHp')===API.UPG.tHp.max, 'free upgrade-set clamps to track max');
+API.setUpgradeLevelFree('tHp',-5);  ok(API.upgLv('tHp')===0, 'free upgrade-set clamps to 0');
+// cumulative EXP helpers: total to reach a level = sum of step costs; monotonic increasing; Lv/Lv0 = 0
+ok(API.charLvTotalExp('cookie',1)===0, 'char total EXP to reach Lv1 is 0');
+ok(API.upgTotalExp('tHp',0)===0, 'upgrade total EXP to reach Lv0 is 0');
+ok(API.charLvTotalExp('cookie',10) > API.charLvTotalExp('cookie',5), 'char total EXP grows with target level');
+ok(API.upgTotalExp('tHp',8) > API.upgTotalExp('tHp',4), 'upgrade total EXP grows with target level');
+// total to reach Lv2 equals the single-step cost from Lv1 (cross-check with charLvCost at Lv1)
+API.save.lv={}; ok(API.charLvTotalExp('cookie',2)===API.charLvCost('cookie'), 'char total to Lv2 == first step cost');
+API.save.upg={}; ok(API.upgTotalExp('tHp',1)===API.upgCost('tHp'), 'upgrade total to Lv1 == first step cost');
+API.testMode=false; API.save.upg={}; API.save.lv={};
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail?1:0);
