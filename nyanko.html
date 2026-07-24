@@ -551,7 +551,7 @@ function makeWaves(n, boss, mini, total){
     else   { w.tower = false; }
   });
   if(boss)      waves[cnt-1].boss = { key:'m_boss',  hp:Math.round(520+n*100), atk:Math.round(28+n*2.4), sMul:1.14, trait:'red' };   // 前線を維持する壁＝倒し切れるHP/atkに（白トゲのAoE強化で前が厚くなったぶん微調整）
-  else if(mini) waves[cnt-1].mini = { key:'m_gboss', hp:Math.round(1500+n*280), atk:Math.round(32+n*3.4), sMul:1.0,  trait:'green' };
+  else if(mini) waves[cnt-1].mini = { key:'m_gboss', hp:Math.round(1500+n*280), atk:Math.round(50+n*5), cd:3.4, sMul:1.0,  trait:'green' };   // 単体重火力・低頻度（AoEなし）
   return waves;
 }
 function genStage(n){
@@ -578,6 +578,9 @@ STAGES[0].waves=[{idx:0, type:'normal', final:true, hp:440, burst:0, tower:false
 const STAGE_OVERRIDES = {
   // 4面：WAVE切替のバーストに白トゲ(イガまる)を少しだけ混ぜる（6面から本格化する前の顔見せ）
   4: (s)=>{ for(const w of s.waves){ w.burstPool = (w.burstPool||w.spawn||['m_bump']).concat(['m_thorn']); } },
+  // 5面（中ボス）：ブレイクWAVEの出現パターンにシロトゲ(m_thorn＝ジャンプ範囲AoE)を織り込む＝
+  //   クッキー団子のごり押し対策（AoEで団子を割り、散開・混成を促す）。※固定パターン（乱数なし・heavy無効化）。
+  5: (s)=>{ for(const w of s.waves){ if(w.type==='break'){ w.spawn=['m_bump','m_neba','m_thorn','m_bump']; w.burstPool=w.spawn; w.heavy=null; } } },
 };
 for(const s of STAGES){ const fn=STAGE_OVERRIDES[s.id]; if(fn) fn(s); }
 const STAGE_BY_ID = Object.fromEntries(STAGES.map(s=>[s.id,s]));
@@ -637,8 +640,9 @@ const FOE_DEFS = {
   m_gspike:{name:'ミドリトゲ', role:'melee', atk:13, hp:130, speed:80,  range:30, cd:1.4, scale:1.02, num:1, spr:'m_gspike', trait:'green', slam:{r:52, dmgMul:1.4}, slamEvery:3},
   // ④シロアシ（白あしなが・高コスト雑魚・味方のチョコナイト相当）＝高耐久・高火力の大型
   m_legs: {name:'シロアシ',   role:'melee',  atk:45, hp:950, speed:52,  range:42, cd:2.2,  scale:1.7, num:1, spr:'m_legs'},
-  // 緑スパイク（中ボス・緑属性）＝対緑の味方が有利を取れる中ボス
-  m_gboss:{name:'ミドリのぬし', role:'melee', atk:44, hp:2200, speed:40, range:38, cd:2.2, scale:1.5, num:1, spr:'m_gboss', trait:'green'},
+  // ミドリのぬし（中ボス・緑属性）＝AoEなし・単体特化。重い一撃(atk高)＋遅い攻撃(cd長)で、正面の1体を狙い撃つ壁役。
+  // ※将来ステージ6以降の最終wave等に「同じ敵」として再登場させても identity が揃うよう、DEF自体を単体重火力にしてある。
+  m_gboss:{name:'ミドリのぬし', role:'melee', atk:66, hp:2200, speed:40, range:38, cd:3.4, scale:1.5, num:1, spr:'m_gboss', trait:'green'},
   // シロトゲ（白とげとげ・6面からの主力アタッカー）＝単体→単体→ジャンプ範囲(slam)のループ。跳ねて着地し半径slam.r内をまとめて叩く
   m_thorn:{name:'シロトゲ',   role:'melee',  atk:16, hp:250, speed:64,  range:30, cd:1.6,  scale:1.02, num:1, spr:'m_thorn', slam:{r:66, dmgMul:1.4}, slamEvery:3},
   // ▼ 引退（プールに出さない・数値参照用に温存）：旧テッコウはネバモチ(タンク)に集約
@@ -1174,6 +1178,7 @@ function spawnBoss(cfg){
   const u=newUnit(cfg.key||'m_boss','e', CONF.castleInset+16, CONF.groundY-2);   // cfg.key で立ち絵ボス（緑中ボス等）に差し替え可
   if(cfg.hp){ u.hp=cfg.hp; u.maxHp=cfg.hp; }
   if(cfg.atk) u.atk=cfg.atk;
+  if(cfg.cd)  u.cd=cfg.cd;                          // 攻撃間隔の上書き（中ボス＝低頻度の重い一撃）
   if(cfg.sMul) u.sMul=cfg.sMul;
   if(cfg.trait) u.trait=cfg.trait;                 // 色トレイト（緑=中ボス/赤=大ボス）＝体色に反映＋対〇色の有利判定に使う
   u.kbCount=2; u.kbSeg=undefined;            // ボスクラスはひるみにくく前線を維持（旧3→2＝スタッガーの隙に味方がすり抜けて城を叩き、ボスを残したまま勝ててしまうのを抑える）
