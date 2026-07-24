@@ -485,8 +485,7 @@ const STAGE_COUNT = 50;
 function normalPool(n){
   const p=['m_bump','m_bump'];                 // ①白もこもこ（基本前衛）
   if(n>=3)  p.push('m_neba');                  // ②ネバモチ（タンク・短射程で最前線に出る）
-  if(n>=6)  p.push('m_gspike');                // ③トゲミドリ（前方最大3体のアタッカー）
-  if(n>=11) p.push('m_thorn');                 // シロトゲ（ジャンプ衝撃波の範囲アタッカー・最初のボス後から）
+  if(n>=6)  p.push('m_thorn');                 // ③シロトゲ（イガまる・ジャンプ衝撃波アタッカー）＝6面からの主力（緑トゲを白トゲに置き換え）
   if(n>=18) p.push('m_puff');                  // 自爆（手描き据え置き）
   if(n>=28) p.push('m_legs');                  // ④キモシロカビ足長が通常湧きにも（終盤）
   return p;
@@ -500,7 +499,7 @@ function breakPool(n){
 }
 // ステージ全体で出る敵の和集合（pool＝描画/テスト用の一覧）
 function basePool(n){ return Array.from(new Set(normalPool(n).concat(breakPool(n)))); }
-function heavyKey(n){ return n>=20 ? 'm_legs' : (n>=5 ? 'm_gspike' : 'm_neba'); }   // 増援waveに混ぜる重め敵
+function heavyKey(n){ return n>=20 ? 'm_legs' : (n>=5 ? 'm_thorn' : 'm_neba'); }   // 増援waveに混ぜる重め敵
 // エリア名（10面ごとにテーマ）
 const REGIONS = [
   {a:1,  name:'おかしの平原'}, {a:11, name:'ねばねば湿原'}, {a:21, name:'むらさきカビ回廊'},
@@ -532,7 +531,7 @@ function makeWaves(n, boss, mini, total){
     if(brk){ w.tower = true; w.heavy = heavyKey(n); }   // ブレイク＝タワー攻撃＋重敵（制限時間は撤廃）
     else   { w.tower = false; }
   });
-  if(boss)      waves[cnt-1].boss = { key:'m_boss',  hp:Math.round(700+n*130), atk:Math.round(28+n*2.4), sMul:1.14, trait:'red' };   // 前線を維持する壁＝倒し切れるHP/atkに（短射程タンクで前が厚くなったぶん微調整）
+  if(boss)      waves[cnt-1].boss = { key:'m_boss',  hp:Math.round(600+n*115), atk:Math.round(28+n*2.4), sMul:1.14, trait:'red' };   // 前線を維持する壁＝倒し切れるHP/atkに（白トゲ強化で前が厚くなったぶん微調整）
   else if(mini) waves[cnt-1].mini = { key:'m_gboss', hp:Math.round(1500+n*280), atk:Math.round(32+n*3.4), sMul:1.0,  trait:'green' };
   return waves;
 }
@@ -558,7 +557,8 @@ STAGES[0].waves=[{idx:0, type:'normal', final:true, hp:440, burst:0, tower:false
    ・w.hp / w.type … ゲージHP・種類(normal/break)
    例）STAGE_OVERRIDES[8]=(s)=>{ s.waves[1].spawn=['m_bump','m_legs']; };            */
 const STAGE_OVERRIDES = {
-  // ここに各ステージのつくり込みを足していく（未指定は自動生成のまま）
+  // 4面：WAVE切替のバーストに白トゲ(イガまる)を少しだけ混ぜる（6面から本格化する前の顔見せ）
+  4: (s)=>{ for(const w of s.waves){ w.burstPool = (w.burstPool||w.spawn||['m_bump']).concat(['m_thorn']); } },
 };
 for(const s of STAGES){ const fn=STAGE_OVERRIDES[s.id]; if(fn) fn(s); }
 const STAGE_BY_ID = Object.fromEntries(STAGES.map(s=>[s.id,s]));
@@ -621,7 +621,7 @@ const FOE_DEFS = {
   // 緑スパイク（中ボス・緑属性）＝対緑の味方が有利を取れる中ボス
   m_gboss:{name:'ミドリのぬし', role:'melee', atk:44, hp:2200, speed:40, range:38, cd:2.2, scale:1.5, num:1, spr:'m_gboss', trait:'green'},
   // シロトゲ（イガまる）＝単体→単体→ジャンプ範囲(slam)のループ。跳ねて着地し半径slam.r内をまとめて叩く
-  m_thorn:{name:'イガまる',   role:'melee',  atk:16, hp:200, speed:64,  range:30, cd:1.6,  scale:1.02, num:1, spr:'m_thorn', slam:{r:58}, slamEvery:3},
+  m_thorn:{name:'イガまる',   role:'melee',  atk:16, hp:250, speed:64,  range:30, cd:1.6,  scale:1.02, num:1, spr:'m_thorn', slam:{r:58}, slamEvery:3},
   // ▼ 引退（プールに出さない・数値参照用に温存）：旧テッコウはネバモチ(タンク)に集約
   m_armor:{name:'テッコウ',   role:'melee',  atk:14, hp:420, speed:46,  range:30, cd:1.7,  scale:1.10, num:1, spr:'m_armor', dr:0.25},
 };
@@ -998,7 +998,7 @@ function step(dt){
           } else { attackHit(u, fe.o, dmg); if(doKB) applyKnock(fe.o, u.x, D.kbHit.dist); }
           SFX_hit();
         }
-        else if(castleInRange){ if(u.side==='p') ehp -= dmg; else php -= dmg; SFX_hit(); }
+        else if(castleInRange){ if(u.side==='p') ehp -= dmg; else { php -= dmg; world.shake = Math.max(world.shake, 7); } SFX_hit(); }   // 自陣タワーを殴られたら画面が揺れる
       }
       continue;
     }
@@ -1129,22 +1129,8 @@ function spawnWaveBurst(w){
   }
   world.shake=Math.max(world.shake,4);
 }
-// ブレイクWAVE：敵タワーが手前の味方を攻撃（制限時間・大技スタンは撤廃）
-function updateBreak(dt){
-  if(world.waveType!=='break') return;
-  const w = curStage && curStage.waves && curStage.waves[curWave];
-  if(w && w.tower){ world.towerAtkCd-=dt; if(world.towerAtkCd<=0){ towerAttack(); world.towerAtkCd=TOWER_ATK_CD; } }
-}
-// 敵タワー（左）から最前(最左)の味方へ弾を撃つ
-function towerAttack(){
-  let t=null, best=1e9;
-  for(const u of world.units){ if(u.side!=='p'||u.dead) continue; if(u.x<best){best=u.x;t=u;} }
-  if(!t) return;
-  const dmg = 22 + (curStage?curStage.id:1)*2;
-  world.shots.push({ x:CONF.castleInset, y:CONF.groundY-42, side:'e', dmg, sp:300, r:14,
-    tid:t.id, tx:t.x, ty:t.y-16, ang:0, tower:true });
-  SFX_shot();
-}
+// ブレイクWAVE：将来の固有挙動用のフック（敵タワーの弾撃ち＝緑の粒は見栄え・分かりにくさから撤去）
+function updateBreak(dt){ /* 現状なし。ブレイクは湧きの速さ＋強敵で差別化 */ }
 function spawnWave(key, n){
   for(let i=0;i<n;i++){
     if(world.units.filter(u=>u.side==='e').length >= CONF.maxUnitsPerSide) break;
