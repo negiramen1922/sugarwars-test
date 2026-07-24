@@ -465,6 +465,12 @@ function levelUpChar(k){
   if((save.exp||0)<cost) return false;                          // EXP不足
   save.exp-=cost; if(!save.lv) save.lv={}; save.lv[k]=charLv(k)+1; saveGame(); return true;
 }
+// テストモード専用：EXPを消費せずレベルを直接セット（バランス調整用・1〜CHAR_LV_MAXへクランプ）
+function setCharLevelFree(k, lv){
+  if(!TEST_MODE) return false;                                   // 通常プレイでは無効（テストモードのみ）
+  lv = Math.max(1, Math.min(CHAR_LV_MAX, Math.round(lv||1)));
+  if(!save.lv) save.lv={}; save.lv[k]=lv; saveGame(); return true;
+}
 
 /* ============================================================
    ゲーム基盤：スターター／ステージ／編成／進行（localStorage保存）
@@ -607,7 +613,7 @@ const FOE_DEFS = {
            blast:180, blastR:66, num:1, mold:'spiky', col:'#a7b86a', col2:'#6f7d3f'},
   // ボス（アカトゲ＝赤い大きなとげ・超巨大・高HP高火力・遅い。終盤ステージの主）。単体→単体→ジャンプ範囲(slam)のループ
   m_boss: {name:'アカトゲ',   role:'melee',  atk:75, hp:3600, speed:38, range:38, cd:2.3,  scale:2.3,
-           num:1, spr:'m_boss', trait:'red', slam:{r:64, dmgMul:0.5}, slamEvery:3},
+           num:1, spr:'m_boss', trait:'red', slam:{r:64, dmgMul:1.4}, slamEvery:3},
   // ▼ ユーザー提供の立ち絵スプライト敵（spr＝画像・moldなし＝drawFoeSpriteで描画）。名前＝色(シロ/ミドリ/アカ)＋型(カビ=もこもこ/ネバ=スライム/トゲ=とげとげ/アシ=あしなが)
   // ── 敵ザコの役割（味方の並びに対応させたシンプルな4段） ────────────────────
   // ①シロカビ（白もこもこ・雑魚1・味方のクッキーナイト相当）＝安い数押しの基本前衛
@@ -615,7 +621,7 @@ const FOE_DEFS = {
   // ②シロネバ（白スライム・雑魚2・タンク役）＝シロカビより前でHPを盾に。足は少し遅い
   m_neba: {name:'シロネバ',   role:'melee',  atk:12, hp:230, speed:52,  range:20, cd:1.3,  scale:1.02, num:1, spr:'m_neba'},
   // ③ミドリトゲ（緑とげとげ・雑魚3・アタッカー役）＝単体→単体→ジャンプ範囲(slam)のループ・緑属性。紙装甲（現在プール非登場・シロトゲに置換）
-  m_gspike:{name:'ミドリトゲ', role:'melee', atk:13, hp:130, speed:80,  range:30, cd:1.4, scale:1.02, num:1, spr:'m_gspike', trait:'green', slam:{r:52}, slamEvery:3},
+  m_gspike:{name:'ミドリトゲ', role:'melee', atk:13, hp:130, speed:80,  range:30, cd:1.4, scale:1.02, num:1, spr:'m_gspike', trait:'green', slam:{r:52, dmgMul:1.4}, slamEvery:3},
   // ④シロアシ（白あしなが・高コスト雑魚・味方のチョコナイト相当）＝高耐久・高火力の大型
   m_legs: {name:'シロアシ',   role:'melee',  atk:45, hp:950, speed:52,  range:42, cd:2.2,  scale:1.7, num:1, spr:'m_legs'},
   // 緑スパイク（中ボス・緑属性）＝対緑の味方が有利を取れる中ボス
@@ -981,7 +987,7 @@ function step(dt){
               const ah = u.dir>0 ? o.x>u.x : o.x<u.x;
               if(ah && Math.abs(o.x-u.x) <= reach){ attackHit(u,o,dmg); if(doKB) applyKnock(o, u.x, D.kbHit.dist); } }
             if(doKB){ windFx(u); world.shake = Math.max(world.shake, u.side==='p'?3:0); }
-          } else if(doSlam){   // ジャンプ衝撃波：跳ねて着地し、周囲(半径slam.r)の敵をまとめて叩く（slam.dmgMulで範囲ダメージを軽くできる）
+          } else if(doSlam){   // ジャンプ衝撃波：跳ねて着地し、周囲(半径slam.r)の敵をまとめて叩く（slam.dmgMulで範囲ダメージを増減できる）
             u.hopT = SLAM_HOP;                                   // 跳ね上がりの演出
             const sdmg = dmg * (D.slam.dmgMul||1);
             for(const o of world.units){ if(o.side===u.side || o.dead) continue;
@@ -2090,6 +2096,18 @@ function renderCharDetail(){
   } else if(info && info.via==='gacha'){
     action='<div style="margin-top:12px;padding:11px;border:2px solid var(--px-edge);border-radius:6px;background:var(--parch);text-align:center;color:var(--grape);font-weight:800">🎰 ガチャ限定キャラ</div>';
   }
+  // テストモード：EXP不要でレベルを自由に設定（バランス調整用）
+  if(TEST_MODE && owned){
+    action+='<div style="margin-top:10px;padding:11px;border:2px solid #6b2f9e;border-radius:6px;background:#f3e9fb">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="color:var(--grape)">🧪 レベル自由設定</b>'
+      +'<span style="font-weight:800;color:var(--grape)">Lv'+lv+'</span></div>'
+      +'<input type="range" min="1" max="'+CHAR_LV_MAX+'" value="'+lv+'" style="width:100%;accent-color:#6b2f9e" onchange="setLevelFromSlider(this.value)">'
+      +'<div style="display:flex;gap:6px;margin-top:8px">'
+      +[1,5,10,CHAR_LV_MAX].map(v=>'<button onclick="setLevelQuick('+v+')" class="backbtn" style="flex:1;font-size:12px;padding:6px 0'+(v===lv?';background:var(--grape);color:#fff;border-color:#6b2f9e':'')+'">Lv'+(v===CHAR_LV_MAX?'MAX':v)+'</button>').join('')
+      +'</div>'
+      +'<div style="margin-top:6px;font-size:11px;color:var(--muted);text-align:center">EXP不要・調整用（テストモード時のみ）</div>'
+      +'</div>';
+  }
   // 未開放は立ち絵・名前・性能を伏せて「？」表示（解放条件だけ見せる）
   const avatarHTML = owned
     ? '<img src="'+(SPRITE_DATA[D.spr+'_blue']||'')+'" style="width:72px;height:72px;image-rendering:pixelated;background:var(--parch-dk);border:2px solid var(--px-edge);border-radius:6px">'
@@ -2116,6 +2134,9 @@ function doLevelUp(){ const k=_detailKey;
   if(levelUpChar(k)){ SFX_deploy(); toast(DEFS[k].name+' Lv'+charLv(k)+'！'); renderCharDetail(); renderCollect(); }
   else { toast('EXPが足りない！'); } }
 function doUnlockFromDetail(){ const k=_detailKey; buyUnit(k); if(isUnlocked(k)) renderCharDetail(); }
+// テストモードのレベル自由設定（EXP不要）
+function setLevelFromSlider(v){ const k=_detailKey; if(k && setCharLevelFree(k, +v)){ renderCharDetail(); renderCollect(); } }
+function setLevelQuick(v){ const k=_detailKey; if(k && setCharLevelFree(k, v)){ SFX_deploy(); toast(DEFS[k].name+' Lv'+charLv(k)+'に設定'); renderCharDetail(); renderCollect(); } }
 
 // 簡易トースト
 let _toastT=null;
@@ -2202,7 +2223,7 @@ if(typeof globalThis!=='undefined') globalThis.__NYANKO = { CONF, DEFS, ORDER,
   reset, spawn, step, deploy, upgradeWallet, castTower, nearestEnemy, frontUnit, explode, effRate, effCap, walletCost,
   isUnlocked, unlockedUnits, stageUnlocked, newUnit, ATK_ANIM,
   UPG, upgVal, upgCost, upgLv, buyUpgrade, buyUnit, unlockAvailable, stageExp,
-  CHAR_LV_MAX, CHAR_LV_STEP, charLv, charLvMul, charLvCost, levelUpChar, UNIT_DESC,
+  CHAR_LV_MAX, CHAR_LV_STEP, charLv, charLvMul, charLvCost, levelUpChar, setCharLevelFree, UNIT_DESC,
   UNLOCKS, resetProgress, renderCollect, toggleSpeed,
   get gameSpeed(){return gameSpeed;}, set gameSpeed(v){gameSpeed=v;},
   walletCapTable, walletMaxLv, walletStartLv,
