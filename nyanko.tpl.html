@@ -1278,17 +1278,18 @@ function updateCamera(){
   if(Math.abs(want-cam.x)<0.5) cam.x=want;
 }
 
-// 菌タワー（tower_kin）を「土台は固定・上ほど左右に揺れる」ようにアニメ描画。
-// 元画像を横スライスして各段を高さ依存のsinで水平オフセット＝茎(ツタ)がうねうね／上のカビ玉(顔)が左右に揺れる。
-// 高さで位相をずらす(t*4.2)ので、金属棒のように一様に傾くのではなくS字にうねる。土台(t≈0)はほぼ動かない。
+// 菌タワー（tower_kin）を「土台は固定・上ほど大きく左右にゆらゆら揺れる」ようにアニメ描画。
+// 元画像を横スライスして各段を高さ依存のsinで水平オフセット＝上のカビ玉(顔)が左右に揺れ、茎(ツタ)がしなる。
+// 全段を同位相にして「うねうね(S字)」でなく「そよ風にゆれる(振り子)」に。土台(t≈0)はほぼ動かない。
+// t*0.7 の弱い位相ラグ＝先端がわずかに遅れてしなる自然な揺れ（大きなうねりにはしない）。
 function drawMoldTower(x, g, im){
-  const TH=132, TW=132, strips=24;              // 城より一回り大きく地面にどっしり／24段でなめらかにうねる
+  const TH=132, TW=132, strips=24;              // 城より一回り大きく地面にどっしり／24段でなめらかにしなる
   const top=g-TH, imW=im.naturalWidth, imH=im.naturalHeight;
   const srcH=imH/strips, dstH=TH/strips;
   ctx.save(); ctx.imageSmoothingEnabled=false;
   for(let i=0;i<strips;i++){                     // i=0が上（顔）側
     const t=1-(i+0.5)/strips;                    // 0=下(土台), 1=上(顔)
-    const dx=Math.sin(elapsed*2.6 + t*4.2)*8*Math.pow(t,1.5);   // 上ほど大きく揺れる進行波＝うねうね
+    const dx=Math.sin(elapsed*2.4 + t*0.7)*9*Math.pow(t,1.4);   // 上ほど大きく・ほぼ同位相に左右へ揺れる
     ctx.drawImage(im, 0, i*srcH, imW, srcH, x-TW/2+dx, top+i*dstH, TW, dstH+0.6);  // +0.6=段の継ぎ目消し
   }
   ctx.restore();
