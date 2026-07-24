@@ -567,5 +567,33 @@ API.save.lv={}; ok(API.charLvTotalExp('cookie',2)===API.charLvCost('cookie'), 'c
 API.save.upg={}; ok(API.upgTotalExp('tHp',1)===API.upgCost('tHp'), 'upgrade total to Lv1 == first step cost');
 API.testMode=false; API.save.upg={}; API.save.lv={};
 
+// 29) deterministic enemy spawning: no RNG in enemy TYPE selection → identical sequence every run (consistent difficulty)
+API.testMode=false;
+function spawnSeqFor(stageId, ticks){
+  API.setStage(stageId); API.reset(stageId); API.world.units.length=0; API.world.spawnSeq=0;
+  const seq=[];
+  for(let i=0;i<ticks;i++){ const before=API.world.units.length; API.enemySpawn();
+    const nu=API.world.units.slice(before).filter(u=>u.side==='e'); if(nu.length) seq.push(nu[0].key); }
+  return seq;
+}
+const runA=spawnSeqFor(5,12), runB=spawnSeqFor(5,12);
+ok(runA.length>0, 'enemySpawn produces enemies');
+ok(JSON.stringify(runA)===JSON.stringify(runB), `enemy spawn order is deterministic (repeatable): ${runA.slice(0,6).join(',')}...`);
+// the pattern follows the wave's spawn pool in order (loop), e.g. pool[0],pool[1],...
+const w5=API.STAGE_BY_ID[5].waves[0]; const pool5=w5.spawn;
+let followsPool=true; for(let i=0;i<runA.length;i++){ if(runA[i]!==pool5[i%pool5.length]) { followsPool=false; break; } }
+ok(followsPool, `continuous spawn cycles the wave pool in order (pool=[${pool5.join(',')}])`);
+// wave-switch burst is also deterministic (repeatable)
+function burstSeqFor(stageId, waveIdx){
+  API.setStage(stageId); API.reset(stageId); API.world.units.length=0;
+  const w=API.STAGE_BY_ID[stageId].waves[waveIdx];
+  API.spawnWaveBurst(w);
+  return API.world.units.filter(u=>u.side==='e').map(u=>u.key);
+}
+const brkWave = API.STAGE_BY_ID[5].waves.findIndex(w=>w.type==='break');
+if(brkWave>=0){ const bA=burstSeqFor(5,brkWave), bB=burstSeqFor(5,brkWave);
+  ok(JSON.stringify(bA)===JSON.stringify(bB), 'wave-switch burst is deterministic (no probability)'); }
+else ok(true, 'no break wave on stage 5 (skip burst determinism)');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail?1:0);

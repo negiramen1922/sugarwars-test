@@ -168,8 +168,9 @@
 - **`makeWaves(n, boss, mini, total)`**：`genStage` が敵城HP総量(`total`)を**複数のWAVEゲージに分割**して `curStage.waves`（`[{idx,type,final,hp,spawn,burst,burstPool,tower,heavy?,boss?,mini?}]`）を作る。ゲージ数＝`2 + floor(n/6)` を 2〜5 でクランプ（ボス面は最低4）。重み配分＝ブレイクゲージは×1.4厚い。
   - **WAVE 2種**：`type:'normal'`（通常）と `type:'break'`（ブレイク）。**基本は最後のゲージがブレイク**。ゲージ4本以上なら**途中(最後から2番目)にもブレイク**が入る。
   - **通常WAVE**：切替時に `spawnWaveBurst`（`burst=3+floor(n/7)`体）で敵が多めに湧く。連続湧き＆バーストの敵＝`normalPool(n)`（軽め）。
-  - **ブレイクWAVE**：`burst`が多い（`4+floor(n/4)`・重めの敵`w.heavy`を混ぜる）／敵タワーが手前を攻撃（`tower:true`）／敵の湧き間隔が0.6倍に短縮（`world.waveType==='break'`）。連続湧き＆バーストの敵＝`breakPool(n)`（壁/装甲/エリートを厚く）。**※制限時間（大技スタン）は撤廃**＝あまり機能しなかったため。
-  - **WAVEごとの敵プール（つくり込みノブ）**：各waveは `w.spawn`（そのWAVE中に連続湧きする敵の配列）と `w.burstPool`（切替バーストの敵・既定＝`spawn`）を持つ。`enemySpawn()` は**現在のWAVEの `spawn`** を、`spawnWaveBurst()` は `w.burstPool` を引く＝**通常/ブレイクで湧く敵が変わる**。`normalPool(n)`＝軽め／`breakPool(n)`＝重め＋エリート。`basePool(n)`＝両者の和集合（`pool`＝描画/テスト用の一覧）。**足長ノッポ `m_legs` は20面からブレイクWAVE限定でデビュー→28面から通常湧きにも混ざる**。後衛（射手`m_phage`）は当面プールに入れない。
+  - **ブレイクWAVE**：`burst`が多い（`4+floor(n/4)`・重めの敵`w.heavy`を**1体おきに固定**で混ぜる＝確率なし）／敵タワーが手前を攻撃（`tower:true`）／敵の湧き間隔が0.6倍に短縮（`world.waveType==='break'`）。連続湧き＆バーストの敵＝`breakPool(n)`（壁/装甲/エリートを厚く）。**※制限時間（大技スタン）は撤廃**＝あまり機能しなかったため。
+  - **敵の湧きは決定的ループ（乱数なし＝難易度がブレない・重要）**：`enemySpawn()` は `w.spawn` を**先頭から順番に繰り返し**湧かせる（`world.spawnSeq % pool.length`・各WAVE開始で0に戻す）。`spawnWaveBurst()` も `w.burstPool` を**順番に**出し、ブレイクの重め敵 `w.heavy` は**奇数番(1体おき)に固定で混ぜる**（旧`Math.random()<0.5`を廃止）。**`w.spawn`/`w.burstPool` の配列＝そのまま出現パターン**＝重複を入れれば比率になる（例 `['m_bump','m_bump','m_neba']`＝bump2体→neba1体を繰返し）。並び順・重複で内容を完全に制御できる。※縦位置(y)だけは見た目のばらつきで乱数のまま（1レーンなので難易度に無影響）。テスト：smoke 29。
+  - **WAVEごとの敵プール（つくり込みノブ）**：各waveは `w.spawn`（そのWAVE中に連続湧きする敵の配列＝出現パターン）と `w.burstPool`（切替バーストの敵・既定＝`spawn`）を持つ。`enemySpawn()` は**現在のWAVEの `spawn`** を、`spawnWaveBurst()` は `w.burstPool` を引く＝**通常/ブレイクで湧く敵が変わる**。`normalPool(n)`＝軽め／`breakPool(n)`＝重め＋エリート。`basePool(n)`＝両者の和集合（`pool`＝描画/テスト用の一覧）。**足長ノッポ `m_legs` は20面からブレイクWAVE限定でデビュー→28面から通常湧きにも混ざる**。後衛（射手`m_phage`）は当面プールに入れない。
   - **ボス/中ボス**：最終ゲージに `boss`(`m_boss`/red)または `mini`(`m_gboss`/green)を積む（**10面ごとボス／5面ごと中ボス**）。ボスはHP割合イベントではなく**最終ブレイクWAVEにユニットとして登場**（壁として立ちはだかる）。
   - 1面(STAGE_BY_ID[1])は上書きで**単一の通常ゲージ**（チュートリアル＝WAVEなし）。
 - **WAVE切替（`advanceWave`）**：今のゲージを削り切る（`ehp<=0` かつ非最終）と発火。①`curWave++`＋次ゲージのHP/タイプをセット、②**ノックバック＝ブレイク/ボスは `knockAllAllies()`で全軍を大きく（劇的リセット）／通常WAVEは `knockAllAllies({maxX:castleInset+230, dist:64})`＝城際の前線だけを軽く剥がす**（通常切替まで毎回 全軍120pxだと「敵の押し込みが強い＝押し返しづらい」ため。後方の本隊は位置を保つ）、③`spawnWaveBurst`で入場バースト、④ボス/中ボスがいれば`spawnBoss`、⑤バナー（通常=「WAVE N！」／ブレイク=「⚡ ブレイクWAVE！」／最終=「⚡ 最終ブレイク！」）。
@@ -204,4 +205,4 @@
 
 ## テスト
 
-`node build_nyanko.js` → ヘッドレス smoke（`node nyanko.smoke.js`）で **28ブロック / 198アサーション**（全パス）。メタ関連の検証：サイフ初期上限=100 / `effCap` の Lv0→max 補間 / 城HP=`tHp` / 強化購入でLv↑&EXP消費&コスト逓増 / タワー射程外は当たらない / 解放ゲート（need）＋EXP消費 / TEST_MODEはお金非MAX＆レベル自由設定（7・26）/ トゲ3種のslam dmgMul統一（27）/ 強化Lv自由設定＋到達EXP合計の計算（28）。
+`node build_nyanko.js` → ヘッドレス smoke（`node nyanko.smoke.js`）で **29ブロック / 202アサーション**（全パス）。メタ関連の検証：サイフ初期上限=100 / `effCap` の Lv0→max 補間 / 城HP=`tHp` / 強化購入でLv↑&EXP消費&コスト逓増 / タワー射程外は当たらない / 解放ゲート（need）＋EXP消費 / TEST_MODEはお金非MAX＆レベル自由設定（7・26）/ トゲ3種のslam dmgMul統一（27）/ 強化Lv自由設定＋到達EXP合計の計算（28）/ 敵湧きの決定的ループ（29）。

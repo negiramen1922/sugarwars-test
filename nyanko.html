@@ -688,7 +688,7 @@ function effCap(){ const t=walletCapTable(); return t[Math.max(0, Math.min(walle
 function walletCost(){ return Math.round(effCap()*0.5); }                // 財布UPの費用＝今の上限の半分（にゃんこ式・上限100→費用50）
 
 function reset(){
-  world = { units:[], shots:[], parts:[], slashes:[], pops:[], shocks:[], nextId:1, shake:0 };
+  world = { units:[], shots:[], parts:[], slashes:[], pops:[], shocks:[], nextId:1, shake:0, spawnSeq:0 };
   walletLv = walletStartLv();                           // 開始Lv＝wStartメタ
   myMaxHP = upgVal('tHp');                              // 自城HP＝メタ強化
   php = myMaxHP;
@@ -1112,9 +1112,13 @@ function deathBurst(u){
 /* --- 敵の出撃AI（時間経過で強い編成も混ざる） --- */
 function enemySpawn(){
   // 現在のWAVEの敵プールを優先（通常/ブレイクで湧く敵が変わる）。無ければステージ全体プール。
+  // ★決定的ループ：pool を先頭から順番に繰り返し湧かせる（乱数なし＝毎回同じ順＝難易度がブレない）。
+  //   pool は「出現パターン」そのもの＝重複を入れれば比率になる（例 [bump,bump,neba]＝bump2:neba1で繰返し）。
   const w = curStage && curStage.waves && curStage.waves[curWave];
   const pool = (w && w.spawn) || (curStage && curStage.pool) || ['m_bump'];
-  spawn(pool[(Math.random()*pool.length)|0], 'e');
+  const key = pool[(world.spawnSeq||0) % pool.length];
+  world.spawnSeq = (world.spawnSeq||0) + 1;
+  spawn(key, 'e');
 }
 /* --- WAVE制（敵タワーの複数ゲージ） --- */
 const TOWER_ATK_CD = 2.6;   // ブレイク中のタワー攻撃の間隔(秒)
@@ -1124,6 +1128,7 @@ function advanceWave(){
   const w = curStage.waves[curWave];
   foeMaxHP = w.hp; ehp = w.hp;
   world.waveType = w.type;
+  world.spawnSeq = 0;   // ★各WAVEは出現パターンを先頭から（決定的＝毎回同じ順）
   world.towerAtkCd = TOWER_ATK_CD;
   // WAVE切替のノックバック：ブレイク/ボスは劇的に全体を大きく／通常は城際の前線だけを軽く剥がす
   // （通常切替まで毎回 全軍120pxだと「敵の押し込みが強い」＝押し返しづらく感じるため）
@@ -1141,8 +1146,9 @@ function spawnWaveBurst(w){
   const n=w.burst||0;
   for(let i=0;i<n;i++){
     if(world.units.filter(u=>u.side==='e').length>=CONF.maxUnitsPerSide) break;
-    let key=pool[(Math.random()*pool.length)|0];
-    if(w.type==='break' && w.heavy && Math.random()<0.5) key=w.heavy;   // ブレイクは重め敵を混ぜる
+    // ★決定的：burstPool を先頭から順番に。ブレイクは1体おき(奇数番)に重め敵 w.heavy を固定で混ぜる（確率なし＝毎回同じ内容）。
+    let key=pool[i % pool.length];
+    if(w.type==='break' && w.heavy && (i%2===1)) key=w.heavy;
     const y=CONF.groundY - Math.random()*CONF.rowBand;
     const u=newUnit(key,'e', CONF.castleInset + 14 + Math.random()*60, y); u.fromEvent=true;
     world.units.push(u);
@@ -2250,7 +2256,7 @@ requestAnimationFrame(loop);
 
 /* ヘッドレステスト用に主要関数を公開 */
 if(typeof globalThis!=='undefined') globalThis.__NYANKO = { CONF, DEFS, ORDER,
-  reset, spawn, step, deploy, upgradeWallet, castTower, nearestEnemy, frontUnit, explode, effRate, effCap, walletCost,
+  reset, spawn, enemySpawn, spawnWaveBurst, step, deploy, upgradeWallet, castTower, nearestEnemy, frontUnit, explode, effRate, effCap, walletCost,
   isUnlocked, unlockedUnits, stageUnlocked, newUnit, ATK_ANIM,
   UPG, upgVal, upgCost, upgLv, buyUpgrade, buyUnit, unlockAvailable, stageExp,
   CHAR_LV_MAX, CHAR_LV_STEP, charLv, charLvMul, charLvCost, levelUpChar, setCharLevelFree, charLvTotalExp, UNIT_DESC,
