@@ -2,6 +2,34 @@
 
 にゃんこ大戦争風スピンオフ `nyanko.html`（テンプレ `nyanko.tpl.html` → `build_nyanko.js` で生成）のメタ進行・強化まわりの設計メモ。**あとから参照するための覚え書き**。
 
+## 🔰 引き継ぎ（別チャットで続けるとき最初に読む）
+
+**ゲーム**：SUGAR MARCH＝にゃんこ大戦争風の**1レーン押し合いオートバトラー**（お菓子＝味方/青・カビ軍団＝敵/緑赤・右が自陣、左が敵陣）。本家 SUGAR WARS（`index.html`）とは別のスピンオフ。会話は日本語。
+
+**ファイル構成**：
+- `nyanko.tpl.html` … **編集するのはこれ**（テンプレ・単一ファイル完結）。`/*__SPRITES__*/ {}` に index.html のスプライトが差し込まれる。
+- `build_nyanko.js` … `node build_nyanko.js` で `nyanko.tpl.html` ＋ index.html のスプライト → `nyanko.html` を生成。**nyanko.html は生成物なので直接編集しない**。
+- `nyanko.smoke.js` … ヘッドレステスト（node の vm で `<script>` を読む・**playwright不要**）。`node nyanko.smoke.js` で実行。
+- `nyanko.balance.js` … バランスsim（playwright必要）。`NODE_PATH=$(npm root -g) node nyanko.balance.js`。1〜10面を複数回シミュして勝率/所要秒を出す。
+- `NYANKO_NOTES.md`（これ）… 設計メモ。
+
+**開発ワークフロー（毎回）**：
+1. `nyanko.tpl.html` を編集
+2. `node build_nyanko.js`（nyanko.html 生成）
+3. `node nyanko.smoke.js` を**全パス**させる（テストが古くなったら新仕様に合わせて更新）
+4. 数値バランスを変えたら `NODE_PATH=$(npm root -g) node nyanko.balance.js` で確認
+5. 見た目確認は playwright でスクショ（chromium: `/opt/pw-browsers/chromium`）
+6. コミット → PR → **squash-merge**（`main` が GitHub Pages で https://negiramen1922.github.io/sugarwars-test/nyanko.html に配信）
+   - 注意：squash-merge のたびに main が進む。次のPR前に `git fetch origin main` → **作業をコミットしてから** `git checkout -B <branch> origin/main` → `git checkout <前のtip> -- <files>`（未コミットのまま checkout すると変更が消える）。
+
+**現在の状態（要点）**：
+- 敵ロスター（名前＝色シロ/ミドリ/アカ＋型カビ=もこもこ/ネバ=スライム/トゲ=とげとげ/アシ=あしなが）：`シロカビ`(m_bump・基本前衛)／`シロネバ`(m_neba・タンク・3面〜)／`シロトゲ`(m_thorn・ジャンプ衝撃波アタッカー・6面〜主力)／`シロアシ`(m_legs・大型・20面〜)／`ミドリトゲ`(m_gspike・緑・現在プール非登場)／中ボス`ミドリのぬし`(m_gboss・緑・5面ごと)／大ボス`アカトゲ`(m_boss・赤・10面ごと)。**緑のもこもこ`ミドリカビ`／緑スライム`ミドリネバ`は未実装（将来の緑変種の予約名）**。後衛射手・自爆はプール非登場。
+- WAVE制（敵城HP＝複数ゲージ・通常/ブレイク・切替で味方ノックバック）。ブレイク＝湧き速い＋強敵。
+- バランス目安：**混成Lv1で S1〜7≈4/4・S8=3/4・S9=2/4・S10ボス=1〜3/4**（9〜10は育成/混成が要る）。純クッキー連打はボスがLv1で勝てずLv10で勝てる＝レベルが効く。
+- キャラレベル：+6%/Lv（Lv10=+54%）・コスト`1.42^`。
+
+**次の候補**：ステージ1〜10の中身の作り込み（`STAGE_OVERRIDES`で個別調整）／緑変種の追加（ミドリカビ・ミドリネバ）／タワー砲の種類（下記「タワーの派生要素」章）。
+
 ## メタ進行（EXP）— 実装済み
 
 - **EXP（`save.exp`）**：ステージクリアで獲得する恒久通貨。`stageExp(s, first)` ＝初回 `600 + id*100`（1-2面で計約1500）/ 再挑戦 `120 + id*20`。決着 `win()` で付与。

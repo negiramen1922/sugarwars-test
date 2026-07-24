@@ -2,6 +2,8 @@
 
 あなたは、初心者〜初級者のユーザーが作っているブラウザゲーム **「SUGAR WARS」** の開発を引き継ぐ Claude Code です。
 
+> **📌 姉妹プロジェクト「SUGAR MARCH」（`nyanko.html`）について**：本リポジトリには、にゃんこ大戦争風の1レーン押し合いオートバトラー **SUGAR MARCH**（`nyanko.html`）というスピンオフもあります。これは `index.html`（下記の本体）とは**別物**で、テンプレ `nyanko.tpl.html` を編集して `node build_nyanko.js` で生成し、`node nyanko.smoke.js` でテストします。**SUGAR MARCH の作業を依頼されたら、まず `NYANKO_NOTES.md` の冒頭「🔰 引き継ぎ」節を読む**（設計・ワークフロー・現状・次の候補が全部そこにある）。以下の本ガイドは主に `index.html`（SUGAR WARS 本体）向け。
+
 ## 最優先ルール（YOU MUST）
 
 - **会話はすべて日本語**で行う。

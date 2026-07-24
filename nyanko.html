@@ -605,23 +605,23 @@ const FOE_DEFS = {
   // 自爆ラッシュ（速い・接触で大爆発。前衛をまとめて吹き飛ばす）
   m_puff: {name:'プクーレ',   role:'bomber', atk:0,  hp:80,  speed:134, range:30, cd:1.5,  scale:0.92,
            blast:180, blastR:66, num:1, mold:'spiky', col:'#a7b86a', col2:'#6f7d3f'},
-  // ボス（超巨大・高HP高火力・遅い。終盤ステージの主）＝赤トゲトゲの立ち絵・他より一回り大きい(scale)。単体→単体→ジャンプ範囲(slam)のループ・広範囲
-  m_boss: {name:'カビ大帝',   role:'melee',  atk:75, hp:3600, speed:38, range:38, cd:2.3,  scale:2.3,
+  // ボス（アカトゲ＝赤い大きなとげ・超巨大・高HP高火力・遅い。終盤ステージの主）。単体→単体→ジャンプ範囲(slam)のループ
+  m_boss: {name:'アカトゲ',   role:'melee',  atk:75, hp:3600, speed:38, range:38, cd:2.3,  scale:2.3,
            num:1, spr:'m_boss', trait:'red', slam:{r:64, dmgMul:0.5}, slamEvery:3},
-  // ▼ ユーザー提供の立ち絵スプライト敵（spr＝画像・moldなし＝drawFoeSpriteで描画）。
+  // ▼ ユーザー提供の立ち絵スプライト敵（spr＝画像・moldなし＝drawFoeSpriteで描画）。名前＝色(シロ/ミドリ/アカ)＋型(カビ=もこもこ/ネバ=スライム/トゲ=とげとげ/アシ=あしなが)
   // ── 敵ザコの役割（味方の並びに対応させたシンプルな4段） ────────────────────
-  // ①白もこもこ（雑魚1・味方のクッキーナイト相当）＝安い数押しの基本前衛
-  m_bump: {name:'ホコリだま', role:'melee',  atk:11, hp:72,  speed:106, range:26, cd:0.7,  scale:0.88, num:1, spr:'m_bump'},
-  // ②ネバモチ（雑魚2・タンク役）＝シロカビより前でHPを盾に。足は少し遅い（旧イガまるを置き換え）
-  m_neba: {name:'ネバモチ',   role:'melee',  atk:12, hp:230, speed:52,  range:20, cd:1.3,  scale:1.02, num:1, spr:'m_neba'},
-  // ③トゲミドリ（雑魚3・アタッカー役）＝単体→単体→ジャンプ範囲(slam)のループ・緑属性。紙装甲
-  m_gspike:{name:'トゲミドリ', role:'melee', atk:13, hp:130, speed:80,  range:30, cd:1.4, scale:1.02, num:1, spr:'m_gspike', trait:'green', slam:{r:52}, slamEvery:3},
-  // ④キモシロカビ＝足長（高コスト雑魚・味方のチョコナイト相当）＝高耐久・高火力の大型
-  m_legs: {name:'ノッポし',   role:'melee',  atk:45, hp:950, speed:52,  range:42, cd:2.2,  scale:1.7, num:1, spr:'m_legs'},
+  // ①シロカビ（白もこもこ・雑魚1・味方のクッキーナイト相当）＝安い数押しの基本前衛
+  m_bump: {name:'シロカビ',   role:'melee',  atk:11, hp:72,  speed:106, range:26, cd:0.7,  scale:0.88, num:1, spr:'m_bump'},
+  // ②シロネバ（白スライム・雑魚2・タンク役）＝シロカビより前でHPを盾に。足は少し遅い
+  m_neba: {name:'シロネバ',   role:'melee',  atk:12, hp:230, speed:52,  range:20, cd:1.3,  scale:1.02, num:1, spr:'m_neba'},
+  // ③ミドリトゲ（緑とげとげ・雑魚3・アタッカー役）＝単体→単体→ジャンプ範囲(slam)のループ・緑属性。紙装甲（現在プール非登場・シロトゲに置換）
+  m_gspike:{name:'ミドリトゲ', role:'melee', atk:13, hp:130, speed:80,  range:30, cd:1.4, scale:1.02, num:1, spr:'m_gspike', trait:'green', slam:{r:52}, slamEvery:3},
+  // ④シロアシ（白あしなが・高コスト雑魚・味方のチョコナイト相当）＝高耐久・高火力の大型
+  m_legs: {name:'シロアシ',   role:'melee',  atk:45, hp:950, speed:52,  range:42, cd:2.2,  scale:1.7, num:1, spr:'m_legs'},
   // 緑スパイク（中ボス・緑属性）＝対緑の味方が有利を取れる中ボス
   m_gboss:{name:'ミドリのぬし', role:'melee', atk:44, hp:2200, speed:40, range:38, cd:2.2, scale:1.5, num:1, spr:'m_gboss', trait:'green'},
-  // シロトゲ（イガまる）＝単体→単体→ジャンプ範囲(slam)のループ。跳ねて着地し半径slam.r内をまとめて叩く
-  m_thorn:{name:'イガまる',   role:'melee',  atk:16, hp:250, speed:64,  range:30, cd:1.6,  scale:1.02, num:1, spr:'m_thorn', slam:{r:66, dmgMul:1.4}, slamEvery:3},
+  // シロトゲ（白とげとげ・6面からの主力アタッカー）＝単体→単体→ジャンプ範囲(slam)のループ。跳ねて着地し半径slam.r内をまとめて叩く
+  m_thorn:{name:'シロトゲ',   role:'melee',  atk:16, hp:250, speed:64,  range:30, cd:1.6,  scale:1.02, num:1, spr:'m_thorn', slam:{r:66, dmgMul:1.4}, slamEvery:3},
   // ▼ 引退（プールに出さない・数値参照用に温存）：旧テッコウはネバモチ(タンク)に集約
   m_armor:{name:'テッコウ',   role:'melee',  atk:14, hp:420, speed:46,  range:30, cd:1.7,  scale:1.10, num:1, spr:'m_armor', dr:0.25},
 };
