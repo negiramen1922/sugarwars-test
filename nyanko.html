@@ -453,12 +453,12 @@ const UNIT_DESC = {
    ・レベルUPのEXPコストは基礎(出撃コスト由来)×1.35^(lv-1) で逓増。数値/性能は詳細ダイアログで確認。
    ============================================================ */
 const CHAR_LV_MAX = 20;      // 最大レベル
-const CHAR_LV_STEP = 0.08;   // 1レベルごとのHP/攻撃の上昇率（+8%）
+const CHAR_LV_STEP = 0.06;   // 1レベルごとのHP/攻撃の上昇率（+6%。Lv10で+54%＝旧+72%より控えめ＝レベルは「後押し」で勝ちボタンにしない）
 function charLv(k){ return (save.lv && save.lv[k]) || 1; }
 function charLvMul(k){ return 1 + (charLv(k)-1)*CHAR_LV_STEP; }                 // HP/攻撃の倍率
 function charLvCost(k){ const lv=charLv(k); if(lv>=CHAR_LV_MAX) return null;    // 次のレベルに必要なEXP（MAXならnull）
   const base = 25 + Math.round((DEFS[k]?DEFS[k].cost:60)*0.3);                  // 出撃コストが高いキャラほど強化も重い
-  return Math.round(base * Math.pow(1.35, lv-1)); }
+  return Math.round(base * Math.pow(1.42, lv-1)); }                            // 高レベルほど急に重く（連打キャラの上げすぎ抑制）
 function levelUpChar(k){
   if(!isUnlocked(k)) return false;
   const cost=charLvCost(k); if(cost==null) return false;        // MAX
@@ -531,7 +531,7 @@ function makeWaves(n, boss, mini, total){
     if(brk){ w.tower = true; w.heavy = heavyKey(n); }   // ブレイク＝タワー攻撃＋重敵（制限時間は撤廃）
     else   { w.tower = false; }
   });
-  if(boss)      waves[cnt-1].boss = { key:'m_boss',  hp:Math.round(600+n*115), atk:Math.round(28+n*2.4), sMul:1.14, trait:'red' };   // 前線を維持する壁＝倒し切れるHP/atkに（白トゲ強化で前が厚くなったぶん微調整）
+  if(boss)      waves[cnt-1].boss = { key:'m_boss',  hp:Math.round(520+n*100), atk:Math.round(28+n*2.4), sMul:1.14, trait:'red' };   // 前線を維持する壁＝倒し切れるHP/atkに（白トゲのAoE強化で前が厚くなったぶん微調整）
   else if(mini) waves[cnt-1].mini = { key:'m_gboss', hp:Math.round(1500+n*280), atk:Math.round(32+n*3.4), sMul:1.0,  trait:'green' };
   return waves;
 }
@@ -621,7 +621,7 @@ const FOE_DEFS = {
   // 緑スパイク（中ボス・緑属性）＝対緑の味方が有利を取れる中ボス
   m_gboss:{name:'ミドリのぬし', role:'melee', atk:44, hp:2200, speed:40, range:38, cd:2.2, scale:1.5, num:1, spr:'m_gboss', trait:'green'},
   // シロトゲ（イガまる）＝単体→単体→ジャンプ範囲(slam)のループ。跳ねて着地し半径slam.r内をまとめて叩く
-  m_thorn:{name:'イガまる',   role:'melee',  atk:16, hp:250, speed:64,  range:30, cd:1.6,  scale:1.02, num:1, spr:'m_thorn', slam:{r:58}, slamEvery:3},
+  m_thorn:{name:'イガまる',   role:'melee',  atk:16, hp:250, speed:64,  range:30, cd:1.6,  scale:1.02, num:1, spr:'m_thorn', slam:{r:66, dmgMul:1.4}, slamEvery:3},
   // ▼ 引退（プールに出さない・数値参照用に温存）：旧テッコウはネバモチ(タンク)に集約
   m_armor:{name:'テッコウ',   role:'melee',  atk:14, hp:420, speed:46,  range:30, cd:1.7,  scale:1.10, num:1, spr:'m_armor', dr:0.25},
 };
@@ -2202,7 +2202,7 @@ if(typeof globalThis!=='undefined') globalThis.__NYANKO = { CONF, DEFS, ORDER,
   reset, spawn, step, deploy, upgradeWallet, castTower, nearestEnemy, frontUnit, explode, effRate, effCap, walletCost,
   isUnlocked, unlockedUnits, stageUnlocked, newUnit, ATK_ANIM,
   UPG, upgVal, upgCost, upgLv, buyUpgrade, buyUnit, unlockAvailable, stageExp,
-  CHAR_LV_MAX, charLv, charLvMul, charLvCost, levelUpChar, UNIT_DESC,
+  CHAR_LV_MAX, CHAR_LV_STEP, charLv, charLvMul, charLvCost, levelUpChar, UNIT_DESC,
   UNLOCKS, resetProgress, renderCollect, toggleSpeed,
   get gameSpeed(){return gameSpeed;}, set gameSpeed(v){gameSpeed=v;},
   walletCapTable, walletMaxLv, walletStartLv,
