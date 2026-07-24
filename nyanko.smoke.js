@@ -527,5 +527,23 @@ for(let i=0;i<40;i++) API.updateCamera();                      // settle
 ok(API.cam.x>=0 && API.cam.x<=API.CONF.W-API.cam.visW+0.5, `camera x stays within [0, W-visW] (x=${API.cam.x.toFixed(0)})`);
 API.cam.mobile=false; API.cam.zoom=1; API.cam.x=0;
 
+// 26) TEST MODE free level-set (balance tuning): sets level directly with no EXP cost, clamped, TEST_MODE-only
+API.testMode=false; API.save.lv={}; API.save.exp=0;
+ok(API.setCharLevelFree('cookie',10)===false, 'free level-set is blocked when TEST_MODE is off');
+ok(API.charLv('cookie')===1, 'level unchanged when TEST_MODE off');
+API.testMode=true;
+const expBefore26=API.save.exp;
+ok(API.setCharLevelFree('cookie',10)===true, 'free level-set works in TEST_MODE');
+ok(API.charLv('cookie')===10, 'level set directly to 10');
+ok(API.save.exp===expBefore26, 'free level-set spends no EXP');
+API.setCharLevelFree('cookie',999); ok(API.charLv('cookie')===API.CHAR_LV_MAX, 'free level-set clamps above MAX');
+API.setCharLevelFree('cookie',0);   ok(API.charLv('cookie')===1, 'free level-set clamps below 1');
+API.testMode=false; API.save.lv={};
+
+// 27) boss/mid-boss slam range-damage matches シロトゲ (m_thorn) — dmgMul 1.4
+ok(API.FOE_DEFS.m_thorn.slam.dmgMul===1.4, 'シロトゲ slam dmgMul is 1.4 (reference)');
+ok(API.FOE_DEFS.m_boss.slam.dmgMul===1.4, 'アカトゲ slam dmgMul strengthened to 1.4 (matches シロトゲ)');
+ok(API.FOE_DEFS.m_gspike.slam.dmgMul===1.4, 'ミドリトゲ slam dmgMul strengthened to 1.4 (matches シロトゲ)');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail?1:0);
