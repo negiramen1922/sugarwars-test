@@ -595,5 +595,22 @@ if(brkWave>=0){ const bA=burstSeqFor(5,brkWave), bB=burstSeqFor(5,brkWave);
   ok(JSON.stringify(bA)===JSON.stringify(bB), 'wave-switch burst is deterministic (no probability)'); }
 else ok(true, 'no break wave on stage 5 (skip burst determinism)');
 
+// 30) mid-boss identity (single-target heavy hit, low frequency) + stage-5 anti-clump thorn
+const s5=API.STAGE_BY_ID[5]; const brk5=s5.waves.find(w=>w.type==='break');
+ok(!!brk5, 'stage 5 has a break wave');
+ok(brk5.spawn.includes('m_thorn'), 'stage 5 break wave includes シロトゲ(m_thorn) for anti-clump AoE');
+ok(!brk5.heavy, 'stage 5 break heavy override cleared (fully fixed pattern, no probability)');
+const mini5 = s5.waves[s5.waves.length-1].mini;
+ok(mini5 && mini5.key==='m_gboss', 'stage 5 final wave carries the ミドリのぬし mini-boss');
+ok(mini5.cd >= 3.0, `mid-boss attacks slowly / low frequency (cd=${mini5.cd})`);
+ok(!API.FOE_DEFS.m_gboss.slam, 'ミドリのぬし has NO AoE (single-target only)');
+ok(API.FOE_DEFS.m_gboss.cd >= 3.0, `ミドリのぬし DEF is low-frequency (cd=${API.FOE_DEFS.m_gboss.cd})`);
+// spawnBoss applies cd + atk overrides so the mini-boss is a slow, heavy single-target hitter
+API.setStage(5); API.reset(5); API.world.units.length=0;
+API.spawnBoss({key:'m_gboss', hp:2000, atk:80, cd:3.4, trait:'green'});
+const mb=API.world.units.find(u=>u.key==='m_gboss');
+ok(mb && Math.abs(mb.cd-3.4)<1e-9, 'spawnBoss applies cfg.cd (low frequency)');
+ok(mb && mb.atk===80, 'spawnBoss applies cfg.atk (heavy single hit)');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail?1:0);
