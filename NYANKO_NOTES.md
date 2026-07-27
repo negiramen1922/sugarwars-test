@@ -10,7 +10,7 @@
 - `nyanko.tpl.html` … **編集するのはこれ**（テンプレ・単一ファイル完結）。`/*__SPRITES__*/ {}` に index.html のスプライトが差し込まれる。
 - `build_nyanko.js` … `node build_nyanko.js` で `nyanko.tpl.html` ＋ index.html のスプライト → `nyanko.html` を生成。**nyanko.html は生成物なので直接編集しない**。
 - `nyanko.smoke.js` … ヘッドレステスト（node の vm で `<script>` を読む・**playwright不要**）。`node nyanko.smoke.js` で実行。
-- `nyanko.balance.js` … バランスsim（playwright必要）。`NODE_PATH=$(npm root -g) node nyanko.balance.js`。1〜10面を複数回シミュして勝率/所要秒を出す。
+- `nyanko.balance.js` … バランスsim（playwright必要）。`NODE_PATH=$(npm root -g) node nyanko.balance.js`。マイルストーン面(1/3/5/8/10/11/13/15)を各4回・全員Lv1・最安連打AIでシミュして勝率/所要秒を出す（＝低レベル初心者相当の floor 検証）。
 - `NYANKO_NOTES.md`（これ）… 設計メモ。
 
 **開発ワークフロー（毎回）**：
@@ -53,7 +53,7 @@
 - **`wMax`（最大貯金）メタ**：500の先に上限Lvを +100🍬 ずつ追加（`walletCapTable`／`walletMaxLv`）。
 - **`wStart`（初期Lv）メタ**：バトル開始時の財布Lvを上げる（`reset` で `walletLv=walletStartLv()`）。開始🍬も `CONF.moneyStart + walletLv*40`。
 - **バトル中UP**：`upgradeWallet`（🍬で1Lv上げる）。費用 `walletCost()=今の上限×0.75`（にゃんこ式＝ほぼ貯金を使って上げる）。
-- **`wRate`（生産速度）**：`effRate()=upgVal('wRate')+財布Lv*CONF.walletRateStep`。
+- **`wRate`（生産速度メタ）**：`effRate()=(CONF.moneyRate+財布Lv*CONF.walletRateStep)×upgVal('wRate')`。`wRate`はメタ強化（`UPG.wRate`・max5）＝Lv0〜5で×1.0〜1.5（+0.1/Lv・早くなりすぎない範囲）。※旧「wRate廃止・生産固定」から復活。
 
 ### 強化トラック `UPG`（`upgCost`=c0×1.55^Lv / 最大Lv=max。wStart/wMaxは`valFn`でテーブル値）
 
@@ -61,7 +61,7 @@
 | --- | --- | --- | --- | --- |
 | `wStart` | サイフ 初期Lv | 50/100/200/300/400/500 | 5 | 開始時の財布Lv＝開始上限 |
 | `wMax` | サイフ 最大貯金 | 500,600,700… | 6 | 財布UPの上限Lv（+100ずつ） |
-| `wRate` | 生産速度 | 20+5/Lv | 8 | `effRate()` の基礎🍬/秒 |
+| `wRate` | サイフ 生産速度 | ×1.0/1.1/1.2/1.3/1.4/1.5 | 5 | `effRate()` に掛かる🍬/秒の倍率（`valFn`） |
 | `tHp` | タワーHP | 1600+450/Lv | 8 | 自城HP（HPバー分母 `myMaxHP`） |
 | `tPow` | タワー攻撃力 | 120+55/Lv | 8 | `castTower` の威力 |
 | `tRng` | タワー射程 | 440+80/Lv | 6 | 届く距離。**開幕チャージ切れ**（`reset` で `towerCd=CONF.towerCd`）。base=中央ちょい自陣寄り(minX≈520)／MAX=敵城の目の前(minX≈40)。**`render` が射程ラインを描画**（ピンクの点線＋💥ラベル） |
@@ -171,10 +171,10 @@
   - **ブレイクWAVE**：`burst`が多い（`4+floor(n/4)`・重めの敵`w.heavy`を**1体おきに固定**で混ぜる＝確率なし）／敵タワーが手前を攻撃（`tower:true`）／敵の湧き間隔が0.6倍に短縮（`world.waveType==='break'`）。連続湧き＆バーストの敵＝`breakPool(n)`（壁/装甲/エリートを厚く）。**※制限時間（大技スタン）は撤廃**＝あまり機能しなかったため。
   - **敵の湧きは決定的ループ（乱数なし＝難易度がブレない・重要）**：`enemySpawn()` は `w.spawn` を**先頭から順番に繰り返し**湧かせる（`world.spawnSeq % pool.length`・各WAVE開始で0に戻す）。`spawnWaveBurst()` も `w.burstPool` を**順番に**出し、ブレイクの重め敵 `w.heavy` は**奇数番(1体おき)に固定で混ぜる**（旧`Math.random()<0.5`を廃止）。**`w.spawn`/`w.burstPool` の配列＝そのまま出現パターン**＝重複を入れれば比率になる（例 `['m_bump','m_bump','m_neba']`＝bump2体→neba1体を繰返し）。並び順・重複で内容を完全に制御できる。※縦位置(y)だけは見た目のばらつきで乱数のまま（1レーンなので難易度に無影響）。テスト：smoke 29。
   - **WAVEごとの敵プール（つくり込みノブ）**：各waveは `w.spawn`（そのWAVE中に連続湧きする敵の配列＝出現パターン）と `w.burstPool`（切替バーストの敵・既定＝`spawn`）を持つ。`enemySpawn()` は**現在のWAVEの `spawn`** を、`spawnWaveBurst()` は `w.burstPool` を引く＝**通常/ブレイクで湧く敵が変わる**。`normalPool(n)`＝軽め／`breakPool(n)`＝重め＋エリート。`basePool(n)`＝両者の和集合（`pool`＝描画/テスト用の一覧）。**足長ノッポ `m_legs` は20面からブレイクWAVE限定でデビュー→28面から通常湧きにも混ざる**。後衛（射手`m_phage`）は当面プールに入れない。
-  - **ボス/中ボス**：最終ゲージに `boss`(`m_boss`/red)または `mini`(`m_gboss`/green)を積む（**10面ごとボス／5面ごと中ボス**）。ボスはHP割合イベントではなく**最終ブレイクWAVEにユニットとして登場**（壁として立ちはだかる）。
+  - **ボス/中ボス**：最終ゲージに `boss`(`m_boss`/red)または `mini`(`m_gboss`/green)を積む（**10面ごとボス／5面ごと中ボス**）。ボスはHP割合イベントではなく**最終ブレイクWAVEにユニットとして登場**（壁として立ちはだかる）。**難所は「5の倍数」に集約**＝通常面（6面など）には中ボスを置かない（`STAGE_OVERRIDES[6]`は撤去済み）。**S11からは中ボス`m_gboss`が通常面のブレイクプールにも雑魚エリートとして混ざる**（`breakPool` の `n>=11`）＝中ボスが「一般ステージの強敵」に格上げされ後半の圧が増す。バランス：S1〜S9=4/4・S5が中ボスの山（sim・Lv1）／S10ボスは積み上げ前提／S12以降はLv1simだと落ちる＝育成前提。
   - 1面(STAGE_BY_ID[1])は上書きで**単一の通常ゲージ**（チュートリアル＝WAVEなし）。
 - **WAVE切替（`advanceWave`）**：今のゲージを削り切る（`ehp<=0` かつ非最終）と発火。①`curWave++`＋次ゲージのHP/タイプをセット、②**ノックバック＝ブレイク/ボスは `knockAllAllies()`で全軍を大きく（劇的リセット）／通常WAVEは `knockAllAllies({maxX:castleInset+230, dist:64})`＝城際の前線だけを軽く剥がす**（通常切替まで毎回 全軍120pxだと「敵の押し込みが強い＝押し返しづらい」ため。後方の本隊は位置を保つ）、③`spawnWaveBurst`で入場バースト、④ボス/中ボスがいれば`spawnBoss`、⑤バナー（通常=「WAVE N！」／ブレイク=「⚡ ブレイクWAVE！」／最終=「⚡ 最終ブレイク！」）。
-- **敵タワーの触手ラッシュ＝前方の押し込み集団を叩く（`startTowerLash`/`updateTowerLash`/`drawTowerLash`）**：`ETOWER_CD`(10秒)ごとに、**敵タワー前方 `ETOWER_RANGE`(130px)内に味方がいれば**発動＝敵城に張り付いた押し込み集団に触手を伸ばして薙ぎ払う。`ETOWER_WIND`(0.5秒)振りかぶり→城に近い順 `ETOWER_MAX_HITS`(4)体に `etowerDmg(n)`(=`12+n*2`・S5=22/S10=32)ダメージ（**ノックバックなし・城は削らない**）。**設計方針（ユーザー要望）**：城→城の砲撃＝実質ステージ全体の時間制限は**不採用**。狙いは「タワー手前の押し込み集団（安いユニットの連打で作った団子）の前列を間引く」局所ペナルティ＝城は削らず、掴む数も `ETOWER_MAX_HITS` 止まりなので assault 全体は潰さない（＝勝てなくはしない）。※以前は「前方に一定数以上の団子があるときだけ発動」の閾値(ETOWER_CLUMP)を設けていたが、ユーザー要望で撤去＝**数に関係なく前方に味方がいれば毎回発動**。チュートリアル面(`curStage.tutorial`)はやらない。白いツルがタワーから前方(右)へ伸びる演出＋緑のヒット火花。`world.etowerCd`/`world.lash` は `reset` で初期化。バランス：**S1〜S6=4/4**（S8=2/4は惜敗＝simは低レベルなので実プレイでは進行で対応・S10ボスは既知の山）。調整＝`ETOWER_CD`(間隔)/`ETOWER_MAX_HITS`(掴む数)/`etowerDmg`(威力)/`ETOWER_RANGE`(届く距離)。テスト：smoke 31。
+- **敵タワーの攻撃：不採用（撤去済み）**。一時「城→城の砲撃＝時間制限」「タワー前方の味方を触手で薙ぐ」を試作したが、**時間制限は理不尽・押し合いを止める**ため撤去。**方針：ステージ難度は敵の構成（ボス／中ボス／特殊行動キャラ）で作る**（タワーからの追撃には頼らない）。敵城は `tower_kin` の立ち絵＋ゆらゆら揺れる演出のみ（攻撃はしない）。
 - **ブレイク進行（`updateBreak(dt)`）**：現状フックのみ（no-op）。**敵タワーの弾撃ち（緑の粒）は見栄え・分かりにくさから撤去**（`towerAttack`削除）。制限時間・大技スタンも撤廃済み。ブレイクは「湧きの速さ＋強敵（重め`heavy`）」で差別化。
 - **自陣タワー被弾の画面揺れ**：敵が自陣の城を殴って `php` が減るとき `world.shake` を立てる＝城が攻撃されているのが分かる。テスト：smoke（城被弾でphp減＋shake>0）。
 - **HP表示**：HTMLの城バー(`.bars`)は非表示化。代わりに①**画面上部に大きな敵バー `drawWaveHud()`**（screen-space・WAVEピップ`●○`・ブレイクは赤）、②**自陣タワーの真上に数値＋バー `drawCastleHP()`**（world-space）。
@@ -183,7 +183,7 @@
 - **タワー（城砲）**：バトル開幕は**チャージ切れ**（`reset` で `towerCd=CONF.towerCd`＝溜まってから初撃）。射程 `UPG.tRng` は **base=中央ちょい自陣寄り(minX≈520)／MAX=敵城の目の前(minX≈40)**（base440・step80・max6＝敵城前まで届く）。
 - **バランス（1〜10面）**：limited roster（クッキー＋順次解禁の4体）でsim検証済み。**泥沼化なし・ボス面(5=中ボス/10=ボス)が時間の山**。ボスは最終ブレイクWAVEの「厚いHP＋高火力の壁」＝base湧きが軽いので必ず対面でき、押し切る本番。難易度は `genStage` の `enemyHP/baseCd/baseCap` と `makeWaves`（ゲージ数/ブレイク重み/burst/limit/boss.hp・atk）で調整。
 
-新ステージ/難易度は `genStage` の式（enemyHP・baseCd・baseCap）と `makeWaves`（WAVE構成）・`normalPool`/`breakPool`・`UNLOCKS.need` を触るだけ。
+新ステージ/難易度は `genStage` の式（enemyHP・baseCd・baseCap）と `makeWaves`（WAVE構成）・`normalPool`/`breakPool`・`UNLOCKS.need` を触るだけ。**通常湧き間隔 `baseCd`＝`max(2.5, 3.0 - n*0.02)`＝1面から約3秒湧き**（面が進むと僅かに速く・ブレイクは×0.6）。sim(profileに`wRate`投資込み)＝S1〜S5=4/4・S8=3/4・S10ボス=2/4・S11=4/4・S13=3/4・S15=2/4。
 
 #### 各ステージのつくり込み（`STAGE_OVERRIDES`）
 自動生成の上から**ステージ個別に手動オーバーライド**できる（`STAGES` 生成直後に `STAGE_OVERRIDES[id](s)` を適用）。1面がその一例（単一ゲージへ上書き）。現在は **4面**（バーストにシロトゲ顔見せ）／**5面**（ブレイクの出現パターンにシロトゲ`m_thorn`を織り込む＝クッキー団子のごり押し対策・`w.heavy`は無効化して完全固定パターン化）／**6面**（最終WAVEに中ボス`m_gboss`を出す＝5面より簡単にならないように）を上書き。触れるノブ：
@@ -209,4 +209,4 @@
 
 ## テスト
 
-`node build_nyanko.js` → ヘッドレス smoke（`node nyanko.smoke.js`）で **32ブロック / 218アサーション**（全パス）。メタ関連の検証：サイフ初期上限=100 / `effCap` の Lv0→max 補間 / 城HP=`tHp` / 強化購入でLv↑&EXP消費&コスト逓増 / タワー射程外は当たらない / 解放ゲート（need）＋EXP消費 / TEST_MODEはお金非MAX＆レベル自由設定（7・26）/ トゲ3種のslam dmgMul統一（27）/ 強化Lv自由設定＋到達EXP合計の計算（28）/ 敵湧きの決定的ループ（29）/ 敵タワーの時間制限砲撃（31）/ 6面の中ボス（32）。
+`node build_nyanko.js` → ヘッドレス smoke（`node nyanko.smoke.js`）で **32ブロック / 220アサーション**（全パス）。メタ関連の検証：サイフ初期上限=100 / `effCap` の Lv0→max 補間 / 城HP=`tHp` / 強化購入でLv↑&EXP消費&コスト逓増 / タワー射程外は当たらない / 解放ゲート（need）＋EXP消費 / TEST_MODEはお金非MAX＆レベル自由設定（7・26）/ トゲ3種のslam dmgMul統一（27）/ 強化Lv自由設定＋到達EXP合計の計算（28）/ 敵湧きの決定的ループ（29）/ 中ボスの単体重火力identity（30）/ 難所は5の倍数＆S11から中ボスが通常プールにも（31）。
