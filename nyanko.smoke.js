@@ -612,5 +612,27 @@ const mb=API.world.units.find(u=>u.key==='m_gboss');
 ok(mb && Math.abs(mb.cd-3.4)<1e-9, 'spawnBoss applies cfg.cd (low frequency)');
 ok(mb && mb.atk===80, 'spawnBoss applies cfg.atk (heavy single hit)');
 
+// 31) enemy tower tentacle rush: lashes the PLAYER units in FRONT of the enemy castle (capped nearest units); local, no castle damage, no knockback
+API.testMode=false;
+API.setStage(5); API.reset(5); API.world.units.length=0;
+const php31=API.php, g31=API.CONF.groundY-8;
+// several units at the enemy castle front, plus one far back (out of range)
+for(let i=0;i<API.ETOWER_MAX_HITS+3;i++){ const u=API.newUnit('cookie','p', API.CONF.castleInset+15+i*12, g31); u.hp=300; u.maxHp=300; API.world.units.push(u); }
+const back=API.newUnit('cookie','p', API.CONF.W-API.CONF.castleInset, g31); back.hp=300; back.maxHp=300; API.world.units.push(back);
+const bhp0=back.hp, bx0=back.x, clumpHp0=API.world.units.filter(u=>u!==back).map(u=>u.hp);
+API.startTowerLash();
+for(let i=0;i<40;i++) API.updateTowerLash(1/30);
+const clumpNow=API.world.units.filter(u=>u!==back);
+const hitCount=clumpNow.filter((u,i)=>u.hp<clumpHp0[i]).length;
+ok(hitCount>0 && hitCount<=API.ETOWER_MAX_HITS, `front units are lashed but capped at ETOWER_MAX_HITS (${hitCount} hit)`);
+ok(back.hp===bhp0 && Math.abs(back.x-bx0)<1e-6, 'a unit far from the enemy castle is untouched (local, no knockback)');
+ok(API.php===php31, 'tentacle rush does NOT damage the player castle (no stage-wide time limit)');
+ok(API.etowerDmg(6) > API.etowerDmg(5), 'tentacle damage scales with stage');
+ok(API.STAGE_BY_ID[1].tutorial === true, 'stage 1 is tutorial → tower does not lash there');
+// 32) stage 6 must not be easier than stage 5: its final wave also carries a mid-boss
+const w6 = API.STAGE_BY_ID[6].waves[API.STAGE_BY_ID[6].waves.length-1];
+ok(w6.mini && w6.mini.key==='m_gboss', 'stage 6 final wave carries the ミドリのぬし mid-boss');
+ok(!API.FOE_DEFS.m_gboss.slam, 'stage 6 mid-boss is still single-target (no AoE)');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail?1:0);
