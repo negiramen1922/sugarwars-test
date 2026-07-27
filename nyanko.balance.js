@@ -15,7 +15,7 @@ const { chromium } = require(require('path').join(process.env.NODE_PATH, 'playwr
       const avail = PRIORITY.filter(k => k==='cookie' || (UNLOCKS[k] && UNLOCKS[k].via==='coin' && (UNLOCKS[k].need||0) <= cleared));
       const deck = avail.slice(0, 6);
       // modest early upgrades (EXP is also spent unlocking the 4 units)
-      const upg = { wStart:Math.min(3,Math.floor(n/3)), wMax:Math.min(2,Math.floor(n/5)),
+      const upg = { wStart:Math.min(3,Math.floor(n/3)), wMax:Math.min(2,Math.floor(n/5)), wRate:Math.min(5,Math.floor(n/2)),
                     tHp:Math.min(2,Math.floor(n/4)), tPow:Math.min(2,Math.floor(n/4)), tRng:Math.min(1,Math.floor(n/8)) };
       return {deck, upg};
     }
@@ -47,7 +47,7 @@ const { chromium } = require(require('path').join(process.env.NODE_PATH, 'playwr
       const lossEhp=rs.filter(r=>!r.win).map(r=>r.ehp);
       return {stage:stageId, prof:'n'+n, deck:deck.join('/'), win:wins+'/'+times, avgT, lossEhp:lossEhp.join(',')};
     }
-    const milestones=[1,2,3,4,5,6,7,8,9,10];
+    const milestones=[1,3,5,8,10,11,13,15];
     const out={};
     for(const s of milestones) out['S'+s]=runs(s, s, 4);
     return out;
