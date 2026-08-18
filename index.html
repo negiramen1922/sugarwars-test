@@ -1136,6 +1136,8 @@ const MOLE_REDIG_R = 60;         // 浮上後、狙う敵がこの距離より�
 const CANULE_BUFF_HP = 200;      // 固有強化「ジャイアントクロー」後のHP（通常130）
 const CANULE_BUFF_ATK = 30;      // 強化後の攻撃力（通常20）
 const CANULE_EMERGE_DMG = 40;    // 強化後、土から出る瞬間に近くの敵1体へ与えるダメージ
+const WAFFLE_BUFF_HP = 400;      // 固有強化「ホイップアーマー」後のHP（通常250）＝突撃したあとも生き残って粘る
+const ECLAIR_BUFF_FIRST = 45;    // 固有強化「こんがりチョコ」後の初撃ダメージ（通常20）。2撃目以降は通常のatkのまま
 const SEP_R = 10.5;       // 分離（重なり防止）に使う当たり半径の上限(px)。隊列の段間隔 rowGap=21 の半分に合わせてあり、
                           // 開戦前の隊列の密度では押し合いが起きない＝バトル開始時に一気に広がらない。大型ユニットもこの半径で判定。
 const HEAVY_PUSH = 0.16;  // heavy(ドーナッツ等)が重なり分離で押される割合。小さいほど大勢に押し負けない（1=通常／0=不動）
@@ -1447,6 +1449,14 @@ SPECIALS['buff_canule'] = {
   key:'buff_canule', name:'ジャイアントクロー', icon:'🦫', upgrade:true, canuleBuff:true, target:'canule', evoSprite:'canule_buff_blue',
   text:'腕と爪が大きく成長し、HPと攻撃力が上昇する。また大きな爪で土から飛び出すときに敵にダメージを与えられるようになる。',
 };
+SPECIALS['buff_wafflelancer'] = {
+  key:'buff_wafflelancer', name:'ホイップアーマー', icon:'🧇', upgrade:true, waffleBuff:true, target:'wafflelancer',
+  text:'ワッフルの鎧にホイップを厚く盛りつけてHPが大きく上がる。突撃したあとも敵陣で生き残って暴れ続けられる。',
+};
+SPECIALS['buff_eclairdog'] = {
+  key:'buff_eclairdog', name:'こんがりチョコ', icon:'🌭', upgrade:true, eclairBuff:true, target:'eclairdog',
+  text:'チョコがこんがり固まって牙が鋭くなる。最初のひと噛みのダメージが大きく上がる。',
+};
 function isSpecial(key){ return !!SPECIALS[key]; }
 
 /* ===== 効果音（お菓子のポップな感じ）。Web Audioで合成＝単一ファイル維持・外部ファイル不要 =====
@@ -1532,6 +1542,8 @@ const SFX = (function(){
     atk_purin(){ if(!throttle('a_purin',80))return; const a=ctx(); if(!a)return; const t=a.currentTime; blip(t,680,0.16,{type:'sine',vol:0.18,slide:2.2}); blip(t+0.02,520,0.10,{type:'triangle',vol:0.08,slide:1.6}); },   // ひゅん（スプーン投げ）
     atk_strawturret(){ if(!throttle('a_turret',45))return; const a=ctx(); if(!a)return; const t=a.currentTime; blip(t,1150,0.06,{type:'triangle',vol:0.15,slide:0.5}); noise(t,0.02,{vol:0.05,hp:3000}); },   // ぴゅっ（ベリー弾）
     atk_canule(){ if(!throttle('a_canule',55))return; const a=ctx(); if(!a)return; const t=a.currentTime; noise(t,0.06,{vol:0.16,hp:1800}); blip(t,260,0.09,{type:'sawtooth',vol:0.14,slide:0.6}); },   // ザッ（爪ひっかき）
+    atk_wafflelancer(){ if(!throttle('a_waffle',70))return; const a=ctx(); if(!a)return; const t=a.currentTime; noise(t,0.05,{vol:0.14,hp:2600}); blip(t,320,0.12,{type:'sawtooth',vol:0.16,slide:0.55}); blip(t+0.03,760,0.07,{type:'square',vol:0.09,slide:0.7}); },   // ガシャッ（槍の突き）
+    atk_eclairdog(){ if(!throttle('a_dog',40))return; const a=ctx(); if(!a)return; const t=a.currentTime; blip(t,540,0.06,{type:'square',vol:0.13,slide:0.45}); noise(t+0.01,0.03,{vol:0.07,hp:2400}); },   // ガブッ（噛みつき・4体で頻発するので短く小さめ）
     atk_ginger(){ if(!throttle('a_ginger',50))return; const a=ctx(); if(!a)return; const t=a.currentTime; blip(t,820,0.06,{type:'sine',vol:0.12,slide:1.4}); },   // ぽこ（ジンジャー兵）
     mole_dig(){ if(!throttle('mole_dig',70))return; const a=ctx(); if(!a)return; const t=a.currentTime; noise(t,0.12,{vol:0.15,hp:280}); blip(t,150,0.16,{type:'sine',vol:0.18,slide:0.6}); },   // ズモッ（土に潜る/出る）
     deployTurret(){ if(!throttle('deployT',60))return; const a=ctx(); if(!a)return; const t=a.currentTime; blip(t,400,0.12,{type:'sine',vol:0.24,slide:2.4}); blip(t+0.06,900,0.10,{type:'triangle',vol:0.12}); },   // ポンッ（タレット設置）
@@ -1650,6 +1662,7 @@ function iconHTML(u, side){
   if(u.key==='shoe' && SPRITE_DATA['shoe_'+c]) return img('shoe_'+c);
   if(u.key==='purin' && SPRITE_DATA['purin_'+c]) return img('purin_'+c);
   if(u.key==='canule' && SPRITE_DATA['canule_'+c]) return img('canule_'+c);
+  if(u.key==='eclairdog' && SPRITE_DATA['eclairdog_'+c]) return img('eclairdog_'+c);
   if(u.key==='mangel' && SPRITE_DATA['mangel_1']) return img(side==='e'?'mangel_red_1':'mangel_1');
   if(u.key==='kumagumi' && SPRITE_DATA['kumagumi_blue']) return img(side==='e'?'kumagumi_red':'kumagumi_blue');
   if(u.key==='daifuku' && SPRITE_DATA['daifuku_'+c]) return img('daifuku_'+c);
@@ -1721,7 +1734,7 @@ function resetState(){
 let _pendingNoX2 = false;   // 次に始める対戦でX2を無効化するか（beginTestBattleで立てる）
 let _spellsTest = false;    // 次に始める対戦で呪文を有効にするか（beginTestBattleで設定→startGameで1回消費）
 let _tbForceBuffs = false;   // テスト対戦：自分の強化を最初から全適用（beginTestBattleで設定→startGameで1回消費）
-const TB_BUFF_FLAGS = ["youParty","youChocoBuff","youBombSplit","youDaifukuBuff","youGhostClone","youCannonCluster","youSodaFizz","youDonutWall","youPancakeFast","youShoeBuff","youBakeryBuff","youIcewizBuff","youMacaronBuff","youMangelBuff","youKumaBuff","youPurinBuff","youShortcakeBuff","youCanuleBuff"];
+const TB_BUFF_FLAGS = ["youParty","youChocoBuff","youBombSplit","youDaifukuBuff","youGhostClone","youCannonCluster","youSodaFizz","youDonutWall","youPancakeFast","youShoeBuff","youBakeryBuff","youIcewizBuff","youMacaronBuff","youMangelBuff","youKumaBuff","youPurinBuff","youShortcakeBuff","youCanuleBuff","youWaffleBuff","youEclairBuff"];
 // 近日登場（キャラ一覧・指南にシルエット＋カミングスーンだけ出す）。実装が済んだら test:true を外して各配列/レッスンに載せる。
 const COMING_SOON = [];
 const $ = id => document.getElementById(id);
@@ -2104,6 +2117,8 @@ const UNIT_ABILITIES = {
   purin:[{name:'ブーメランスプーン', info:'ブーメランのようにスプーンを投げて、行きと帰りの両方でダメージを与える。直線上の敵をまとめて薙ぎ払うので、まとまった敵の列に強い。'}],
   canule:[{name:'土潜', info:'土に潜り、地上からの攻撃を受けずに移動できる。'}],
   shortcake:[{name:'イチゴタレット', info:'カタツムリに背負われているイチゴのタレット。高い連射力で近づいてくる敵をバスバス倒せる頼れる相棒。'}],
+  wafflelancer:[{name:'貫通突撃', info:'助走で力をため、槍を構えて突撃！ぶつかった敵を1体ずつ貫きながら敵陣の奥へ食い込む。'}],
+  eclairdog:[{name:'ファーストバイト', info:'最初のひと噛みだけ特別に強い。群れで一斉に飛びかかると、噛みついた瞬間に大きく削れる。'}],
   mangel:[{name:'加護', info:'範囲内（足元に円で表示）の味方の受けるダメージを肩代わりします。近接・遠距離・範囲(爆発)すべて100%自分のHPで引き受け＝味方は無傷、エンジェルが先に溶ける。自分は攻撃せず、守る味方に追尾する。'},{name:'浮遊', info:'空を飛んでいるので近接では狙われない（遠距離・迫撃・爆発でのみ倒せる）。攻撃できないので、戦場に残るのがエンジェルだけになったら負け。'}],
 };
 // キャラ詳細の「能力」セクションHTML（能力が無いキャラは空文字＝非表示）。
@@ -2121,7 +2136,8 @@ function toggleAbilityInfo(btn){ const row=btn.closest('.ab-row'); const d=row&&
 /* キャラ詳細用：そのキャラの「進化」と「固有強化」を表示用にまとめる（強化後ステータスは定数から再計算）。 */
 const UNIT_ENH = { cookie:'party_cookie', choco:'buff_choco', bomb:'split_bomb', daifuku:'buff_daifuku',
   ghost:'clone_ghost', cannon:'cluster_cannon', soda:'fizz_soda', donut:'wall_donut',
-  pancake:'fast_pancake', shoe:'buff_shoe', bakery:'last_bake', icewiz:'buff_icewiz', macaron:'buff_macaron', mangel:'buff_mangel', kumagumi:'buff_kumagumi', purin:'buff_purin', canule:'buff_canule' };
+  pancake:'fast_pancake', shoe:'buff_shoe', bakery:'last_bake', icewiz:'buff_icewiz', macaron:'buff_macaron', mangel:'buff_mangel', kumagumi:'buff_kumagumi', purin:'buff_purin', canule:'buff_canule',
+  wafflelancer:'buff_wafflelancer', eclairdog:'buff_eclairdog' };
 function enhDisplay(u){
   const out=[];
   // 進化（パンケーキの自動進化）。固有強化とは別の常設メカ。
@@ -2144,6 +2160,8 @@ function enhDisplay(u){
     else if(u.key==='kumagumi') stats={hp:KUMA_BUFF_HP,                    atk:KUMA_BUFF_ATK};
     else if(u.key==='icewiz')  stats={hp:u.hp,                             atk:ICEWIZ_ATK};
     else if(u.key==='canule')  stats={hp:CANULE_BUFF_HP,                  atk:CANULE_BUFF_ATK};
+    else if(u.key==='wafflelancer') stats={hp:WAFFLE_BUFF_HP,             atk:u.atk};
+    // エクレアドッグは上がるのが「初撃ダメージ」なのでHP/攻撃のグリッドは出さない（説明文で伝える）
     out.push({ kind:'強化', name:s.name, sprite:s.evoSprite||'', stats:stats, text:s.text });
   }
   // スライムは「融合」(SPECIALS.up_slime)が実質の強化。合体後のステータスを再計算して表示する。
@@ -2245,6 +2263,7 @@ function makeFighters(key, side, W, H, slot){
       spawner:!!u.spawner, spawnKey:u.spawnKey||'', spawnCd:u.spawnCd||2, spawnCount:u.spawnCount||1, spawnCap:u.spawnCap||6, spawnT:(u.spawnCd||2)*0.4,
       warper:!!u.warper, warped:false, warpT:0, warpDelay:u.warpDelay||1.0, vanishing:false, vanP:0, appearFx:0, invuln:0,
       burrow:!!u.burrow, moleState:'', diveT:0, canuleBuff:false,   // カヌレモーラー：潜行ステート（surface→dig→attack）＋固有強化
+      waffleBuff:false, eclairBuff:false,   // ワッフルランサー＝ホイップアーマー／エクレアドッグ＝こんがりチョコ（固有強化フラグ）
 
       slime:!!u.slime, merged:false,
       weight:(WEIGHT[key]!=null?WEIGHT[key]:WEIGHT_DEFAULT),   // 重量（吸引のされやすさ）
@@ -2498,6 +2517,23 @@ function applyCanuleBuff(world, side){
   });
 }
 
+/* ---- ホイップアーマー（ワッフルランサー固有強化）---- */
+// 指定陣営のワッフルランサー全員のHPを強化値へ底上げ（絶対代入で冪等・毎ラウンド再適用。choco等と同じく再適用で全回復）
+function applyWaffleArmor(world, side){
+  return eachBuffTarget(world, side, 'wafflelancer', u=>{
+    u.maxHp = WAFFLE_BUFF_HP; u.baseMaxHp = WAFFLE_BUFF_HP; u.hp = u.maxHp;
+    u.waffleBuff = true;
+  });
+}
+/* ---- こんがりチョコ（エクレアドッグ固有強化）---- */
+// 初撃(firstHit)だけを強化値へ底上げ。2撃目以降の通常攻撃(atk)は据え置き＝「ひと噛み目が強い」個性を伸ばす。
+function applyEclairFirst(world, side){
+  return eachBuffTarget(world, side, 'eclairdog', u=>{
+    u.firstHit = ECLAIR_BUFF_FIRST;
+    u.eclairBuff = true;
+  });
+}
+
 /* ---- コグマの成長（クマグミ固有強化）---- */
 // 盤面のクマグミ（本体＋仲間化コグマ）を強化値(HP60/攻撃9)に底上げ＝取った瞬間から確実に少し強い（刺さらない相手でも腐らない）。
 // さらに以降の仲間化コグマも親と同じ強化値になる（recruitKumaがstateフラグを見る）。毎ラウンド再適用・冪等。
@@ -2514,7 +2550,7 @@ function applyKumaGrowth(world, side){
 // このユニットが何らかの固有強化を受けているか（盤面の「強化中」バッジ用）。おとり分身は除外。
 function isBuffed(u){
   if(u.isDecoy) return false;
-  return !!(u.chocoBuff||u.donutWall||u.shoeBuff||u.bakeryBuff||u.daifukuBuff||u.cloneOn||u.cluster||u.fizz||u.spawnMini||u.fastEvo||u.party||u.icewizBuff||u.macaronBuff||u.mangelBuff||u.kumaBuff||u.purinBuff||u.shortcakeBuff||u.canuleBuff);
+  return !!(u.chocoBuff||u.donutWall||u.shoeBuff||u.bakeryBuff||u.daifukuBuff||u.cloneOn||u.cluster||u.fizz||u.spawnMini||u.fastEvo||u.party||u.icewizBuff||u.macaronBuff||u.mangelBuff||u.kumaBuff||u.purinBuff||u.shortcakeBuff||u.canuleBuff||u.waffleBuff||u.eclairBuff);
 }
 // プレイヤーが取得済みの強化（融合・X2・各固有強化）を、表示用の{icon,name}配列で返す
 function acquiredBuffs(){
@@ -2527,6 +2563,7 @@ function acquiredBuffs(){
     ['youDaifukuBuff','buff_daifuku'],['youGhostClone','clone_ghost'],['youCannonCluster','cluster_cannon'],
     ['youSodaFizz','fizz_soda'],['youDonutWall','wall_donut'],['youPancakeFast','fast_pancake'],
     ['youShoeBuff','buff_shoe'],['youBakeryBuff','last_bake'],['youIcewizBuff','buff_icewiz'],['youMacaronBuff','buff_macaron'],['youMangelBuff','buff_mangel'],['youKumaBuff','buff_kumagumi'],['youPurinBuff','buff_purin'],
+    ['youShortcakeBuff','buff_shortcake'],['youCanuleBuff','buff_canule'],['youWaffleBuff','buff_wafflelancer'],['youEclairBuff','buff_eclairdog'],
   ];
   flags.forEach(([f,sk])=>{ if(S[f]){ const sp=SPECIALS[sk]; out.push({icon: sp?sp.icon:'✦', name: sp?sp.name:sk}); } });
   return out;
@@ -2538,8 +2575,8 @@ function buffCountFor(side){
   const x2 = (p ? state.youX2 : state.foeX2) || {};
   for(const k in x2) n += x2[k]||0;
   const flags = p
-    ? ['youParty','youChocoBuff','youBombSplit','youDaifukuBuff','youGhostClone','youCannonCluster','youSodaFizz','youDonutWall','youPancakeFast','youShoeBuff','youBakeryBuff','youIcewizBuff','youMacaronBuff','youMangelBuff','youKumaBuff','youPurinBuff']
-    : ['foeParty','foeChocoBuff','foeBombSplit','foeDaifukuBuff','foeGhostClone','foeCannonCluster','foeSodaFizz','foeDonutWall','foePancakeFast','foeShoeBuff','foeBakeryBuff','foeIcewizBuff','foeMacaronBuff','foeMangelBuff','foeKumaBuff','foePurinBuff'];
+    ? ['youParty','youChocoBuff','youBombSplit','youDaifukuBuff','youGhostClone','youCannonCluster','youSodaFizz','youDonutWall','youPancakeFast','youShoeBuff','youBakeryBuff','youIcewizBuff','youMacaronBuff','youMangelBuff','youKumaBuff','youPurinBuff','youShortcakeBuff','youCanuleBuff','youWaffleBuff','youEclairBuff']
+    : ['foeParty','foeChocoBuff','foeBombSplit','foeDaifukuBuff','foeGhostClone','foeCannonCluster','foeSodaFizz','foeDonutWall','foePancakeFast','foeShoeBuff','foeBakeryBuff','foeIcewizBuff','foeMacaronBuff','foeMangelBuff','foeKumaBuff','foePurinBuff','foeShortcakeBuff','foeCanuleBuff','foeWaffleBuff','foeEclairBuff'];
   for(const f of flags) if(state[f]) n++;
   return n;
 }
@@ -2570,6 +2607,8 @@ function foeEnhanceCandidates(){
   if(!state.foePurinBuff    && countSideKey('e','purin')  >=PURIN_MIN)   cands.push({key:'buff_purin',    fn:function(){ state.foePurinBuff=true;     setBuffCount('e','purin',countSideKey('e','purin'));     applyPurinBuff(world,'e'); }});
   if(!state.foeShortcakeBuff && countSideKey('e','shortcake')>=SHORTCAKE_MIN) cands.push({key:'buff_shortcake', fn:function(){ state.foeShortcakeBuff=true; setBuffCount('e','shortcake',countSideKey('e','shortcake')); applyShortcakeBuff(world,'e'); }});
   if(!state.foeCanuleBuff && countSideKey('e','canule')>=1) cands.push({key:'buff_canule', fn:function(){ state.foeCanuleBuff=true; setBuffCount('e','canule',countSideKey('e','canule')); applyCanuleBuff(world,'e'); }});
+  if(!state.foeWaffleBuff && countSideKey('e','wafflelancer')>=1) cands.push({key:'buff_wafflelancer', fn:function(){ state.foeWaffleBuff=true; setBuffCount('e','wafflelancer',countSideKey('e','wafflelancer')); applyWaffleArmor(world,'e'); }});
+  if(!state.foeEclairBuff && countSideKey('e','eclairdog')>=1) cands.push({key:'buff_eclairdog', fn:function(){ state.foeEclairBuff=true; setBuffCount('e','eclairdog',countSideKey('e','eclairdog')); applyEclairFirst(world,'e'); }});
   return cands;
 }
 // 永続フラグ系の強化（X2/融合以外）を、指定陣営の現在の盤面へ再適用する。
@@ -2594,6 +2633,8 @@ function applyFlagBuffs(world, side){
   if(p?state.youPurinBuff:state.foePurinBuff)         applyPurinBuff(world,side);
   if(p?state.youShortcakeBuff:state.foeShortcakeBuff) applyShortcakeBuff(world,side);
   if(p?state.youCanuleBuff:state.foeCanuleBuff)       applyCanuleBuff(world,side);
+  if(p?state.youWaffleBuff:state.foeWaffleBuff)       applyWaffleArmor(world,side);
+  if(p?state.youEclairBuff:state.foeEclairBuff)       applyEclairFirst(world,side);
 }
 // プレイヤーが強化/X2カードを取った瞬間に、CPUも1つ強化して同時に公開する（敵味方同時＝同数を保つ）
 function foeMatchEnhance(){
@@ -2862,6 +2903,8 @@ function eligibleSpecials(){
   if(!state.youPurinBuff && countSideKey('p','purin')>=PURIN_MIN) list.push('buff_purin');   // 1回限り：未取得かつプリンがいれば出る
   if(!state.youShortcakeBuff && countSideKey('p','shortcake')>=SHORTCAKE_MIN) list.push('buff_shortcake');
   if(!state.youCanuleBuff && countSideKey('p','canule')>=1) list.push('buff_canule');
+  if(!state.youWaffleBuff && countSideKey('p','wafflelancer')>=1) list.push('buff_wafflelancer');   // 1回限り：未取得かつランサーがいれば出る
+  if(!state.youEclairBuff && countSideKey('p','eclairdog')>=1) list.push('buff_eclairdog');   // 1回限り：未取得かつ犬がいれば出る
   return list.concat(eligibleX2Specials());
 }
 
@@ -2967,6 +3010,8 @@ function beginDraft(){
   if(state.youPurinBuff) applyPurinBuff(world,'p');   // ダブルスプーンを再適用（永続・1回限り）
   if(state.youShortcakeBuff) applyShortcakeBuff(world,'p');   // タレット強化を再適用（永続・1回限り）
   if(state.youCanuleBuff) applyCanuleBuff(world,'p');   // ジャイアントクローを再適用（永続）
+  if(state.youWaffleBuff) applyWaffleArmor(world,'p');   // ホイップアーマーを再適用（永続・1回限り）
+  if(state.youEclairBuff) applyEclairFirst(world,'p');   // こんがりチョコを再適用（永続・1回限り）
   arrangeFormation(world,'p',true);
   // 敵の引き継ぎ軍も上に並べる（ドラフト中から見える）
   capArmy(state.foeArmy).forEach(k=> makeFighters(k,'e',CW,CH,'army').forEach(f=>{ f.appear=1; world.units.push(f); }));
@@ -2992,6 +3037,8 @@ function beginDraft(){
   if(state.foePurinBuff) applyPurinBuff(world,'e');   // 敵のダブルスプーンを再適用（永続・1回限り）
   if(state.foeShortcakeBuff) applyShortcakeBuff(world,'e');   // 敵のタレット強化を再適用（永続・1回限り）
   if(state.foeCanuleBuff) applyCanuleBuff(world,'e');   // 敵のジャイアントクローを再適用（永続）
+  if(state.foeWaffleBuff) applyWaffleArmor(world,'e');   // 敵のホイップアーマーを再適用（永続・1回限り）
+  if(state.foeEclairBuff) applyEclairFirst(world,'e');   // 敵のこんがりチョコを再適用（永続・1回限り）
   arrangeFormation(world,'e',true);
   // 敵の今回ピックを準備（プレイヤーが1枚選ぶたびに1枚ずつ上に召喚して公開）
   state.foePickTotal = picksFor(state.foeLostLast, state.lostLast);
@@ -3233,7 +3280,7 @@ function renderPickOffer(){
       const s=SPECIALS[key];
       el.className='card upgrade';
       const ico = specialCardIcon(s);
-      const tag = s.x2 ? '×2' : s.party ? 'パーティー' : s.chocoBuff ? '装甲' : s.bombSplit ? 'おかわり' : s.daifukuBuff ? '特大' : s.ghostClone ? '分身' : s.cannonCluster ? '花火' : s.sodaFizz ? '炭酸' : s.donutWall ? '鉄壁' : s.pancakeFast ? 'はや焼き' : s.shoeBuff ? '特盛り' : s.bakeryBuff ? 'ラスト焼き' : s.icewizBuff ? '氷嵐' : s.macaronBuff ? '大殻' : s.mangelBuff ? '加護' : s.kumaBuff ? '成長' : s.purinBuff ? '二刀' : s.shortcakeBuff ? '練乳' : s.canuleBuff ? '剛腕' : '融合';
+      const tag = s.x2 ? '×2' : s.party ? 'パーティー' : s.chocoBuff ? '装甲' : s.bombSplit ? 'おかわり' : s.daifukuBuff ? '特大' : s.ghostClone ? '分身' : s.cannonCluster ? '花火' : s.sodaFizz ? '炭酸' : s.donutWall ? '鉄壁' : s.pancakeFast ? 'はや焼き' : s.shoeBuff ? '特盛り' : s.bakeryBuff ? 'ラスト焼き' : s.icewizBuff ? '氷嵐' : s.macaronBuff ? '大殻' : s.mangelBuff ? '加護' : s.kumaBuff ? '成長' : s.purinBuff ? '二刀' : s.shortcakeBuff ? '練乳' : s.canuleBuff ? '剛腕' : s.waffleBuff ? 'ホイップ' : s.eclairBuff ? '初撃' : '融合';
       el.innerHTML=`<div class="up-badge">強化</div>
         <div class="icon">${ico}</div>
         <div class="cname">${s.name}</div>
@@ -3410,6 +3457,20 @@ function pickCard(key){
       const cn = world.units.filter(u=>u.side==='p'&&u.key==='canule'&&u.hp>0);
       if(cn.length){ const cx=cn.reduce((s,u)=>s+u.x,0)/cn.length, cy=cn.reduce((s,u)=>s+u.y,0)/cn.length;
         burst(world,cx,cy,'#e8c79a',20,120); world.rings.push({x:cx,y:cy,r:4,max:52,life:0.42,color:'#c8955a'}); }
+    } else if(SPECIALS[key].waffleBuff){
+      state.youWaffleBuff = true;   // 以降ワッフルランサーがホイップの鎧で硬くなる
+      setBuffCount('p','wafflelancer', countSideKey('p','wafflelancer'));
+      applyWaffleArmor(world,'p');
+      const wf = world.units.filter(u=>u.side==='p'&&u.key==='wafflelancer'&&u.hp>0);
+      if(wf.length){ const cx=wf.reduce((s,u)=>s+u.x,0)/wf.length, cy=wf.reduce((s,u)=>s+u.y,0)/wf.length;
+        burst(world,cx,cy,'#fff4de',20,120); world.rings.push({x:cx,y:cy,r:4,max:52,life:0.42,color:'#f3d9a6'}); }
+    } else if(SPECIALS[key].eclairBuff){
+      state.youEclairBuff = true;   // 以降エクレアドッグの初撃(firstHit)が強くなる
+      setBuffCount('p','eclairdog', countSideKey('p','eclairdog'));
+      applyEclairFirst(world,'p');
+      const ed = world.units.filter(u=>u.side==='p'&&u.key==='eclairdog'&&u.hp>0);
+      if(ed.length){ const cx=ed.reduce((s,u)=>s+u.x,0)/ed.length, cy=ed.reduce((s,u)=>s+u.y,0)/ed.length;
+        burst(world,cx,cy,'#c89a6a',20,120); world.rings.push({x:cx,y:cy,r:4,max:52,life:0.42,color:'#8b5a2b'}); }
     }
     foeMatchEnhance();   // 敵味方同時：プレイヤーが強化を取ったらCPUも1つ強化して同時に公開
     state.pickStep++;
@@ -5263,7 +5324,7 @@ const SNAP_UNIT_FIELDS = ['nid','key','side','x','y','r','hp','maxHp','icon',
   'dying','dieT','dieDir','melting','melt','appear','appearFx','bob','jumpH','spriteScale','flash',
   'atkAnim','atkDx','atkDy','warper','vanishing','vanP','invuln','isDecoy','raged','armed',
   'slime','merged','evolved','fizz','shoeBuff','cstate','chargeT','party','partyStage','wall','wallR',
-  'charger','cluster','fastEvo','chocoBuff','bakeryBuff','daifukuBuff','donutWall','shellPhase','icewizBuff','macaronBuff','spawnMini','cloneOn','face','shoeSt','mv','shortcakeBuff','burrow','moleState','canuleBuff'];
+  'charger','cluster','fastEvo','chocoBuff','bakeryBuff','daifukuBuff','donutWall','shellPhase','icewizBuff','macaronBuff','spawnMini','cloneOn','face','shoeSt','mv','shortcakeBuff','burrow','moleState','canuleBuff','waffleBuff','eclairBuff'];
 // 数値を丸めてJSONを小さくする（TURN中継時の通信量削減）。位置/サイズ/HPは整数、その他(演出値)は小数2桁。
 const SNAP_INT = {x:1,y:1,r:1,hp:1,maxHp:1,tx:1,ty:1,sx:1,sy:1,max:1,wallR:1};
 function snapNum(k,v){ return SNAP_INT[k] ? Math.round(v) : Math.round(v*100)/100; }
@@ -6585,6 +6646,20 @@ const GUIDE_STAGES = [
   { id:'turret2', title:'数の有利で押し切る②', theme:'メタ / 数の有利（実戦）', unit:'shortcake', arc:'shortcake', coins:100,
     tip:'相手はゴースト・弓兵・自爆ポップコーンの本格編成。イチゴタレットはゴーストに強く、置き続けるほど数の有利ができる。本体は足が遅いので自爆ポップコーンにも巻き込まれにくい。タレットで数を作って押し切ろう！勝てばベリーケーキスネイルが仲間になる。',
     deck:['shortcake','choco','shoe','cookie'], foe:['ghost','choco','shoe','bomb'] },
+  { id:'lance1', title:'壁をぶち抜く①', theme:'突撃 / 貫通（体験）', arc:'wafflelancer', coins:50,
+    easyFoe:true, winRounds:1, forceUnit:'wafflelancer',
+    tip:'ワッフルランサーは助走で力をためて、槍を構えて突撃する。ぶつかった敵を貫きながら敵陣の奥へ食い込むぞ！ 相手はチョコの壁。正面から突き抜けてみよう。まずは相手から1ライフ取ればクリア！',
+    deck:['wafflelancer','cookie','choco'], foe:['choco','cookie'] },
+  { id:'lance2', title:'後衛まで届かせる②', theme:'貫通 / 一点突破（実戦）', unit:'wafflelancer', arc:'wafflelancer', coins:100,
+    tip:'相手は前衛の後ろに弓兵と砲台をそろえた本格編成。ふつうの近接は壁で止まるが、ランサーは壁を貫いて奥の後衛まで届く。前衛に正面を任せて、ランサーで一点突破しよう！勝てばワッフルランサーが仲間になる。',
+    deck:['wafflelancer','choco','cookie','shoe'], foe:['choco','shoe','cannon','cookie'] },
+  { id:'swarm1', title:'一気に噛みつく①', theme:'速攻 / 初撃（体験）', arc:'eclairdog', coins:50,
+    easyFoe:true, winRounds:1, forceUnit:'eclairdog',
+    tip:'エクレアドッグは足がとにかく速い群れ。最初のひと噛みだけ特別に強いので、先に飛びかかった方が得だ！ 相手は足の遅い編成。走って先に噛みつこう。まずは相手から1ライフ取ればクリア！',
+    deck:['eclairdog','cookie','choco'], foe:['choco','donut'] },
+  { id:'swarm2', title:'数で押し切る②', theme:'速攻 / 数の有利（実戦）', unit:'eclairdog', arc:'eclairdog', coins:100,
+    tip:'犬は1体ずつは紙だが、数がそろうと手がつけられない。ただし自爆や範囲攻撃でまとめて溶けるので、前衛と混ぜて散らすのがコツ。速さを活かして相手の後衛に噛みつこう！勝てばエクレアドッグが仲間になる。',
+    deck:['eclairdog','choco','cookie','shoe'], foe:['bomb','choco','shoe','cookie'] },
 ];
 const GUIDE_BY_ID = Object.fromEntries(GUIDE_STAGES.map(s=>[s.id,s]));
 function guideCleared(id){ return !!(myProfile.guideDone && myProfile.guideDone.indexOf(id)>=0); }
@@ -6609,7 +6684,10 @@ function guideGoNext(){ if(guideNextId){ const id=guideNextId; guideNextId=null;
 // レッスン1（easyFoe指定）中か＝CPUは強化/X2を取らない
 function guideEasyFoe(){ if(!guideMode||!guideStageId) return false; const s=GUIDE_BY_ID[guideStageId]; return !!(s&&s.easyFoe); }
 // アーク（キャラ）の一覧（GUIDE_STAGES順・重複排除）
-function guideArcs(){ const seen={}, arcs=[]; GUIDE_STAGES.forEach(function(s){ const a=stageArc(s); if(!seen[a]){ seen[a]=1; arcs.push(a); } }); return arcs; }
+// 未リリース（UNITSで test:true）のキャラのアークは一覧に出さない＝レッスンだけ先に書いておける。
+// リリース時に test:true を外せば自動で指南メニューに並ぶ。
+function guideArcs(){ const seen={}, arcs=[]; GUIDE_STAGES.forEach(function(s){ const a=stageArc(s); if(!seen[a]){ seen[a]=1; arcs.push(a); } });
+  return arcs.filter(function(a){ const u=UNIT_BY_KEY[arcUnit(a)]; return !(u && u.test); }); }
 function arcStages(a){ return GUIDE_STAGES.filter(s=>stageArc(s)===a); }
 // アークの代表キャラkey（解禁するキャラ＝unit持ちの最後のレッスン、無ければforceUnit/arc）
 function arcUnit(a){ const ss=arcStages(a); for(let i=ss.length-1;i>=0;i--){ if(ss[i].unit) return ss[i].unit; } return ss[0].forceUnit || a; }
@@ -6677,6 +6755,8 @@ const GUIDE_INTRO = {
   mangel:'マシュマロエンジェルはのう、自分では戦わん。その代わり、近くの味方が受けるダメージを身代わりで引き受けてくれる献身的な天使じゃ。近接・遠距離・爆発、なんでも肩代わりするぞい。前衛のそばに置いて守ってもらえば、仲間がぐっと長生きする。ただし攻撃役が居らんと勝てんから、殴れる仲間と一緒に出すのじゃ。',
   purin:'スプーンナイトプリンは、スプーンをブーメランのように投げるんじゃ。行きと帰りの2回、直線上の敵をまとめて薙ぎ払う。並んだ敵の正面に構えさせると強いぞい。前衛で正面を支えつつ、後ろから列を斬り裂くのじゃ。……ときにあれは、おむつではのうてお皿らしいぞ。',
   canule:'カヌレモーラーは戦いが始まると、ひょいっと土の中へもぐってしまうんじゃ。土の中を進むあいだは、敵の矢も大砲もぜんぜん届かん。だから傷ひとつ負わずに、後ろにひかえた憎いアイツのそばまで、す〜っと近づいて…ガブッ！飛び出して爪でやっつけるんじゃ。逃げてもまた潜って追いかける、しつこいやつじゃぞ。',
+  wafflelancer:'ワッフルランサーは、エクレアの馬にまたがった槍の騎士じゃ。助走で力をためて、そのまま槍で突撃する。ぶつかった敵を貫きながら敵陣の奥へ食い込むから、壁の後ろにいる弓兵や砲台にも届くんじゃ。前衛に正面を任せて、こやつで一点突破じゃ！',
+  eclairdog:'エクレアドッグはのう、群れで走る足の速い犬じゃ。最初のひと噛みだけ特別に強くてな、先に飛びかかった方が勝ちというわけじゃ。ただし一匹ずつは紙のように弱い。爆発や範囲攻撃でまとめて溶けるから、前衛と混ぜて使うんじゃぞ。',
   shortcake:'ベリーケーキスネイルは、背中のイチゴをぽとりと足元に下ろして砲台にしてしまう変わり者でな。この砲台がまた頼もしくての、敵にはどうやっても壊せんのじゃ。後ろにこっそり回り込むわたあめゴーストも、この砲台にバシバシ撃ち落とされてお手上げよ。本体はのんびり屋で前に出すぎんから、ポップコーンがドカンといっても巻き込まれん。砲台をどんどん置いて、数で押していくのじゃぞ。',
 };
 let _guideIntroThen=null;
@@ -7618,6 +7698,8 @@ function applyPvpSpecial(world, side, key){
       buff_purin:['PurinBuff','purin',applyPurinBuff],
       buff_shortcake:['ShortcakeBuff','shortcake',applyShortcakeBuff],
       buff_canule:['CanuleBuff','canule',applyCanuleBuff],
+      buff_wafflelancer:['WaffleBuff','wafflelancer',applyWaffleArmor],
+      buff_eclairdog:['EclairBuff','eclairdog',applyEclairFirst],
       last_bake:['BakeryBuff','bakery',applyBakeryBuff],
     };
     const m = FLAG[key]; if(!m) return;
@@ -7640,7 +7722,7 @@ function pvpCardHTML(key){
   if(isSpecial(key)){
     const s=SPECIALS[key];
     const ico=specialCardIcon(s);
-    const tag=s.x2?'×2':s.party?'パーティー':s.chocoBuff?'装甲':s.bombSplit?'おかわり':s.daifukuBuff?'特大':s.ghostClone?'分身':s.cannonCluster?'花火':s.sodaFizz?'炭酸':s.donutWall?'鉄壁':s.pancakeFast?'はや焼き':s.shoeBuff?'特盛り':s.bakeryBuff?'ラスト焼き':s.icewizBuff?'氷嵐':s.macaronBuff?'大殻':s.mangelBuff?'加護':s.kumaBuff?'成長':s.purinBuff?'二刀':s.shortcakeBuff?'練乳':s.canuleBuff?'剛腕':'融合';
+    const tag=s.x2?'×2':s.party?'パーティー':s.chocoBuff?'装甲':s.bombSplit?'おかわり':s.daifukuBuff?'特大':s.ghostClone?'分身':s.cannonCluster?'花火':s.sodaFizz?'炭酸':s.donutWall?'鉄壁':s.pancakeFast?'はや焼き':s.shoeBuff?'特盛り':s.bakeryBuff?'ラスト焼き':s.icewizBuff?'氷嵐':s.macaronBuff?'大殻':s.mangelBuff?'加護':s.kumaBuff?'成長':s.purinBuff?'二刀':s.shortcakeBuff?'練乳':s.canuleBuff?'剛腕':s.waffleBuff?'ホイップ':s.eclairBuff?'初撃':'融合';
     return {cls:'card upgrade', html:`<div class="up-badge">強化</div><div class="icon">${ico}</div><div class="cname">${s.name}</div><div class="tagline">${s.text}</div><div class="stats"><span class="up-tag">${tag}</span></div>`};
   }
   const u=UNIT_BY_KEY[key];

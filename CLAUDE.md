@@ -403,6 +403,20 @@
     deck:['shortcake','choco','shoe','cookie'], foe:['ghost','choco','shoe','bomb'] },
 ```
 
+## 開発中：ワッフルランサー／エクレアドッグ（`test:true`＝通常プレイ非登場・下ごしらえ完了）
+
+`index.html` に実装済み。**まだ `test:true` なのでロスター/ドラフト/CPUデッキ/指南メニューには出ない**（リリース指示待ち）。
+
+- **🧇 ワッフルランサー（`wafflelancer`）**：突撃騎兵。tier -0.3 / 1体 / atk30 / HP250 / speed90 / cd0.9。`charger:true`＋**`pierce:1`**（突撃で接触した敵を単体大ダメージで貫通・`dashDamage:150`/`dashSpeed:300`/`chargeTime:0.9`）。大福サムライと違い**通常攻撃は単体**（`cleaveNormal` なし）。武器合成＝槍なし本体 `wafflelancer_body_blue/red` ＋ 槍 `wafflelancer_lance` を `drawWaffleLance()` が状態別に合成。
+  - 固有強化 **「ホイップアーマー」**（`buff_wafflelancer`/`applyWaffleArmor`/`u.waffleBuff`）＝HP250→**`WAFFLE_BUFF_HP`(400)**。攻撃力は据え置き＝突撃したあとも生き残って粘る方向。
+- **🌭 エクレアドッグ（`eclairdog`）**：高速スウォーム。tier 0.4 / **4体** / atk10 / HP30 / speed150 / cd0.3 / `spriteScale:1.6`。**`firstHit:20`**＝最初のひと噛みだけ強い（`u.bitten` で管理）。走り2フレーム（`anim`/`animRed`/`animFps:8`）。
+  - 固有強化 **「こんがりチョコ」**（`buff_eclairdog`/`applyEclairFirst`/`u.eclairBuff`）＝初撃 20→**`ECLAIR_BUFF_FIRST`(45)**。通常攻撃(atk10)は据え置き＝「ひと噛み目が強い」個性を伸ばす方向。
+- **配線済み**：`UNIT_ABILITIES`（貫通突撃／ファーストバイト）・`UNIT_ENH`＋`enhDisplay`（キャラ詳細の強化欄。ドッグは上がるのが初撃なのでHP/攻撃グリッドは出さない）・`eligibleSpecials`/`foeEnhanceCandidates`（CPUパリティ）・`applyFlagBuffs`/`reapplyEnhancements`（毎ラウンド再適用）・`pickCard`（取得演出）・`applyPvpSpecial`（PVP）・`SNAP_UNIT_FIELDS`・`TB_BUFF_FLAGS`（dev テスト対戦の一括強化）・カードの短いタグ（ホイップ/初撃）。
+- **効果音**：`atk_wafflelancer`（ガシャッ＝槍の突き）／`atk_eclairdog`（ガブッ＝噛みつき・4体で頻発するので throttle 短め）。突撃ヒット音は大福と共用の `atk_daifuku_charge`（専用音は今後の課題）。
+- **戦術指南**：`lance1`→`lance2`（ランサー解禁）／`swarm1`→`swarm2`（ドッグ解禁）の各2レッスン＋`GUIDE_INTRO` のクッキーじいセリフを追加済み。**`guideArcs()` が `test:true` キャラのアークを一覧から除外する**ので、リリースまで指南メニューには出ない（`test:true` を外せば自動で並ぶ）。
+- **未対応（リリース時にやること）**：強化後の立ち絵（`evoSprite`）が無いので強化カードの絵はベース絵のまま。ワッフルランサーのカード絵は**槍つきの一枚絵が無い**ため絵文字🧇のまま（`iconHTML` に分岐を足すなら要素材）。`COMING_SOON` へのシルエット追加も未実施。
+- テスト：`test.js` 129（基礎データ）・**132（固有強化）**・**133（レッスン）**。
+
 ## このセッションの更新まとめ（引き継ぎ用チェンジログ）
 
 直近のマージ済みPR（新しい順・`negiramen1922/sugarwars-test`）：
@@ -426,7 +440,7 @@
 - #141 テスト対戦「強化を最初から全部適用」トグル（dev）
 - #140 プリンのダブルスプーンが正面に当たらない問題を修正
 
-現状の `sw.js` CACHE は **v67**。`node test.js` は **986 passed**。
+現状の `sw.js` CACHE は **v75**。`node test.js` は **1098 passed**。
 
 ## 次にやりたいこと（ユーザー方針）
 - ゲーム内NEWS・Discordの更新告知文を整理 → タイミングを見てカヌレ／スネイルをリリース（上記フリップ手順）。
