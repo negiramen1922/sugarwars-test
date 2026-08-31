@@ -2344,7 +2344,8 @@ console.log('\n=== 76) 新キャラ アイスクリームウィザード（氷�
   const W = 440, H = 660;
   // ユニット定義の基本
   const iw = API.UNIT_BY_KEY['icewiz'];
-  check('icewizが登録されている', !!iw && iw.ranged === true && iw.count === 1, iw && { ranged: iw.ranged, count: iw.count });
+  check('icewizが登録されている（2人組の後衛魔導士）', !!iw && iw.ranged === true && iw.count === 2, iw && { ranged: iw.ranged, count: iw.count });
+  check('1体あたりは控えめ（atk13 / hp55 / cd1.2）', iw.atk === 13 && iw.hp === 55 && iw.cd === 1.2, { atk: iw.atk, hp: iw.hp, cd: iw.cd });
   check('小範囲AoE（splash>0）かつヒット鈍足（slowHit>0）', iw.splash > 0 && iw.slowHit > 0, { splash: iw.splash, slowHit: iw.slowHit });
   // 氷弾が敵に当たると鈍足(chillT/chillAmt)が付き、slowMulが下がる
   let w = API.createWorld(W, H); API.world = w; w.phase = 'battle'; w.intro = 0;
@@ -2369,7 +2370,7 @@ console.log('\n=== 76) 新キャラ アイスクリームウィザード（氷�
   const baseSplash = c2.splash, baseAtk = c2.atk, baseSlowDur = c2.slowDur;
   API.applyIcewizBuff(wb, 'p');
   check('ブリザードで爆風が広がる', c2.splash > baseSplash, { base: baseSplash, now: c2.splash });
-  check('ブリザードで攻撃力が上がる(→30)', c2.atk === API.ICEWIZ_ATK && c2.atk > baseAtk, { base: baseAtk, now: c2.atk });
+  check('ブリザードで攻撃力が上がる(13→20)', c2.atk === API.ICEWIZ_ATK && c2.atk > baseAtk, { base: baseAtk, now: c2.atk });
   check('ブリザードで鈍化時間が延びる(0.5→1.0)', c2.slowDur > baseSlowDur, { base: baseSlowDur, now: c2.slowDur });
   check('鈍化量は据え置き(0.5)', c2.slowHit === 0.5, c2.slowHit);
   check('icewizBuff フラグが立つ', c2.icewizBuff === true);
@@ -2587,9 +2588,9 @@ console.log('\n=== 87) 詳細：攻撃力に爆発/弾のダメージを表示�
   check('通常攻撃はatkを表示', A(U.cookie) === '⚔ 14', A(U.cookie));
   check('ポップコーン＝爆発ダメージ(blast)', A(U.bomb) === '💥 100', A(U.bomb));
   check('ソーダ＝爆発ダメージ(blast)', A(U.soda) === '💥 10', A(U.soda));
-  check('キャンディキャノン＝迫撃弾ダメージ(mortar)', A(U.cannon) === '💥 90', A(U.cannon));
+  check('キャンディキャノン＝迫撃弾ダメージ(mortar)', A(U.cannon) === '💥 70', A(U.cannon));
   check('ベーカリー＝攻撃しない(—)', A(U.bakery) === '—', A(U.bakery));
-  check('アイス＝氷弾のatkを表示', A(U.icewiz) === '⚔ 20', A(U.icewiz));
+  check('アイス＝氷弾のatkを表示', A(U.icewiz) === '⚔ 13', A(U.icewiz));
   // enhDisplay：スライムに融合、ベーカリーにジンジャーの項目が入る
   const es = API.enhDisplay(U.slime);
   check('スライム詳細に「スライム融合」が出る', es.some(e => e.name.indexOf('融合') >= 0), es.map(e => e.name));

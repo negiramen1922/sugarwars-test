@@ -1179,8 +1179,8 @@ const UNITS = [
   {key:'popcorn_mini', name:'小型ポップコーン', icon:'🍿', role:'fodder', tier:1, count:1, atk:0, hp:24, speed:132, range:22, cd:1.0, tag:'自爆', short:'TNTの爆発から飛び出してもう一度自爆する小型', text:'ポップコーンTNTの爆発から飛び出す小型。すぐに自爆する（さらに分裂はしない）。', suicide:true, blast:60, blastR:48, fuse:0.4, summonOnly:true, spriteScale:0.62},
   {key:'shoe',  name:'シュークリームアーチャー', icon:'🧁', role:'back', tier:1.5, count:4, atk:14, hp:44, speed:55, range:150, cd:1.0, tag:'後衛', short:'弓を放つシュークリーム', text:'後方から弓を放つシュークリームのアーチャー。矢の雨で近づく前に溶かしちゃう！', ranged:true},
   {key:'ghost', name:'わたあめゴースト', icon:'☁️', role:'back', tier:3.5, count:3, atk:16, hp:44, speed:95, range:28, cd:0.43, tag:'強襲', short:'敵の後衛を奇襲するおばけ', text:'敵の後衛にワープして奇襲するおばけ。背後をとって挟み撃ちにしよう。うらめしや！！', warper:true, warpDelay:1.5, target:'back'},
-  {key:'cannon',name:'キャンディキャノン', icon:'🎆', role:'back', tier:3, count:1, atk:0, hp:140, speed:0, range:9999, cd:5.0, tag:'迫撃', short:'最後尾から打ち込まれる強力な一撃', text:'最後尾から大ダメージの強力な一撃の迫撃をお見舞いする。', artillery:true, mortar:90, splash:35, shotSpeed:230, arcH:80, spriteScale:1.25},
-  {key:'icewiz', name:'アイスクリームウィザード', icon:'🍦', role:'back', tier:2.5, count:1, atk:20, hp:70, speed:60, range:190, cd:1.0, tag:'氷の魔導士', short:'小さな氷弾を放ち敵の進行を遅延するウィザード', text:'後方から小さな氷弾を放ち敵の進行を遅延するウィザード。', ranged:true, splash:32, slowHit:0.5, slowDur:0.5},
+  {key:'cannon',name:'キャンディキャノン', icon:'🎆', role:'back', tier:3, count:1, atk:0, hp:140, speed:0, range:9999, cd:5.0, tag:'迫撃', short:'最後尾から打ち込まれる強力な一撃', text:'最後尾から大ダメージの強力な一撃の迫撃をお見舞いする。', artillery:true, mortar:70, splash:35, shotSpeed:230, arcH:80, spriteScale:1.25},
+  {key:'icewiz', name:'アイスクリームウィザード', icon:'🍦', role:'back', tier:2.5, count:2, atk:13, hp:55, speed:60, range:190, cd:1.2, tag:'氷の魔導士', short:'小さな氷弾を放ち敵の進行を遅延するウィザード', text:'後方から小さな氷弾を放ち敵の進行を遅延するウィザード。', ranged:true, splash:32, slowHit:0.5, slowDur:0.5},
   {key:'macaron', name:'シェルマカロン', icon:'🟣', role:'tank', tier:-2.5, count:2, atk:12, hp:100, speed:70, range:28, cd:0.9, tag:'殻スピン', short:'殻にこもって突撃するマカロン', text:'マカロンの殻にこもり、回転しながら敵にタックルをする暴れん坊。こいつの殻を破るのは甘くない', shell:true},
   // マシュマロエンジェル（アニメ付き・開発テスト中）。test:true でロスター/ドラフト/CPUデッキからは除外。
   // anim=立ち絵のフレーム配列（spriteForが world.t で animFps 枚/秒で切替）。挙動/バランスは今後。
@@ -1324,8 +1324,8 @@ const ICEWIZ_MIN = 1;            // 盤面にこの数以上ウィザードが�
 const ICEWIZ_SPLASH_MUL = 1.8;   // ブリザード：氷弾の爆風半径の倍率（小範囲→広範囲の制圧に）
 const ICEWIZ_SLOW = 0.5;         // ヒット時の鈍化量（基本0.5／ブリザード後も0.5＝据え置き）
 const ICEWIZ_SLOW_DUR = 1.0;     // ブリザード：鈍化の持続秒（基本0.5→1.0に延長）
-const ICEWIZ_ATK = 30;           // ブリザード：氷弾の攻撃力（基本20→30）
-const ICEWIZ_DECAY = [1, 0.65, 0.35];   // 氷弾の多段減衰：近い順に atk×[1,0.65,0.35]（atk20で20/13/7）
+const ICEWIZ_ATK = 20;           // ブリザード：氷弾の攻撃力（基本13→20＝基本値の約1.5倍を維持）
+const ICEWIZ_DECAY = [1, 0.65, 0.35];   // 氷弾の多段減衰：近い順に atk×[1,0.65,0.35]（atk13で13/8/5）
 const FOE_ICEWIZ_CHANCE = 0.4;   // 敵（ライバル）がブリザードを使う確率
 /* ★シェルマカロン（殻スピン）の挙動・調整値。開幕は殻で突進→壁で反射しながら暴れる→スタン→通常戦闘。 */
 const SHELL_SPIN_DUR = 4.0;      // 殻スピン（突進＋反射）の継続秒　※スピン/スタン時間はここで調整
@@ -2471,7 +2471,7 @@ function applyIcewizBuff(world, side){
   const base=UNIT_BY_KEY['icewiz'];
   return eachBuffTarget(world, side, 'icewiz', u=>{
     u.splash = Math.round((base.splash||32)*ICEWIZ_SPLASH_MUL);   // 爆風を大きく広げる
-    u.atk = ICEWIZ_ATK;                                           // 氷弾の攻撃力アップ（20→30）
+    u.atk = ICEWIZ_ATK;                                           // 氷弾の攻撃力アップ（13→20）
     u.slowHit = ICEWIZ_SLOW;                                      // 鈍化量は据え置き（0.5）
     u.slowDur = ICEWIZ_SLOW_DUR;                                  // 鈍化の持続を延長（0.5→1.0）
     u.icewizBuff = true;
