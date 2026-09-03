@@ -1196,7 +1196,7 @@ const UNITS = [
   // エクレアドッグ（開発テスト中）。複数・高速の突撃犬。走り2フレーム(anim/animRed)＝味方青/敵赤。firstHit=最初の噛みつきだけ強力(20)。見た目はワッフルランサーのマウントに合わせ spriteScale で大きめ。
   {key:'eclairdog', name:'エクレアドッグ', icon:'🌭', role:'fodder', tier:0.4, count:4, atk:10, hp:30, speed:150, range:24, cd:0.3, firstHit:20, spriteScale:1.6, tag:'高速スウォーム', short:'群れで走る足の速い犬', text:'チョコまみれで走りまわるエクレアの犬。足がとにかく速い！最初のひと噛みは特に強烈。みんなで一気に敵に噛みつきに行くぞ。ワン！', anim:['eclairdog_blue','eclairdog_run_blue'], animRed:['eclairdog_red','eclairdog_run_red'], animFps:8, test:true, beta:true},
   // ワッフルランサー（開発テスト中）。大福の charger を下敷きに、pierce=貫通突撃で数体を単体ダメージで貫きながら敵陣に食い込む。武器合成：槍なし本体(wafflelancer_body_*)＋槍(wafflelancer_lance)を render で状態別に合成（待機=上に構え/突撃=前に倒す）。
-  {key:'wafflelancer', name:'ワッフルランサー', icon:'🧇', role:'fodder', tier:-0.3, count:1, atk:30, hp:250, speed:90, range:30, cd:0.9, tag:'突撃騎兵', short:'エクレア馬で敵陣に食い込む槍騎兵', text:'エクレアの馬にまたがったワッフルの騎士。チョコの槍を構えて助走から突撃し、数体を貫きながら敵陣に食い込む。ゆけ！', charger:true, pierce:1, dashDamage:150, dashSpeed:300, chargeTime:0.9, dashFar:110, dashRange:26, test:true, beta:true},
+  {key:'wafflelancer', name:'ワッフルランサー', icon:'🧇', role:'fodder', tier:-0.3, count:1, atk:30, hp:250, speed:90, range:30, cd:0.9, tag:'突撃騎兵', short:'ためた一撃で敵を仕留める槍騎兵', text:'エクレアの馬にまたがったワッフルの騎士。敵と距離があくとチョコの槍を構えて力をため、突っこむ一撃でたいていの敵を仕留める。ゆけ！', charger:true, pierce:1, dashDamage:150, dashSpeed:300, chargeTime:0.9, dashFar:110, dashRange:26, test:true, beta:true},
   // 琥珀バチ（開発テスト中）。SUGAR WARS 初の空中ユニット。fly=近接では狙われない（遠距離/砲のみ標的可）＋noCollide=すり抜けて飛ぶ。クラロワのガーゴイル的立ち位置＝飛行スウォームで近接軍を一方的に刺す。天敵は遠距離＋AoE（爆発は飛行にも当たる）。立ち絵は後日（暫定=絵文字🐝）。
   {key:'amberbee', name:'琥珀バチ', icon:'🐝', role:'fodder', tier:0.75, count:3, atk:12, hp:32, speed:120, range:24, cd:0.55, tag:'空中', short:'空を飛ぶ琥珀色のハチの群れ', text:'べっこう飴でできた琥珀色のハチ。空を飛ぶので近接攻撃が当たらない。群れで敵に取りついて一方的に刺す。ただし弓や砲、爆発には弱い。ブンブン！', fly:true, noCollide:true, test:true, beta:true},
   // バウムクーヘンゴーレム（開発テスト中）。クッキーの前に立つ超硬タンク（隊列tier-0.7＝cookieより前）。重量＋KB耐性で押されない壁。立ち絵は後日（暫定=絵文字）。
@@ -1451,7 +1451,7 @@ SPECIALS['buff_canule'] = {
 };
 SPECIALS['buff_wafflelancer'] = {
   key:'buff_wafflelancer', name:'ホイップアーマー', icon:'🧇', upgrade:true, waffleBuff:true, target:'wafflelancer',
-  text:'ワッフルの鎧にホイップを厚く盛りつけてHPが大きく上がる。突撃したあとも敵陣で生き残って暴れ続けられる。',
+  text:'ワッフルの鎧にホイップを厚く盛りつけてHPが大きく上がる。突撃したあとも前線で生き残って、何度もためて突っこめる。',
 };
 SPECIALS['buff_eclairdog'] = {
   key:'buff_eclairdog', name:'こんがりチョコ', icon:'🌭', upgrade:true, eclairBuff:true, target:'eclairdog',
@@ -2117,7 +2117,7 @@ const UNIT_ABILITIES = {
   purin:[{name:'ブーメランスプーン', info:'ブーメランのようにスプーンを投げて、行きと帰りの両方でダメージを与える。直線上の敵をまとめて薙ぎ払うので、まとまった敵の列に強い。'}],
   canule:[{name:'土潜', info:'土に潜り、地上からの攻撃を受けずに移動できる。'}],
   shortcake:[{name:'イチゴタレット', info:'カタツムリに背負われているイチゴのタレット。高い連射力で近づいてくる敵をバスバス倒せる頼れる相棒。'}],
-  wafflelancer:[{name:'貫通突撃', info:'助走で力をため、槍を構えて突撃！ぶつかった敵を1体ずつ貫きながら敵陣の奥へ食い込む。'}],
+  wafflelancer:[{name:'ためて突撃', info:'敵と距離があくと槍を構えて力をため、そのまま突っこんで敵1体に大ダメージ。近づかれている間は槍でふつうに戦う。'}],
   eclairdog:[{name:'ファーストバイト', info:'最初のひと噛みだけ特別に強い。群れで一斉に飛びかかると、噛みついた瞬間に大きく削れる。'}],
   mangel:[{name:'加護', info:'範囲内（足元に円で表示）の味方の受けるダメージを肩代わりします。近接・遠距離・範囲(爆発)すべて100%自分のHPで引き受け＝味方は無傷、エンジェルが先に溶ける。自分は攻撃せず、守る味方に追尾する。'},{name:'浮遊', info:'空を飛んでいるので近接では狙われない（遠距離・迫撃・爆発でのみ倒せる）。攻撃できないので、戦場に残るのがエンジェルだけになったら負け。'}],
 };
@@ -6646,20 +6646,20 @@ const GUIDE_STAGES = [
   { id:'turret2', title:'数の有利で押し切る②', theme:'メタ / 数の有利（実戦）', unit:'shortcake', arc:'shortcake', coins:100,
     tip:'相手はゴースト・弓兵・自爆ポップコーンの本格編成。イチゴタレットはゴーストに強く、置き続けるほど数の有利ができる。本体は足が遅いので自爆ポップコーンにも巻き込まれにくい。タレットで数を作って押し切ろう！勝てばベリーケーキスネイルが仲間になる。',
     deck:['shortcake','choco','shoe','cookie'], foe:['ghost','choco','shoe','bomb'] },
-  { id:'lance1', title:'壁をぶち抜く①', theme:'突撃 / 貫通（体験）', arc:'wafflelancer', coins:50,
+  { id:'lance1', title:'ためて、一撃', theme:'突撃 / 単体処理（体験）', arc:'wafflelancer', coins:50,
     easyFoe:true, winRounds:1, forceUnit:'wafflelancer',
-    tip:'ワッフルランサーは助走で力をためて、槍を構えて突撃する。ぶつかった敵を貫きながら敵陣の奥へ食い込むぞ！ 相手はチョコの壁。正面から突き抜けてみよう。まずは相手から1ライフ取ればクリア！',
-    deck:['wafflelancer','cookie','choco'], foe:['choco','cookie'] },
-  { id:'lance2', title:'後衛まで届かせる②', theme:'貫通 / 一点突破（実戦）', unit:'wafflelancer', arc:'wafflelancer', coins:100,
-    tip:'相手は前衛の後ろに弓兵と砲台をそろえた本格編成。ふつうの近接は壁で止まるが、ランサーは壁を貫いて奥の後衛まで届く。前衛に正面を任せて、ランサーで一点突破しよう！勝てばワッフルランサーが仲間になる。',
-    deck:['wafflelancer','choco','cookie','shoe'], foe:['choco','shoe','cannon','cookie'] },
-  { id:'swarm1', title:'一気に噛みつく①', theme:'速攻 / 初撃（体験）', arc:'eclairdog', coins:50,
+    tip:'ワッフルランサーは敵と距離があくと、槍を構えて力をためる。そこから突っこむ一撃はとても強く、たいていの敵を一撃で仕留められるんじゃ。相手のパンケーキキングは放っておくと進化して手に負えなくなる。進化する前に、ランサーの一撃で片づけよう！まずは相手から1ライフ取ればクリア！',
+    deck:['wafflelancer','cookie','choco'], foe:['pancake','cookie'] },
+  { id:'lance2', title:'硬い敵はランサーに任せる', theme:'役割分担 / タンクキラー（実戦）', unit:'wafflelancer', arc:'wafflelancer', coins:100,
+    tip:'相手は硬い前衛をそろえた守りの編成。ランサーの一撃は硬い敵ほど値打ちがあるから、壁はランサーに任せるんじゃ。ただしランサーは一度に1体しか殴れん。群れはポップコーンの爆発にまかせて、役割を分けるのがコツじゃ。勝てばワッフルランサーが仲間になる！',
+    deck:['wafflelancer','choco','bomb','cookie'], foe:['choco','donut','cookie'] },
+  { id:'swarm1', title:'数で押しきる', theme:'数の有利 / 手数（体験）', arc:'eclairdog', coins:50,
     easyFoe:true, winRounds:1, forceUnit:'eclairdog',
-    tip:'エクレアドッグは足がとにかく速い群れ。最初のひと噛みだけ特別に強いので、先に飛びかかった方が得だ！ 相手は足の遅い編成。走って先に噛みつこう。まずは相手から1ライフ取ればクリア！',
-    deck:['eclairdog','cookie','choco'], foe:['choco','donut'] },
-  { id:'swarm2', title:'数で押し切る②', theme:'速攻 / 数の有利（実戦）', unit:'eclairdog', arc:'eclairdog', coins:100,
-    tip:'犬は1体ずつは紙だが、数がそろうと手がつけられない。ただし自爆や範囲攻撃でまとめて溶けるので、前衛と混ぜて散らすのがコツ。速さを活かして相手の後衛に噛みつこう！勝てばエクレアドッグが仲間になる。',
-    deck:['eclairdog','choco','cookie','shoe'], foe:['bomb','choco','shoe','cookie'] },
+    tip:'エクレアドッグは1枚で4匹、しかも噛みつく速さがロスターいちばんじゃ。相手のドーナッツはとても硬いが、みんなで群がって噛み続ければ削り切れる。1匹の強さより、数と手数がものを言うんじゃよ。まずは相手から1ライフ取ればクリア！',
+    deck:['eclairdog','cookie','choco'], foe:['donut','choco'] },
+  { id:'swarm2', title:'爆発から犬を守る', theme:'弱点カバー / 編成（実戦）', unit:'eclairdog', arc:'eclairdog', coins:100,
+    tip:'犬は速くて手数もあるが、体はとても弱い。相手の自爆ポップコーンが飛びこんでくると、固まっていた犬がまとめて吹き飛んでしまうんじゃ。だから前衛を入れて壁を作り、犬だけで突っこませんことじゃ。速さを活かして、生き残った犬で相手の後衛に噛みつこう！勝てばエクレアドッグが仲間になる！',
+    deck:['eclairdog','choco','shoe','cookie'], foe:['bomb','shoe','cookie'] },
 ];
 const GUIDE_BY_ID = Object.fromEntries(GUIDE_STAGES.map(s=>[s.id,s]));
 function guideCleared(id){ return !!(myProfile.guideDone && myProfile.guideDone.indexOf(id)>=0); }
@@ -6755,7 +6755,7 @@ const GUIDE_INTRO = {
   mangel:'マシュマロエンジェルはのう、自分では戦わん。その代わり、近くの味方が受けるダメージを身代わりで引き受けてくれる献身的な天使じゃ。近接・遠距離・爆発、なんでも肩代わりするぞい。前衛のそばに置いて守ってもらえば、仲間がぐっと長生きする。ただし攻撃役が居らんと勝てんから、殴れる仲間と一緒に出すのじゃ。',
   purin:'スプーンナイトプリンは、スプーンをブーメランのように投げるんじゃ。行きと帰りの2回、直線上の敵をまとめて薙ぎ払う。並んだ敵の正面に構えさせると強いぞい。前衛で正面を支えつつ、後ろから列を斬り裂くのじゃ。……ときにあれは、おむつではのうてお皿らしいぞ。',
   canule:'カヌレモーラーは戦いが始まると、ひょいっと土の中へもぐってしまうんじゃ。土の中を進むあいだは、敵の矢も大砲もぜんぜん届かん。だから傷ひとつ負わずに、後ろにひかえた憎いアイツのそばまで、す〜っと近づいて…ガブッ！飛び出して爪でやっつけるんじゃ。逃げてもまた潜って追いかける、しつこいやつじゃぞ。',
-  wafflelancer:'ワッフルランサーは、エクレアの馬にまたがった槍の騎士じゃ。助走で力をためて、そのまま槍で突撃する。ぶつかった敵を貫きながら敵陣の奥へ食い込むから、壁の後ろにいる弓兵や砲台にも届くんじゃ。前衛に正面を任せて、こやつで一点突破じゃ！',
+  wafflelancer:'ワッフルランサーは、エクレアの馬にまたがった槍の騎士じゃ。敵と距離があくと槍を構えて力をため、そのまま突っこむ。この一撃がとにかく強くてな、たいていの敵は一撃で片がつく。硬い敵を一体ずつ確実に減らす役じゃ。ただし一度に殴れるのは1体だけ。群れの相手は他の仲間に任せるんじゃぞ。',
   eclairdog:'エクレアドッグはのう、群れで走る足の速い犬じゃ。最初のひと噛みだけ特別に強くてな、先に飛びかかった方が勝ちというわけじゃ。ただし一匹ずつは紙のように弱い。爆発や範囲攻撃でまとめて溶けるから、前衛と混ぜて使うんじゃぞ。',
   shortcake:'ベリーケーキスネイルは、背中のイチゴをぽとりと足元に下ろして砲台にしてしまう変わり者でな。この砲台がまた頼もしくての、敵にはどうやっても壊せんのじゃ。後ろにこっそり回り込むわたあめゴーストも、この砲台にバシバシ撃ち落とされてお手上げよ。本体はのんびり屋で前に出すぎんから、ポップコーンがドカンといっても巻き込まれん。砲台をどんどん置いて、数で押していくのじゃぞ。',
 };
