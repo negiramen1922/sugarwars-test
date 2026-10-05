@@ -67,6 +67,7 @@ code += `
   applyShortcakeBuff, SHORTCAKE_TURRET_ATK:()=>SHORTCAKE_TURRET_ATK, SHORTCAKE_TURRET_CD:()=>SHORTCAKE_TURRET_CD,
   applyCanuleBuff, iconHTML, get CANULE_BUFF_HP(){ return CANULE_BUFF_HP; }, get CANULE_BUFF_ATK(){ return CANULE_BUFF_ATK; },
   applyWaffleArmor, applyEclairFirst, guideArcs, applyFlagBuffs,
+  arcLabel, guideAlwaysSpecial, GUIDE_BY_ID_get:()=>GUIDE_BY_ID,
   get WAFFLE_BUFF_HP(){ return WAFFLE_BUFF_HP; }, get ECLAIR_BUFF_FIRST(){ return ECLAIR_BUFF_FIRST; },
   get PURIN_BUFF_CD(){ return PURIN_BUFF_CD; },
   get KUMA_BOARD_CAP(){ return KUMA_BOARD_CAP; },
@@ -4346,6 +4347,65 @@ console.log('\n=== 133) 新キャラの戦術指南レッスン（未リリー�
   check('未リリース中は指南のキャラ一覧に出ない',
     arcs.indexOf('wafflelancer') < 0 && arcs.indexOf('eclairdog') < 0, arcs);
   check('リリース済みキャラのアークは従来どおり出る', arcs.indexOf('canule') >= 0 && arcs.indexOf('soda') >= 0);
+}
+
+console.log('\n=== 134) 戦術指南「きほん」アーク（あそび方を学ぶ・キャラ解禁なし） ===');
+{
+  const byId = id => API.GUIDE_STAGES.find(s => s.id === id);
+  ['basic1', 'basic2', 'basic3'].forEach(id => check('レッスン ' + id + ' がある', !!byId(id)));
+  check('3本とも arc は basic', ['basic1', 'basic2', 'basic3'].every(id => byId(id).arc === 'basic'));
+  check('キャラ解禁なし（unit無し）＝報酬はコインのみ50', ['basic1', 'basic2', 'basic3'].every(id => !byId(id).unit && byId(id).coins === 50));
+  check('きほんアークは3レッスン', API.arcStages('basic').length === 3);
+  // 指南メニューの先頭に並ぶ（チュートリアルの次に学ぶので最初）
+  check('指南のキャラ一覧の先頭が basic', API.guideArcs()[0] === 'basic', API.guideArcs().slice(0, 3));
+  // 代表キャラがいないアークでも見出しが出る（arcName/arcIcon）
+  check('arcUnit は代表キャラ無し＝アーク名そのまま', API.arcUnit('basic') === 'basic');
+  check('UNIT_BY_KEY に basic は無い（キャラではない）', !API.UNIT_BY_KEY['basic']);
+  {
+    const lab = API.arcLabel('basic');
+    check('arcLabel が「きほん」の見出しを返す', lab.name === 'きほん' && lab.icon.indexOf('🎓') >= 0, lab);
+    const lab2 = API.arcLabel('canule');   // 従来のキャラアークは代表キャラの名前＋立ち絵
+    check('キャラアークは従来どおり代表キャラの名前＋立ち絵', lab2.name === 'カヌレモーラー' && /<img/.test(lab2.icon), lab2.name);
+  }
+  // アーク内は順番制（きほん1だけ最初から挑戦可）
+  {
+    const prof = API.myProfileRef; prof.guideDone = [];
+    check('basic1 は最初から挑戦可', API.guideStageUnlocked('basic1') === true);
+    check('basic2 / basic3 は前をクリアするまでロック',
+      API.guideStageUnlocked('basic2') === false && API.guideStageUnlocked('basic3') === false);
+    prof.guideDone = ['basic1'];
+    check('basic1 クリアで basic2 が開く', API.guideStageUnlocked('basic2') === true && API.guideStageUnlocked('basic3') === false);
+    prof.guideDone = [];
+  }
+  // basic1＝1ライフ取ればクリア／basic2・basic3＝2ライフ
+  check('basic1 は1ライフでクリア（easyFoe・最初のレッスン）', byId('basic1').easyFoe === true && byId('basic1').winRounds === 1);
+  check('basic2 / basic3 は2ライフでクリア', byId('basic2').winRounds === 2 && byId('basic3').winRounds === 2);
+  // 強化カードを教えるレッスンでは必ず強化カードが提示される
+  check('basic2 に alwaysSpecial', byId('basic2').alwaysSpecial === true);
+  check('他のレッスンには alwaysSpecial が無い', API.GUIDE_STAGES.filter(s => s.alwaysSpecial).length === 1);
+  {
+    API.resetState();
+    check('レッスン外では guideAlwaysSpecial は偽', API.guideAlwaysSpecial() === false);
+    API.setGuideStage('basic3');
+    check('alwaysSpecial でないレッスンでは偽', API.guideAlwaysSpecial() === false);
+    API.setGuideStage('basic2');
+    check('basic2 のレッスン中は真', API.guideAlwaysSpecial() === true);
+  }
+  // basic2 のデッキなら実際に強化カード（スライム融合）が提示候補に入る
+  {
+    API.resetState(); API.setupCanvas();
+    const W = API.CW_get() || 440, H = API.CH_get() || 760;
+    const w = API.createWorld(W, H); API.world = w;
+    API.makeFighters('slime', 'p', W, H, 'army').forEach(f => { f.appear = 1; w.units.push(f); });
+    check('スライム1枚で3体＝融合の資格が立つ', API.eligibleSpecials().indexOf('up_slime') >= 0, API.eligibleSpecials());
+  }
+  // きほんレッスンのデッキ/相手はスターターだけで組める（未解禁キャラを前提にしない）
+  {
+    const starters = new Set(API.STARTER_UNITS);
+    const keys = ['basic1', 'basic2', 'basic3'].flatMap(id => (byId(id).deck || []).concat(byId(id).foe || []));
+    const bad = keys.filter(k => !starters.has(k));
+    check('きほんはスターターキャラのみで完結する', bad.length === 0, bad);
+  }
 }
 
 Promise.resolve().then(() => {

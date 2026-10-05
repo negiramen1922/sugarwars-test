@@ -3102,7 +3102,7 @@ function nextPick(){
   state.offer3 = shuffle(state.loadout).slice(0, CONFIG.offerPerPick); // 4枚から3枚
   // 盤面の状況に応じて、3枠のうち1枠を強化カード（融合 or 各キャラX2）に差し替え
   const specials = eligibleSpecials();
-  if(!tutorial && !pvpMode && specials.length && Math.random() < SPECIAL_OFFER_CHANCE){   // PVP(v1)は強化カード無し
+  if(!tutorial && !pvpMode && specials.length && (guideAlwaysSpecial() || Math.random() < SPECIAL_OFFER_CHANCE)){   // PVP(v1)は強化カード無し
     const sp = specials[Math.floor(Math.random()*specials.length)];
     const i = Math.floor(Math.random()*state.offer3.length);
     state.offer3[i] = sp;
@@ -3194,7 +3194,7 @@ function castReroll(){
   // 新しい提示を即確定（状態はここで更新＝ヘッドレステストもここまでで完結）
   state.offer3 = shuffle(state.loadout).slice(0, CONFIG.offerPerPick);
   const specials = eligibleSpecials();
-  if(!tutorial && !pvpMode && specials.length && Math.random() < SPECIAL_OFFER_CHANCE){
+  if(!tutorial && !pvpMode && specials.length && (guideAlwaysSpecial() || Math.random() < SPECIAL_OFFER_CHANCE)){
     const sp = specials[Math.floor(Math.random()*specials.length)];
     const i = Math.floor(Math.random()*state.offer3.length);
     state.offer3[i] = sp;
@@ -6552,6 +6552,19 @@ function renderCollection(){
    数値・順番は GUIDE_STAGES を編集すれば調整できる。
    ============================================================ */
 const GUIDE_STAGES = [
+  // --- きほん（キャラ解禁なし＝あそび方そのものを学ぶ。arcNameで一覧の見出しを出す） ---
+  { id:'basic1', title:'前と後ろをそろえる', theme:'隊列 / 役割（きほん）', arc:'basic', arcName:'きほん', arcIcon:'🎓', coins:50,
+    easyFoe:true, winRounds:1,
+    tip:'軍の並びは自動で決まる。チョコレートナイトのような硬い仲間が前、シュークリームアーチャーのような弓は後ろじゃ。前が盾になってくれるから、後ろの弓は安全に撃てる。逆に前衛がいないと、弓だけ先に溶けてしまうんじゃよ。まずは相手から1ライフ取ればクリア！',
+    deck:['cookie','choco','shoe'], foe:['choco','cookie'] },
+  { id:'basic2', title:'強化カードを取る', theme:'強化カード / 融合（きほん）', arc:'basic', coins:50,
+    easyFoe:true, winRounds:2, alwaysSpecial:true,
+    tip:'同じ仲間が増えてくると、3枚の中に「強化」と書いたカードがまざるんじゃ。ゼリースライムが3体そろうと出る「融合」は、3体をまとめて大きな1体にする。強化は一度取れば最後までずっと続くから、見かけたら迷わず取るんじゃぞ！相手から2ライフ取ればクリア！',
+    deck:['slime','choco','cookie'], foe:['slime','choco'] },
+  { id:'basic3', title:'相手を見て組む', theme:'相性 / 編成（きほん）', arc:'basic', coins:50,
+    easyFoe:true, winRounds:2,
+    tip:'編成の画面の下に、相手のデッキが出ておる。これを見てから自分の4枚を決めるのが戦のコツじゃ。今回の相手はクッキーとスライムの数で押してくる編成。数の多い相手には、まとめて吹き飛ばすポップコーンTNTの爆発がよく刺さる。相手から2ライフ取ればクリア！',
+    deck:['bomb','choco','shoe'], foe:['cookie','slime'] },
   { id:'front',  title:'前線で受け止める', theme:'タンク / 前衛', unit:'donut',  coins:100,
     tip:'硬い前衛が前で受けると、後ろの弓兵や自爆が生き残って火力を出せる。バキュームドーナッツは敵を吸い寄せて足止めする鈍足タンク。前に置いて壁にしよう。',
     deck:['donut','shoe','bomb','cookie'], foe:['cookie','soda','bomb'] },
@@ -6683,9 +6696,18 @@ function guideNextLesson(id){ const s=GUIDE_BY_ID[id]; if(!s) return null; const
 function guideGoNext(){ if(guideNextId){ const id=guideNextId; guideNextId=null; guideOpenDeckBuilder(id); } }
 // レッスン1（easyFoe指定）中か＝CPUは強化/X2を取らない
 function guideEasyFoe(){ if(!guideMode||!guideStageId) return false; const s=GUIDE_BY_ID[guideStageId]; return !!(s&&s.easyFoe); }
+// 強化カードの取り方を教えるレッスン（alwaysSpecial）では、出せる状況なら必ず1枠を強化カードにする＝確率で出ずに学べない事故を防ぐ。
+function guideAlwaysSpecial(){ if(!guideMode||!guideStageId) return false; const s=GUIDE_BY_ID[guideStageId]; return !!(s&&s.alwaysSpecial); }
 // アーク（キャラ）の一覧（GUIDE_STAGES順・重複排除）
 // 未リリース（UNITSで test:true）のキャラのアークは一覧に出さない＝レッスンだけ先に書いておける。
 // リリース時に test:true を外せば自動で指南メニューに並ぶ。
+// アークの見出し（名前＋アイコン）。代表キャラがいればそのキャラ、いなければ先頭レッスンの arcName/arcIcon を使う。
+function arcLabel(a){
+  const u=UNIT_BY_KEY[arcUnit(a)];
+  if(u) return { name:u.name, icon:iconHTML(u,'p') };
+  const s=arcStages(a)[0]||{};
+  return { name:s.arcName||a, icon:s.arcIcon?('<span style="font-size:30px;line-height:1">'+s.arcIcon+'</span>'):'' };
+}
 function guideArcs(){ const seen={}, arcs=[]; GUIDE_STAGES.forEach(function(s){ const a=stageArc(s); if(!seen[a]){ seen[a]=1; arcs.push(a); } });
   return arcs.filter(function(a){ const u=UNIT_BY_KEY[arcUnit(a)]; return !(u && u.test); }); }
 function arcStages(a){ return GUIDE_STAGES.filter(s=>stageArc(s)===a); }
@@ -6699,10 +6721,10 @@ function renderGuide(){
   const sub=$('guideSub'); const box=$('guideList'); if(!box) return;
   if(guideView==='arc' && guideCurArc){
     // --- 選んだキャラのレッスンを縦に並べる（上から順にクリア）---
-    const a=guideCurArc, ss=arcStages(a), uk=arcUnit(a), u=UNIT_BY_KEY[uk];
-    if(sub) sub.textContent = (u?u.name:'このキャラ')+'のレッスン。上から順にクリアしよう！';
+    const a=guideCurArc, ss=arcStages(a), lab=arcLabel(a);
+    if(sub) sub.textContent = lab.name+'のレッスン。上から順にクリアしよう！';
     let html = '<div style="margin-bottom:8px"><button class="btn btn-ghost" onclick="guideBackToArcs()">← キャラ一覧へ</button></div>'
-      + '<div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:10px">'+(u?iconHTML(u,'p'):'')+'<b style="font-size:16px">'+(u?u.name:a)+'</b></div>';
+      + '<div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:10px">'+lab.icon+'<b style="font-size:16px">'+lab.name+'</b></div>';
     html += ss.map(function(s,i){
       const done=guideCleared(s.id), open=guideStageUnlocked(s.id);
       const status = done ? '<span style="color:var(--green);font-weight:700">✅ クリア</span>'
@@ -6722,13 +6744,13 @@ function renderGuide(){
   // --- キャラ一覧（どのキャラのレッスンがあるか）---
   if(sub) sub.textContent='好きなキャラから挑戦OK！ キャラを選ぶとレッスンが出ます。全キャラここで解禁できます（🍬で先に解禁も可）。';
   box.innerHTML = guideArcs().map(function(a){
-    const ss=arcStages(a), uk=arcUnit(a), u=UNIT_BY_KEY[uk];
+    const ss=arcStages(a), uk=arcUnit(a), lab=arcLabel(a);
     const total=ss.length, cleared=ss.filter(s=>guideCleared(s.id)).length, allDone=cleared>=total;
     const badge = allDone ? '<span style="color:var(--green);font-weight:700">✅ 全クリア</span>'
                 : (unitUnlocked(uk) ? '<span style="color:var(--steel);font-weight:700">解禁済み</span>' : '<span style="color:var(--accent2);font-weight:700">'+cleared+'/'+total+'</span>');
     return '<div class="guide-card" onclick="openGuideArc(\''+a+'\')" style="cursor:pointer;display:flex;align-items:center;gap:10px">'
-      + (u?iconHTML(u,'p'):'')
-      + '<div style="flex:1"><div style="font-weight:800;font-size:14px">'+(u?u.name:a)+'</div>'
+      + lab.icon
+      + '<div style="flex:1"><div style="font-weight:800;font-size:14px">'+lab.name+'</div>'
       + '<div style="font-size:11.5px;color:var(--muted)">レッスン'+total+'本</div></div>'
       + badge + '<span style="color:var(--muted);font-size:18px">›</span></div>';
   }).join('') + COMING_SOON.map(function(cs){   // 近日登場のレッスン（シルエット＋カミングスーン）
