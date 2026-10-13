@@ -66,6 +66,9 @@ code += `
   recruitKuma, guardSoak, throwBoomerang, stepBoomerang, deployTurret, expireTurret, applyPurinBuff,
   applyShortcakeBuff, SHORTCAKE_TURRET_ATK:()=>SHORTCAKE_TURRET_ATK, SHORTCAKE_TURRET_CD:()=>SHORTCAKE_TURRET_CD,
   applyCanuleBuff, iconHTML, get CANULE_BUFF_HP(){ return CANULE_BUFF_HP; }, get CANULE_BUFF_ATK(){ return CANULE_BUFF_ATK; },
+  applyWaffleArmor, applyEclairFirst, guideArcs, applyFlagBuffs,
+  arcLabel, guideAlwaysSpecial, GUIDE_BY_ID_get:()=>GUIDE_BY_ID,
+  get WAFFLE_BUFF_HP(){ return WAFFLE_BUFF_HP; }, get ECLAIR_BUFF_FIRST(){ return ECLAIR_BUFF_FIRST; },
   get PURIN_BUFF_CD(){ return PURIN_BUFF_CD; },
   get KUMA_BOARD_CAP(){ return KUMA_BOARD_CAP; },
   get MANGEL_R(){ return MANGEL_R; }, get MANGEL_SOAK(){ return MANGEL_SOAK; },
@@ -2342,7 +2345,8 @@ console.log('\n=== 76) 新キャラ アイスクリームウィザード（氷�
   const W = 440, H = 660;
   // ユニット定義の基本
   const iw = API.UNIT_BY_KEY['icewiz'];
-  check('icewizが登録されている', !!iw && iw.ranged === true && iw.count === 1, iw && { ranged: iw.ranged, count: iw.count });
+  check('icewizが登録されている（2人組の後衛魔導士）', !!iw && iw.ranged === true && iw.count === 2, iw && { ranged: iw.ranged, count: iw.count });
+  check('1体あたりは控えめ（atk13 / hp55 / cd1.2）', iw.atk === 13 && iw.hp === 55 && iw.cd === 1.2, { atk: iw.atk, hp: iw.hp, cd: iw.cd });
   check('小範囲AoE（splash>0）かつヒット鈍足（slowHit>0）', iw.splash > 0 && iw.slowHit > 0, { splash: iw.splash, slowHit: iw.slowHit });
   // 氷弾が敵に当たると鈍足(chillT/chillAmt)が付き、slowMulが下がる
   let w = API.createWorld(W, H); API.world = w; w.phase = 'battle'; w.intro = 0;
@@ -2367,7 +2371,7 @@ console.log('\n=== 76) 新キャラ アイスクリームウィザード（氷�
   const baseSplash = c2.splash, baseAtk = c2.atk, baseSlowDur = c2.slowDur;
   API.applyIcewizBuff(wb, 'p');
   check('ブリザードで爆風が広がる', c2.splash > baseSplash, { base: baseSplash, now: c2.splash });
-  check('ブリザードで攻撃力が上がる(→30)', c2.atk === API.ICEWIZ_ATK && c2.atk > baseAtk, { base: baseAtk, now: c2.atk });
+  check('ブリザードで攻撃力が上がる(13→20)', c2.atk === API.ICEWIZ_ATK && c2.atk > baseAtk, { base: baseAtk, now: c2.atk });
   check('ブリザードで鈍化時間が延びる(0.5→1.0)', c2.slowDur > baseSlowDur, { base: baseSlowDur, now: c2.slowDur });
   check('鈍化量は据え置き(0.5)', c2.slowHit === 0.5, c2.slowHit);
   check('icewizBuff フラグが立つ', c2.icewizBuff === true);
@@ -2585,9 +2589,9 @@ console.log('\n=== 87) 詳細：攻撃力に爆発/弾のダメージを表示�
   check('通常攻撃はatkを表示', A(U.cookie) === '⚔ 14', A(U.cookie));
   check('ポップコーン＝爆発ダメージ(blast)', A(U.bomb) === '💥 100', A(U.bomb));
   check('ソーダ＝爆発ダメージ(blast)', A(U.soda) === '💥 10', A(U.soda));
-  check('キャンディキャノン＝迫撃弾ダメージ(mortar)', A(U.cannon) === '💥 90', A(U.cannon));
+  check('キャンディキャノン＝迫撃弾ダメージ(mortar)', A(U.cannon) === '💥 70', A(U.cannon));
   check('ベーカリー＝攻撃しない(—)', A(U.bakery) === '—', A(U.bakery));
-  check('アイス＝氷弾のatkを表示', A(U.icewiz) === '⚔ 20', A(U.icewiz));
+  check('アイス＝氷弾のatkを表示', A(U.icewiz) === '⚔ 13', A(U.icewiz));
   // enhDisplay：スライムに融合、ベーカリーにジンジャーの項目が入る
   const es = API.enhDisplay(U.slime);
   check('スライム詳細に「スライム融合」が出る', es.some(e => e.name.indexOf('融合') >= 0), es.map(e => e.name));
@@ -4205,6 +4209,202 @@ console.log('\n=== 131) 新ユニット：バウムクーヘンゴーレム／�
     const drift = Math.round(Math.hypot(r.x - rx, r.y - ry) * 10) / 10;
     check('ラムネ大砲は動かない（不動の建設物）', drift < 1.5, { drift });
     check('ラムネ大砲は遠距離の敵を撃って削る', e.hp < eh, { dealt: eh - e.hp });
+  }
+}
+
+console.log('\n=== 132) 新キャラの固有強化：ホイップアーマー（ランサー）／こんがりチョコ（ドッグ） ===');
+{
+  API.resetState(); API.setupCanvas();
+  const W = API.CW_get() || 440, H = API.CH_get() || 760;
+  const spW = API.SPECIALS['buff_wafflelancer'], spE = API.SPECIALS['buff_eclairdog'];
+  check('SPECIALS.buff_wafflelancer が定義済み', !!spW && spW.waffleBuff === true && spW.target === 'wafflelancer');
+  check('SPECIALS.buff_eclairdog が定義済み', !!spE && spE.eclairBuff === true && spE.target === 'eclairdog');
+  check('どちらも強化カード扱い（upgrade）', spW.upgrade === true && spE.upgrade === true);
+
+  // --- ホイップアーマー：HP 250 → 400 ---
+  {
+    const w = API.createWorld(W, H); w.phase = 'battle'; w.intro = 0; API.world = w;
+    const l = API.makeFighters('wafflelancer', 'p', W, H, 'army')[0]; l.appear = 1; l.x = W * 0.5; l.y = H * 0.6; w.units.push(l);
+    check('強化前のHPは250', l.maxHp === 250 && l.hp === 250, { hp: l.hp });
+    API.applyWaffleArmor(w, 'p');
+    check('ホイップアーマーでHP400', l.maxHp === API.WAFFLE_BUFF_HP && l.hp === API.WAFFLE_BUFF_HP, { hp: l.hp });
+    check('baseMaxHpも更新（毎ラウンド再適用の基準）', l.baseMaxHp === API.WAFFLE_BUFF_HP);
+    check('waffleBuff フラグが立つ', l.waffleBuff === true);
+    check('攻撃力は据え置き（HPだけの強化）', l.atk === 30, { atk: l.atk });
+    l.hp = 100; API.applyWaffleArmor(w, 'p');   // 冪等＝再適用しても400（choco等と同じく全回復）
+    check('再適用は冪等（400のまま・全回復）', l.maxHp === API.WAFFLE_BUFF_HP && l.hp === API.WAFFLE_BUFF_HP);
+  }
+
+  // --- こんがりチョコ：初撃 20 → 45（2撃目以降は通常atk=10のまま）---
+  {
+    const w = API.createWorld(W, H); w.phase = 'battle'; w.intro = 0; API.world = w;
+    const d = API.makeFighters('eclairdog', 'p', W, H, 'army')[0]; d.appear = 1; d.x = W * 0.5; d.y = H * 0.5; d.cool = 0; w.units.push(d);
+    check('強化前の初撃は20', d.firstHit === 20);
+    API.applyEclairFirst(w, 'p');
+    check('こんがりチョコで初撃45', d.firstHit === API.ECLAIR_BUFF_FIRST, { firstHit: d.firstHit });
+    check('eclairBuff フラグが立つ', d.eclairBuff === true);
+    check('通常攻撃力は据え置き（初撃だけの強化）', d.atk === 10, { atk: d.atk });
+    // 実戦：1撃目45 → 2撃目は通常10
+    const e = API.makeFighters('cookie', 'e', W, H, 'army')[0];
+    e.x = W * 0.5; e.y = H * 0.5 - 12; e.appear = 1; e.speed = 0; e.baseSpeed = 0; e.hp = e.maxHp = 1000; w.units.push(e);
+    w.done = false;
+    const drops = []; let prev = e.hp;
+    for (let i = 0; i < 240 && drops.length < 2; i++) { API.stepWorld(w, 1 / 60); if (e.hp < prev) { drops.push(prev - e.hp); prev = e.hp; } }
+    check('強化後の最初のひと噛みは45ダメージ', drops[0] === API.ECLAIR_BUFF_FIRST, drops);
+    check('2撃目以降は通常10ダメージのまま', drops[1] === 10, drops);
+  }
+
+  // --- 提示資格：盤面にいる & 未取得のときだけ出る ---
+  {
+    API.resetState();
+    const w = API.createWorld(W, H); API.world = w;
+    check('盤面にいなければ提示されない', API.eligibleSpecials().indexOf('buff_wafflelancer') < 0);
+    const l = API.makeFighters('wafflelancer', 'p', W, H, 'army')[0]; l.appear = 1; w.units.push(l);
+    const d = API.makeFighters('eclairdog', 'p', W, H, 'army')[0]; d.appear = 1; w.units.push(d);
+    const list = API.eligibleSpecials();
+    check('ランサーがいれば buff_wafflelancer が提示候補', list.indexOf('buff_wafflelancer') >= 0);
+    check('ドッグがいれば buff_eclairdog が提示候補', list.indexOf('buff_eclairdog') >= 0);
+    API.state.youWaffleBuff = true; API.state.youEclairBuff = true;
+    const list2 = API.eligibleSpecials();
+    check('取得済みなら二度と提示されない（1回限り）',
+      list2.indexOf('buff_wafflelancer') < 0 && list2.indexOf('buff_eclairdog') < 0);
+  }
+
+  // --- CPUも同じ強化を取れる（パリティ）---
+  {
+    API.resetState();
+    const w = API.createWorld(W, H); API.world = w;
+    const l = API.makeFighters('wafflelancer', 'e', W, H, 'army')[0]; l.appear = 1; w.units.push(l);
+    const d = API.makeFighters('eclairdog', 'e', W, H, 'army')[0]; d.appear = 1; w.units.push(d);
+    const keys = API.foeEnhanceCandidates().map(c => c.key);
+    check('CPUの強化候補に buff_wafflelancer / buff_eclairdog が入る',
+      keys.indexOf('buff_wafflelancer') >= 0 && keys.indexOf('buff_eclairdog') >= 0, keys);
+  }
+
+  // --- 毎ラウンド再適用（applyFlagBuffs）---
+  {
+    API.resetState();
+    const w = API.createWorld(W, H); API.world = w;
+    const l = API.makeFighters('wafflelancer', 'p', W, H, 'army')[0]; l.appear = 1; w.units.push(l);
+    const d = API.makeFighters('eclairdog', 'p', W, H, 'army')[0]; d.appear = 1; w.units.push(d);
+    API.state.youWaffleBuff = true; API.state.youEclairBuff = true;
+    API.applyFlagBuffs(w, 'p');
+    check('applyFlagBuffsで両方の強化が再適用される',
+      l.maxHp === API.WAFFLE_BUFF_HP && d.firstHit === API.ECLAIR_BUFF_FIRST);
+  }
+
+  // --- PVP：applyPvpSpecial で陣営を指定して適用できる ---
+  {
+    API.resetState();
+    const w = API.createWorld(W, H); API.world = w;
+    const l = API.makeFighters('wafflelancer', 'e', W, H, 'army')[0]; l.appear = 1; w.units.push(l);
+    API.applyPvpSpecial(w, 'e', 'buff_wafflelancer');
+    check('applyPvpSpecialで相手側に適用＋stateフラグ', l.maxHp === API.WAFFLE_BUFF_HP && API.state.foeWaffleBuff === true);
+  }
+
+  // --- スナップショット：強化フラグが子へ伝わる（盤面の✦バッジ用）---
+  {
+    const w = API.createWorld(W, H); w.phase = 'battle'; API.world = w;
+    const l = API.makeFighters('wafflelancer', 'p', W, H, 'army')[0]; l.appear = 1; l.waffleBuff = true; w.units.push(l);
+    const d = API.makeFighters('eclairdog', 'p', W, H, 'army')[0]; d.appear = 1; d.eclairBuff = true; w.units.push(d);
+    const snap = API.serializeWorld(w), back = API.applySnapshot(snap, false);
+    const l2 = back.units.find(u => u.key === 'wafflelancer'), d2 = back.units.find(u => u.key === 'eclairdog');
+    check('waffleBuff / eclairBuff がスナップショットで伝わる', l2.waffleBuff === true && d2.eclairBuff === true);
+  }
+
+  // --- キャラ詳細（ステータスタブ）---
+  {
+    const lu = API.UNIT_BY_KEY['wafflelancer'], du = API.UNIT_BY_KEY['eclairdog'];
+    const le = API.enhDisplay(lu).find(e => e.kind === '強化');
+    const de = API.enhDisplay(du).find(e => e.kind === '強化');
+    check('キャラ詳細にランサーの固有強化が出る（HP400）', !!le && le.stats && le.stats.hp === API.WAFFLE_BUFF_HP, le && le.stats);
+    check('キャラ詳細にドッグの固有強化が出る（上がるのは初撃なのでHP/攻撃グリッドは出さない）', !!de && !de.stats);
+    check('能力欄がある（貫通突撃 / ファーストバイト）',
+      !!API.UNIT_ABILITIES['wafflelancer'] && !!API.UNIT_ABILITIES['eclairdog']);
+    check('エクレアドッグのカードは絵文字でなく立ち絵', /<img/.test(API.iconHTML(du, 'p')));
+  }
+}
+
+console.log('\n=== 133) 新キャラの戦術指南レッスン（未リリース中は一覧に出さない） ===');
+{
+  const byId = id => API.GUIDE_STAGES.find(s => s.id === id);
+  ['lance1', 'lance2', 'swarm1', 'swarm2'].forEach(id => check('レッスン ' + id + ' がある', !!byId(id)));
+  check('lance1 は体験（unit無し・easyFoe・winRounds:1・forceUnit）',
+    !byId('lance1').unit && byId('lance1').easyFoe === true && byId('lance1').winRounds === 1 && byId('lance1').forceUnit === 'wafflelancer');
+  check('lance2 で wafflelancer 解禁', byId('lance2').unit === 'wafflelancer');
+  check('swarm1 は体験（unit無し・easyFoe・winRounds:1・forceUnit）',
+    !byId('swarm1').unit && byId('swarm1').easyFoe === true && byId('swarm1').winRounds === 1 && byId('swarm1').forceUnit === 'eclairdog');
+  check('swarm2 で eclairdog 解禁', byId('swarm2').unit === 'eclairdog');
+  check('報酬統一を維持（解禁=100／体験=50）', API.GUIDE_STAGES.every(s => s.unit ? s.coins === 100 : s.coins === 50));
+  check('アークは各2レッスン', API.arcStages('wafflelancer').length === 2 && API.arcStages('eclairdog').length === 2);
+  check('アーク内は順番制（lance2 / swarm2 は最初ロック）',
+    API.guideStageUnlocked('lance2') === false && API.guideStageUnlocked('swarm2') === false);
+  check('アーク先頭は挑戦可（lance1 / swarm1）',
+    API.guideStageUnlocked('lance1') === true && API.guideStageUnlocked('swarm1') === true);
+  check('クッキーじいの紹介セリフがある', !!API.GUIDE_INTRO['wafflelancer'] && !!API.GUIDE_INTRO['eclairdog']);
+  // 未リリース（test:true）のうちは指南のキャラ一覧に出さない＝カミングスーンのまま
+  const arcs = API.guideArcs();
+  check('未リリース中は指南のキャラ一覧に出ない',
+    arcs.indexOf('wafflelancer') < 0 && arcs.indexOf('eclairdog') < 0, arcs);
+  check('リリース済みキャラのアークは従来どおり出る', arcs.indexOf('canule') >= 0 && arcs.indexOf('soda') >= 0);
+}
+
+console.log('\n=== 134) 戦術指南「きほん」アーク（あそび方を学ぶ・キャラ解禁なし） ===');
+{
+  const byId = id => API.GUIDE_STAGES.find(s => s.id === id);
+  ['basic1', 'basic2', 'basic3'].forEach(id => check('レッスン ' + id + ' がある', !!byId(id)));
+  check('3本とも arc は basic', ['basic1', 'basic2', 'basic3'].every(id => byId(id).arc === 'basic'));
+  check('キャラ解禁なし（unit無し）＝報酬はコインのみ50', ['basic1', 'basic2', 'basic3'].every(id => !byId(id).unit && byId(id).coins === 50));
+  check('きほんアークは3レッスン', API.arcStages('basic').length === 3);
+  // 指南メニューの先頭に並ぶ（チュートリアルの次に学ぶので最初）
+  check('指南のキャラ一覧の先頭が basic', API.guideArcs()[0] === 'basic', API.guideArcs().slice(0, 3));
+  // 代表キャラがいないアークでも見出しが出る（arcName/arcIcon）
+  check('arcUnit は代表キャラ無し＝アーク名そのまま', API.arcUnit('basic') === 'basic');
+  check('UNIT_BY_KEY に basic は無い（キャラではない）', !API.UNIT_BY_KEY['basic']);
+  {
+    const lab = API.arcLabel('basic');
+    check('arcLabel が「きほん」の見出しを返す', lab.name === 'きほん' && lab.icon.indexOf('🎓') >= 0, lab);
+    const lab2 = API.arcLabel('canule');   // 従来のキャラアークは代表キャラの名前＋立ち絵
+    check('キャラアークは従来どおり代表キャラの名前＋立ち絵', lab2.name === 'カヌレモーラー' && /<img/.test(lab2.icon), lab2.name);
+  }
+  // アーク内は順番制（きほん1だけ最初から挑戦可）
+  {
+    const prof = API.myProfileRef; prof.guideDone = [];
+    check('basic1 は最初から挑戦可', API.guideStageUnlocked('basic1') === true);
+    check('basic2 / basic3 は前をクリアするまでロック',
+      API.guideStageUnlocked('basic2') === false && API.guideStageUnlocked('basic3') === false);
+    prof.guideDone = ['basic1'];
+    check('basic1 クリアで basic2 が開く', API.guideStageUnlocked('basic2') === true && API.guideStageUnlocked('basic3') === false);
+    prof.guideDone = [];
+  }
+  // basic1＝1ライフ取ればクリア／basic2・basic3＝2ライフ
+  check('basic1 は1ライフでクリア（easyFoe・最初のレッスン）', byId('basic1').easyFoe === true && byId('basic1').winRounds === 1);
+  check('basic2 / basic3 は2ライフでクリア', byId('basic2').winRounds === 2 && byId('basic3').winRounds === 2);
+  // 強化カードを教えるレッスンでは必ず強化カードが提示される
+  check('basic2 に alwaysSpecial', byId('basic2').alwaysSpecial === true);
+  check('他のレッスンには alwaysSpecial が無い', API.GUIDE_STAGES.filter(s => s.alwaysSpecial).length === 1);
+  {
+    API.resetState();
+    check('レッスン外では guideAlwaysSpecial は偽', API.guideAlwaysSpecial() === false);
+    API.setGuideStage('basic3');
+    check('alwaysSpecial でないレッスンでは偽', API.guideAlwaysSpecial() === false);
+    API.setGuideStage('basic2');
+    check('basic2 のレッスン中は真', API.guideAlwaysSpecial() === true);
+  }
+  // basic2 のデッキなら実際に強化カード（スライム融合）が提示候補に入る
+  {
+    API.resetState(); API.setupCanvas();
+    const W = API.CW_get() || 440, H = API.CH_get() || 760;
+    const w = API.createWorld(W, H); API.world = w;
+    API.makeFighters('slime', 'p', W, H, 'army').forEach(f => { f.appear = 1; w.units.push(f); });
+    check('スライム1枚で3体＝融合の資格が立つ', API.eligibleSpecials().indexOf('up_slime') >= 0, API.eligibleSpecials());
+  }
+  // きほんレッスンのデッキ/相手はスターターだけで組める（未解禁キャラを前提にしない）
+  {
+    const starters = new Set(API.STARTER_UNITS);
+    const keys = ['basic1', 'basic2', 'basic3'].flatMap(id => (byId(id).deck || []).concat(byId(id).foe || []));
+    const bad = keys.filter(k => !starters.has(k));
+    check('きほんはスターターキャラのみで完結する', bad.length === 0, bad);
   }
 }
 
