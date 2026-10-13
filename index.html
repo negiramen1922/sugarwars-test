@@ -1136,7 +1136,7 @@ const MOLE_REDIG_R = 60;         // 浮上後、狙う敵がこの距離より�
 const CANULE_BUFF_HP = 200;      // 固有強化「ジャイアントクロー」後のHP（通常130）
 const CANULE_BUFF_ATK = 30;      // 強化後の攻撃力（通常20）
 const CANULE_EMERGE_DMG = 40;    // 強化後、土から出る瞬間に近くの敵1体へ与えるダメージ
-const WAFFLE_BUFF_HP = 400;      // 固有強化「ホイップアーマー」後のHP（通常250）＝突撃したあとも生き残って粘る
+const WAFFLE_BUFF_HP = 480;      // 固有強化「ホイップアーマー」後のHP（通常300）＝突撃したあとも生き残って粘る
 const ECLAIR_BUFF_FIRST = 45;    // 固有強化「こんがりチョコ」後の初撃ダメージ（通常20）。2撃目以降は通常のatkのまま
 const SEP_R = 10.5;       // 分離（重なり防止）に使う当たり半径の上限(px)。隊列の段間隔 rowGap=21 の半分に合わせてあり、
                           // 開戦前の隊列の密度では押し合いが起きない＝バトル開始時に一気に広がらない。大型ユニットもこの半径で判定。
@@ -1194,9 +1194,9 @@ const UNITS = [
   // スネイル型。イチゴを背負う立ち絵(shortcake_*)／タレット設置中はイチゴを下ろした立ち絵(shortcake_deploy_*)に切替。戦闘中は歩行2フレーム(*2_*)で下の足の並々が波打つ。青=ブルーベリー/赤=いちご。
   {key:'shortcake', name:'ベリーケーキスネイル', icon:'🍰', role:'fodder', tier:1.75, count:1, atk:10, hp:200, speed:45, range:30, cd:1.0, tag:'設置＋前進', spriteScale:0.89, short:'イチゴのタレットを背負ったカタツムリ', text:'背負ったイチゴのタレットを設置して敵を迎撃するカタツムリ。タレットが壊れたら直ぐに設置できる優秀なエンジニア。', deployTurret:true, turretKey:'strawturret', redeployDelay:0.5, beta:true},
   // エクレアドッグ（開発テスト中）。複数・高速の突撃犬。走り2フレーム(anim/animRed)＝味方青/敵赤。firstHit=最初の噛みつきだけ強力(20)。見た目はワッフルランサーのマウントに合わせ spriteScale で大きめ。
-  {key:'eclairdog', name:'エクレアドッグ', icon:'🌭', role:'fodder', tier:0.4, count:4, atk:10, hp:30, speed:150, range:24, cd:0.3, firstHit:20, spriteScale:1.6, tag:'高速スウォーム', short:'群れで走る足の速い犬', text:'チョコまみれで走りまわるエクレアの犬。足がとにかく速い！最初のひと噛みは特に強烈。みんなで一気に敵に噛みつきに行くぞ。ワン！', anim:['eclairdog_blue','eclairdog_run_blue'], animRed:['eclairdog_red','eclairdog_run_red'], animFps:8, test:true, beta:true},
+  {key:'eclairdog', name:'エクレアドッグ', icon:'🌭', role:'fodder', tier:0.4, count:4, atk:14, hp:70, speed:150, range:24, cd:0.3, firstHit:20, spriteScale:1.6, tag:'高速スウォーム', short:'群れで走る足の速い犬', text:'チョコまみれで走りまわるエクレアの犬。足がとにかく速い！最初のひと噛みは特に強烈。みんなで一気に敵に噛みつきに行くぞ。ワン！', anim:['eclairdog_blue','eclairdog_run_blue'], animRed:['eclairdog_red','eclairdog_run_red'], animFps:8, test:true, beta:true},
   // ワッフルランサー（開発テスト中）。大福の charger を下敷きに、pierce=貫通突撃で数体を単体ダメージで貫きながら敵陣に食い込む。武器合成：槍なし本体(wafflelancer_body_*)＋槍(wafflelancer_lance)を render で状態別に合成（待機=上に構え/突撃=前に倒す）。
-  {key:'wafflelancer', name:'ワッフルランサー', icon:'🧇', role:'fodder', tier:-0.3, count:1, atk:30, hp:250, speed:90, range:30, cd:0.9, tag:'突撃騎兵', short:'ためた一撃で敵を仕留める槍騎兵', text:'エクレアの馬にまたがったワッフルの騎士。敵と距離があくとチョコの槍を構えて力をため、突っこむ一撃でたいていの敵を仕留める。ゆけ！', charger:true, pierce:1, dashDamage:150, dashSpeed:300, chargeTime:0.9, dashFar:110, dashRange:26, test:true, beta:true},
+  {key:'wafflelancer', name:'ワッフルランサー', icon:'🧇', role:'fodder', tier:-0.3, count:1, atk:45, hp:300, speed:90, range:30, cd:0.9, tag:'突撃騎兵', short:'ためた一撃で敵を仕留める槍騎兵', text:'エクレアの馬にまたがったワッフルの騎士。敵と距離があくとチョコの槍を構えて力をため、突っこむ一撃でたいていの敵を仕留める。ゆけ！', charger:true, pierce:1, dashDamage:150, dashSpeed:300, chargeTime:0.9, dashFar:110, dashRange:26, test:true, beta:true},
   // 琥珀バチ（開発テスト中）。SUGAR WARS 初の空中ユニット。fly=近接では狙われない（遠距離/砲のみ標的可）＋noCollide=すり抜けて飛ぶ。クラロワのガーゴイル的立ち位置＝飛行スウォームで近接軍を一方的に刺す。天敵は遠距離＋AoE（爆発は飛行にも当たる）。立ち絵は後日（暫定=絵文字🐝）。
   {key:'amberbee', name:'琥珀バチ', icon:'🐝', role:'fodder', tier:0.75, count:3, atk:12, hp:32, speed:120, range:24, cd:0.55, tag:'空中', short:'空を飛ぶ琥珀色のハチの群れ', text:'べっこう飴でできた琥珀色のハチ。空を飛ぶので近接攻撃が当たらない。群れで敵に取りついて一方的に刺す。ただし弓や砲、爆発には弱い。ブンブン！', fly:true, noCollide:true, test:true, beta:true},
   // バウムクーヘンゴーレム（開発テスト中）。クッキーの前に立つ超硬タンク（隊列tier-0.7＝cookieより前）。重量＋KB耐性で押されない壁。立ち絵は後日（暫定=絵文字）。
