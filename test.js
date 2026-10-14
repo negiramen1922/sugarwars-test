@@ -4055,10 +4055,13 @@ console.log('\n=== 129) 新キャラ：エクレアドッグ＆ワッフルラ�
   const dog = API.UNIT_BY_KEY['eclairdog'];
   const lancer = API.UNIT_BY_KEY['wafflelancer'];
   check('eclairdog / wafflelancer が UNITS にある', !!dog && !!lancer);
-  check('両者とも test:true（通常プレイ非表示）', dog.test === true && lancer.test === true);
+  check('リリース済み＝test:true が外れている', !dog.test && !lancer.test);
+  check('ベータ表示は維持（調整中の注記を出す）', dog.beta === true && lancer.beta === true);
   const normalKeys = API.UNITS.filter(u => !u.summonOnly && !u.test).map(u => u.key);
-  check('通常ロスターに含まれない', normalKeys.indexOf('eclairdog') < 0 && normalKeys.indexOf('wafflelancer') < 0);
-  check('X2カードが生成されない', !API.SPECIALS.x2_eclairdog && !API.SPECIALS.x2_wafflelancer);
+  check('通常ロスターに登場する', normalKeys.indexOf('eclairdog') >= 0 && normalKeys.indexOf('wafflelancer') >= 0);
+  check('X2カードが生成される', !!API.SPECIALS.x2_eclairdog && !!API.SPECIALS.x2_wafflelancer);
+  check('カード立ち絵が絵文字でなく画像（ランサーは暫定で槍なし本体）',
+    /<img/.test(API.iconHTML(lancer, 'p')) && /<img/.test(API.iconHTML(dog, 'p')));
 
   check('eclairdog は複数(count>=3)で高速(speed>=140)', dog.count >= 3 && dog.speed >= 140);
   check('eclairdog tier はゼリー(0.5)の1つ前あたり(0<tier<0.5)', dog.tier > 0 && dog.tier < 0.5, dog.tier);
@@ -4342,11 +4345,14 @@ console.log('\n=== 133) 新キャラの戦術指南レッスン（未リリー�
   check('アーク先頭は挑戦可（lance1 / swarm1）',
     API.guideStageUnlocked('lance1') === true && API.guideStageUnlocked('swarm1') === true);
   check('クッキーじいの紹介セリフがある', !!API.GUIDE_INTRO['wafflelancer'] && !!API.GUIDE_INTRO['eclairdog']);
-  // 未リリース（test:true）のうちは指南のキャラ一覧に出さない＝カミングスーンのまま
+  // リリース済みなので指南のキャラ一覧に並ぶ（guideArcs は test:true のアークだけを除外する）
   const arcs = API.guideArcs();
-  check('未リリース中は指南のキャラ一覧に出ない',
-    arcs.indexOf('wafflelancer') < 0 && arcs.indexOf('eclairdog') < 0, arcs);
+  check('指南のキャラ一覧に2体のアークが並ぶ',
+    arcs.indexOf('wafflelancer') >= 0 && arcs.indexOf('eclairdog') >= 0, arcs);
   check('リリース済みキャラのアークは従来どおり出る', arcs.indexOf('canule') >= 0 && arcs.indexOf('soda') >= 0);
+  // 未リリース(test:true)のアークを除外する仕組み自体は残っている（amberbee等の下ごしらえ用）
+  check('test:true キャラのアークは引き続き除外される',
+    arcs.every(a => { const u = API.UNIT_BY_KEY[API.arcUnit(a)]; return !(u && u.test); }), arcs);
 }
 
 console.log('\n=== 134) 戦術指南「きほん」アーク（あそび方を学ぶ・キャラ解禁なし） ===');
