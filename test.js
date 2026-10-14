@@ -4055,10 +4055,13 @@ console.log('\n=== 129) 新キャラ：エクレアドッグ＆ワッフルラ�
   const dog = API.UNIT_BY_KEY['eclairdog'];
   const lancer = API.UNIT_BY_KEY['wafflelancer'];
   check('eclairdog / wafflelancer が UNITS にある', !!dog && !!lancer);
-  check('両者とも test:true（通常プレイ非表示）', dog.test === true && lancer.test === true);
+  check('リリース済み＝test:true が外れている', !dog.test && !lancer.test);
+  check('ベータ表示は維持（調整中の注記を出す）', dog.beta === true && lancer.beta === true);
   const normalKeys = API.UNITS.filter(u => !u.summonOnly && !u.test).map(u => u.key);
-  check('通常ロスターに含まれない', normalKeys.indexOf('eclairdog') < 0 && normalKeys.indexOf('wafflelancer') < 0);
-  check('X2カードが生成されない', !API.SPECIALS.x2_eclairdog && !API.SPECIALS.x2_wafflelancer);
+  check('通常ロスターに登場する', normalKeys.indexOf('eclairdog') >= 0 && normalKeys.indexOf('wafflelancer') >= 0);
+  check('X2カードが生成される', !!API.SPECIALS.x2_eclairdog && !!API.SPECIALS.x2_wafflelancer);
+  check('カード立ち絵が絵文字でなく画像（ランサーは暫定で槍なし本体）',
+    /<img/.test(API.iconHTML(lancer, 'p')) && /<img/.test(API.iconHTML(dog, 'p')));
 
   check('eclairdog は複数(count>=3)で高速(speed>=140)', dog.count >= 3 && dog.speed >= 140);
   check('eclairdog tier はゼリー(0.5)の1つ前あたり(0<tier<0.5)', dog.tier > 0 && dog.tier < 0.5, dog.tier);
@@ -4099,9 +4102,9 @@ console.log('\n=== 129) 新キャラ：エクレアドッグ＆ワッフルラ�
   }
 
   // 強化後の数値（弱すぎ調整）
-  check('eclairdog: hp30 / cd0.3 / firstHit20 / spriteScale1.6', dog.hp === 30 && dog.cd === 0.3 && dog.firstHit === 20 && dog.spriteScale === 1.6,
+  check('eclairdog: hp70 / atk14 / cd0.3 / firstHit20 / spriteScale1.6', dog.hp === 70 && dog.atk === 14 && dog.cd === 0.3 && dog.firstHit === 20 && dog.spriteScale === 1.6,
     { hp: dog.hp, cd: dog.cd, firstHit: dog.firstHit, scale: dog.spriteScale });
-  check('wafflelancer: atk30 / hp250 / dashDamage150 / pierce1（ナーフ撤回＋単体突撃）', lancer.atk === 30 && lancer.hp === 250 && lancer.dashDamage === 150 && lancer.pierce === 1,
+  check('wafflelancer: atk45 / hp300 / dashDamage150 / pierce1（弱すぎたので底上げ＋単体突撃）', lancer.atk === 45 && lancer.hp === 300 && lancer.dashDamage === 150 && lancer.pierce === 1,
     { atk: lancer.atk, hp: lancer.hp, dash: lancer.dashDamage, pierce: lancer.pierce });
   // 大福サムライ：通常攻撃が前方範囲（ランサーとの差別化）
   check('大福は cleaveNormal=true（通常攻撃も前方範囲）', API.UNIT_BY_KEY['daifuku'].cleaveNormal === true);
@@ -4129,7 +4132,7 @@ console.log('\n=== 129) 新キャラ：エクレアドッグ＆ワッフルラ�
     const drops = []; let prev = e.hp;
     for (let i = 0; i < 180 && drops.length < 2; i++) { API.stepWorld(wl, 1 / 60); if (e.hp < prev) { drops.push(prev - e.hp); prev = e.hp; } }
     check('最初の噛みつきは20ダメージ（firstHit）', drops[0] === 20, drops);
-    check('2撃目以降は通常10ダメージ', drops[1] === 10, drops);
+    check('2撃目以降は通常14ダメージ（atk）', drops[1] === 14, drops);
   }
 }
 
@@ -4225,14 +4228,14 @@ console.log('\n=== 132) 新キャラの固有強化：ホイップアーマー�
   {
     const w = API.createWorld(W, H); w.phase = 'battle'; w.intro = 0; API.world = w;
     const l = API.makeFighters('wafflelancer', 'p', W, H, 'army')[0]; l.appear = 1; l.x = W * 0.5; l.y = H * 0.6; w.units.push(l);
-    check('強化前のHPは250', l.maxHp === 250 && l.hp === 250, { hp: l.hp });
+    check('強化前のHPは300', l.maxHp === 300 && l.hp === 300, { hp: l.hp });
     API.applyWaffleArmor(w, 'p');
-    check('ホイップアーマーでHP400', l.maxHp === API.WAFFLE_BUFF_HP && l.hp === API.WAFFLE_BUFF_HP, { hp: l.hp });
+    check('ホイップアーマーでHP480', l.maxHp === API.WAFFLE_BUFF_HP && l.hp === API.WAFFLE_BUFF_HP, { hp: l.hp });
     check('baseMaxHpも更新（毎ラウンド再適用の基準）', l.baseMaxHp === API.WAFFLE_BUFF_HP);
     check('waffleBuff フラグが立つ', l.waffleBuff === true);
-    check('攻撃力は据え置き（HPだけの強化）', l.atk === 30, { atk: l.atk });
+    check('攻撃力は据え置き（HPだけの強化）', l.atk === 45, { atk: l.atk });
     l.hp = 100; API.applyWaffleArmor(w, 'p');   // 冪等＝再適用しても400（choco等と同じく全回復）
-    check('再適用は冪等（400のまま・全回復）', l.maxHp === API.WAFFLE_BUFF_HP && l.hp === API.WAFFLE_BUFF_HP);
+    check('再適用は冪等（480のまま・全回復）', l.maxHp === API.WAFFLE_BUFF_HP && l.hp === API.WAFFLE_BUFF_HP);
   }
 
   // --- こんがりチョコ：初撃 20 → 45（2撃目以降は通常atk=10のまま）---
@@ -4243,7 +4246,7 @@ console.log('\n=== 132) 新キャラの固有強化：ホイップアーマー�
     API.applyEclairFirst(w, 'p');
     check('こんがりチョコで初撃45', d.firstHit === API.ECLAIR_BUFF_FIRST, { firstHit: d.firstHit });
     check('eclairBuff フラグが立つ', d.eclairBuff === true);
-    check('通常攻撃力は据え置き（初撃だけの強化）', d.atk === 10, { atk: d.atk });
+    check('通常攻撃力は据え置き（初撃だけの強化）', d.atk === 14, { atk: d.atk });
     // 実戦：1撃目45 → 2撃目は通常10
     const e = API.makeFighters('cookie', 'e', W, H, 'army')[0];
     e.x = W * 0.5; e.y = H * 0.5 - 12; e.appear = 1; e.speed = 0; e.baseSpeed = 0; e.hp = e.maxHp = 1000; w.units.push(e);
@@ -4251,7 +4254,7 @@ console.log('\n=== 132) 新キャラの固有強化：ホイップアーマー�
     const drops = []; let prev = e.hp;
     for (let i = 0; i < 240 && drops.length < 2; i++) { API.stepWorld(w, 1 / 60); if (e.hp < prev) { drops.push(prev - e.hp); prev = e.hp; } }
     check('強化後の最初のひと噛みは45ダメージ', drops[0] === API.ECLAIR_BUFF_FIRST, drops);
-    check('2撃目以降は通常10ダメージのまま', drops[1] === 10, drops);
+    check('2撃目以降は通常14ダメージのまま', drops[1] === 14, drops);
   }
 
   // --- 提示資格：盤面にいる & 未取得のときだけ出る ---
@@ -4342,11 +4345,14 @@ console.log('\n=== 133) 新キャラの戦術指南レッスン（未リリー�
   check('アーク先頭は挑戦可（lance1 / swarm1）',
     API.guideStageUnlocked('lance1') === true && API.guideStageUnlocked('swarm1') === true);
   check('クッキーじいの紹介セリフがある', !!API.GUIDE_INTRO['wafflelancer'] && !!API.GUIDE_INTRO['eclairdog']);
-  // 未リリース（test:true）のうちは指南のキャラ一覧に出さない＝カミングスーンのまま
+  // リリース済みなので指南のキャラ一覧に並ぶ（guideArcs は test:true のアークだけを除外する）
   const arcs = API.guideArcs();
-  check('未リリース中は指南のキャラ一覧に出ない',
-    arcs.indexOf('wafflelancer') < 0 && arcs.indexOf('eclairdog') < 0, arcs);
+  check('指南のキャラ一覧に2体のアークが並ぶ',
+    arcs.indexOf('wafflelancer') >= 0 && arcs.indexOf('eclairdog') >= 0, arcs);
   check('リリース済みキャラのアークは従来どおり出る', arcs.indexOf('canule') >= 0 && arcs.indexOf('soda') >= 0);
+  // 未リリース(test:true)のアークを除外する仕組み自体は残っている（amberbee等の下ごしらえ用）
+  check('test:true キャラのアークは引き続き除外される',
+    arcs.every(a => { const u = API.UNIT_BY_KEY[API.arcUnit(a)]; return !(u && u.test); }), arcs);
 }
 
 console.log('\n=== 134) 戦術指南「きほん」アーク（あそび方を学ぶ・キャラ解禁なし） ===');
