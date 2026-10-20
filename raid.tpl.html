@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#fff1dd">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SUGAR RAID">
+<title>SUGAR RAID（クラクラ風・試作）</title>
+<style>
+  :root{
+    --bg:#fff1dd; --panel:#fffaf3; --panel-2:#fff0dc; --ink:#4a2a1c; --muted:#a9785e;
+    --berry:#ff4f79; --gold:#ffb43a; --gold-dk:#c37a10; --mint:#37b98a; --steel:#38a7cc; --edge:#4a2a12;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; color:var(--ink); overflow:hidden; overscroll-behavior:none; touch-action:manipulation;
+    background:radial-gradient(900px 500px at 50% -8%, #ffd7a2 0%, transparent 60%), var(--bg);
+    font-family:system-ui,"Hiragino Kaku Gothic ProN","Hiragino Sans",sans-serif; -webkit-font-smoothing:antialiased; }
+  .screen{ position:absolute; inset:0; display:none; flex-direction:column; align-items:center;
+    padding:env(safe-area-inset-top) 8px env(safe-area-inset-bottom); overflow-y:auto; }
+  .screen.on{ display:flex; }
+  .inner{ width:100%; max-width:520px; padding:10px 4px 24px; }
+  h1{ font-size:30px; margin:10px 0 2px; text-align:center; letter-spacing:.04em; color:var(--berry); text-shadow:0 3px 0 var(--edge); }
+  .sub{ text-align:center; color:var(--muted); font-size:12px; margin-bottom:10px; }
+  .coins{ display:inline-block; font-weight:800; background:var(--panel); border:2px solid var(--edge); border-radius:6px; padding:3px 12px; box-shadow:0 3px 0 var(--edge); }
+  .row{ display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; }
+  .btn{ cursor:pointer; font-weight:800; font-size:15px; color:var(--ink); background:var(--panel); border:2px solid var(--edge);
+    border-radius:6px; padding:8px 16px; box-shadow:0 4px 0 var(--edge); font-family:inherit; }
+  .btn:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--edge); }
+  .btn.go{ background:var(--berry); color:#fff; }
+  .btn.gold{ background:var(--gold); }
+  .btn.small{ font-size:12px; padding:4px 10px; box-shadow:0 3px 0 var(--edge); }
+  .btn:disabled{ opacity:.45; cursor:default; }
+  .card{ background:var(--panel); border:2px solid var(--edge); border-radius:8px; box-shadow:0 4px 0 var(--edge); padding:10px; margin:10px 0; }
+  .card h2{ margin:0 0 6px; font-size:16px; }
+  .stages{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+  .stage{ cursor:pointer; text-align:center; background:var(--panel-2); border:2px solid var(--edge); border-radius:8px; padding:8px 4px; box-shadow:0 3px 0 var(--edge); }
+  .stage:active{ transform:translateY(2px); box-shadow:0 1px 0 var(--edge); }
+  .stage.lock{ opacity:.45; cursor:default; }
+  .stage .nm{ font-weight:800; font-size:14px; }
+  .stage .st{ font-size:18px; letter-spacing:2px; }
+  .stage .lv{ font-size:11px; color:var(--muted); }
+  .star{ color:#d8c8b0; } .star.on{ color:var(--gold); text-shadow:0 1px 0 var(--gold-dk); }
+  .troop{ display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px dashed rgba(150,90,50,.25); }
+  .troop:last-child{ border-bottom:none; }
+  .troop img{ width:42px; height:42px; image-rendering:pixelated; flex:none; }
+  .troop .info{ flex:1; min-width:0; }
+  .troop .tn{ font-weight:800; font-size:14px; }
+  .troop .td{ font-size:11px; color:var(--muted); }
+  .troop .cnt{ font-weight:800; font-size:18px; min-width:30px; text-align:center; }
+  .troop.lock{ opacity:.45; }
+  .cap{ height:14px; background:#f0e3c4; border:2px solid var(--edge); border-radius:4px; overflow:hidden; margin:4px 0 2px; }
+  .cap > div{ height:100%; background:linear-gradient(180deg,#ffd27a,#ffb43a); }
+  #preview{ display:block; margin:4px auto; border:2px solid var(--edge); border-radius:6px; image-rendering:pixelated; }
+
+  /* バトル画面 */
+  #battle{ padding-left:4px; padding-right:4px; overflow:hidden; }
+  #hud{ width:100%; max-width:560px; display:flex; justify-content:space-between; align-items:center; gap:6px; padding:6px 2px 4px; }
+  .hbox{ background:var(--panel); border:2px solid var(--edge); border-radius:6px; padding:2px 8px; box-shadow:0 3px 0 var(--edge); font-weight:800; font-size:13px; white-space:nowrap; }
+  #hStars{ font-size:18px; letter-spacing:1px; }
+  #hPct{ font-size:16px; }
+  #cv{ display:block; touch-action:none; border:2px solid var(--edge); border-radius:6px; image-rendering:pixelated; }
+  #bar{ width:100%; max-width:560px; display:flex; gap:6px; align-items:stretch; padding:6px 0; }
+  #troopBar{ flex:1; display:flex; gap:7px; overflow-x:auto; padding:9px 7px 6px 2px; }
+  .tb{ position:relative; flex:none; width:58px; cursor:pointer; background:var(--panel); border:2px solid var(--edge); border-radius:6px; box-shadow:0 3px 0 var(--edge); text-align:center; padding:2px 0 0; }
+  .tb img{ width:44px; height:44px; image-rendering:pixelated; display:block; margin:0 auto; }
+  .tb .n{ position:absolute; top:-6px; right:-6px; background:var(--berry); color:#fff; font-weight:800; font-size:12px; border:2px solid var(--edge); border-radius:10px; padding:0 5px; }
+  .tb .k{ font-size:10px; font-weight:700; color:var(--muted); }
+  .tb.sel{ background:#ffe08a; transform:translateY(-3px); box-shadow:0 6px 0 var(--edge); }
+  .tb.empty{ opacity:.35; }
+  #sideBtns{ display:flex; flex-direction:column; gap:6px; }
+  #hint{ font-size:11px; color:var(--muted); text-align:center; min-height:14px; }
+
+  /* 結果 */
+  #result{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(74,42,18,.5); z-index:20; }
+  #result.on{ display:flex; }
+  #result .box{ background:var(--panel); border:3px solid var(--edge); border-radius:10px; box-shadow:0 8px 0 var(--edge); padding:18px 24px; text-align:center; min-width:260px; }
+  #rStars{ font-size:44px; letter-spacing:4px; }
+  #rTitle{ font-size:22px; font-weight:900; margin:4px 0; }
+  #toast{ position:fixed; left:50%; bottom:22%; transform:translateX(-50%); background:rgba(74,42,18,.9); color:#fff; padding:8px 16px; border-radius:8px; font-weight:700; font-size:14px; display:none; z-index:30; pointer-events:none; }
+</style>
+</head>
+<body>
+
+<!-- ホーム -->
+<section id="home" class="screen on"><div class="inner">
+  <h1>SUGAR RAID</h1>
+  <div class="sub">お菓子の部隊で、ライバルの村をせめおとそう！（クラクラ風・試作）</div>
+  <div class="row"><span class="coins">🍬 <span id="hCoins">0</span></span>
+    <button class="btn small" onclick="openUpgrade()">⬆ 部隊を強化</button></div>
+  <div class="card">
+    <h2>せめる村をえらぶ</h2>
+    <div class="stages" id="stageList"></div>
+  </div>
+  <div class="card" style="font-size:12px;line-height:1.6">
+    <b>あそびかた</b><br>
+    ・出撃する部隊を選んで、マップの<b>外側</b>（建物から1マス以上はなれた所）をタップすると出撃。押しっぱなしで連続出撃。<br>
+    ・部隊は自分で建物をこわしに行く。壁があると壁をこわして進む。<br>
+    ・<b>★1</b>＝破壊率50%　<b>★2</b>＝お菓子の城をこわす　<b>★3</b>＝全部こわす（100%）<br>
+    ・倉庫や工場をこわすと🍬をうばえる。🍬で部隊を強化しよう。
+  </div>
+  <div class="row"><button class="btn small" onclick="resetProgress()">🗑 進捗をリセット</button></div>
+</div></section>
+
+<!-- 編成（軍隊キャンプ） -->
+<section id="camp" class="screen"><div class="inner">
+  <div class="row" style="justify-content:space-between">
+    <button class="btn small" onclick="show('home')">◀ もどる</button>
+    <b id="cStage" style="font-size:16px"></b>
+    <span class="coins">🍬 <span id="cCoins">0</span></span>
+  </div>
+  <canvas id="preview" width="264" height="264"></canvas>
+  <div class="card">
+    <h2>🏕 部隊をえらぶ</h2>
+    <div style="font-size:12px;font-weight:700">キャンプ <span id="capTxt"></span></div>
+    <div class="cap"><div id="capFill"></div></div>
+    <div id="campList"></div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn small" onclick="campClear()">からにする</button>
+      <button class="btn small" onclick="campAuto()">おまかせ</button>
+      <button class="btn small" onclick="openUpgrade('camp')">⬆ 強化</button>
+    </div>
+  </div>
+  <div class="row"><button class="btn go" id="goBtn" onclick="startRaid()">⚔ 出撃！</button></div>
+</div></section>
+
+<!-- 強化 -->
+<section id="upgrade" class="screen"><div class="inner">
+  <div class="row" style="justify-content:space-between">
+    <button class="btn small" onclick="upgradeBack()">◀ もどる</button>
+    <b style="font-size:16px">⬆ 部隊を強化</b>
+    <span class="coins">🍬 <span id="uCoins">0</span></span>
+  </div>
+  <div class="card" id="upList"></div>
+</div></section>
+
+<!-- バトル -->
+<section id="battle" class="screen">
+  <div id="hud">
+    <span class="hbox" id="hStars"></span>
+    <span class="hbox">破壊率 <span id="hPct">0%</span></span>
+    <span class="hbox">🍬 <span id="hLoot">0</span></span>
+    <span class="hbox">⏱ <span id="hTime">2:00</span></span>
+  </div>
+  <canvas id="cv"></canvas>
+  <div id="hint"></div>
+  <div id="bar">
+    <div id="troopBar"></div>
+    <div id="sideBtns">
+      <button class="btn small" id="speedBtn" onclick="toggleSpeed()">×1</button>
+      <button class="btn small" onclick="endRaid()">終了</button>
+    </div>
+  </div>
+</section>
+
+<div id="result"><div class="box">
+  <div id="rTitle"></div>
+  <div id="rStars"></div>
+  <div id="rBody" style="font-size:14px;line-height:1.8;margin:6px 0 12px"></div>
+  <div class="row">
+    <button class="btn" onclick="retryRaid()">🔁 もう一度</button>
+    <button class="btn go" onclick="closeResult()">🏠 ホーム</button>
+  </div>
+</div></div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   SUGAR RAID — クラクラ風（村をせめる）スピンオフ・試作
+   ・raid.tpl.html を編集 → node build_raid.js で raid.html を生成 → node raid.smoke.js
+   ・座標はすべて「マス（タイル）単位」の小数。描画のときだけ T 倍する。
+   ===================================================================== */
+const SPRITE_DATA = /*__SPRITES__*/ {};
+const SPRITES = {};
+if (typeof Image !== 'undefined') for (const k in SPRITE_DATA) { const im = new Image(); im.src = SPRITE_DATA[k]; SPRITES[k] = im; }
+
+/* --- 設定（ここを触ればバランス調整できる） --- */
+const T = 20;                 // 1マスの描画ピクセル
+const COLS = 22, ROWS = 22;   // マップの大きさ（マス）
+const W = COLS * T, H = ROWS * T;
+const BATTLE_TIME = 120;      // 1回の攻撃の制限時間（秒）
+const WALL_PEN = 5;           // 経路探索で「壁を通る」ときの追加コスト（大きいほど壁を避けて回り道する）
+const BLOCK_PEN = 25;         // 目標以外の建物を通るときの追加コスト（ほぼ回り道）
+const MELEE = 0.8;            // 近接の届く距離（マス）
+const DEPLOY_INTERVAL = 0.12; // 押しっぱなしの連続出撃の間隔（秒）
+const CAMP_BASE = 20, CAMP_STEP = 5, CAMP_MAX = 8;   // キャンプ容量＝20＋5×Lv
+const TROOP_LV_MAX = 10, TROOP_LV_STEP = 0.12;       // 部隊Lv：HP/攻撃 +12%/Lv
+const BUILD_LV_HP = 0.25, BUILD_LV_DMG = 0.2;        // 建物Lv：HP +25%/Lv・攻撃 +20%/Lv
+const STAR_BONUS = 60;        // 初めて取った★1つごとのボーナス🍬（×村の番号）
+
+/* 攻める部隊（青）。house＝キャンプで使う枠、range/speed はマス単位、cd は秒。
+   pref：ねらう建物（null=いちばん近い建物／'def'=防衛施設／'res'=資源／'wall'=壁） */
+const TROOPS = {
+  cookie: { name:'クッキーアーミー', spr:'cookie_blue', house:1, hp:55, dmg:9, cd:1.0, range:MELEE, speed:1.7, pref:null, sz:1.3, unlock:0,
+            desc:'安くて数で押す。いちばん近い建物をねらう。' },
+  shoe:   { name:'シュークリームアーチャー', spr:'shoe_aim_blue', house:1, hp:26, dmg:8, cd:1.0, range:3.5, speed:1.9, pref:null, sz:1.3, unlock:0, ranged:true,
+            desc:'壁ごしに撃てる射手。打たれよわい。' },
+  bomb:   { name:'ポップコーンTNT', spr:'bomb_blue', house:2, hp:28, dmg:24, wallMul:14, blastR:1.5, cd:0, range:MELEE, speed:2.4, pref:'wall', sz:1.2, unlock:1,
+            desc:'壁にむかって走り、ドカン！ 壁に大ダメージ。' },
+  ghost:  { name:'わたあめゴースト', spr:'ghost_blue', house:1, hp:34, dmg:11, resMul:2.5, cd:1.0, range:MELEE, speed:3.0, pref:'res', sz:1.3, unlock:2,
+            desc:'足が速い。倉庫・工場を先にあらして🍬をうばう。' },
+  daifuku:{ name:'大福サムライ', spr:'daifuku_blue', house:4, hp:220, dmg:34, cd:1.3, range:MELEE, speed:1.4, pref:null, sz:1.6, unlock:3, cleave:true,
+            desc:'高火力の剣士。となりの建物もまとめて斬る。' },
+  choco:  { name:'チョコレートナイト', spr:'choco_blue', house:5, hp:560, dmg:20, cd:2.0, range:MELEE, speed:1.1, pref:'def', sz:1.8, unlock:4,
+            desc:'防衛施設だけをねらう超タンク。ほかの部隊の盾になる。' },
+};
+const TROOP_ORDER = ['cookie','shoe','bomb','ghost','daifuku','choco'];
+
+/* 村の建物（赤＝ライバル陣営）。size＝一辺のマス数。kind：th=お菓子の城／def=防衛／res=資源／other／wall */
+const BUILD = {
+  th:     { name:'お菓子の城', size:3, hp:1500, kind:'th', loot:150 },
+  cannon: { name:'キャンディキャノン', size:2, hp:420, kind:'def', spr:'cannon_red', range:4.5, dmg:26, cd:0.9, shot:'ball' },
+  archer: { name:'シューの見張り台', size:2, hp:380, kind:'def', spr:'shoe_aim_red', range:6, dmg:11, cd:0.6, shot:'arrow' },
+  ice:    { name:'アイスの塔', size:2, hp:360, kind:'def', spr:'icewiz_red', range:5, dmg:12, cd:1.3, splash:1.0, slow:0.5, slowDur:1.5, shot:'ice' },
+  mortar: { name:'ポップコーン迫撃砲', size:2, hp:400, kind:'def', spr:'bomb_red', range:9, minRange:2.5, dmg:30, cd:4.5, splash:1.5, shot:'mortar' },
+  storage:{ name:'あめ倉庫', size:2, hp:520, kind:'res', loot:220 },
+  mill:   { name:'お菓子工場', size:2, hp:320, kind:'res', spr:'bakery_red', loot:110 },
+  hut:    { name:'こや', size:1, hp:160, kind:'other' },
+  wall:   { name:'ビスケット壁', size:1, hp:360, kind:'wall' },
+};
+
+/* 壁の輪（x0..x1, y0..y1 の外周）を作る */
+function ring(x0, y0, x1, y1, lv){
+  const out = [];
+  for (let x = x0; x <= x1; x++) { out.push({t:'wall',x,y:y0,lv}); out.push({t:'wall',x,y:y1,lv}); }
+  for (let y = y0 + 1; y < y1; y++) { out.push({t:'wall',x:x0,y,lv}); out.push({t:'wall',x:x1,y,lv}); }
+  return out;
+}
+/* 村（ステージ）。b の各要素 {t,x,y,lv}＝建物の種類と左上のマス。lv 省略時は村の lv。 */
+const STAGES = [
+  { name:'はじめての村', lv:1, b:[
+    {t:'th',x:10,y:10},{t:'cannon',x:6,y:11},{t:'storage',x:14,y:10},{t:'mill',x:10,y:6},{t:'hut',x:14,y:15},{t:'hut',x:7,y:7},
+  ]},
+  { name:'かべのある村', lv:1, b:[
+    {t:'th',x:10,y:10}, ...ring(9,9,13,13),
+    {t:'cannon',x:6,y:10},{t:'archer',x:15,y:13},{t:'storage',x:15,y:8},{t:'mill',x:9,y:5},{t:'mill',x:5,y:14},{t:'hut',x:16,y:5},
+  ]},
+  { name:'こおりの村', lv:1, b:[
+    {t:'th',x:10,y:10}, ...ring(9,9,13,13),
+    {t:'cannon',x:6,y:7},{t:'cannon',x:15,y:14},{t:'archer',x:15,y:7},{t:'ice',x:6,y:14},
+    {t:'storage',x:10,y:5},{t:'storage',x:10,y:16},{t:'mill',x:4,y:10},{t:'mill',x:17,y:10},{t:'hut',x:3,y:3},{t:'hut',x:18,y:18},
+  ]},
+  { name:'ポップコーン砦', lv:2, b:[
+    {t:'th',x:10,y:10}, ...ring(7,7,15,15),
+    {t:'mortar',x:8,y:8},{t:'cannon',x:13,y:8},{t:'archer',x:8,y:13},{t:'ice',x:13,y:13},
+    {t:'storage',x:4,y:10},{t:'storage',x:17,y:10},{t:'mill',x:10,y:4},{t:'mill',x:10,y:17},
+    {t:'archer',x:4,y:4},{t:'cannon',x:16,y:16},{t:'hut',x:17,y:4},{t:'hut',x:4,y:17},
+  ]},
+  { name:'二重壁のとりで', lv:2, b:[
+    {t:'th',x:10,y:10}, ...ring(9,9,13,13), ...ring(5,5,17,17),
+    {t:'ice',x:6,y:6},{t:'mortar',x:15,y:6},{t:'archer',x:10,y:6},{t:'cannon',x:6,y:10},{t:'cannon',x:15,y:10},
+    {t:'archer',x:10,y:15},{t:'ice',x:15,y:15},{t:'mortar',x:6,y:15},
+    {t:'storage',x:10,y:2},{t:'storage',x:10,y:19},{t:'mill',x:2,y:10},{t:'mill',x:19,y:10},
+  ]},
+  { name:'ライバル王国の都', lv:3, b:[
+    {t:'th',x:10,y:10}, ...ring(9,9,13,13), ...ring(5,5,17,17),
+    {t:'ice',x:6,y:6},{t:'mortar',x:15,y:6},{t:'archer',x:10,y:6},{t:'cannon',x:6,y:10},{t:'cannon',x:15,y:10},
+    {t:'archer',x:10,y:15},{t:'ice',x:15,y:15},{t:'mortar',x:6,y:15},{t:'hut',x:8,y:7},{t:'hut',x:13,y:16},
+    {t:'storage',x:10,y:2},{t:'storage',x:10,y:19},{t:'mill',x:2,y:10},{t:'mill',x:19,y:10},
+    {t:'cannon',x:2,y:2},{t:'archer',x:18,y:2},{t:'archer',x:2,y:18},{t:'cannon',x:18,y:18},
+  ]},
+];
+
+/* ---------- セーブ ---------- */
+const SAVE_KEY = 'sr_save';
+function newSave(){ return { coins:0, stars:{}, lv:{}, camp:0, army:{} }; }
+let save = newSave();
+function loadSave(){
+  try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (s) save = Object.assign(newSave(), s); } catch (e) {}
+}
+function writeSave(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
+const TEST_MODE = (typeof location !== 'undefined') && /[?&](test|dev)\b/.test(location.search || '');
+
+function clearedCount(){ let n = 0; for (let i = 0; i < STAGES.length; i++) if ((save.stars[i] || 0) > 0) n++; return n; }
+function stageOpen(i){ return TEST_MODE || i === 0 || (save.stars[i - 1] || 0) > 0; }
+function troopUnlocked(k){ return TEST_MODE || clearedCount() >= TROOPS[k].unlock; }
+function troopLv(k){ return save.lv[k] || 1; }
+function troopMul(k){ return 1 + (troopLv(k) - 1) * TROOP_LV_STEP; }
+function troopUpCost(k){ return Math.round((40 + TROOPS[k].house * 25) * Math.pow(1.55, troopLv(k) - 1)); }
+function campCap(){ return CAMP_BASE + save.camp * CAMP_STEP; }
+function campUpCost(){ return Math.round(150 * Math.pow(1.6, save.camp)); }
+function armyHouse(army){ let n = 0; for (const k in army) n += (army[k] || 0) * TROOPS[k].house; return n; }
+
+/* ---------- 幾何 ---------- */
+// 点(px,py) から建物の四角までの距離（マス）
+function distRect(px, py, bd){
+  const dx = Math.max(bd.x - px, 0, px - (bd.x + bd.size));
+  const dy = Math.max(bd.y - py, 0, py - (bd.y + bd.size));
+  return Math.hypot(dx, dy);
+}
+function bCenter(bd){ return { x: bd.x + bd.size / 2, y: bd.y + bd.size / 2 }; }
+
+/* ---------- バトル生成 ---------- */
+function makeBattle(idx, army, lvOverride){
+  const st = STAGES[idx];
+  const b = { idx, stage:st, t:0, time:BATTLE_TIME, builds:[], units:[], shots:[], fx:[], left:Object.assign({}, army),
+              lv:Object.assign({}, lvOverride || {}), loot:0, ver:0, destroyed:0, total:0, thDown:false, ended:false, deployed:0,
+              occ:new Int16Array(COLS * ROWS).fill(-1), forbidFlash:0, startFlash:2.2 };
+  st.b.forEach((s, i) => {
+    const d = BUILD[s.t], lv = s.lv || st.lv;
+    const hp = Math.round(d.hp * (1 + (lv - 1) * BUILD_LV_HP));
+    const bd = { id:i, type:s.t, kind:d.kind, x:s.x, y:s.y, size:d.size, lv, hp, max:hp, dead:false,
+                 cd:Math.random() * (d.cd || 1), face:1, loot:d.loot ? Math.round(d.loot * (1 + (lv - 1) * 0.5) * (1 + idx * 0.25)) : 0, lootTaken:0 };
+    b.builds.push(bd);
+    if (d.kind !== 'wall') b.total++;
+    for (let y = s.y; y < s.y + d.size; y++) for (let x = s.x; x < s.x + d.size; x++) {
+      if (x < 0 || y < 0 || x >= COLS || y >= ROWS) throw new Error('建物が外にはみ出し: ' + st.name + ' #' + i);
+      if (b.occ[y * COLS + x] >= 0) throw new Error('建物が重なっている: ' + st.name + ' #' + i);
+      b.occ[y * COLS + x] = i;
+    }
+  });
+  return b;
+}
+function occAt(b, x, y){
+  if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return null;
+  const i = b.occ[y * COLS + x];
+  return i >= 0 ? b.builds[i] : null;
+}
+/* 出撃できる場所か（マップ内・生きている建物から1マス以上はなれている） */
+function canDeploy(b, px, py){
+  if (px < 0 || py < 0 || px >= COLS || py >= ROWS) return false;
+  const tx = Math.floor(px), ty = Math.floor(py);
+  for (let y = ty - 1; y <= ty + 1; y++) for (let x = tx - 1; x <= tx + 1; x++) if (occAt(b, x, y)) return false;
+  return true;
+}
+function deploy(b, key, px, py){
+  if (b.ended || !(b.left[key] > 0) || !canDeploy(b, px, py)) return null;
+  const d = TROOPS[key], mul = b.lv[key] ? 1 + (b.lv[key] - 1) * TROOP_LV_STEP : 1;
+  const u = { key, x:px, y:py, hp:Math.round(d.hp * mul), max:Math.round(d.hp * mul), dmg:d.dmg * mul, cd:0.2 + Math.random() * 0.3,
+              target:null, path:null, pver:-1, slowT:0, face:1, atk:0, moving:false, dead:false,
+              ox:(Math.random() - 0.5) * 0.5, oy:(Math.random() - 0.5) * 0.5, ph:Math.random() * 6 };
+  b.left[key]--; b.deployed++;
+  b.units.push(u);
+  return u;
+}
+
+/* ---------- 目標えらび・経路探索 ---------- */
+function pickTarget(b, u){
+  const d = TROOPS[u.key];
+  const pick = (f) => { let best = null, bd = 1e9; for (const o of b.builds) { if (o.dead || !f(o)) continue; const dd = distRect(u.x, u.y, o); if (dd < bd) { bd = dd; best = o; } } return best; };
+  let t = null;
+  if (d.pref === 'wall') t = pick(o => o.kind === 'wall');
+  else if (d.pref === 'def') t = pick(o => o.kind === 'def');
+  else if (d.pref === 'res') t = pick(o => o.kind === 'res');
+  return t || pick(o => o.kind !== 'wall');
+}
+function reachOf(u){ return Math.max(TROOPS[u.key].range, MELEE); }
+
+/* ダイクストラ（8方向・角抜けなし）。壁は WALL_PEN、目標以外の建物は BLOCK_PEN の追加コストで「通れる＝こわして進む」。
+   ゴール＝目標の四角まで reach 以内のマス（壁の上なら、その壁をこわしてから入る）。戻り値＝出発マスを除くマス番号の列。 */
+function findPath(b, sx, sy, tg, reach){
+  const N = COLS * ROWS;
+  const dist = new Float32Array(N).fill(1e9), prev = new Int32Array(N).fill(-1);
+  const s = Math.min(ROWS - 1, Math.max(0, Math.floor(sy))) * COLS + Math.min(COLS - 1, Math.max(0, Math.floor(sx)));
+  const heap = [[0, s]]; dist[s] = 0;
+  const push = (it) => { heap.push(it); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+  const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = i * 2 + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
+  const blocked = (x, y) => { const o = occAt(b, x, y); return o && !o.dead; };
+  let goal = -1;
+  while (heap.length) {
+    const [dd, i] = pop();
+    if (dd > dist[i]) continue;
+    const cx = i % COLS, cy = (i / COLS) | 0;
+    if (distRect(cx + 0.5, cy + 0.5, tg) <= reach) { goal = i; break; }   // ふさがったマスでも可（こわしてから入る）
+    for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
+      if (!ox && !oy) continue;
+      const nx = cx + ox, ny = cy + oy;
+      if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) continue;
+      if (ox && oy && (blocked(cx + ox, cy) || blocked(cx, cy + oy))) continue;   // 角抜け禁止
+      const o = occAt(b, nx, ny);
+      let c = (ox && oy) ? 1.414 : 1;
+      if (o && !o.dead) { if (o === tg) continue; c += o.kind === 'wall' ? WALL_PEN : BLOCK_PEN; }
+      const j = ny * COLS + nx, nd = dd + c;
+      if (nd < dist[j]) { dist[j] = nd; prev[j] = i; push([nd, j]); }
+    }
+  }
+  if (goal < 0) return [];
+  const path = [];
+  for (let i = goal; i !== s && i >= 0; i = prev[i]) path.push(i);
+  return path.reverse();
+}
+
+/* ---------- ダメージ ---------- */
+function hitBuilding(b, bd, amt){
+  if (bd.dead || amt <= 0) return;
+  const real = Math.min(amt, bd.hp);
+  bd.hp -= real;
+  if (bd.loot) { const g = bd.loot * real / bd.max; bd.lootTaken += g; b.loot += g; }
+  if (bd.hp <= 0) {
+    bd.hp = 0; bd.dead = true; b.ver++;
+    for (let y = bd.y; y < bd.y + bd.size; y++) for (let x = bd.x; x < bd.x + bd.size; x++) b.occ[y * COLS + x] = -1;
+    if (bd.kind !== 'wall') b.destroyed++;
+    if (bd.kind === 'th') b.thDown = true;
+    const c = bCenter(bd);
+    b.fx.push({ k:'boom', x:c.x, y:c.y, r:bd.size * 0.8, t:0, life:0.5 });
+  }
+}
+function hitUnit(b, u, amt){
+  if (u.dead) return;
+  u.hp -= amt;
+  if (u.hp <= 0) { u.dead = true; b.fx.push({ k:'poof', x:u.x, y:u.y, r:0.6, t:0, life:0.4 }); }
+}
+
+/* ---------- 1フレーム進める ---------- */
+function step(b, dt){
+  if (b.ended) return;
+  b.t += dt; b.time -= dt;
+  if (b.forbidFlash > 0) b.forbidFlash -= dt;
+  if (b.startFlash > 0) b.startFlash -= dt;
+  for (const u of b.units) if (!u.dead) stepUnit(b, u, dt);
+  for (const bd of b.builds) if (!bd.dead && bd.kind === 'def') stepDefense(b, bd, dt);
+  stepShots(b, dt);
+  for (const f of b.fx) f.t += dt;
+  b.fx = b.fx.filter(f => f.t < f.life);
+  if (b.units.length > 80) b.units = b.units.filter(u => !u.dead);
+  // 終了判定
+  const alive = b.units.some(u => !u.dead);
+  const leftAny = Object.values(b.left).some(n => n > 0);
+  if (b.destroyed >= b.total || b.time <= 0 || (b.deployed > 0 && !alive && !leftAny && !b.shots.some(s => s.side === 'p'))) b.ended = true;
+}
+
+function stepUnit(b, u, dt){
+  const d = TROOPS[u.key];
+  if (u.slowT > 0) u.slowT -= dt;
+  if (u.atk > 0) u.atk -= dt;
+  u.cd -= dt;
+  u.moving = false;
+  if (!u.target || u.target.dead) { u.target = pickTarget(b, u); u.path = null; if (!u.target) return; }
+  const tg = u.target, reach = reachOf(u);
+  // 射程内なら攻撃
+  if (distRect(u.x, u.y, tg) <= reach + 0.05) { attack(b, u, tg); return; }
+  if (!u.path || u.pver !== b.ver) { u.path = findPath(b, u.x, u.y, tg, reach); u.pver = b.ver; }
+  const spd = d.speed * (u.slowT > 0 ? 1 - u.slowAmt : 1) * dt;
+  if (u.path.length) {
+    const ni = u.path[0], nx = ni % COLS, ny = (ni / COLS) | 0;
+    const o = occAt(b, nx, ny);
+    if (o && !o.dead && o !== tg) { attack(b, u, o); return; }   // 道をふさぐ壁・建物をこわす
+    const isLast = u.path.length === 1;
+    const gx = nx + 0.5 + (isLast ? 0 : u.ox), gy = ny + 0.5 + (isLast ? 0 : u.oy);
+    moveToward(u, gx, gy, spd, () => u.path.shift());
+  } else {
+    // 経路の終点に着いたのに届かない（ずれ）→ 目標の四角の一番近い点へまっすぐ寄る
+    const px = Math.max(tg.x, Math.min(u.x, tg.x + tg.size)), py = Math.max(tg.y, Math.min(u.y, tg.y + tg.size));
+    moveToward(u, px, py, spd, null);
+  }
+}
+function moveToward(u, gx, gy, spd, onArrive){
+  const dx = gx - u.x, dy = gy - u.y, l = Math.hypot(dx, dy);
+  if (l <= spd || l < 1e-4) { u.x = gx; u.y = gy; if (onArrive) onArrive(); }
+  else { u.x += dx / l * spd; u.y += dy / l * spd; }
+  if (Math.abs(dx) > 0.01) u.face = dx < 0 ? -1 : 1;
+  u.moving = true;
+}
+function attack(b, u, tg){
+  const d = TROOPS[u.key];
+  const c = bCenter(tg);
+  if (Math.abs(c.x - u.x) > 0.05) u.face = c.x < u.x ? -1 : 1;
+  if (u.key === 'bomb') {   // 自爆：まわりの建物にダメージ（壁には wallMul 倍）
+    for (const o of b.builds) if (!o.dead && distRect(u.x, u.y, o) <= d.blastR) hitBuilding(b, o, u.dmg * (o.kind === 'wall' ? d.wallMul : 1));
+    b.fx.push({ k:'boom', x:u.x, y:u.y, r:d.blastR, t:0, life:0.45 });
+    u.dead = true; return;
+  }
+  if (u.cd > 0) return;
+  u.cd = d.cd; u.atk = 0.25;
+  let amt = u.dmg;
+  if (d.resMul && tg.kind === 'res') amt *= d.resMul;
+  if (d.ranged) { b.shots.push({ side:'p', k:'arrow', x:u.x, y:u.y - 0.4, tb:tg, dmg:amt, spd:9 }); return; }
+  hitBuilding(b, tg, amt);
+  if (d.cleave) for (const o of b.builds) if (o !== tg && !o.dead && o.kind !== 'wall' && distRect(u.x, u.y, o) <= reachOf(u)) hitBuilding(b, o, amt * 0.5);
+}
+
+function stepDefense(b, bd, dt){
+  const d = BUILD[bd.type];
+  bd.cd -= dt;
+  const c = bCenter(bd), r = d.range + bd.size / 2 - 0.5, mn = d.minRange || 0;
+  let best = null, bdist = 1e9;
+  for (const u of b.units) {
+    if (u.dead) continue;
+    const dd = Math.hypot(u.x - c.x, u.y - c.y);
+    if (dd <= r && dd >= mn && dd < bdist) { bdist = dd; best = u; }
+  }
+  if (!best) return;
+  if (Math.abs(best.x - c.x) > 0.1) bd.face = best.x < c.x ? -1 : 1;
+  if (bd.cd > 0) return;
+  bd.cd = d.cd;
+  const dmg = d.dmg * (1 + (bd.lv - 1) * BUILD_LV_DMG);
+  const s = { side:'e', k:d.shot, x:c.x, y:c.y - 0.6, dmg, splash:d.splash || 0, slow:d.slow || 0, slowDur:d.slowDur || 0 };
+  if (d.shot === 'mortar') { s.sx = s.x; s.sy = s.y; s.tx = best.x; s.ty = best.y; s.ft = 0; s.fly = 1.2; }
+  else { s.tu = best; s.spd = d.shot === 'arrow' ? 11 : 8; }
+  b.shots.push(s);
+}
+
+function stepShots(b, dt){
+  for (const s of b.shots) {
+    if (s.done) continue;
+    if (s.k === 'mortar') {   // 放物線：着弾地点は撃った瞬間に決まる（よけられる）
+      s.ft += dt;
+      const p = Math.min(1, s.ft / s.fly);
+      s.x = s.sx + (s.tx - s.sx) * p; s.y = s.sy + (s.ty - s.sy) * p; s.h = Math.sin(p * Math.PI) * 3;
+      if (p >= 1) { splashUnits(b, s, s.tx, s.ty); b.fx.push({ k:'boom', x:s.tx, y:s.ty, r:s.splash, t:0, life:0.4 }); s.done = true; }
+      continue;
+    }
+    let tx, ty;
+    if (s.tb) { if (s.tb.dead) { s.done = true; continue; } const c = bCenter(s.tb); tx = c.x; ty = c.y; }
+    else { if (s.tu.dead) { s.done = true; continue; } tx = s.tu.x; ty = s.tu.y - 0.3; }
+    const dx = tx - s.x, dy = ty - s.y, l = Math.hypot(dx, dy), mv = s.spd * dt;
+    s.ang = Math.atan2(dy, dx);
+    if (l <= mv) {
+      s.done = true;
+      if (s.tb) hitBuilding(b, s.tb, s.dmg);
+      else if (s.splash) { splashUnits(b, s, tx, ty); b.fx.push({ k:s.k === 'ice' ? 'frost' : 'boom', x:tx, y:ty, r:s.splash, t:0, life:0.35 }); }
+      else hitUnit(b, s.tu, s.dmg);
+    } else { s.x += dx / l * mv; s.y += dy / l * mv; }
+  }
+  b.shots = b.shots.filter(s => !s.done);
+}
+function splashUnits(b, s, x, y){
+  for (const u of b.units) {
+    if (u.dead || Math.hypot(u.x - x, u.y - y) > s.splash) continue;
+    hitUnit(b, u, s.dmg);
+    if (s.slow) { u.slowT = s.slowDur; u.slowAmt = s.slow; }
+  }
+}
+
+/* ---------- 結果 ---------- */
+function pct(b){ return b.total ? Math.floor(b.destroyed / b.total * 100) : 0; }
+function starsOf(b){ return (pct(b) >= 50 ? 1 : 0) + (b.thDown ? 1 : 0) + (b.destroyed >= b.total ? 1 : 0); }
+/* セーブへ反映：うばった🍬＋初めて取った★ぶんのボーナス。戻り値＝内訳 */
+function applyResult(b){
+  const stars = starsOf(b), prev = save.stars[b.idx] || 0;
+  const loot = Math.floor(b.loot);
+  const bonus = Math.max(0, stars - prev) * STAR_BONUS * (b.idx + 1);
+  save.coins += loot + bonus;
+  if (stars > prev) save.stars[b.idx] = stars;
+  writeSave();
+  return { stars, prev, loot, bonus, pct:pct(b) };
+}
+
+/* =====================================================================
+   描画
+   ===================================================================== */
+function spr(k){ const im = SPRITES[k]; return im && im.complete && im.naturalWidth ? im : null; }
+function drawSprite(ctx, k, cx, footY, s, flip){
+  const im = spr(k); if (!im) return false;
+  ctx.save(); ctx.imageSmoothingEnabled = false;
+  if (flip) { ctx.translate(cx * 2, 0); ctx.scale(-1, 1); }
+  ctx.drawImage(im, cx - s / 2, footY - s, s, s);
+  ctx.restore(); return true;
+}
+function rrect(ctx, x, y, w, h, r){ ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+
+function drawGround(ctx){
+  ctx.fillStyle = '#bfe6a0'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#b3dc93';
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if ((x + y) & 1) ctx.fillRect(x * T, y * T, T, T);
+  // 小さなお花（ランダムに見えるが固定）
+  for (let i = 0; i < 40; i++) {
+    const x = (i * 97 % COLS) * T + 6, y = (i * 61 % ROWS) * T + 9;
+    ctx.fillStyle = i % 3 ? '#ffd1e0' : '#fff6a8'; ctx.fillRect(x, y, 3, 3);
+  }
+}
+function drawForbid(ctx, b, alpha){
+  ctx.fillStyle = 'rgba(255,70,90,' + alpha + ')';
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (!canDeploy(b, x + 0.5, y + 0.5)) ctx.fillRect(x * T, y * T, T, T);
+}
+function drawCastle(ctx, x, y, s, lv){
+  const body = lv >= 3 ? '#f59ac0' : lv >= 2 ? '#f7b0cc' : '#fbc6da';
+  ctx.fillStyle = '#e6c08a'; rrect(ctx, x + 2, y + 2, s - 4, s - 4, 6); ctx.fill(); ctx.strokeStyle = '#7a4a22'; ctx.lineWidth = 2; ctx.stroke();
+  const tw = s * 0.22;
+  for (const tx of [x + 6, x + s - 6 - tw]) {   // 両側の塔
+    ctx.fillStyle = body; ctx.fillRect(tx, y + s * 0.28, tw, s * 0.6); ctx.strokeStyle = '#8a3a5a'; ctx.strokeRect(tx, y + s * 0.28, tw, s * 0.6);
+    ctx.fillStyle = '#ff4f79'; ctx.beginPath(); ctx.moveTo(tx - 2, y + s * 0.3); ctx.lineTo(tx + tw / 2, y + s * 0.1); ctx.lineTo(tx + tw + 2, y + s * 0.3); ctx.fill();
+  }
+  ctx.fillStyle = body; ctx.fillRect(x + s * 0.28, y + s * 0.4, s * 0.44, s * 0.48); ctx.strokeStyle = '#8a3a5a'; ctx.strokeRect(x + s * 0.28, y + s * 0.4, s * 0.44, s * 0.48);
+  ctx.fillStyle = '#ffffff'; for (let i = 0; i < 4; i++) ctx.fillRect(x + s * 0.28 + i * s * 0.12, y + s * 0.34, s * 0.07, s * 0.07);
+  ctx.fillStyle = '#7a4a22'; rrect(ctx, x + s * 0.43, y + s * 0.64, s * 0.14, s * 0.24, 4); ctx.fill();
+  ctx.fillStyle = '#ffb43a'; ctx.fillRect(x + s * 0.49, y + s * 0.08, 2, s * 0.32);
+  ctx.fillStyle = '#ff4f79'; ctx.fillRect(x + s * 0.51, y + s * 0.08, s * 0.14, s * 0.09);
+}
+function drawJar(ctx, x, y, s, fill){
+  ctx.fillStyle = '#e6c08a'; rrect(ctx, x + 2, y + 2, s - 4, s - 4, 5); ctx.fill(); ctx.strokeStyle = '#7a4a22'; ctx.lineWidth = 2; ctx.stroke();
+  const jx = x + s * 0.2, jy = y + s * 0.22, jw = s * 0.6, jh = s * 0.66;
+  ctx.fillStyle = 'rgba(200,240,255,.8)'; rrect(ctx, jx, jy, jw, jh, 6); ctx.fill(); ctx.strokeStyle = '#3d7fa0'; ctx.stroke();
+  const cols = ['#ff4f79', '#ffb43a', '#37b98a', '#a45fd6', '#38a7cc'];
+  const n = Math.round(10 * fill);
+  for (let i = 0; i < n; i++) { ctx.fillStyle = cols[i % 5]; ctx.beginPath(); ctx.arc(jx + 5 + (i % 4) * (jw - 10) / 3, jy + jh - 5 - Math.floor(i / 4) * 6, 3.2, 0, 7); ctx.fill(); }
+  ctx.fillStyle = '#ff4f79'; ctx.fillRect(jx - 2, jy - 4, jw + 4, 5);
+}
+function drawHut(ctx, x, y, s){
+  ctx.fillStyle = '#e8b27a'; ctx.fillRect(x + 3, y + s * 0.45, s - 6, s * 0.5);
+  ctx.fillStyle = '#a0522d'; ctx.beginPath(); ctx.moveTo(x + 1, y + s * 0.5); ctx.lineTo(x + s / 2, y + 2); ctx.lineTo(x + s - 1, y + s * 0.5); ctx.fill();
+  ctx.fillStyle = '#5a3015'; ctx.fillRect(x + s * 0.42, y + s * 0.65, s * 0.18, s * 0.3);
+}
+function drawWall(ctx, b, bd){
+  const x = bd.x * T, y = bd.y * T, lv = bd.lv;
+  const col = lv >= 3 ? '#8a5a3a' : lv >= 2 ? '#b07a48' : '#d9a066';
+  ctx.fillStyle = col;
+  const p = 4;
+  ctx.fillRect(x + p, y + p, T - p * 2, T - p * 2);
+  const nb = (dx, dy) => { const o = occAt(b, bd.x + dx, bd.y + dy); return o && !o.dead && o.kind === 'wall'; };
+  if (nb(1, 0)) ctx.fillRect(x + T - p, y + p + 2, p * 2, T - p * 2 - 4);
+  if (nb(0, 1)) ctx.fillRect(x + p + 2, y + T - p, T - p * 2 - 4, p * 2);
+  ctx.fillStyle = 'rgba(90,48,21,.5)'; ctx.fillRect(x + 7, y + 7, 2, 2); ctx.fillRect(x + 12, y + 11, 2, 2);
+  ctx.strokeStyle = '#5a3015'; ctx.lineWidth = 1; ctx.strokeRect(x + p + 0.5, y + p + 0.5, T - p * 2 - 1, T - p * 2 - 1);
+}
+function drawBuilding(ctx, b, bd){
+  const x = bd.x * T, y = bd.y * T, s = bd.size * T;
+  if (bd.dead) {   // がれき
+    ctx.fillStyle = 'rgba(120,90,60,.55)';
+    if (bd.kind === 'wall') { ctx.fillRect(x + 6, y + 9, 8, 5); return; }
+    rrect(ctx, x + 4, y + s * 0.4, s - 8, s * 0.5, 5); ctx.fill();
+    ctx.fillStyle = 'rgba(80,60,40,.6)'; ctx.fillRect(x + s * 0.3, y + s * 0.5, 5, 4); ctx.fillRect(x + s * 0.6, y + s * 0.62, 6, 4);
+    return;
+  }
+  if (bd.kind === 'wall') { drawWall(ctx, b, bd); return; }
+  const d = BUILD[bd.type];
+  if (bd.type === 'th') drawCastle(ctx, x, y, s, bd.lv);
+  else if (bd.type === 'storage') drawJar(ctx, x, y, s, 1 - bd.lootTaken / Math.max(1, bd.loot));
+  else if (bd.type === 'hut') drawHut(ctx, x, y, s);
+  else {
+    // 台座＋スプライト
+    ctx.fillStyle = bd.kind === 'def' ? '#c9b8a6' : '#e6c08a';
+    rrect(ctx, x + 2, y + 2, s - 4, s - 4, 6); ctx.fill(); ctx.strokeStyle = '#5a3a22'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.beginPath(); ctx.ellipse(x + s / 2, y + s * 0.82, s * 0.32, s * 0.1, 0, 0, 7); ctx.fill();
+    if (!drawSprite(ctx, d.spr, x + s / 2, y + s * 0.92, s * 1.05, bd.face < 0)) { ctx.fillStyle = '#ff4f79'; ctx.fillRect(x + s * 0.3, y + s * 0.3, s * 0.4, s * 0.4); }
+  }
+  if (bd.lv > 1) { ctx.fillStyle = '#4a2a1c'; ctx.font = 'bold 9px system-ui'; ctx.fillText('Lv' + bd.lv, x + 3, y + s - 3); }
+  if (bd.hp < bd.max) hpBar(ctx, x + 2, y - 5, s - 4, bd.hp / bd.max, '#ff4f79');
+}
+function hpBar(ctx, x, y, w, r, col){
+  ctx.fillStyle = 'rgba(40,20,10,.7)'; ctx.fillRect(x, y, w, 4);
+  ctx.fillStyle = col; ctx.fillRect(x + 1, y + 1, Math.max(0, (w - 2) * r), 2);
+}
+function unitSprite(b, u){
+  if (u.key === 'shoe') { if (u.moving) return ((b.t * 4 + u.ph) | 0) & 1 ? 'shoe_walk2_blue' : 'shoe_walk1_blue'; return 'shoe_aim_blue'; }
+  if (u.key === 'bomb') return u.moving && (((b.t * 7 + u.ph) | 0) & 1) ? 'bomb2_blue' : 'bomb_blue';
+  return TROOPS[u.key].spr;
+}
+function drawUnit(ctx, b, u){
+  const d = TROOPS[u.key], s = d.sz * T, cx = u.x * T, fy = u.y * T + 4;
+  ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(cx, fy - 1, s * 0.28, s * 0.09, 0, 0, 7); ctx.fill();
+  let bob = u.moving ? Math.abs(Math.sin(b.t * 10 + u.ph)) * 2 : 0;
+  let lx = 0;
+  if (u.atk > 0) lx = u.face * Math.sin(u.atk / 0.25 * Math.PI) * 3;
+  if (!drawSprite(ctx, unitSprite(b, u), cx + lx, fy - bob, s, u.face < 0)) { ctx.fillStyle = '#2a7bff'; ctx.beginPath(); ctx.arc(cx, fy - s / 2, s / 3, 0, 7); ctx.fill(); }
+  if (u.slowT > 0) { ctx.fillStyle = 'rgba(150,220,255,.35)'; ctx.beginPath(); ctx.arc(cx, fy - s * 0.45, s * 0.45, 0, 7); ctx.fill(); }
+  if (u.hp < u.max) hpBar(ctx, cx - 9, fy - s - 4, 18, u.hp / u.max, '#3fa0ff');
+}
+function drawShot(ctx, s){
+  const x = s.x * T, y = s.y * T;
+  if (s.k === 'arrow') {
+    const im = spr(s.side === 'p' ? 'arrow_blue' : 'arrow_red');
+    ctx.save(); ctx.translate(x, y); ctx.rotate(s.ang || 0); ctx.imageSmoothingEnabled = false;
+    if (im) ctx.drawImage(im, -9, -9, 18, 18); else { ctx.fillStyle = '#5a3015'; ctx.fillRect(-6, -1, 12, 2); }
+    ctx.restore();
+  } else if (s.k === 'ball') {
+    ctx.fillStyle = '#ff4f79'; ctx.beginPath(); ctx.arc(x, y, 4, 0, 7); ctx.fill(); ctx.fillStyle = '#fff'; ctx.fillRect(x - 1, y - 2, 2, 2);
+  } else if (s.k === 'ice') {
+    ctx.fillStyle = '#9fe3ff'; ctx.beginPath(); ctx.arc(x, y, 4.5, 0, 7); ctx.fill(); ctx.strokeStyle = '#3d9fd0'; ctx.stroke();
+  } else if (s.k === 'mortar') {
+    const hy = y - (s.h || 0) * T;
+    ctx.fillStyle = 'rgba(0,0,0,.15)'; ctx.beginPath(); ctx.ellipse(x, y, 5, 2, 0, 0, 7); ctx.fill();
+    if (!drawSprite(ctx, 'popcorn_mini', x, hy + 7, 14, false)) { ctx.fillStyle = '#fff3c4'; ctx.beginPath(); ctx.arc(x, hy, 5, 0, 7); ctx.fill(); }
+  }
+}
+function drawFx(ctx, f){
+  const p = f.t / f.life, x = f.x * T, y = f.y * T, r = f.r * T * (0.4 + p * 0.6);
+  if (f.k === 'boom') { ctx.fillStyle = 'rgba(255,190,80,' + (0.7 * (1 - p)) + ')'; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
+  else if (f.k === 'frost') { ctx.fillStyle = 'rgba(160,225,255,' + (0.6 * (1 - p)) + ')'; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
+  else { ctx.fillStyle = 'rgba(255,255,255,' + (0.8 * (1 - p)) + ')'; ctx.beginPath(); ctx.arc(x, y - 6, r * 0.8, 0, 7); ctx.fill(); }
+}
+function drawBattle(ctx, b){
+  drawGround(ctx);
+  if (b.startFlash > 0) drawForbid(ctx, b, Math.min(0.18, b.startFlash * 0.1));
+  if (b.forbidFlash > 0) drawForbid(ctx, b, Math.min(0.3, b.forbidFlash * 0.4));
+  // 奥（上）から順に：建物と部隊を足元のyで並べて描く
+  const list = [];
+  for (const bd of b.builds) list.push({ y:bd.y + bd.size - (bd.dead ? 9 : 0), f:() => drawBuilding(ctx, b, bd) });
+  for (const u of b.units) if (!u.dead) list.push({ y:u.y + 0.2, f:() => drawUnit(ctx, b, u) });
+  list.sort((a, c) => a.y - c.y);
+  for (const it of list) it.f();
+  for (const s of b.shots) drawShot(ctx, s);
+  for (const f of b.fx) drawFx(ctx, f);
+}
+
+/* =====================================================================
+   画面・入力
+   ===================================================================== */
+const $ = (id) => document.getElementById(id);
+let curStage = 0, campArmy = {}, battle = null, selKey = null, speed = 1, lastTs = 0, rafId = 0, upgradeFrom = 'home';
+let pointer = null;   // {x,y,acc} 押しっぱなし中
+
+function show(id){ for (const s of document.querySelectorAll('.screen')) s.classList.toggle('on', s.id === id); if (id === 'home') renderHome(); }
+function toast(msg){ const t = $('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => { t.style.display = 'none'; }, 1600); }
+function starsHTML(n){ let h = ''; for (let i = 0; i < 3; i++) h += '<span class="star' + (i < n ? ' on' : '') + '">★</span>'; return h; }
+function imgTag(k){ return SPRITE_DATA[k] ? '<img src="' + SPRITE_DATA[k] + '" alt="">' : '<span style="width:42px;display:inline-block">?</span>'; }
+
+function renderHome(){
+  $('hCoins').textContent = save.coins;
+  $('stageList').innerHTML = STAGES.map((s, i) => {
+    const open = stageOpen(i);
+    return '<div class="stage' + (open ? '' : ' lock') + '" onclick="' + (open ? 'openCamp(' + i + ')' : '') + '">' +
+      '<div class="lv">村 ' + (i + 1) + '・建物Lv' + s.lv + '</div><div class="nm">' + (open ? s.name : '🔒 ？？？') + '</div>' +
+      '<div class="st">' + starsHTML(save.stars[i] || 0) + '</div></div>';
+  }).join('');
+}
+
+function openCamp(i){
+  curStage = i;
+  campArmy = {};
+  for (const k in save.army) if (troopUnlocked(k)) campArmy[k] = save.army[k];
+  fitArmy(campArmy);
+  $('cStage').textContent = '村' + (i + 1) + '「' + STAGES[i].name + '」';
+  const pv = $('preview'), pctx = pv.getContext('2d');
+  const pb = makeBattle(i, {});
+  pb.startFlash = 0;
+  pctx.save(); pctx.scale(pv.width / W, pv.height / H); drawBattle(pctx, pb); pctx.restore();
+  renderCamp();
+  show('camp');
+}
+function fitArmy(army){ // 容量オーバーなら後ろの部隊から減らす
+  for (let i = TROOP_ORDER.length - 1; i >= 0 && armyHouse(army) > campCap(); i--) {
+    const k = TROOP_ORDER[i];
+    while ((army[k] || 0) > 0 && armyHouse(army) > campCap()) army[k]--;
+  }
+}
+function renderCamp(){
+  const used = armyHouse(campArmy), cap = campCap();
+  $('cCoins').textContent = save.coins;
+  $('capTxt').textContent = used + ' / ' + cap;
+  $('capFill').style.width = Math.min(100, used / cap * 100) + '%';
+  $('campList').innerHTML = TROOP_ORDER.map(k => {
+    const d = TROOPS[k], ok = troopUnlocked(k), n = campArmy[k] || 0;
+    return '<div class="troop' + (ok ? '' : ' lock') + '">' + imgTag(d.spr) +
+      '<div class="info"><div class="tn">' + d.name + ' <small>Lv' + troopLv(k) + '</small></div>' +
+      '<div class="td">' + (ok ? '🏠' + d.house + '　' + d.desc : '村を' + d.unlock + 'つクリアで解放') + '</div></div>' +
+      (ok ? '<button class="btn small" onclick="campAdd(\'' + k + '\',-1)">－</button><span class="cnt">' + n + '</span>' +
+            '<button class="btn small" onclick="campAdd(\'' + k + '\',1)">＋</button>' : '') + '</div>';
+  }).join('');
+  $('goBtn').disabled = used <= 0;
+}
+function campAdd(k, d){
+  const n = (campArmy[k] || 0) + d;
+  if (n < 0) return;
+  if (d > 0 && armyHouse(campArmy) + TROOPS[k].house > campCap()) { toast('キャンプがいっぱい！'); return; }
+  campArmy[k] = n; renderCamp();
+}
+function campClear(){ campArmy = {}; renderCamp(); }
+function campAuto(){   // おまかせ：解放済みの部隊を順番に1体ずつ足していく
+  campArmy = {};
+  const ks = TROOP_ORDER.filter(troopUnlocked);
+  const want = { cookie:3, shoe:3, bomb:1, ghost:1, daifuku:1, choco:1 };
+  let added = true;
+  while (added) {
+    added = false;
+    for (const k of ks) for (let i = 0; i < want[k]; i++) {
+      if (armyHouse(campArmy) + TROOPS[k].house <= campCap()) { campArmy[k] = (campArmy[k] || 0) + 1; added = true; }
+    }
+  }
+  renderCamp();
+}
+
+function openUpgrade(from){ upgradeFrom = from || 'home'; renderUpgrade(); show('upgrade'); }
+function upgradeBack(){ if (upgradeFrom === 'camp') { renderCamp(); show('camp'); } else show('home'); }
+function renderUpgrade(){
+  $('uCoins').textContent = save.coins;
+  const campRow = '<div class="troop"><span style="font-size:32px;width:42px;text-align:center">🏕</span><div class="info"><div class="tn">軍隊キャンプ <small>Lv' + save.camp + '</small></div>' +
+    '<div class="td">容量 ' + campCap() + (save.camp < CAMP_MAX ? ' → ' + (campCap() + CAMP_STEP) : '（最大）') + '</div></div>' +
+    (save.camp < CAMP_MAX ? '<button class="btn small gold" onclick="buyCamp()"' + (save.coins < campUpCost() ? ' disabled' : '') + '>🍬' + campUpCost() + '</button>' : '') + '</div>';
+  $('upList').innerHTML = campRow + TROOP_ORDER.map(k => {
+    const d = TROOPS[k], ok = troopUnlocked(k), lv = troopLv(k), m = troopMul(k), max = lv >= TROOP_LV_MAX;
+    return '<div class="troop' + (ok ? '' : ' lock') + '">' + imgTag(d.spr) +
+      '<div class="info"><div class="tn">' + d.name + ' <small>Lv' + lv + '</small></div>' +
+      '<div class="td">' + (ok ? 'HP ' + Math.round(d.hp * m) + '　攻撃 ' + Math.round(d.dmg * m) + (max ? '（最大）' : '　→ 次 +' + Math.round(TROOP_LV_STEP * 100) + '%') : '未解放') + '</div></div>' +
+      (ok && !max ? '<button class="btn small gold" onclick="buyTroop(\'' + k + '\')"' + (save.coins < troopUpCost(k) ? ' disabled' : '') + '>🍬' + troopUpCost(k) + '</button>' : '') + '</div>';
+  }).join('');
+}
+function buyTroop(k){
+  if (!troopUnlocked(k) || troopLv(k) >= TROOP_LV_MAX) return false;
+  const c = troopUpCost(k); if (save.coins < c) return false;
+  save.coins -= c; save.lv[k] = troopLv(k) + 1; writeSave(); if (typeof document !== 'undefined' && !globalThis.__HEADLESS) renderUpgrade(); return true;
+}
+function buyCamp(){
+  if (save.camp >= CAMP_MAX) return false;
+  const c = campUpCost(); if (save.coins < c) return false;
+  save.coins -= c; save.camp++; writeSave(); if (!globalThis.__HEADLESS) renderUpgrade(); return true;
+}
+function resetProgress(){ if (!confirm('進捗（🍬・★・強化）をすべて消しますか？')) return; save = newSave(); writeSave(); renderHome(); }
+
+/* --- バトル --- */
+function startRaid(){
+  if (armyHouse(campArmy) <= 0) return;
+  clearedCountBefore = clearedCount();
+  save.army = Object.assign({}, campArmy); writeSave();
+  const lv = {}; for (const k of TROOP_ORDER) lv[k] = troopLv(k);
+  battle = makeBattle(curStage, campArmy, lv);
+  selKey = TROOP_ORDER.find(k => battle.left[k] > 0) || null;
+  show('battle');
+  layoutCanvas(); renderTroopBar(); updateHud();
+  $('hint').textContent = '赤くないところをタップして出撃（押しっぱなしで連続）';
+  cancelAnimationFrame(rafId); lastTs = 0; rafId = requestAnimationFrame(loop);
+}
+function layoutCanvas(){
+  const cv = $('cv');
+  const avail = Math.max(200, Math.min(window.innerWidth - 12, window.innerHeight - 170, 600));
+  const dpr = window.devicePixelRatio || 1;
+  cv.style.width = avail + 'px'; cv.style.height = avail + 'px';
+  cv.width = Math.round(avail * dpr); cv.height = Math.round(avail * dpr);
+  cv._scale = cv.width / W;
+}
+function renderTroopBar(){
+  $('troopBar').innerHTML = TROOP_ORDER.filter(k => (battle.left[k] || 0) > 0 || (save.army[k] || 0) > 0).map(k =>
+    '<div class="tb' + (k === selKey ? ' sel' : '') + ((battle.left[k] || 0) <= 0 ? ' empty' : '') + '" onclick="selectTroop(\'' + k + '\')">' +
+    imgTag(TROOPS[k].spr) + '<span class="n">×' + (battle.left[k] || 0) + '</span><div class="k">' + TROOPS[k].name.slice(0, 5) + '</div></div>').join('');
+}
+function selectTroop(k){ if ((battle.left[k] || 0) <= 0) return; selKey = k; renderTroopBar(); }
+function toggleSpeed(){ speed = speed === 1 ? 2 : 1; $('speedBtn').textContent = '×' + speed; }
+function updateHud(){
+  $('hStars').innerHTML = starsHTML(starsOf(battle));
+  $('hPct').textContent = pct(battle) + '%';
+  $('hLoot').textContent = Math.floor(battle.loot);
+  const t = Math.max(0, Math.ceil(battle.time));
+  $('hTime').textContent = (t / 60 | 0) + ':' + String(t % 60).padStart(2, '0');
+}
+function evToTile(e){
+  const r = $('cv').getBoundingClientRect();
+  return { x:(e.clientX - r.left) / r.width * COLS, y:(e.clientY - r.top) / r.height * ROWS };
+}
+function tryDeployAt(x, y){
+  if (!battle || battle.ended || !selKey) return;
+  if ((battle.left[selKey] || 0) <= 0) {
+    const nk = TROOP_ORDER.find(k => battle.left[k] > 0);
+    if (!nk) return; selKey = nk;
+  }
+  if (!canDeploy(battle, x, y)) { battle.forbidFlash = 1.0; $('hint').textContent = '建物のちかく（赤いところ）には出撃できない'; return; }
+  deploy(battle, selKey, x, y);
+  $('hint').textContent = '';
+  if ((battle.left[selKey] || 0) <= 0) { const nk = TROOP_ORDER.find(k => battle.left[k] > 0); if (nk) selKey = nk; }
+  renderTroopBar();
+}
+function bindInput(){
+  const cv = $('cv');
+  cv.addEventListener('pointerdown', (e) => { e.preventDefault(); const p = evToTile(e); pointer = { x:p.x, y:p.y, acc:0 }; tryDeployAt(p.x, p.y); try { cv.setPointerCapture(e.pointerId); } catch (_) {} });
+  cv.addEventListener('pointermove', (e) => { if (!pointer) return; const p = evToTile(e); pointer.x = p.x; pointer.y = p.y; });
+  const up = () => { pointer = null; };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up); cv.addEventListener('pointerleave', up);
+  window.addEventListener('resize', () => { if (battle && $('battle').classList.contains('on')) layoutCanvas(); });
+}
+function loop(ts){
+  const dt = lastTs ? Math.min(0.05, (ts - lastTs) / 1000) : 0;
+  lastTs = ts;
+  if (battle && !battle.ended) {
+    if (pointer) { pointer.acc += dt; while (pointer.acc >= DEPLOY_INTERVAL) { pointer.acc -= DEPLOY_INTERVAL; tryDeployAt(pointer.x, pointer.y); } }
+    for (let i = 0; i < speed; i++) step(battle, dt);
+    updateHud();
+  }
+  const cv = $('cv'), ctx = cv.getContext('2d');
+  ctx.setTransform(cv._scale, 0, 0, cv._scale, 0, 0);
+  drawBattle(ctx, battle);
+  if (battle.ended) { if (!battle.shown) { battle.shown = true; setTimeout(showResult, 700); } }
+  rafId = requestAnimationFrame(loop);
+}
+function endRaid(){ if (battle && !battle.ended && confirm('攻撃を終わりますか？')) battle.ended = true; }
+function showResult(){
+  const r = applyResult(battle);
+  $('rTitle').textContent = r.stars > 0 ? '勝利！' : '敗北…';
+  $('rStars').innerHTML = starsHTML(r.stars);
+  $('rBody').innerHTML = '破壊率 <b>' + r.pct + '%</b><br>うばった🍬 <b>' + r.loot + '</b>' +
+    (r.bonus ? '<br>★はじめてボーナス 🍬 <b>' + r.bonus + '</b>' : '') +
+    (r.stars > 0 && r.prev === 0 && curStage + 1 < STAGES.length ? '<br>🔓 つぎの村が解放された！' : '') +
+    (clearedCountBefore < clearedCount() ? unlockMsg() : '');
+  $('result').classList.add('on');
+}
+let clearedCountBefore = 0;
+function unlockMsg(){ const n = clearedCount(); const k = TROOP_ORDER.find(k => TROOPS[k].unlock === n); return k ? '<br>🎉 新しい部隊「' + TROOPS[k].name + '」が使えるようになった！' : ''; }
+function retryRaid(){ $('result').classList.remove('on'); cancelAnimationFrame(rafId); openCamp(curStage); }
+function closeResult(){ $('result').classList.remove('on'); cancelAnimationFrame(rafId); battle = null; show('home'); }
+
+/* --- 起動 --- */
+loadSave();
+if (TEST_MODE && save.coins < 99999) save.coins = 99999;
+if (!globalThis.__HEADLESS) { bindInput(); renderHome(); }
+
+/* ヘッドレステスト用 */
+globalThis.__RAID = { TROOPS, BUILD, STAGES, TROOP_ORDER, COLS, ROWS, makeBattle, deploy, step, canDeploy, findPath, pickTarget, distRect,
+  starsOf, pct, applyResult, buyTroop, buyCamp, campCap, troopUpCost, troopUnlocked, stageOpen, armyHouse,
+  get save(){ return save; }, set save(v){ save = v; }, newSave };
+</script>
+</body>
+</html>
